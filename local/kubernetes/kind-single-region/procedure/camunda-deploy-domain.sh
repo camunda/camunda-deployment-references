@@ -59,6 +59,11 @@ else
         --values helm-values/values-mkcert.yml
 fi
 
+# Wait for the public Keycloak issuer to converge, then restart the app pods so
+# they recover from the first-start crash-loop instead of waiting out the backoff.
+# Reuses the shared readiness script (also shipped to customers and used by CI).
+"$SCRIPT_DIR/../../../../generic/kubernetes/single-region/procedure/wait-for-keycloak.sh"
+
 # TODO: [release-duty] before the release, update this by removing the oci pull above
 # and uncomment the installation instruction below
 
