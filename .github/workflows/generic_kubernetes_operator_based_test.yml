@@ -772,7 +772,7 @@ jobs:
                   attempt=0
                   while [ "$(date +%s)" -lt "$DEADLINE" ]; do
                       attempt=$((attempt + 1))
-                      CODE=$(curl -ksS -o /dev/null -w '%{http_code}' --max-time 5 "$KC_URL" 2>/dev/null || true)
+                      CODE=$(curl -ks -o /dev/null -w '%{http_code}' --max-time 5 "$KC_URL" || true)
                       CODE=${CODE:-000}
                       if [[ "$CODE" == "200" ]]; then
                           echo "✅ Keycloak reachable (HTTP $CODE) after ${attempt} attempt(s)"
