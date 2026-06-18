@@ -124,11 +124,12 @@ jobs:
                           break
                       fi
                   done <<< "${CHECK_RUN_IDS}"
+                  delim="ghadelim_$(openssl rand -hex 12)"
                   {
                     echo "has_warning=${found}"
-                    echo "title<<EOF_TITLE"
+                    echo "title<<${delim}"
                     echo "${title}"
-                    echo "EOF_TITLE"
+                    echo "${delim}"
                   } >> "${GITHUB_OUTPUT}"
 
             - name: Append warning event
