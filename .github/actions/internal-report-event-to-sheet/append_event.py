@@ -78,7 +78,10 @@ def main() -> int:
         service.spreadsheets().values().append(
             spreadsheetId=spreadsheet_id,
             range=f"{tab}!A1",
-            valueInputOption="USER_ENTERED",
+            # RAW (never USER_ENTERED): event fields such as branch name, run title
+            # or actor are attacker-influenceable, and USER_ENTERED would evaluate a
+            # leading =/+/-/@ as a formula (spreadsheet formula injection).
+            valueInputOption="RAW",
             insertDataOption="INSERT_ROWS",
             body={"values": [row]},
         ).execute()
