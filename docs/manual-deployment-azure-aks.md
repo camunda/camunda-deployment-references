@@ -2,6 +2,10 @@
 
 Use this guide when you need a fully isolated Azure environment — for example, when testing an ingress migration, validating a chart upgrade, or developing a new feature without touching CI resources.
 
+> **Sibling variant:** `azure/kubernetes/aks-single-region-rdbms/` is a parallel scenario that uses the same Terraform modules, CI action, and procedure scripts (via symlinks). Changes to procedure scripts or Helm values in `aks-single-region/` typically need to be reflected there too.
+>
+> **CI equivalent:** Phases 2–3 are automated by `.github/actions/azure-kubernetes-ingress-setup/` (ingress) and `.github/workflows/azure_kubernetes_aks_single_region_tests.yml`. When changing procedure scripts or values, update those alongside this guide.
+
 ## Prerequisites
 
 - Azure subscription with `Owner` or `Contributor` access (or ability to create Service Principals and assign roles)
