@@ -40,7 +40,7 @@ fi
 
 warn() {
     # Surface as a GitHub Actions annotation in CI, plain text otherwise.
-    if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
         echo "::warning::$1"
     else
         echo "WARNING: $1"
