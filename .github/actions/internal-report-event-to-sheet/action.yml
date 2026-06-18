@@ -122,7 +122,11 @@ runs:
               EVENT_SLACK_TS: ${{ inputs.slack-ts }}
               EVENT_REPO: ${{ github.repository }}
           run: |
-              set -euo pipefail
+              set -uo pipefail
+              fail() {
+                  echo "::warning title=report-event-to-sheet::$1"
+                  [[ "${SHEET_STRICT:-false}" == "true" ]] && exit 1 || exit 0
+              }
               python3 -m pip install --quiet --disable-pip-version-check \
-                  google-api-python-client google-auth
+                  google-api-python-client google-auth || fail "dependency install failed"
               python3 "${GITHUB_ACTION_PATH}/append_event.py"
