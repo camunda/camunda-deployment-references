@@ -63,44 +63,48 @@ COL_RUN_ID = 4
 COL_TYPE = 6
 EVENTS_COL_COUNT = len(HEADERS)
 
-# Dashboard formulas. Written with USER_ENTERED (these are our own trusted
-# formulas; untrusted event data is always written RAW by append_event.py).
-SEVEN_DAYS = '">="&TEXT(NOW()-7,"yyyy-mm-dd")'
-THIRTY_DAYS = '">="&TEXT(NOW()-30,"yyyy-mm-dd")'
+def _dashboard_layout(tab: str) -> list[list]:
+    """Build the dashboard formulas bound to the configured events ``tab``.
 
-DASHBOARD_LAYOUT = [
-    ["CI Events Dashboard", "", "", "", ""],
-    ["Auto-updates from the events tab. Most urgent first.", "", "", "", ""],
-    ["Failures 7d", "Warnings 7d", "Stable-branch failures 7d", "Worst streak", "Last event"],
-    [
-        f'=COUNTIFS(events!G:G,"failure",events!A:A,{SEVEN_DAYS})',
-        f'=COUNTIFS(events!G:G,"warning",events!A:A,{SEVEN_DAYS})',
-        f'=COUNTIFS(events!G:G,"failure",events!C:C,"stable/*",events!A:A,{SEVEN_DAYS})',
-        '=IFERROR(MAX(ARRAYFORMULA(IF(events!M2:M="",0,VALUE(events!M2:M)))),0)',
-        '=IFERROR(INDEX(SORT(FILTER(events!A2:A,events!A2:A<>""),1,FALSE),1,1),"-")',
-    ],
-    ["", "", "", "", ""],
-    ["14-day failure trend", "", "Hotlist (branch / workflow / type, last 30d)", "", ""],
-    [
-        (
-            '=SPARKLINE(BYCOL(SEQUENCE(1,14,TODAY()-13),'
-            'LAMBDA(d,COUNTIFS(events!$G:$G,"failure",'
-            'events!$A:$A,">="&TEXT(d,"yyyy-mm-dd"),'
-            'events!$A:$A,"<"&TEXT(d+1,"yyyy-mm-dd")))),'
-            '{"charttype","column";"color","#cc0000"})'
-        ),
-        "",
-        (
-            '=QUERY(events!A2:N,"select C, D, G, count(E), max(A) '
-            "where A is not null and A >= '\"&TEXT(NOW()-30,\"yyyy-mm-dd\")&\"' "
-            "group by C, D, G order by count(E) desc "
-            "label C 'Branch', D 'Workflow', G 'Type', "
-            "count(E) '# events', max(A) 'Last seen'\",0)"
-        ),
-        "",
-        "",
-    ],
-]
+    Written with USER_ENTERED (our own trusted formulas; untrusted event data is
+    always written RAW by append_event.py). The tab is single-quoted so custom
+    SHEET_TAB names containing spaces still resolve.
+    """
+    q = f"'{tab}'"
+    seven = '">="&TEXT(NOW()-7,"yyyy-mm-dd")'
+    return [
+        ["CI Events Dashboard", "", "", "", ""],
+        ["Auto-updates from the events tab. Most urgent first.", "", "", "", ""],
+        ["Failures 7d", "Warnings 7d", "Stable-branch failures 7d", "Worst streak", "Last event"],
+        [
+            f'=COUNTIFS({q}!G:G,"failure",{q}!A:A,{seven})',
+            f'=COUNTIFS({q}!G:G,"warning",{q}!A:A,{seven})',
+            f'=COUNTIFS({q}!G:G,"failure",{q}!C:C,"stable/*",{q}!A:A,{seven})',
+            f'=IFERROR(MAX(ARRAYFORMULA(IF({q}!M2:M="",0,VALUE({q}!M2:M)))),0)',
+            f'=IFERROR(INDEX(SORT(FILTER({q}!A2:A,{q}!A2:A<>""),1,FALSE),1,1),"-")',
+        ],
+        ["", "", "", "", ""],
+        ["14-day failure trend", "", "Hotlist (branch / workflow / type, last 30d)", "", ""],
+        [
+            (
+                f'=SPARKLINE(BYCOL(SEQUENCE(1,14,TODAY()-13),'
+                f'LAMBDA(d,COUNTIFS({q}!$G:$G,"failure",'
+                f'{q}!$A:$A,">="&TEXT(d,"yyyy-mm-dd"),'
+                f'{q}!$A:$A,"<"&TEXT(d+1,"yyyy-mm-dd")))),'
+                '{"charttype","column";"color","#cc0000"})'
+            ),
+            "",
+            (
+                f'=QUERY({q}!A2:N,"select C, D, G, count(E), max(A) '
+                "where A is not null and A >= '\"&TEXT(NOW()-30,\"yyyy-mm-dd\")&\"' "
+                "group by C, D, G order by count(E) desc "
+                "label C 'Branch', D 'Workflow', G 'Type', "
+                "count(E) '# events', max(A) 'Last seen'\",0)"
+            ),
+            "",
+            "",
+        ],
+    ]
 
 
 def _load_service_account(raw: str) -> dict:
@@ -175,9 +179,29 @@ def _cf_rule(events_id: int, index: int, formula: str, colour: dict) -> dict:
 
 
 def _apply_conditional_formatting(service, spreadsheet_id: str, events_id: int) -> None:
-    # Inserted at index 0 in this order so the final priority is:
-    # stable-branch failure (strongest) > failure > warning.
+    # Idempotent: drop any existing rules on the events sheet first so repeated
+    # bootstraps don't accumulate duplicate conditional-format rules.
+    meta = (
+        service.spreadsheets()
+        .get(
+            spreadsheetId=spreadsheet_id,
+            fields="sheets(properties.sheetId,conditionalFormats)",
+        )
+        .execute()
+    )
+    existing = 0
+    for sheet in meta.get("sheets", []):
+        if sheet["properties"]["sheetId"] == events_id:
+            existing = len(sheet.get("conditionalFormats", []) or [])
+            break
+
     requests = [
+        {"deleteConditionalFormatRule": {"sheetId": events_id, "index": 0}}
+        for _ in range(existing)
+    ]
+    # Added at index 0 in this order so the final priority is:
+    # stable-branch failure (strongest) > failure > warning.
+    requests += [
         _cf_rule(events_id, 0, '=$G2="warning"', _solid(1, 0.95, 0.70)),
         _cf_rule(events_id, 0, '=$G2="failure"', _solid(0.99, 0.87, 0.82)),
         _cf_rule(
@@ -190,7 +214,7 @@ def _apply_conditional_formatting(service, spreadsheet_id: str, events_id: int) 
     service.spreadsheets().batchUpdate(
         spreadsheetId=spreadsheet_id, body={"requests": requests}
     ).execute()
-    print("Applied conditional formatting to 'events'.")
+    print(f"Applied conditional formatting to 'events' (replaced {existing} rule(s)).")
 
 
 def _build_pivot(service, spreadsheet_id: str, events_id: int, pivot_id: int) -> None:
@@ -258,7 +282,7 @@ def main() -> int:
     # Dashboard (best-effort: a formatting/pivot hiccup must not lose the core).
     try:
         _ensure_tab(service, spreadsheet_id, meta, "dashboard")
-        _write(service, spreadsheet_id, "dashboard!A1", DASHBOARD_LAYOUT)
+        _write(service, spreadsheet_id, "dashboard!A1", _dashboard_layout(events_tab))
         print("Wrote dashboard layout.")
     except Exception as exc:  # noqa: BLE001
         print(f"::warning::dashboard layout step failed: {exc}")
