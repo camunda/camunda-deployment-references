@@ -1,0 +1,39 @@
+# app
+
+<!-- BEGIN_TF_DOCS -->
+## Modules
+
+| Name | Source | Version |
+| ---- | ------ | ------- |
+| <a name="module_connectors_region_0"></a> [connectors\_region\_0](#module\_connectors\_region\_0) | ../../../../modules/ecs/fargate/connectors | n/a |
+| <a name="module_connectors_region_1"></a> [connectors\_region\_1](#module\_connectors\_region\_1) | ../../../../modules/ecs/fargate/connectors | n/a |
+| <a name="module_orchestration_cluster_region_0"></a> [orchestration\_cluster\_region\_0](#module\_orchestration\_cluster\_region\_0) | ../../../../modules/ecs/fargate/orchestration-cluster | n/a |
+| <a name="module_orchestration_cluster_region_1"></a> [orchestration\_cluster\_region\_1](#module\_orchestration\_cluster\_region\_1) | ../../../../modules/ecs/fargate/orchestration-cluster | n/a |
+## Resources
+
+| Name | Type |
+| ---- | ---- |
+| [aws_region.region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
+| [aws_region.region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
+| [terraform_remote_state.infra](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/data-sources/remote_state) | data source |
+## Inputs
+
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_aws_profile"></a> [aws\_profile](#input\_aws\_profile) | AWS Profile to use (null = use default credential chain) | `string` | `null` | no |
+| <a name="input_camunda_image"></a> [camunda\_image](#input\_camunda\_image) | Container image for the Camunda orchestration cluster tasks (Zeebe broker + gateway + webapps) | `string` | `"camunda/camunda:8.10-SNAPSHOT"` | no |
+| <a name="input_connectors_image"></a> [connectors\_image](#input\_connectors\_image) | Container image for the Camunda connectors-bundle tasks. Separate from camunda\_image because connectors ship as a distinct artifact from the orchestration cluster. | `string` | `"camunda/connectors-bundle:8.10-SNAPSHOT"` | no |
+| <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
+| <a name="input_infra_state_path"></a> [infra\_state\_path](#input\_infra\_state\_path) | Path to the infra terraform state file (local backend) or S3 key | `string` | `"../infra/terraform.tfstate"` | no |
+## Outputs
+
+| Name | Description |
+| ---- | ----------- |
+| <a name="output_admin_user_password"></a> [admin\_user\_password](#output\_admin\_user\_password) | The admin password for Camunda |
+| <a name="output_region_0_alb_endpoint"></a> [region\_0\_alb\_endpoint](#output\_region\_0\_alb\_endpoint) | The DNS name of the ALB in region 0 (HTTP/REST access) |
+| <a name="output_region_0_log_group_name"></a> [region\_0\_log\_group\_name](#output\_region\_0\_log\_group\_name) | CloudWatch log group for the orchestration cluster in region 0 |
+| <a name="output_region_0_nlb_grpc_endpoint"></a> [region\_0\_nlb\_grpc\_endpoint](#output\_region\_0\_nlb\_grpc\_endpoint) | The DNS name of the external NLB in region 0 (gRPC access) |
+| <a name="output_region_1_alb_endpoint"></a> [region\_1\_alb\_endpoint](#output\_region\_1\_alb\_endpoint) | The DNS name of the ALB in region 1 (HTTP/REST access) |
+| <a name="output_region_1_log_group_name"></a> [region\_1\_log\_group\_name](#output\_region\_1\_log\_group\_name) | CloudWatch log group for the orchestration cluster in region 1 |
+| <a name="output_region_1_nlb_grpc_endpoint"></a> [region\_1\_nlb\_grpc\_endpoint](#output\_region\_1\_nlb\_grpc\_endpoint) | The DNS name of the external NLB in region 1 (gRPC access) |
+<!-- END_TF_DOCS -->

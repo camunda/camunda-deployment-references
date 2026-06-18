@@ -32,10 +32,36 @@ terraform/
 │            Supports BYO-VPC: customers can supply existing VPCs/subnets via vars.
 ├── infra/  ← Aurora Global, ECS clusters, ALB/NLBs, KMS, S3, secrets, IAM.
 │            Reads vpc outputs via terraform_remote_state.
-├── app/    ← Camunda task definitions + ECS services.
-│            Reads infra outputs via terraform_remote_state.
-└── clusters/  (legacy combined state, kept for back-compat — not used by current workflow)
+└── app/    ← Camunda task definitions + ECS services.
+             Reads infra outputs via terraform_remote_state.
 ```
+
+## Deploy time and cost
+
+Wall-clock for a greenfield deploy to first healthy `/v2/topology` returning 8 brokers:
+
+| Phase | Wall clock | What's slow |
+|-------|-----------|-------------|
+| `vpc/ apply` | ~3-5 min | VPCs + cross-region peering or Transit Gateway |
+| `infra/ apply` | ~15-20 min | Aurora Global Database (primary first, then secondary attaches) |
+| `app/ apply` | ~30s plan + ~15-20 min Raft | ECS service rollout waits for steady state; Raft quorum across regions takes 15-20 min the first time |
+| **Total** | **~35-45 min** | |
+
+`terraform destroy` is faster: ~15-20 min end-to-end, with Aurora teardown again the bottleneck.
+
+Rough running cost for the default sizing (4 brokers per region, 1 connectors task per region, Aurora db.r6g.large × 2 instances per region, 1 NAT GW per region, 2 ALBs, 4 NLBs):
+
+| Component | Approx. cost/day |
+|-----------|------------------|
+| Fargate orchestration cluster (4 vCPU/8 GB × 8 tasks) | ~$38 |
+| Fargate connectors (2 vCPU/4 GB × 2 tasks) | ~$5 |
+| Aurora Global (db.r6g.large × 4 instances) | ~$28 |
+| 2 × ALB + 4 × NLB | ~$5 |
+| 2 × NAT Gateway (data transfer extra) | ~$2 |
+| EFS, S3, Secrets Manager, KMS | ~$1 |
+| **Total** | **~$80/day** |
+
+These are list-price ballparks for `us-east-1`; commit discounts, region, idle time, and data egress will shift them. Always run `terraform destroy` when you're done with a demo.
 
 ## Quick start
 
@@ -88,22 +114,83 @@ Customers with existing VPCs can skip greenfield VPC creation by setting `byo_vp
 
 ## Accessing the deployment
 
-After deployment, the Camunda REST API is available via the ALB endpoints on port 80.
+### Retrieve credentials
+
+Camunda 8.10 requires basic auth on the unified `/v2/*` REST API. Two users are seeded at first boot:
+
+- `admin` — full access, used to log into the Web UI
+- `connectors` — used by the connectors-bundle to call the orchestration cluster
+
+Both passwords are auto-generated (32 random characters) and stored in AWS Secrets Manager. They are **not** `demo:demo` (this matches the single-region Terraform reference).
 
 ```bash
-# Get the ALB endpoint for region 0
-ALB_R0=$(cd terraform/app && terraform output -raw region_0_alb_endpoint)
+# The admin password is generated once at infra/ apply and shared by both regions.
+cd terraform/infra
+ADMIN_PASS=$(terraform output -raw admin_user_password)
+echo "admin / $ADMIN_PASS"
 
-# Check Zeebe topology (no auth required — Identity/Keycloak is not included)
-curl -s "http://${ALB_R0}/v2/topology" | jq '.brokers | length'
-# Expected: 8 (4 brokers per region)
-
-# Retrieve the admin password (generated, stored in Secrets Manager)
-ADMIN_PASS=$(cd terraform/app && terraform output -raw admin_user_password)
-
-# Use admin credentials for Camunda internal authorization
-curl -s -u "admin:${ADMIN_PASS}" "http://${ALB_R0}/v2/topology" | jq '.'
+# The connectors-bundle password is also kept in Secrets Manager; retrieve via AWS CLI:
+SECRET_ARN=$(terraform output -raw connectors_password_secret_region_0_arn)
+CONNECTORS_PASS=$(aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" --query SecretString --output text)
 ```
+
+Or via the AWS Console: Secrets Manager → `<cluster_name>-r0-oc-admin-user-password-*`.
+
+### Method A — direct via ALB
+
+The ALB is reachable from any IP in `limit_access_to_cidrs` (see `terraform/infra/terraform.tfvars`). For an internet-facing demo this is the easiest path:
+
+```bash
+ALB_R0=$(terraform output -raw region_0_alb_endpoint)
+
+# Topology (auth required on 8.10)
+curl -s -u "admin:${ADMIN_PASS}" "http://${ALB_R0}/v2/topology" | jq '.brokers | length'
+# Expected: 8 (4 brokers per region once Raft has settled)
+
+# Open Operate / Tasklist in a browser
+open "http://${ALB_R0}/operate"
+```
+
+If you locked `limit_access_to_cidrs` down to a single corporate CIDR, switch to Method B.
+
+### Method B — Session Manager port-forward (no public IP)
+
+Use this when the ALB is not reachable from your laptop (private deployment, locked-down CIDRs, customer audit requirement). It piggybacks on the ECS Exec channel — no bastion host needed.
+
+Requirements:
+- `task_enable_execute_command = true` on the orchestration cluster module (this reference architecture sets it to `true` by default — see `terraform/app/camunda.tf`).
+- The task IAM role must allow `ssmmessages:Create*` / `OpenDataChannel` / `OpenControlChannel` (the `ecs_exec_policy` in the module already grants these).
+- [AWS Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installed locally:
+  - macOS: `brew install --cask session-manager-plugin`
+  - Linux: see the AWS docs link above
+
+```bash
+# 1. Pick a running orchestration-cluster task in region 0
+CLUSTER=$(cd terraform/infra && terraform output -raw cluster_name)
+TASK_ARN=$(aws ecs list-tasks \
+  --cluster "${CLUSTER}-r0-cluster" \
+  --service-name "${CLUSTER}-r0-oc-orchestration-cluster" \
+  --query 'taskArns[0]' --output text)
+TASK_ID=${TASK_ARN##*/}
+
+# 2. Resolve the ECS-managed runtime ID (Session Manager target)
+RUNTIME_ID=$(aws ecs describe-tasks \
+  --cluster "${CLUSTER}-r0-cluster" \
+  --tasks "$TASK_ID" \
+  --query 'tasks[0].containers[?name==`orchestration-cluster`].runtimeId' --output text)
+
+# 3. Start a port-forwarding session: localhost:8080 → container 8080
+aws ssm start-session \
+  --target "ecs:${CLUSTER}-r0-cluster_${TASK_ID}_${RUNTIME_ID}" \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["8080"],"localPortNumber":["8080"]}'
+
+# 4. In another shell, open the UI
+open http://localhost:8080
+# Log in as admin / $ADMIN_PASS
+```
+
+### Endpoint reference
 
 | Endpoint | Port | Protocol | Purpose |
 |----------|------|----------|---------|
@@ -112,7 +199,9 @@ curl -s -u "admin:${ADMIN_PASS}" "http://${ALB_R0}/v2/topology" | jq '.'
 | NLB external (region 0/1) | 26500 | TCP | Zeebe gRPC (client access) |
 | NLB internal (region 0/1) | 26502 | TCP | Zeebe Raft (cross-region, private) |
 
-**Users:** `admin` (full access) and `connectors` (connector operations). Passwords are auto-generated and stored in AWS Secrets Manager.
+### Cleanup notes
+
+`s3_force_destroy` is `true` by default so `terraform destroy` doesn't leave orphaned S3 backup buckets. **Flip it to `false` in `terraform/infra/terraform.tfvars` before running any real workload through this stack** — otherwise Terraform will happily delete backup data on `destroy`.
 
 ## Known limitations
 

@@ -17,8 +17,6 @@ This reference uses a **3-state split** so customers can adopt only the layers t
 - `terraform/infra/` — Aurora Global / OpenSearch, ECS clusters, ALB/NLBs, KMS, S3, secrets, IAM. Reads vpc outputs via `terraform_remote_state`. Slow (~15-20 min), rarely changes.
 - `terraform/app/` — Camunda orchestration-cluster + connectors ECS task definitions and services. ~30s. Reads infra outputs.
 
-A legacy combined state at `terraform/clusters/` still exists for back-compat but is not used by this workflow.
-
 ## Pre-Checks
 
 1. Verify AWS CLI is installed:

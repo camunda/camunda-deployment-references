@@ -11,7 +11,7 @@ module "orchestration_cluster_region_0" {
   vpc_private_subnets      = local.infra.vpc_region_0_private_subnets
   aws_region               = data.aws_region.region_0.id
   image                    = var.camunda_image
-  registry_credentials_arn = local.infra.registry_credentials_region_0_arn
+  registry_credentials_arn = startswith(var.camunda_image, "registry.camunda.cloud/") ? local.infra.registry_credentials_region_0_arn : ""
   s3_force_destroy         = local.infra.s3_force_destroy
 
   # IAM Roles
@@ -79,6 +79,19 @@ module "orchestration_cluster_region_0" {
     local.infra.rds_db_connect_policy_region_0_arn != null ? [local.infra.rds_db_connect_policy_region_0_arn] : [],
     [local.infra.s3_backup_access_policy_region_0_arn],
   )
+
+  # Allow Session Manager port-forwarding into a broker task for first-time
+  # debugging (e.g. `aws ecs execute-command`, port-forward to 8080/9600).
+  task_enable_execute_command = true
+
+  # Cross-region Raft formation can take 15-20 min the first time the global
+  # cluster comes up; bump above the 15m module default to avoid spurious
+  # circuit-breaker rollbacks during initial deploy.
+  service_timeouts = {
+    create = "30m"
+    update = "30m"
+    delete = "15m"
+  }
 }
 
 ################################################################
@@ -98,7 +111,7 @@ module "orchestration_cluster_region_1" {
   vpc_private_subnets      = local.infra.vpc_region_1_private_subnets
   aws_region               = data.aws_region.region_1.id
   image                    = var.camunda_image
-  registry_credentials_arn = local.infra.registry_credentials_region_1_arn
+  registry_credentials_arn = startswith(var.camunda_image, "registry.camunda.cloud/") ? local.infra.registry_credentials_region_1_arn : ""
   s3_force_destroy         = local.infra.s3_force_destroy
 
   # IAM Roles
@@ -166,6 +179,15 @@ module "orchestration_cluster_region_1" {
     local.infra.rds_db_connect_policy_region_1_arn != null ? [local.infra.rds_db_connect_policy_region_1_arn] : [],
     [local.infra.s3_backup_access_policy_region_1_arn],
   )
+
+  # See region 0 comments above.
+  task_enable_execute_command = true
+
+  service_timeouts = {
+    create = "30m"
+    update = "30m"
+    delete = "15m"
+  }
 }
 
 ################################################################

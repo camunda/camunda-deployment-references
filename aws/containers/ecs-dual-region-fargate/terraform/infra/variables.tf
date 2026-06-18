@@ -137,8 +137,8 @@ variable "db_seed_run_id" {
 
 variable "s3_force_destroy" {
   type        = bool
-  default     = false
-  description = "Allow Terraform to destroy S3 backup buckets even if they contain objects"
+  default     = true
+  description = "Allow Terraform to destroy S3 backup buckets even if they contain objects. Defaults to true because this is a reference / demo architecture and `terraform destroy` should clean up without manual S3 cleanup. Set to false before running a real workload through it so Terraform refuses to drop backup data."
 }
 
 ################################################################
