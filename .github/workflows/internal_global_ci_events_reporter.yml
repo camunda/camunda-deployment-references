@@ -59,7 +59,7 @@ jobs:
               run: |
                   set -euo pipefail
                   python3 -m pip install --quiet --disable-pip-version-check \
-                      google-api-python-client google-auth
+                      "google-api-python-client>=2,<3" "google-auth>=2,<3"
                   python3 .github/actions/internal-report-event-to-sheet/bootstrap_sheet.py
 
     report-failure:

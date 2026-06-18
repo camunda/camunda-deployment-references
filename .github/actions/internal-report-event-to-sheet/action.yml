@@ -133,5 +133,5 @@ runs:
                   [[ "${strict,,}" == "true" ]] && exit 1 || exit 0
               }
               python3 -m pip install --quiet --disable-pip-version-check \
-                  google-api-python-client google-auth || fail "dependency install failed"
+                  "google-api-python-client>=2,<3" "google-auth>=2,<3" || fail "dependency install failed"
               python3 "${GITHUB_ACTION_PATH}/append_event.py"
