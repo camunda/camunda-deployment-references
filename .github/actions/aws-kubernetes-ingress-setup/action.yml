@@ -144,6 +144,24 @@ runs:
               echo "Installing ingress controller '${{ inputs.ingress-controller }}' via $install_script ..."
               "$install_script"
 
+              # Tag the ingress controller load balancer for the AWS MAP program.
+              # The NLB is provisioned by the in-tree AWS cloud provider from the Service
+              # object, so it does not inherit the Terraform provider default_tags that
+              # carry the map-migrated tag. The tag is applied here, in CI only, so the
+              # reference procedures (which are rendered in the docs) stay free of
+              # Camunda's MAP id; the cloud provider then propagates it onto the NLB.
+              map_lb_service=""
+              map_lb_namespace=""
+              case "${{ inputs.ingress-controller }}" in
+                  nginx)   map_lb_service="ingress-nginx-controller"; map_lb_namespace="ingress-nginx" ;;
+                  contour) map_lb_service="contour-envoy";            map_lb_namespace="projectcontour" ;;
+              esac
+              if [[ -n "$map_lb_service" ]]; then
+                  echo "Tagging ${map_lb_service} (${map_lb_namespace}) load balancer with map-migrated for AWS MAP ..."
+                  kubectl annotate service "$map_lb_service" --namespace "$map_lb_namespace" --overwrite \
+                      'service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags=map-migrated=migARUADZHVWZ'
+              fi
+
               # Install external-dns
               echo "Installing external-dns..."
               export EXTERNAL_DNS_OWNER_ID="external-dns-${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
