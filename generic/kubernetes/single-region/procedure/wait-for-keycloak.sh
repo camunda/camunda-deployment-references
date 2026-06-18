@@ -52,14 +52,18 @@ warn() {
     fi
 }
 
-# Fall back to the default if the timeout is not a positive integer, so a bad
-# value cannot break the arithmetic below or silently skip the wait.
-if ! [ "${timeout_seconds}" -ge 1 ] 2>/dev/null; then
-    warn "KEYCLOAK_WAIT_TIMEOUT_SECONDS='${timeout_seconds}' is not a positive integer; using 600."
+# Require a plain positive integer; fall back otherwise. The digits-only check
+# rejects signs/letters before the 10# normalization (which also stops a leading
+# zero from being read as octal in the arithmetic below).
+raw_timeout="$timeout_seconds"
+case "$timeout_seconds" in
+    '' | *[!0-9]*) timeout_seconds=0 ;;
+esac
+timeout_seconds=$((10#$timeout_seconds))
+if [ "$timeout_seconds" -lt 1 ]; then
+    warn "KEYCLOAK_WAIT_TIMEOUT_SECONDS='${raw_timeout}' is not a positive integer; using 600."
     timeout_seconds=600
 fi
-# Normalize so a leading zero is not later misread as octal in $(( ... )).
-timeout_seconds=$((10#$timeout_seconds))
 
 # Fail open immediately if a required tool is missing, instead of spinning until
 # the deadline.
