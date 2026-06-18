@@ -86,7 +86,7 @@ module "postgresql" {
   subnet_ids  = module.eks_cluster.private_subnet_ids
   cidr_blocks = concat(module.eks_cluster.private_vpc_cidr_blocks, module.eks_cluster.public_vpc_cidr_blocks)
 
-  num_instances  = "1" # only one instance, you can add add other read-only instances if you want
+  num_instances  = "1" # only one instance, you can add other read-only instances if you want
   instance_class = "db.t3.medium"
 
   tags       = local.db_tags

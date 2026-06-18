@@ -145,7 +145,7 @@ webModeler:
             fromAddress: changeme@example.com   # change this required value
 
 webModelerPostgresql:
-    # Will deploy a postgresql datbase for webModeler.
+    # Will deploy a postgresql database for webModeler.
     # If you enable webModeler, you either need to turn it true or use an external database
     enabled: false
 
