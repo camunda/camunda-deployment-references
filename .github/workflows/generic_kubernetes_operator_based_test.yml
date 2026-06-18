@@ -750,8 +750,9 @@ jobs:
             # In domain + OIDC mode the Camunda app pods fetch the OIDC discovery
             # document from the public Keycloak issuer at startup, which only
             # converges minutes after install (realm provisioning + DNS + cert +
-            # ingress). wait-for-keycloak.sh blocks until it answers, then restarts
-            # the crash-looping workloads. The same script is shipped to customers
+            # ingress). wait-for-keycloak.sh waits (bounded, fail-open) for it to
+            # answer, then restarts the crash-looping workloads; on timeout it warns
+            # and continues. The same script is shipped to customers
             # and reused by the kind flow. KEYCLOAK_WAIT_INSECURE is set because CI
             # serves the issuer with a Vault wildcard cert from an internal CA the
             # runner does not trust; the app pods validate it via an injected CA.
