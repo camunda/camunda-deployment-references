@@ -33,6 +33,14 @@ matrix:
 
     declination:
         - name: no-domain
-          desc: Setup chart in production-like setup with Ingress and TLS.
-        - name: domain
+          declination_mode: no-domain
+          secondary_storage: elasticsearch
           desc: Setup chart in production-like setup without Ingress and TLS.
+        - name: domain
+          declination_mode: domain
+          secondary_storage: elasticsearch
+          desc: Setup chart in production-like setup with Ingress and TLS.
+        - name: no-domain-rdbms
+          declination_mode: no-domain
+          secondary_storage: rdbms
+          desc: Setup chart without domain, RDBMS secondary storage (no Elasticsearch, no Optimize).

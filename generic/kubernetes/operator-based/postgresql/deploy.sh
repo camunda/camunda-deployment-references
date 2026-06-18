@@ -60,8 +60,13 @@ else
     echo "Filtered deployment: $CLUSTER_FILTER"
     IFS=',' read -ra CLUSTERS <<< "$CLUSTER_FILTER"
     for cluster in "${CLUSTERS[@]}"; do
-        yq "select(.metadata.name == \"$cluster\")" postgresql-clusters.yml | \
-            kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f -
+        # pg-camunda is defined in a separate orchestration manifest
+        if [[ "$cluster" == "pg-camunda" ]]; then
+            kubectl apply --server-side -f postgresql-orchestration-cluster.yml -n "$CAMUNDA_NAMESPACE"
+        else
+            yq "select(.metadata.name == \"$cluster\")" postgresql-clusters.yml | \
+                kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f -
+        fi
     done
     for cluster in "${CLUSTERS[@]}"; do
         kubectl wait --for=condition=Ready --timeout=600s cluster "$cluster" -n "$CAMUNDA_NAMESPACE"
