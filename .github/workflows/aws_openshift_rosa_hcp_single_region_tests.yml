@@ -716,7 +716,7 @@ jobs:
                   # In domain mode the Connectors app is exposed under /connectors
                   # by the chart's `connectors.contextPath`, so the actuator probes
                   # need the same prefix when reached through the local port-forward.
-                  connectors-context-path: ${{ matrix.declination.name == 'domain' && '/connectors' || '' }}
+                  connectors-context-path: ${{ matrix.declination.declination_mode == 'domain' && '/connectors' || '' }}
                   elasticsearch-enabled: 'false'
                   optimize-enabled: ${{ matrix.declination.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
