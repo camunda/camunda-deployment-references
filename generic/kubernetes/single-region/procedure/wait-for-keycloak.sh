@@ -49,12 +49,10 @@ warn() {
 
 # Fall back to the default if the timeout is not a positive integer, so a bad
 # value cannot break the arithmetic below or silently skip the wait.
-case "$timeout_seconds" in
-    '' | *[!0-9]*)
-        warn "KEYCLOAK_WAIT_TIMEOUT_SECONDS='${timeout_seconds}' is not a positive integer; using 600."
-        timeout_seconds=600
-        ;;
-esac
+if ! [ "${timeout_seconds}" -ge 1 ] 2>/dev/null; then
+    warn "KEYCLOAK_WAIT_TIMEOUT_SECONDS='${timeout_seconds}' is not a positive integer; using 600."
+    timeout_seconds=600
+fi
 
 # Fail open immediately if a required tool is missing, instead of spinning until
 # the deadline.
