@@ -714,6 +714,7 @@ jobs:
                   # need the same prefix when reached through the local port-forward.
                   connectors-context-path: ${{ matrix.declination.name == 'domain' && '/connectors' || '' }}
                   elasticsearch-enabled: 'false'
+                  optimize-enabled: ${{ matrix.declination.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
                   console-enabled: ${{ env.CONSOLE_ENABLED }}
 
