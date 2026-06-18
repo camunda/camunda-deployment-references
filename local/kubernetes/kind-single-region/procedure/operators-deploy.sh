@@ -35,10 +35,14 @@ CAMUNDA_MODE=${CAMUNDA_MODE:-no-domain}
 CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN:-camunda.example.com}"
 export CAMUNDA_DOMAIN
 
-# Both secondary-storage modes need the application PG clusters
-# (Keycloak, Identity, WebModeler). RDBMS (postgres) mode additionally needs the
-# orchestration cluster (pg-camunda), appended just before deployment below.
-CLUSTER_FILTER="pg-keycloak,pg-identity,pg-webmodeler"
+# Set CLUSTER_FILTER based on SECONDARY_STORAGE
+# When using Elasticsearch, only deploy PG clusters for Keycloak, Identity, and WebModeler
+# When using PostgreSQL (RDBMS mode), deploy all PG clusters including the Camunda database
+if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
+    CLUSTER_FILTER="pg-keycloak,pg-identity,pg-webmodeler"
+else
+    CLUSTER_FILTER=""
+fi
 
 export CAMUNDA_NAMESPACE
 
@@ -65,13 +69,14 @@ echo ""
 echo "=== Deploying PostgreSQL (CloudNativePG) ==="
 (
     cd "$OPERATOR_BASE/postgresql"
+    CLUSTER_FILTER="$CLUSTER_FILTER" NAMESPACE="$CAMUNDA_NAMESPACE" ./deploy.sh
 
-    # When using RDBMS mode, also deploy the orchestration cluster (pg-camunda)
+    # Deploy orchestration PG cluster (only for RDBMS mode)
     if [[ "$SECONDARY_STORAGE" == "postgres" ]]; then
-        CLUSTER_FILTER="${CLUSTER_FILTER:+$CLUSTER_FILTER,}pg-camunda"
+        echo "Deploying orchestration PostgreSQL cluster (pg-camunda)..."
+        kubectl apply --server-side -f postgresql-orchestration-cluster.yml -n "$CAMUNDA_NAMESPACE"
+        kubectl wait --for=condition=Ready --timeout=600s cluster pg-camunda -n "$CAMUNDA_NAMESPACE"
     fi
-
-    CLUSTER_FILTER="$CLUSTER_FILTER" ./deploy.sh
 )
 
 # 3. Deploy Keycloak via Keycloak operator
