@@ -300,14 +300,18 @@ jobs:
             - access-info
         strategy:
             fail-fast: false
+            # Declinations of a scenario share a single cluster and must run sequentially.
+            # The concurrency group below can only keep one job pending, so it cannot
+            # queue three or more declinations (the extra one is cancelled). max-parallel: 1
+            # serializes the matrix instead, which scales to any number of declinations
+            # without cancellations while keeping the same one-deployment-at-a-time cluster load.
+            max-parallel: 1
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         concurrency:
-            # instead of running sequentially in a matrix, we use concurrency to run the different scenarios
-            # in parallel but the declinations sequentially
-            # max-parallel would limit us to run 1 matrix job but this way we can run 2 jobs in parallel.
+            # Per-scenario cross-run deduplication; in-run ordering is handled by max-parallel above.
             group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.distro.name }}-${{ matrix.scenario.name }}
             cancel-in-progress: false
         env:
