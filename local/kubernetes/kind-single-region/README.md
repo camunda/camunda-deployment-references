@@ -20,7 +20,7 @@ SECONDARY_STORAGE=elasticsearch make domain.clean      # Full cleanup (domain)
 SECONDARY_STORAGE=elasticsearch make no-domain.clean   # Full cleanup (no-domain)
 ```
 
-> **Domain mode & Keycloak:** in TLS/domain mode the Camunda pods authenticate against the public Keycloak issuer (`https://camunda.example.com/auth/...`), which only becomes reachable a few minutes after install while DNS, the TLS certificate and the `camunda-platform` realm converge. `domain.init` runs `wait-for-keycloak.sh` automatically to block until the issuer answers and then restart the app pods, so a transient `CrashLoopBackOff` on first start clears on its own.
+> **Domain mode & Keycloak:** in TLS/domain mode the Camunda pods authenticate against the public Keycloak issuer (`https://camunda.example.com/auth/...`), which only becomes reachable a few minutes after install while DNS, the TLS certificate and the `camunda-platform` realm converge. `domain.init` runs `wait-for-keycloak.sh` automatically: it waits (up to a timeout) for the issuer, then restarts the app pods so a transient first-start `CrashLoopBackOff` clears quickly. If the issuer is slower than the timeout the script warns and continues, and the pods recover on their own once it converges.
 
 ## Credentials
 
