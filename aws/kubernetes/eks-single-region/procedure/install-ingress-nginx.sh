@@ -7,6 +7,5 @@ helm upgrade --install \
   --set 'controller.service.annotations.service\.beta\.kubernetes\.io\/aws-load-balancer-backend-protocol=tcp' \
   --set 'controller.service.annotations.service\.beta\.kubernetes\.io\/aws-load-balancer-cross-zone-load-balancing-enabled=true' \
   --set 'controller.service.annotations.service\.beta\.kubernetes\.io\/aws-load-balancer-type=nlb' \
-  --set 'controller.service.annotations.service\.beta\.kubernetes\.io\/aws-load-balancer-additional-resource-tags=map-migrated\=migARUADZHVWZ' \
   --namespace ingress-nginx \
   --create-namespace
