@@ -65,7 +65,11 @@ fi
 # (also shipped to customers and used by CI). Under CI the host may not trust the
 # mkcert CA (mkcert -install is best-effort), so skip TLS verification there only;
 # local runs keep it enabled.
-KEYCLOAK_WAIT_INSECURE="${GITHUB_ACTIONS:+true}" \
+insecure_flag=""
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    insecure_flag="true"
+fi
+KEYCLOAK_WAIT_INSECURE="$insecure_flag" \
     "$SCRIPT_DIR/../../../../generic/kubernetes/single-region/procedure/wait-for-keycloak.sh"
 
 # TODO: [release-duty] before the release, update this by removing the oci pull above
