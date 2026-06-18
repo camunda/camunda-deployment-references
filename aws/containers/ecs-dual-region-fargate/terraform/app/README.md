@@ -30,6 +30,7 @@
 | Name | Description |
 | ---- | ----------- |
 | <a name="output_admin_user_password"></a> [admin\_user\_password](#output\_admin\_user\_password) | The admin password for Camunda |
+| <a name="output_next_steps"></a> [next\_steps](#output\_next\_steps) | Operator handover: how to fetch credentials and access the deployment. |
 | <a name="output_region_0_alb_endpoint"></a> [region\_0\_alb\_endpoint](#output\_region\_0\_alb\_endpoint) | The DNS name of the ALB in region 0 (HTTP/REST access) |
 | <a name="output_region_0_log_group_name"></a> [region\_0\_log\_group\_name](#output\_region\_0\_log\_group\_name) | CloudWatch log group for the orchestration cluster in region 0 |
 | <a name="output_region_0_nlb_grpc_endpoint"></a> [region\_0\_nlb\_grpc\_endpoint](#output\_region\_0\_nlb\_grpc\_endpoint) | The DNS name of the external NLB in region 0 (gRPC access) |
