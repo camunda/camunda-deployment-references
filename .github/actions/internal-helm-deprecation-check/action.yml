@@ -14,7 +14,8 @@ description: |
         workflow/job/release/namespace combination).
       - schedule (real or simulated via a `schedules/*` head_ref): emitted
         as ::warning:: annotations and, when the Slack inputs are wired,
-        posted to Slack via the shared report-failure-on-slack action.
+        posted to Slack via the shared report-warning-on-slack action
+        (an advisory, non-failure notification).
         Simulated schedules are detected from the caller workflow's
         `IS_SCHEDULE` env var (set to `'true'` when
         `contains(github.head_ref, 'schedules/') || github.event_name == 'schedule'`).
@@ -436,7 +437,7 @@ runs:
                   --run-url "${GH_SERVER_URL}/${GH_REPO}/actions/runs/${GH_RUN_ID}" \
                   --findings-file "${FINDINGS_FILE}"
 
-        - name: 🔔 Alert Slack on scheduled-run findings
+        - name: 🔔 Warn on Slack about scheduled-run findings
           if: |
               always()
               && env.IS_SCHEDULE == 'true'
@@ -444,7 +445,12 @@ runs:
               && inputs.vault-addr != ''
               && inputs.vault-role-id != ''
               && inputs.vault-secret-id != ''
-          uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+          # report-warning-on-slack posts an advisory (non-failure) Slack message, so
+          # non-blocking Helm drift on scheduled stable/* runs no longer looks like a
+          # red "STABLE BRANCH FAILURE" alert pointing at a green run.
+          # Pending release of camunda/infraex-common-config#502; repin to the tagged
+          # SHA once it merges.
+          uses: camunda/infraex-common-config/.github/actions/report-warning-on-slack@3a947cec0e79beb52e1f04b8da0c8ddc5c51fe52 # pending release (PR #502)
           with:
               vault_addr: ${{ inputs.vault-addr }}
               vault_role_id: ${{ inputs.vault-role-id }}
@@ -452,3 +458,6 @@ runs:
               slack_channel_id: ${{ inputs.slack-channel-id != '' && inputs.slack-channel-id || (env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB')
                   }}
               slack_mention_people: ${{ inputs.slack-mention-people }}
+              title: Helm configuration drift
+              message: ${{ format('Helm release {0} has non-blocking deprecation / unknown-key findings (ignored by the chart); run did not fail.', inputs.release-name)
+                  }}
