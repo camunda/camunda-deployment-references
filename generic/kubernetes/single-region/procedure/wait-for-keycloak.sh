@@ -39,17 +39,8 @@ if [ "${KEYCLOAK_WAIT_INSECURE:-false}" = "true" ]; then
 fi
 
 warn() {
-    # Surface as a GitHub Actions annotation in CI, plain text otherwise.
-    if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
-        # Escape the characters GitHub Actions interprets in annotation messages
-        # (% first, then CR/LF), so an arbitrary value cannot corrupt the log.
-        local msg="${1//%/%25}"
-        msg="${msg//$'\r'/%0D}"
-        msg="${msg//$'\n'/%0A}"
-        printf '::warning::%s\n' "$msg"
-    else
-        printf 'WARNING: %s\n' "$1"
-    fi
+    # Non-fatal warning; this script is fail-open and never aborts a deploy.
+    printf 'WARNING: %s\n' "$1"
 }
 
 # Require a plain positive integer; fall back otherwise. The digits-only check
