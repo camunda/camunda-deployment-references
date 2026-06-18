@@ -477,7 +477,7 @@ jobs:
                         cat values-result.yml && mv values-result.yml values.yml
                     done
                   elif [[ ${{ matrix.declination.declination_mode }} == "no-domain" ]]; then
-                      # explicitely set no domain
+                      # explicitly set no domain
                       echo "CAMUNDA_DOMAIN=" | tee -a "$GITHUB_ENV"
                       echo "CAMUNDA_GRPC_DOMAIN=" | tee -a "$GITHUB_ENV"
 
