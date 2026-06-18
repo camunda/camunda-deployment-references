@@ -753,15 +753,15 @@ jobs:
             # ingress). wait-for-keycloak.sh waits (bounded, fail-open) for it to
             # answer, then restarts the crash-looping workloads; on timeout it warns
             # and continues. The same script is shipped to customers
-            # and reused by the kind flow. KEYCLOAK_WAIT_INSECURE is set because CI
-            # serves the issuer with a Vault wildcard cert from an internal CA the
-            # runner does not trust; the app pods validate it via an injected CA.
+            # and reused by the kind flow. KEYCLOAK_WAIT_INSECURE is enabled only
+            # when the Vault wildcard cert is in use (internal CA the runner does not
+            # trust); with Let's Encrypt certs the issuer poll keeps TLS verification.
             - name: ⏳ Wait for Keycloak realm/issuer reachable
               if: matrix.declination.name == 'domain'
               timeout-minutes: 12
               working-directory: ./generic/kubernetes/operator-based/
               env:
-                  KEYCLOAK_WAIT_INSECURE: 'true'
+                  KEYCLOAK_WAIT_INSECURE: ${{ steps.cert-config.outputs.use-wildcard-cert == 'true' && 'true' || '' }}
               run: ../single-region/procedure/wait-for-keycloak.sh
 
             - name: 👀⏳ Wait for the deployment to be healthy
