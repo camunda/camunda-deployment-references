@@ -455,7 +455,7 @@ runs:
               vault_addr: ${{ inputs.vault-addr }}
               vault_role_id: ${{ inputs.vault-role-id }}
               vault_secret_id: ${{ inputs.vault-secret-id }}
-              slack_channel_id: ${{ inputs.slack-channel-id != '' && inputs.slack-channel-id || (env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB')
+              slack_channel_id: ${{ inputs.slack-channel-id != '' && inputs.slack-channel-id || (github.event_name == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB')
                   }}
               slack_mention_people: ${{ inputs.slack-mention-people }}
               title: Helm configuration drift
