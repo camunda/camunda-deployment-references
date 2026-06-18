@@ -216,8 +216,8 @@ variable "region_1_private_route_table_ids" {
 
 variable "networking_mode" {
   type        = string
-  default     = "transit_gateway"
-  description = "Cross-region networking: 'transit_gateway' or 'vpc_peering'"
+  default     = "vpc_peering"
+  description = "Cross-region networking: 'vpc_peering' (default — simpler, no per-attachment hourly fee, fits two regions) or 'transit_gateway' (hub-and-spoke, needed when extending the topology beyond two VPCs)."
 
   validation {
     condition     = contains(["transit_gateway", "vpc_peering"], var.networking_mode)

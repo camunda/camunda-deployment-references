@@ -36,8 +36,8 @@ run "default_plan_succeeds" {
   command = plan
 
   assert {
-    condition     = output.networking_mode == "transit_gateway"
-    error_message = "Default networking_mode should be transit_gateway"
+    condition     = output.networking_mode == "vpc_peering"
+    error_message = "Default networking_mode should be vpc_peering"
   }
 }
 
