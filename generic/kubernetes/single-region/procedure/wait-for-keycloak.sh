@@ -41,9 +41,14 @@ fi
 warn() {
     # Surface as a GitHub Actions annotation in CI, plain text otherwise.
     if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
-        echo "::warning::$1"
+        # Escape the characters GitHub Actions interprets in annotation messages
+        # (% first, then CR/LF), so an arbitrary value cannot corrupt the log.
+        local msg="${1//%/%25}"
+        msg="${msg//$'\r'/%0D}"
+        msg="${msg//$'\n'/%0A}"
+        printf '::warning::%s\n' "$msg"
     else
-        echo "WARNING: $1"
+        printf 'WARNING: %s\n' "$1"
     fi
 }
 
@@ -53,6 +58,8 @@ if ! [ "${timeout_seconds}" -ge 1 ] 2>/dev/null; then
     warn "KEYCLOAK_WAIT_TIMEOUT_SECONDS='${timeout_seconds}' is not a positive integer; using 600."
     timeout_seconds=600
 fi
+# Normalize so a leading zero is not later misread as octal in $(( ... )).
+timeout_seconds=$((10#$timeout_seconds))
 
 # Fail open immediately if a required tool is missing, instead of spinning until
 # the deadline.
