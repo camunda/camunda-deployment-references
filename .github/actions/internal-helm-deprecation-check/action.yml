@@ -450,7 +450,7 @@ runs:
           # red "STABLE BRANCH FAILURE" alert pointing at a green run.
           # Pending release of camunda/infraex-common-config#502; repin to the tagged
           # SHA once it merges.
-          uses: camunda/infraex-common-config/.github/actions/report-warning-on-slack@3a947cec0e79beb52e1f04b8da0c8ddc5c51fe52 # pending release (PR #502)
+          uses: camunda/infraex-common-config/.github/actions/report-warning-on-slack@6ab7c306c135aca22a8519a955ef9cba6167f0b0 # camunda/infraex-common-config#502
           with:
               vault_addr: ${{ inputs.vault-addr }}
               vault_role_id: ${{ inputs.vault-role-id }}
@@ -459,5 +459,5 @@ runs:
                   }}
               slack_mention_people: ${{ inputs.slack-mention-people }}
               title: Helm configuration drift
-              message: ${{ format('Helm release {0} has non-blocking deprecation / unknown-key findings (ignored by the chart); run did not fail.', inputs.release-name)
+              message: ${{ format('Helm release {0} reported deprecation / unknown-key findings (advisory, non-blocking); the run did not fail.', inputs.release-name)
                   }}
