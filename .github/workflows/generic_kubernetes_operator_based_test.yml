@@ -747,49 +747,21 @@ jobs:
                   # Use the install-chart.sh script
                   ../single-region/procedure/install-chart.sh
 
-            # In domain + OIDC mode the Camunda app pods (Zeebe, Connectors, …)
-            # fetch the OIDC discovery document from the public Keycloak issuer
-            # (https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform) at startup.
-            # That issuer only becomes reachable once (a) the Camunda Identity pod
-            # has provisioned the `camunda-platform` realm and (b) the public route
-            # converges (external-dns record + cert + ingress/route). Until then the
-            # app pods crash-loop, and Kubernetes exponential backoff can delay the
-            # next restart up to ~5 min, so the deployment may never become healthy
-            # within the `Wait for the deployment` timeout. Wait for the realm
-            # discovery document to answer 200, then bounce the crash-looping app
-            # pods so they restart immediately instead of after the next backoff.
+            # In domain + OIDC mode the Camunda app pods fetch the OIDC discovery
+            # document from the public Keycloak issuer at startup, which only
+            # converges minutes after install (realm provisioning + DNS + cert +
+            # ingress). wait-for-keycloak.sh blocks until it answers, then restarts
+            # the crash-looping workloads. The same script is shipped to customers
+            # and reused by the kind flow. KEYCLOAK_WAIT_INSECURE is set because CI
+            # serves the issuer with a Vault wildcard cert from an internal CA the
+            # runner does not trust; the app pods validate it via an injected CA.
             - name: ⏳ Wait for Keycloak realm/issuer reachable
               if: matrix.declination.name == 'domain'
               timeout-minutes: 12
-              run: |
-                  set -uo pipefail
-                  KC_URL="https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform/.well-known/openid-configuration"
-                  echo "Waiting for Keycloak OIDC discovery: $KC_URL"
-                  # Wall-clock deadline so the loop always finishes (and emits the
-                  # warning below) before the 12-minute step timeout, regardless of
-                  # how long each curl takes.
-                  DEADLINE=$(( $(date +%s) + 600 )) # 10 minutes
-                  attempt=0
-                  while [ "$(date +%s)" -lt "$DEADLINE" ]; do
-                      attempt=$((attempt + 1))
-                      CODE=$(curl -ks -o /dev/null -w '%{http_code}' --max-time 5 "$KC_URL" || true)
-                      CODE=${CODE:-000}
-                      if [[ "$CODE" == "200" ]]; then
-                          echo "✅ Keycloak reachable (HTTP $CODE) after ${attempt} attempt(s)"
-                          # Bounce the crash-looping app pods so they restart now
-                          # instead of waiting out the exponential backoff window.
-                          kubectl -n "$CAMUNDA_NAMESPACE" rollout restart statefulset/camunda-zeebe || true
-                          # Connectors may be disabled in some scenarios; only restart it
-                          # when present, and keep its errors visible (no blanket stderr mute).
-                          if kubectl -n "$CAMUNDA_NAMESPACE" get deployment/camunda-connectors >/dev/null 2>&1; then
-                              kubectl -n "$CAMUNDA_NAMESPACE" rollout restart deployment/camunda-connectors || true
-                          fi
-                          exit 0
-                      fi
-                      echo "[attempt ${attempt}] not ready yet (HTTP $CODE), sleeping 5s…"
-                      sleep 5
-                  done
-                  echo "::warning::Keycloak external URL did not respond 200 within 10 min; continuing anyway."
+              working-directory: ./generic/kubernetes/operator-based/
+              env:
+                  KEYCLOAK_WAIT_INSECURE: 'true'
+              run: ../single-region/procedure/wait-for-keycloak.sh
 
             - name: 👀⏳ Wait for the deployment to be healthy
               timeout-minutes: 10

@@ -16,6 +16,11 @@ helm upgrade --install "camunda" camunda-platform \
     --values helm-values/values-domain.yml \
     --values helm-values/values-mkcert.yml
 
+# Wait for the public Keycloak issuer to converge, then restart the app pods so
+# they recover from the first-start crash-loop instead of waiting out the backoff.
+# Reuses the shared readiness script (also shipped to customers and used by CI).
+../../../generic/kubernetes/single-region/procedure/wait-for-keycloak.sh
+
 echo ""
 echo "Camunda Platform deployed"
 echo "Monitor: kubectl get pods -n camunda -w"
