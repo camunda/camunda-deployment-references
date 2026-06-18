@@ -107,6 +107,13 @@ def _dashboard_layout(tab: str) -> list[list]:
     ]
 
 
+def _warn(message: str) -> None:
+    # Escape workflow-command metacharacters so a stray %, CR or LF in an
+    # exception message cannot break log parsing or inject a workflow command.
+    safe = message.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    print(f"::warning title=bootstrap-sheet::{safe}")
+
+
 def _load_service_account(raw: str) -> dict:
     raw = raw.strip()
     if not raw:
@@ -285,19 +292,19 @@ def main() -> int:
         _write(service, spreadsheet_id, "dashboard!A1", _dashboard_layout(events_tab))
         print("Wrote dashboard layout.")
     except Exception as exc:  # noqa: BLE001
-        print(f"::warning::dashboard layout step failed: {exc}")
+        _warn(f"dashboard layout step failed: {exc}")
 
     try:
         _apply_conditional_formatting(service, spreadsheet_id, events_id)
     except Exception as exc:  # noqa: BLE001
-        print(f"::warning::conditional formatting step failed: {exc}")
+        _warn(f"conditional formatting step failed: {exc}")
 
     try:
         meta = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
         pivot_id = _ensure_tab(service, spreadsheet_id, meta, "pivot")
         _build_pivot(service, spreadsheet_id, events_id, pivot_id)
     except Exception as exc:  # noqa: BLE001
-        print(f"::warning::pivot step failed: {exc}")
+        _warn(f"pivot step failed: {exc}")
 
     print("Bootstrap complete.")
     return 0
