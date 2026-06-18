@@ -190,13 +190,15 @@ az aks get-credentials \
 source .env.local
 source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
 
-./azure/kubernetes/aks-single-region/procedure/install-ingress-nginx.sh
+./azure/kubernetes/aks-single-region/procedure/install-contour.sh
 ./azure/kubernetes/aks-single-region/procedure/install-external-dns.sh
 ./azure/kubernetes/aks-single-region/procedure/external-dns-azure-config.sh
 ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 ./azure/kubernetes/aks-single-region/procedure/install-cert-manager.sh
 ./azure/kubernetes/aks-single-region/procedure/install-cert-manager-issuer.sh
 ```
+
+> **Contour replaces ingress-nginx** (retired March 2026). `install-contour.sh` deploys the Contour Helm chart with `envoy.service.type=LoadBalancer` and the Azure Standard LB health-probe annotation required for AKS. It sets Contour as the default IngressClass. No nginx installation needed.
 
 ---
 
@@ -301,6 +303,7 @@ export DB_HOST=$(terraform -chdir=azure/kubernetes/aks-single-region output -raw
 # Merge overlays — exact order matters
 echo "{}" > values.yml
 yq ". *+ load(\"azure/kubernetes/aks-single-region/helm-values/values-domain.yml\")" values.yml > values.tmp && mv values.tmp values.yml
+yq ". *+ load(\"azure/kubernetes/aks-single-region/helm-values/values-contour-overlay.yml\")" values.yml > values.tmp && mv values.tmp values.yml
 yq ". *+ load(\"generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml\")" values.yml > values.tmp && mv values.tmp values.yml
 yq ". *+ load(\"generic/kubernetes/operator-based/keycloak/camunda-keycloak-domain-values.yml\")" values.yml > values.tmp && mv values.tmp values.yml
 yq ". *+ load(\"generic/kubernetes/operator-based/tests/utils/camunda-values-identity-secrets.yml\")" values.yml > values.tmp && mv values.tmp values.yml
@@ -314,9 +317,10 @@ envsubst < values.yml > generated-values.yml
 | Step | File | Purpose |
 |------|------|---------|
 | 1 | `azure/kubernetes/aks-single-region/helm-values/values-{domain\|no-domain}.yml` | AKS-specific ingress, DB config, Orchestration settings |
-| 2 | `generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml` | Points Camunda at the ECK-managed ES service |
-| 3 | `generic/kubernetes/operator-based/keycloak/camunda-keycloak-{domain\|no-domain}-values.yml` | Points Camunda at the operator-managed Keycloak service; sets `issuerBackendUrl` to internal service |
-| 4 | `generic/kubernetes/operator-based/tests/utils/camunda-values-identity-secrets.yml` | Wires `identity-secret-for-components` into chart |
+| 2 | `azure/kubernetes/aks-single-region/helm-values/values-contour-overlay.yml` | Sets `ingressClassName: contour` for HTTP and gRPC; adds h2c upstream annotation to Zeebe service |
+| 3 | `generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml` | Points Camunda at the ECK-managed ES service |
+| 4 | `generic/kubernetes/operator-based/keycloak/camunda-keycloak-{domain\|no-domain}-values.yml` | Points Camunda at the operator-managed Keycloak service; sets `issuerBackendUrl` to internal service |
+| 5 | `generic/kubernetes/operator-based/tests/utils/camunda-values-identity-secrets.yml` | Wires `identity-secret-for-components` into chart |
 
 **Variables consumed by `envsubst`:**
 

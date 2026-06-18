@@ -59,6 +59,7 @@ Run from the **repository root**. Later overlays deep-merge into earlier ones (`
 ```
 {} base
   → azure/kubernetes/aks-single-region/helm-values/values-{domain|no-domain}.yml
+  → azure/kubernetes/aks-single-region/helm-values/values-contour-overlay.yml         (Contour ingressClassName + h2c service annotation)
   → generic/kubernetes/operator-based/elasticsearch/camunda-elastic-values.yml       (when secondary_storage = elasticsearch)
   → generic/kubernetes/operator-based/keycloak/camunda-keycloak-{domain|no-domain}-values.yml  (when auth_provider = keycloak-operator)
   → generic/kubernetes/operator-based/tests/utils/camunda-values-identity-secrets.yml
@@ -73,20 +74,18 @@ CNPG (PostgreSQL) must be ready before Keycloak can start. ECK (Elasticsearch) i
 
 1. **ECK + Elasticsearch** — `cd generic/kubernetes/operator-based/elasticsearch && CAMUNDA_NAMESPACE=camunda ./deploy.sh`
 2. **CNPG + pg-keycloak** — `cd generic/kubernetes/operator-based/postgresql && CAMUNDA_NAMESPACE=camunda CLUSTER_FILTER=pg-keycloak ./deploy.sh`
-3. **Keycloak operator** — `CAMUNDA_NAMESPACE=camunda KEYCLOAK_CONFIG_FILE=generic/kubernetes/operator-based/keycloak/keycloak-instance-domain-nginx.yml bash generic/kubernetes/operator-based/keycloak/deploy.sh`
-   - Use `keycloak-instance-domain-contour.yml` instead when deploying with Contour ingress
+3. **Keycloak operator** — `CAMUNDA_NAMESPACE=camunda KEYCLOAK_CONFIG_FILE=generic/kubernetes/operator-based/keycloak/keycloak-instance-domain-contour.yml bash generic/kubernetes/operator-based/keycloak/deploy.sh`
 4. Create `identity-secret-for-components` (9 random hex secrets — see `docs/manual-deployment-azure-aks.md`)
 5. Run DB init job (`manifests/setup-postgres-create-db.yml`) to create databases and users
 
 The `keycloak-initial-admin` secret is auto-created by the Keycloak operator. Retrieve with:
 `kubectl get secret keycloak-initial-admin -n camunda -o go-template='{{index .data "password" | base64decode}}'`
 
-### ingress-nginx vs Contour
+### Ingress: Contour (default)
 
-The repository ships two Keycloak instance configs and the Contour install script lives in `azure/kubernetes/aks-single-region/procedure/` (for the migration). When switching from nginx to Contour:
-- Change `KEYCLOAK_CONFIG_FILE` to `keycloak-instance-domain-contour.yml` in the operator deploy step
-- Update `ingressClassName` in Helm values from `nginx` to `contour`
-- The Zeebe gRPC ingress requires a `Service` annotation to keep Contour from treating it as HTTP: `projectcontour.io/upstream-protocol.h2c: "26500"` (or TLS variant)
+**Contour is the default ingress controller** — ingress-nginx was retired in March 2026. The install script is `azure/kubernetes/aks-single-region/procedure/install-contour.sh`. Key points:
+- Keycloak uses `keycloak-instance-domain-contour.yml` (not the nginx variant)
+- `values-contour-overlay.yml` sets `ingressClassName: contour` and adds `projectcontour.io/upstream-protocol.h2c: "26500"` to the Zeebe service so Envoy treats the gRPC upstream as h2c
 
 ## Quick Start
 

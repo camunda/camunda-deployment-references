@@ -1,0 +1,17 @@
+---
+# Contour ingress overlay — replaces ingress-nginx for AKS single-region.
+# Merge after values-domain.yml in the overlay chain.
+
+global:
+    ingress:
+        className: contour
+
+orchestration:
+    ingress:
+        grpc:
+            className: contour
+
+    service:
+        annotations:
+            # Tell Contour/Envoy to treat port 26500 as h2c (HTTP/2 cleartext) upstream.
+            projectcontour.io/upstream-protocol.h2c: "26500"
