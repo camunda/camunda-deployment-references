@@ -17,9 +17,10 @@ answer `200`, then bounces the affected workloads so they restart immediately
 instead of after the next backoff window.
 
 It is **IdP-agnostic**: it polls whatever `issuer-url` the caller provides and
-is a quick no-op for an already-reachable issuer (e.g. an external IdP). It is
-deliberately a CI-only composite action — the customer-facing reference
-procedures stay free of this environment-specific workaround.
+completes quickly (no waiting) when the issuer is already reachable, e.g. an
+external IdP. It is deliberately a CI-only composite action — the
+customer-facing reference procedures stay free of this environment-specific
+workaround.
 
 
 ## Inputs
