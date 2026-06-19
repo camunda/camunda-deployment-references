@@ -63,6 +63,15 @@ COL_RUN_ID = 4
 COL_TYPE = 6
 EVENTS_COL_COUNT = len(HEADERS)
 
+
+def _col_letter(n: int) -> str:
+    """1-based column number -> A1 column letters (14 -> 'N')."""
+    letters = ""
+    while n > 0:
+        n, rem = divmod(n - 1, 26)
+        letters = chr(65 + rem) + letters
+    return letters
+
 def _dashboard_layout(tab: str) -> list[list]:
     """Build the dashboard formulas bound to the configured events ``tab``.
 
@@ -524,7 +533,8 @@ def main() -> int:
     # preview/sample rows. Never enabled on the routine reporter path.
     if os.environ.get("SHEET_RESET", "false").lower() == "true":
         service.spreadsheets().values().clear(
-            spreadsheetId=spreadsheet_id, range=f"{events_tab}!A2:N"
+            spreadsheetId=spreadsheet_id,
+            range=f"{events_tab}!A2:{_col_letter(EVENTS_COL_COUNT)}",
         ).execute()
         print(f"Reset: cleared data rows in '{events_tab}'.")
 

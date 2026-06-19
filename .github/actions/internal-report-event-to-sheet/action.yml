@@ -91,6 +91,9 @@ runs:
     steps:
         - name: Import Secrets
           id: secrets
+          # Best-effort: a Vault hiccup must not turn the observed pipeline red.
+          # On failure the SA key is empty and append_event.py no-ops (unless strict).
+          continue-on-error: true
           uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
           with:
               url: ${{ inputs.vault-addr }}
