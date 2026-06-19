@@ -97,12 +97,18 @@ runs:
                   if [ "${code}" = "200" ]; then
                       echo "✅ OIDC issuer reachable (HTTP 200) after ${attempt} attempt(s)."
                       # Clear any first-start CrashLoopBackOff so the app pods
-                      # restart now instead of after the next (long) backoff window.
-                      # '|| true' keeps this best-effort across chart versions /
-                      # disabled components.
-                      kubectl -n "${NAMESPACE}" rollout restart \
-                          "statefulset/${RELEASE_NAME}-zeebe" \
-                          "deployment/${RELEASE_NAME}-connectors" 2>/dev/null || true
+                      # restart now instead of after the next (long) backoff
+                      # window. Bounce each workload only if it exists, so a
+                      # disabled/renamed component stays quiet while real errors
+                      # (missing kubeconfig / RBAC) stay visible; '|| true' keeps
+                      # the bounce best-effort (fail-open).
+                      for workload in "statefulset/${RELEASE_NAME}-zeebe" "deployment/${RELEASE_NAME}-connectors"; do
+                          if kubectl -n "${NAMESPACE}" get "${workload}" >/dev/null 2>&1; then
+                              kubectl -n "${NAMESPACE}" rollout restart "${workload}" || true
+                          else
+                              echo "Skipping ${workload}: not found in namespace ${NAMESPACE}."
+                          fi
+                      done
                       exit 0
                   fi
 
