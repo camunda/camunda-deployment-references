@@ -262,6 +262,101 @@ def _build_pivot(service, spreadsheet_id: str, events_id: int, pivot_id: int) ->
     print("Built pivot table on 'pivot'.")
 
 
+def _fmt(sheet_id, r0, r1, c0, c1, bold=False, italic=False, font_size=None, bg=None, fg=None):
+    text_format = {"bold": bold, "italic": italic}
+    if font_size is not None:
+        text_format["fontSize"] = font_size
+    if fg is not None:
+        text_format["foregroundColor"] = fg
+    cell_format = {"textFormat": text_format}
+    if bg is not None:
+        cell_format["backgroundColor"] = bg
+    return {
+        "repeatCell": {
+            "range": {
+                "sheetId": sheet_id,
+                "startRowIndex": r0,
+                "endRowIndex": r1,
+                "startColumnIndex": c0,
+                "endColumnIndex": c1,
+            },
+            "cell": {"userEnteredFormat": cell_format},
+            "fields": "userEnteredFormat(textFormat,backgroundColor)",
+        }
+    }
+
+
+def _freeze(sheet_id, rows):
+    return {
+        "updateSheetProperties": {
+            "properties": {"sheetId": sheet_id, "gridProperties": {"frozenRowCount": rows}},
+            "fields": "gridProperties.frozenRowCount",
+        }
+    }
+
+
+def _col_width(sheet_id, col, px):
+    return {
+        "updateDimensionProperties": {
+            "range": {
+                "sheetId": sheet_id,
+                "dimension": "COLUMNS",
+                "startIndex": col,
+                "endIndex": col + 1,
+            },
+            "properties": {"pixelSize": px},
+            "fields": "pixelSize",
+        }
+    }
+
+
+def _apply_display_formatting(service, spreadsheet_id, events_id, triage_id, dashboard_id):
+    header_bg = {"red": 0.85, "green": 0.87, "blue": 0.91}
+    grey = {"red": 0.42, "green": 0.42, "blue": 0.42}
+    triage_status = ["new", "investigating", "fixed", "ignored", "flaky"]
+    requests = [
+        # Freeze header rows.
+        _freeze(events_id, 1),
+        _freeze(triage_id, 1),
+        _freeze(dashboard_id, 2),
+        # Bold, shaded header rows.
+        _fmt(events_id, 0, 1, 0, EVENTS_COL_COUNT, bold=True, bg=header_bg),
+        _fmt(triage_id, 0, 1, 0, len(TRIAGE_HEADERS), bold=True, bg=header_bg),
+        # Dashboard title / subtitle / KPI emphasis.
+        _fmt(dashboard_id, 0, 1, 0, 1, bold=True, font_size=14),
+        _fmt(dashboard_id, 1, 2, 0, 1, italic=True, fg=grey),
+        _fmt(dashboard_id, 2, 3, 0, 5, bold=True),
+        _fmt(dashboard_id, 3, 4, 0, 5, bold=True, font_size=12),
+        # Readable column widths on events.
+        _col_width(events_id, COL_BRANCH, 110),
+        _col_width(events_id, COL_WORKFLOW, 300),
+        _col_width(events_id, 9, 320),
+        # Triage status dropdown.
+        {
+            "setDataValidation": {
+                "range": {
+                    "sheetId": triage_id,
+                    "startRowIndex": 1,
+                    "startColumnIndex": 4,
+                    "endColumnIndex": 5,
+                },
+                "rule": {
+                    "condition": {
+                        "type": "ONE_OF_LIST",
+                        "values": [{"userEnteredValue": v} for v in triage_status],
+                    },
+                    "showCustomUi": True,
+                    "strict": False,
+                },
+            }
+        },
+    ]
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=spreadsheet_id, body={"requests": requests}
+    ).execute()
+    print("Applied display formatting (freezes, headers, KPI emphasis, widths, dropdown).")
+
+
 def main() -> int:
     spreadsheet_id = os.environ["SHEET_SPREADSHEET_ID"]
     events_tab = os.environ.get("SHEET_TAB", "events")
@@ -281,6 +376,14 @@ def main() -> int:
     events_id = _ensure_tab(service, spreadsheet_id, meta, events_tab)
     _write(service, spreadsheet_id, f"{events_tab}!A1", [HEADERS])
     print(f"Wrote {len(HEADERS)} headers to '{events_tab}'.")
+
+    # Opt-in reset: wipe data rows (keep the header). Used to clear seeded
+    # preview/sample rows. Never enabled on the routine reporter path.
+    if os.environ.get("SHEET_RESET", "false").lower() == "true":
+        service.spreadsheets().values().clear(
+            spreadsheetId=spreadsheet_id, range=f"{events_tab}!A2:N"
+        ).execute()
+        print(f"Reset: cleared data rows in '{events_tab}'.")
 
     _ensure_tab(service, spreadsheet_id, meta, "triage")
     _write(service, spreadsheet_id, "triage!A1", [TRIAGE_HEADERS])
@@ -308,6 +411,17 @@ def main() -> int:
         _build_pivot(service, spreadsheet_id, events_id, pivot_id)
     except Exception as exc:  # noqa: BLE001
         _warn(f"pivot step failed: {exc}")
+
+    try:
+        meta = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        triage_id = _sheet_id(meta, "triage")
+        dashboard_id = _sheet_id(meta, "dashboard")
+        if triage_id is not None and dashboard_id is not None:
+            _apply_display_formatting(
+                service, spreadsheet_id, events_id, triage_id, dashboard_id
+            )
+    except Exception as exc:  # noqa: BLE001
+        _warn(f"display formatting step failed: {exc}")
 
     print("Bootstrap complete.")
     return 0

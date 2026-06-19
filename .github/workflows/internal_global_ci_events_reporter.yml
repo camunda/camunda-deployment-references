@@ -67,37 +67,12 @@ jobs:
               env:
                   GOOGLE_SHEETS_SA_KEY: ${{ steps.secrets.outputs.GOOGLE_SHEETS_SA_KEY }}
                   SHEET_SPREADSHEET_ID: ${{ env.SHEET_ID }}
+                  SHEET_RESET: 'true'
               run: |
                   set -uo pipefail
                   python3 -m pip install --quiet --disable-pip-version-check \
                       "google-api-python-client>=2,<3" "google-auth>=2,<3"
                   python3 .github/actions/internal-report-event-to-sheet/bootstrap_sheet.py
-
-            - name: Seed sample events (PR preview only)
-              if: ${{ github.event_name == 'pull_request' }}
-              shell: bash
-              env:
-                  GOOGLE_SHEETS_SA_KEY: ${{ steps.secrets.outputs.GOOGLE_SHEETS_SA_KEY }}
-                  SHEET_SPREADSHEET_ID: ${{ env.SHEET_ID }}
-                  SHEET_STRICT: 'true'
-                  EVENT_REPO: ${{ github.repository }}
-                  EVENT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-                  EVENT_ACTOR: render-preview
-                  EVENT_COMMIT: ${{ github.sha }}
-              run: |
-                  set -uo pipefail
-                  seed() {
-                      EVENT_TYPE="$1" EVENT_BRANCH="$2" EVENT_WORKFLOW="$3" \
-                      EVENT_CATEGORY="$4" EVENT_SEVERITY="$5" EVENT_TITLE="$6" \
-                      EVENT_RUN_ID="${RANDOM}${RANDOM}" \
-                      python3 .github/actions/internal-report-event-to-sheet/append_event.py
-                  }
-                  seed failure "stable/8.9" "Tests - Integration - Azure Kubernetes AKS Single Region" ci-failure critical "SAMPLE: Azure vCPU quota"
-                  seed failure "stable/8.9" "Tests - Integration - Generic Operator based" ci-failure critical "SAMPLE: EKS deploy-health timeout"
-                  seed warning "stable/8.9" "Tests - Integration - Azure Kubernetes AKS Single Region" helm-config-drift info "SAMPLE: 33 unknown keys"
-                  seed failure "main" "Tests - Integration - AWS Compute EC2 Single Region" ci-failure warning "SAMPLE: flaky EC2 run"
-                  seed warning "main" "Tests - Integration - Generic Operator based" helm-config-drift info "SAMPLE: deprecation warning"
-                  seed failure "stable/8.8" "Tests - Integration - AWS OpenShift ROSA HCP Single Region" ci-failure critical "SAMPLE: ROSA create failed"
 
             - name: Sheet link
               shell: bash
