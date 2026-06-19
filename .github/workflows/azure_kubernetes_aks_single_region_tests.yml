@@ -595,7 +595,16 @@ jobs:
                   ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-external-db-secrets.sh
 
             - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
-              timeout-minutes: 10
+              # Bumped from 10m: in domain mode install-chart.sh now also waits
+              # (bounded, fail-open) for the public Keycloak issuer to converge
+              # before returning, so the step needs room for the helm install plus
+              # that wait.
+              timeout-minutes: 22
+              env:
+                  # install-chart.sh waits for the public Keycloak issuer in domain
+                  # mode; the CI cert is the Vault wildcard (internal CA), so skip TLS
+                  # verification for that readiness probe when that cert is in use.
+                  KEYCLOAK_WAIT_INSECURE: ${{ steps.cert-config.outputs.use-wildcard-cert == 'true' && 'true' || '' }}
               run: |
                   set -euo pipefail
 
