@@ -103,10 +103,15 @@ runs:
                       # (missing kubeconfig / RBAC) stay visible; '|| true' keeps
                       # the bounce best-effort (fail-open).
                       for workload in "statefulset/${RELEASE_NAME}-zeebe" "deployment/${RELEASE_NAME}-connectors"; do
-                          if kubectl -n "${NAMESPACE}" get "${workload}" >/dev/null 2>&1; then
+                          # --ignore-not-found keeps a genuine "absent" quiet
+                          # (empty + exit 0) while real failures (no kubeconfig /
+                          # RBAC) exit non-zero and surface as a warning.
+                          if ! found=$(kubectl -n "${NAMESPACE}" get "${workload}" --ignore-not-found -o name 2>&1); then
+                              echo "::warning::Could not query ${workload}: ${found}"
+                          elif [ -n "${found}" ]; then
                               kubectl -n "${NAMESPACE}" rollout restart "${workload}" || true
                           else
-                              echo "Skipping ${workload}: not found in namespace ${NAMESPACE}."
+                              echo "Skipping ${workload}: not present in namespace ${NAMESPACE}."
                           fi
                       done
                       exit 0
