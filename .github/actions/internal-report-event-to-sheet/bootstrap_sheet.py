@@ -71,15 +71,18 @@ def _dashboard_layout(tab: str) -> list[list]:
     SHEET_TAB names containing spaces still resolve.
     """
     q = f"'{tab}'"
-    seven = '">="&TEXT(NOW()-7,"yyyy-mm-dd")'
+    # Timestamps are stored as text (RAW, for injection safety), so date filters
+    # use string comparison (ISO sorts chronologically) via SUMPRODUCT/QUERY
+    # rather than COUNTIFS, whose >=date criterion never matches text cells.
+    seven = 'TEXT(NOW()-7,"yyyy-mm-dd")'
     return [
         ["CI Events Dashboard", "", "", "", ""],
         ["Auto-updates from the events tab. Most urgent first.", "", "", "", ""],
         ["Failures 7d", "Warnings 7d", "Stable-branch failures 7d", "Worst streak", "Last event"],
         [
-            f'=COUNTIFS({q}!G:G,"failure",{q}!A:A,{seven})',
-            f'=COUNTIFS({q}!G:G,"warning",{q}!A:A,{seven})',
-            f'=COUNTIFS({q}!G:G,"failure",{q}!C:C,"stable/*",{q}!A:A,{seven})',
+            f'=SUMPRODUCT(({q}!$G$2:$G="failure")*({q}!$A$2:$A>={seven}))',
+            f'=SUMPRODUCT(({q}!$G$2:$G="warning")*({q}!$A$2:$A>={seven}))',
+            f'=SUMPRODUCT(({q}!$G$2:$G="failure")*(LEFT({q}!$C$2:$C,7)="stable/")*({q}!$A$2:$A>={seven}))',
             f'=IFERROR(MAX(ARRAYFORMULA(IF({q}!M2:M="",0,VALUE({q}!M2:M)))),0)',
             f'=IFERROR(INDEX(SORT(FILTER({q}!A2:A,{q}!A2:A<>""),1,FALSE),1,1),"-")',
         ],
@@ -88,9 +91,9 @@ def _dashboard_layout(tab: str) -> list[list]:
         [
             (
                 f'=SPARKLINE(BYCOL(SEQUENCE(1,14,TODAY()-13),'
-                f'LAMBDA(d,COUNTIFS({q}!$G:$G,"failure",'
-                f'{q}!$A:$A,">="&TEXT(d,"yyyy-mm-dd"),'
-                f'{q}!$A:$A,"<"&TEXT(d+1,"yyyy-mm-dd")))),'
+                f'LAMBDA(d,SUMPRODUCT(({q}!$G$2:$G="failure")*'
+                f'({q}!$A$2:$A>=TEXT(d,"yyyy-mm-dd"))*'
+                f'({q}!$A$2:$A<TEXT(d+1,"yyyy-mm-dd"))))),'
                 '{"charttype","column";"color","#cc0000"})'
             ),
             "",
