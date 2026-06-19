@@ -7,8 +7,8 @@ name: Internal - Global - CI Events to Google Sheet
 #
 # Trigger summary:
 # - workflow_run : append a row per failing run + scan annotations for warnings.
-# - pull_request : preview - bootstrap the sheet and seed a few sample rows so
-#                  the dashboard rendering can be reviewed from the PR.
+# - pull_request : bootstrap the sheet (idempotent structure + dashboard), a
+#                  lightweight validation of the Sheets integration.
 # - workflow_dispatch : (re)bootstrap the sheet structure on demand.
 
 on:
@@ -62,79 +62,19 @@ jobs:
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common GOOGLE_SHEETS_SA_KEY;
 
-            - name: Diagnostic dashboard dump (PR preview only)
-              if: ${{ github.event_name == 'pull_request' }}
-              shell: bash
-              env:
-                  GOOGLE_SHEETS_SA_KEY: ${{ steps.secrets.outputs.GOOGLE_SHEETS_SA_KEY }}
-                  SHEET_SPREADSHEET_ID: ${{ env.SHEET_ID }}
-              run: |
-                  set -uo pipefail
-                  python3 -m pip install --quiet --disable-pip-version-check \
-                      "google-api-python-client>=2,<3" "google-auth>=2,<3"
-                  python3 - <<'PY'
-                  import base64
-                  import json
-                  import os
-
-                  from google.oauth2.service_account import Credentials
-                  from googleapiclient.discovery import build
-
-                  raw = os.environ["GOOGLE_SHEETS_SA_KEY"].strip()
-                  if not raw.startswith("{"):
-                      raw = base64.b64decode(raw).decode("utf-8")
-                  creds = Credentials.from_service_account_info(
-                      json.loads(raw),
-                      scopes=["https://www.googleapis.com/auth/spreadsheets"],
-                  )
-                  svc = build("sheets", "v4", credentials=creds, cache_discovery=False)
-                  sid = os.environ["SHEET_SPREADSHEET_ID"]
-                  vals = (
-                      svc.spreadsheets()
-                      .values()
-                      .get(spreadsheetId=sid, range="dashboard!A1:M18", valueRenderOption="FORMATTED_VALUE")
-                      .execute()
-                      .get("values", [])
-                  )
-                  for i, row in enumerate(vals, 1):
-                      print(f"{i:>2}: " + " | ".join(row))
-                  PY
-
             - name: Bootstrap structure and dashboard
               shell: bash
               env:
                   GOOGLE_SHEETS_SA_KEY: ${{ steps.secrets.outputs.GOOGLE_SHEETS_SA_KEY }}
                   SHEET_SPREADSHEET_ID: ${{ env.SHEET_ID }}
+                  # One-off: clear the seeded preview sample rows. Removed in the
+                  # follow-up commit so routine bootstraps never wipe real data.
+                  SHEET_RESET: 'true'
               run: |
                   set -uo pipefail
                   python3 -m pip install --quiet --disable-pip-version-check \
                       "google-api-python-client>=2,<3" "google-auth>=2,<3"
                   python3 .github/actions/internal-report-event-to-sheet/bootstrap_sheet.py
-
-            - name: Seed sample events (PR preview only)
-              if: ${{ github.event_name == 'pull_request' }}
-              shell: bash
-              env:
-                  GOOGLE_SHEETS_SA_KEY: ${{ steps.secrets.outputs.GOOGLE_SHEETS_SA_KEY }}
-                  SHEET_SPREADSHEET_ID: ${{ env.SHEET_ID }}
-                  SHEET_STRICT: 'true'
-                  EVENT_REPO: ${{ github.repository }}
-                  EVENT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-                  EVENT_ACTOR: render-preview
-                  EVENT_COMMIT: ${{ github.sha }}
-              run: |
-                  set -uo pipefail
-                  seed() {
-                      EVENT_TYPE="$1" EVENT_BRANCH="$2" EVENT_WORKFLOW="$3" \
-                      EVENT_CATEGORY="$4" EVENT_SEVERITY="$5" EVENT_TITLE="$6" \
-                      EVENT_RUN_ID="${RANDOM}${RANDOM}" \
-                      python3 .github/actions/internal-report-event-to-sheet/append_event.py
-                  }
-                  seed failure "stable/8.9" "Tests - Integration - Azure Kubernetes AKS Single Region" ci-failure critical "SAMPLE: Azure vCPU quota"
-                  seed failure "stable/8.9" "Tests - Integration - Generic Operator based" ci-failure critical "SAMPLE: EKS deploy-health timeout"
-                  seed warning "stable/8.9" "Tests - Integration - Azure Kubernetes AKS Single Region" helm-config-drift info "SAMPLE: 33 unknown keys"
-                  seed failure "main" "Tests - Integration - AWS Compute EC2 Single Region" ci-failure warning "SAMPLE: flaky EC2 run"
-                  seed warning "main" "Tests - Integration - Generic Operator based" helm-config-drift info "SAMPLE: deprecation warning"
 
             - name: Sheet link
               shell: bash
