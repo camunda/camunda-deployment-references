@@ -44,7 +44,7 @@ env:
 
 jobs:
     bootstrap:
-        name: Bootstrap sheet (+ seed on PR preview)
+        name: Bootstrap sheet
         if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
         runs-on: ubuntu-latest
         steps:
