@@ -1,0 +1,72 @@
+---
+name: Tests - BYO-VPC - AWS Containers ECS Dual Region Fargate
+
+# BYO-VPC end-to-end. Spins up throwaway VPCs via aws/test-fixtures/byo-vpcs/,
+# applies the ecs-dual-region-fargate stack with byo_vpc = true, asserts on
+# Raft quorum, destroys everything. Heavier and slower than the greenfield
+# integration test (extra ~5 minutes for the fixture VPC setup) — runs on a
+# less-frequent schedule once enabled.
+#
+# NOT yet scheduled. Invoke via workflow_dispatch until the sandbox-account
+# smoke run validates the suite end-to-end.
+
+on:
+    workflow_dispatch:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    AWS_PROFILE: infraex
+    AWS_REGION: eu-west-2
+    TEST_DIR: ./aws/containers/ecs-dual-region-fargate/test/src
+
+jobs:
+    triage:
+        runs-on: ubuntu-slim
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    byo_vpc:
+        runs-on: ubuntu-latest
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        timeout-minutes: 120
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Cache Go modules
+              uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+              with:
+                  path: |
+                      ~/go/pkg/mod
+                      ~/.cache/go-build
+                  key: go-${{ runner.os }}-${{ hashFiles('aws/containers/ecs-dual-region-fargate/test/src/go.sum') }}
+
+            - name: Run BYO-VPC Terratest
+              working-directory: ${{ env.TEST_DIR }}
+              env:
+                  TEST_AWS_PROFILE: ${{ env.AWS_PROFILE }}
+                  TEST_REGION_0: eu-west-2
+                  TEST_REGION_1: eu-west-3
+              run: |
+                  go test -v -timeout 90m -run TestEndToEnd_BYO_VPC_TGW_RDBMS ./...

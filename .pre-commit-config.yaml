@@ -63,6 +63,13 @@ repos:
             types: [terraform]
             pass_filenames: false
 
+          - id: terraform-test-touched
+            name: Terraform test (touched states)
+            entry: scripts/run-terraform-test-touched.sh
+            language: script
+            files: \.(tf|tftest\.hcl)$
+            pass_filenames: false
+
     - repo: https://github.com/tekwizely/pre-commit-golang
       rev: v1.0.0-rc.4
       hooks:

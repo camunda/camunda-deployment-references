@@ -104,6 +104,12 @@ variable "service_health_check_grace_period_seconds" {
   default     = 900
 }
 
+variable "container_health_check_start_period_seconds" {
+  description = "Seconds ECS will ignore container health check failures during container startup (startPeriod). For dual-region deployments, Zeebe Raft quorum formation can take 5-15 minutes, so set this to at least 600."
+  type        = number
+  default     = 300
+}
+
 variable "cloudwatch_retention_days" {
   description = "The number of days to retain CloudWatch logs"
   type        = number
@@ -311,6 +317,52 @@ variable "task_desired_count" {
   description = "The desired count of ECS tasks to run in the ECS service - directly impacts the Zeebe cluster size"
   type        = number
   default     = 3
+}
+
+################################################################
+#                 Dual-Region Configs                          #
+################################################################
+
+variable "cluster_size" {
+  description = "Total Zeebe cluster size across all regions. Defaults to task_desired_count for single-region."
+  type        = number
+  default     = 0 # 0 means use task_desired_count
+}
+
+variable "replication_factor" {
+  description = "Zeebe replication factor. Must be 4 for dual-region."
+  type        = number
+  default     = 0 # 0 means do not set (use Camunda default)
+}
+
+variable "partition_count" {
+  description = "Zeebe partition count. Must equal cluster_size for dual-region."
+  type        = number
+  default     = 0 # 0 means do not set (use Camunda default)
+}
+
+variable "initial_contact_points" {
+  description = "Override for CAMUNDA_CLUSTER_INITIALCONTACTPOINTS. If set, replaces the default Service Connect-based value."
+  type        = string
+  default     = ""
+}
+
+variable "internal_nlb_arn" {
+  description = "ARN of the internal NLB for cross-region Raft traffic on port 26502. If set, registers a target group."
+  type        = string
+  default     = ""
+}
+
+variable "enable_internal_nlb_raft_listener" {
+  description = "Whether to create the internal NLB listener and target group for cross-region Raft on port 26502 (must be a known boolean at plan time)"
+  type        = bool
+  default     = false
+}
+
+variable "region_id" {
+  description = "Multi-region region ID (0 or 1). If >= 0, sets CAMUNDA_MULTIREGION_REGIONID."
+  type        = number
+  default     = -1 # -1 means do not set
 }
 
 variable "s3_force_destroy" {

@@ -1,0 +1,85 @@
+---
+name: Tests - Failover - AWS Containers ECS Dual Region Fargate
+
+# Failover and failback end-to-end. Deploys baseline, runs procedure/failover.sh
+# (planned/unplanned) and procedure/failback.sh (with/without --switch-writer),
+# asserts on Aurora Global writer-region transitions.
+#
+# Expensive: each variant is a full deploy + the failover sequence. Rotation
+# across Camunda versions is intentional — fewer concurrent deploys, lower
+# AWS spend. Schedule added once the suite passes against the sandbox.
+#
+# NOT yet scheduled. Invoke via workflow_dispatch until validated.
+
+on:
+    workflow_dispatch:
+        inputs:
+            test_name:
+                description: Which failover test to run (default = all)
+                required: false
+                default: ''
+                type: string
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    AWS_PROFILE: infraex
+    AWS_REGION: eu-west-2
+    TEST_DIR: ./aws/containers/ecs-dual-region-fargate/test/src
+
+jobs:
+    triage:
+        runs-on: ubuntu-slim
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    failover:
+        runs-on: ubuntu-latest
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        timeout-minutes: 150
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Cache Go modules
+              uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+              with:
+                  path: |
+                      ~/go/pkg/mod
+                      ~/.cache/go-build
+                  key: go-${{ runner.os }}-${{ hashFiles('aws/containers/ecs-dual-region-fargate/test/src/go.sum') }}
+
+            - name: Run failover Terratest
+              working-directory: ${{ env.TEST_DIR }}
+              env:
+                  TEST_AWS_PROFILE: ${{ env.AWS_PROFILE }}
+                  TEST_REGION_0: eu-west-2
+                  TEST_REGION_1: eu-west-3
+              run: |
+                  set -e
+                  TEST_FILTER="${{ inputs.test_name }}"
+                  if [[ -z "$TEST_FILTER" ]]; then
+                      go test -v -timeout 120m -run 'TestPlannedFailover|TestUnplannedFailover|TestFailback_NoSwitchWriter|TestFailback_SwitchWriter' ./...
+                  else
+                      go test -v -timeout 120m -run "$TEST_FILTER" ./...
+                  fi
