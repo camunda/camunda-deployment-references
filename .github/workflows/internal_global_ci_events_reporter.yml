@@ -1,0 +1,164 @@
+---
+name: Internal - Global - CI Events to Google Sheet
+
+# Reports CI events (failures = alerts, non-blocking Helm drift = warnings) into
+# a Google Sheet for cross-branch grouping/triage. As a workflow_run reporter it
+# lives on the default branch yet observes runs from every branch.
+#
+# Trigger summary:
+# - workflow_run : append a row per failing run + scan annotations for warnings.
+# - workflow_dispatch : (re)bootstrap the sheet structure on demand.
+
+on:
+    workflow_run:
+        types:
+            - completed
+        workflows:
+            - Tests - Integration - Azure Kubernetes AKS Single Region
+            - Tests - Integration - Generic Operator based
+            - Tests - Integration - AWS Kubernetes EKS Single Region (IRSA)
+            - Tests - Integration - AWS Kubernetes EKS Dual Region
+            - Tests - Integration - AWS OpenShift ROSA HCP Single Region
+            - Tests - Integration - AWS OpenShift ROSA HCP Dual Region
+            - Tests - Integration - AWS Containers ECS Single Region Fargate
+            - Tests - Integration - AWS Compute EC2 Single Region
+            - Tests - Integration - AWS EKS/RDS/OS Modules
+            - Tests - Integration - Local Kubernetes Kind Single Region
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    checks: read
+
+env:
+    # The reporting spreadsheet id (not a secret; access is controlled by sharing
+    # the sheet with the service account). Sheet:
+    # https://docs.google.com/spreadsheets/d/1wP6u0N4KHAU_WrogputF-6rdKjtZkf-To9VZnSWJNes
+    SHEET_ID: 1wP6u0N4KHAU_WrogputF-6rdKjtZkf-To9VZnSWJNes
+
+jobs:
+    bootstrap:
+        name: Bootstrap sheet
+        # Manual only: the bootstrap pulls Vault secrets and runs repo code, so it
+        # is never wired to PR events (no secrets-exfiltration surface).
+        if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common GOOGLE_SHEETS_SA_KEY;
+
+            - name: Bootstrap structure and dashboard
+              shell: bash
+              env:
+                  GOOGLE_SHEETS_SA_KEY: ${{ steps.secrets.outputs.GOOGLE_SHEETS_SA_KEY }}
+                  SHEET_SPREADSHEET_ID: ${{ env.SHEET_ID }}
+              run: |
+                  set -uo pipefail
+                  python3 -m pip install --quiet --disable-pip-version-check \
+                      "google-api-python-client>=2,<3" "google-auth>=2,<3"
+                  python3 .github/actions/internal-report-event-to-sheet/bootstrap_sheet.py
+
+            - name: Sheet link
+              shell: bash
+              run: echo "Rendering at https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit"
+
+    report-failure:
+        name: Report failing run
+        if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.head_repository.full_name
+            == github.repository }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Append failure event
+              uses: ./.github/actions/internal-report-event-to-sheet
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  spreadsheet-id: ${{ env.SHEET_ID }}
+                  event-type: failure
+                  category: ci-failure
+                  severity: ${{ startsWith(github.event.workflow_run.head_branch, 'stable/') && 'critical' || 'warning' }}
+                  title: ${{ github.event.workflow_run.display_title }}
+                  branch: ${{ github.event.workflow_run.head_branch }}
+                  workflow-name: ${{ github.event.workflow_run.name }}
+                  run-id: ${{ github.event.workflow_run.id }}
+                  run-url: ${{ github.event.workflow_run.html_url }}
+                  commit-sha: ${{ github.event.workflow_run.head_sha }}
+                  actor: ${{ github.event.workflow_run.actor.login }}
+
+    report-warnings:
+        name: Report non-blocking warnings
+        if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_repository.full_name == github.repository }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            # Non-blocking Helm drift is surfaced by internal-helm-deprecation-check as
+            # ::warning:: annotations on the observed run. Scan the run's check-run
+            # annotations (works for any branch, even when the run itself is green).
+            - name: Scan run for Helm drift warnings
+              id: scan
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+                  CHECK_SUITE_ID: ${{ github.event.workflow_run.check_suite_id }}
+              run: |
+                  set -uo pipefail
+                  PATTERN='Unknown configuration keys detected|Deprecation warnings detected|Removed configuration keys detected'
+                  found=no
+                  title=""
+                  # Best-effort: a Checks API hiccup must not fail the reporter, so any
+                  # error is treated as "no warnings found".
+                  CHECK_RUN_IDS=$(gh api "/repos/${REPO}/commits/${HEAD_SHA}/check-runs" --paginate \
+                      --jq ".check_runs[] | select(.check_suite.id == ${CHECK_SUITE_ID}) | .id" 2>/dev/null || true)
+                  while IFS= read -r id; do
+                      [[ -z "${id}" ]] && continue
+                      msg=$(gh api "/repos/${REPO}/check-runs/${id}/annotations" --paginate \
+                          --jq '.[].message' 2>/dev/null | grep -iE "${PATTERN}" | head -1 || true)
+                      if [[ -n "${msg}" ]]; then
+                          found=yes
+                          title="${msg}"
+                          break
+                      fi
+                  done <<< "${CHECK_RUN_IDS}"
+                  delim="ghadelim_$(openssl rand -hex 12)"
+                  {
+                    echo "has_warning=${found}"
+                    echo "title<<${delim}"
+                    echo "${title}"
+                    echo "${delim}"
+                  } >> "${GITHUB_OUTPUT}"
+
+            - name: Append warning event
+              if: ${{ steps.scan.outputs.has_warning == 'yes' }}
+              uses: ./.github/actions/internal-report-event-to-sheet
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  spreadsheet-id: ${{ env.SHEET_ID }}
+                  event-type: warning
+                  category: helm-config-drift
+                  severity: info
+                  title: ${{ steps.scan.outputs.title }}
+                  branch: ${{ github.event.workflow_run.head_branch }}
+                  workflow-name: ${{ github.event.workflow_run.name }}
+                  run-id: ${{ github.event.workflow_run.id }}
+                  run-url: ${{ github.event.workflow_run.html_url }}
+                  commit-sha: ${{ github.event.workflow_run.head_sha }}
+                  actor: ${{ github.event.workflow_run.actor.login }}
