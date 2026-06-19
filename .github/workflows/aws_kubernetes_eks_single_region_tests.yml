@@ -708,6 +708,15 @@ jobs:
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
 
+            - name: ⏳ Wait for the OIDC issuer to be reachable
+              if: matrix.declination.name == 'domain'
+              uses: ./.github/actions/internal-wait-oidc-issuer
+              with:
+                  issuer-url: https://${{ env.DOMAIN_NAME }}/auth/realms/camunda-platform
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  insecure: ${{ steps.cert-config.outputs.use-wildcard-cert }}
+
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
               run: |
