@@ -61,7 +61,7 @@ echo "[INFO] Substituting credential placeholders in temporary config files..."
 export CAMUNDA_BASIC_AUTH_USER CAMUNDA_BASIC_AUTH_PASSWORD
 
 if [ "${CAMUNDA_BASIC_AUTH_USER}" = "demo" ] && [ "${CAMUNDA_BASIC_AUTH_PASSWORD}" = "demo" ]; then
-    echo "[WARN] Camunda is being configured with the default demo:demo credentials."
+    echo "[WARN] Camunda is being configured with the default demo:demo credentials." # no-demo-credentials:ignore
     echo "       Set CAMUNDA_BASIC_AUTH_USER and CAMUNDA_BASIC_AUTH_PASSWORD before running"
     echo "       this script to use unique credentials (recommended for any non-throwaway env)."
 fi
