@@ -87,7 +87,7 @@ def _dashboard_layout(tab: str) -> list[list]:
             f'=IFERROR(INDEX(SORT(FILTER({q}!A2:A,{q}!A2:A<>""),1,FALSE),1,1),"-")',
         ],
         ["", "", "", "", ""],
-        ["14-day failure trend", "", "Hotlist (branch / workflow / type, last 30d)", "", ""],
+        ["Failures (14d)", "Warnings (14d)", "Hotlist (branch / workflow / type, last 30d)", "", ""],
         [
             (
                 f'=SPARKLINE(BYCOL(SEQUENCE(1,14,TODAY()-13),'
@@ -96,7 +96,13 @@ def _dashboard_layout(tab: str) -> list[list]:
                 f'({q}!$A$2:$A<TEXT(d+1,"yyyy-mm-dd"))))),'
                 '{"charttype","column";"color","#cc0000"})'
             ),
-            "",
+            (
+                f'=SPARKLINE(BYCOL(SEQUENCE(1,14,TODAY()-13),'
+                f'LAMBDA(d,SUMPRODUCT(({q}!$G$2:$G="warning")*'
+                f'({q}!$A$2:$A>=TEXT(d,"yyyy-mm-dd"))*'
+                f'({q}!$A$2:$A<TEXT(d+1,"yyyy-mm-dd"))))),'
+                '{"charttype","column";"color","#e6a700"})'
+            ),
             (
                 f'=QUERY({q}!A2:N,"select C, D, G, count(E), max(A) '
                 "where A is not null and A >= '\"&TEXT(NOW()-30,\"yyyy-mm-dd\")&\"' "
@@ -357,6 +363,143 @@ def _apply_display_formatting(service, spreadsheet_id, events_id, triage_id, das
     print("Applied display formatting (freezes, headers, KPI emphasis, widths, dropdown).")
 
 
+def _recent_events_query(tab: str) -> str:
+    q = f"'{tab}'"
+    return (
+        f'=QUERY({q}!A2:N,"select A, C, D, G, J '
+        "where A is not null order by A desc limit 15 "
+        "label A 'Time', C 'Branch', D 'Workflow', G 'Type', J 'Title'\",0)"
+    )
+
+
+def _apply_dashboard_formatting(service, spreadsheet_id, dashboard_id):
+    # Idempotent: drop existing dashboard rules first.
+    meta = (
+        service.spreadsheets()
+        .get(
+            spreadsheetId=spreadsheet_id,
+            fields="sheets(properties.sheetId,conditionalFormats)",
+        )
+        .execute()
+    )
+    existing = 0
+    for sheet in meta.get("sheets", []):
+        if sheet["properties"]["sheetId"] == dashboard_id:
+            existing = len(sheet.get("conditionalFormats", []) or [])
+            break
+
+    red = {"backgroundColor": {"red": 0.96, "green": 0.73, "blue": 0.73}}
+    amber = {"backgroundColor": {"red": 1, "green": 0.9, "blue": 0.6}}
+    green = {"backgroundColor": {"red": 0.85, "green": 0.94, "blue": 0.83}}
+
+    def cell(row, col):
+        return {
+            "sheetId": dashboard_id,
+            "startRowIndex": row,
+            "endRowIndex": row + 1,
+            "startColumnIndex": col,
+            "endColumnIndex": col + 1,
+        }
+
+    def num_rule(rng, op, val, fmt):
+        return {
+            "addConditionalFormatRule": {
+                "index": 0,
+                "rule": {
+                    "ranges": [rng],
+                    "booleanRule": {
+                        "condition": {"type": op, "values": [{"userEnteredValue": str(val)}]},
+                        "format": fmt,
+                    },
+                },
+            }
+        }
+
+    def custom_rule(rng, formula, fmt):
+        return {
+            "addConditionalFormatRule": {
+                "index": 0,
+                "rule": {
+                    "ranges": [rng],
+                    "booleanRule": {
+                        "condition": {
+                            "type": "CUSTOM_FORMULA",
+                            "values": [{"userEnteredValue": formula}],
+                        },
+                        "format": fmt,
+                    },
+                },
+            }
+        }
+
+    # Hotlist Type column is E (offset 4); rows start at 8 (index 7).
+    type_range = {"sheetId": dashboard_id, "startRowIndex": 7, "startColumnIndex": 4, "endColumnIndex": 5}
+    requests = [
+        {"deleteConditionalFormatRule": {"sheetId": dashboard_id, "index": 0}}
+        for _ in range(existing)
+    ]
+    requests += [
+        # KPI scorecards: red/amber when >0, green at 0.
+        num_rule(cell(3, 0), "NUMBER_EQ", 0, green),
+        num_rule(cell(3, 0), "NUMBER_GREATER", 0, red),
+        num_rule(cell(3, 1), "NUMBER_EQ", 0, green),
+        num_rule(cell(3, 1), "NUMBER_GREATER", 0, amber),
+        num_rule(cell(3, 2), "NUMBER_EQ", 0, green),
+        num_rule(cell(3, 2), "NUMBER_GREATER", 0, red),
+        # Hotlist Type column.
+        custom_rule(type_range, '=$E8="warning"', amber),
+        custom_rule(type_range, '=$E8="failure"', red),
+        # Number format on the hotlist "# events" column (F, offset 5).
+        {
+            "repeatCell": {
+                "range": {"sheetId": dashboard_id, "startRowIndex": 7, "startColumnIndex": 5, "endColumnIndex": 6},
+                "cell": {"userEnteredFormat": {"numberFormat": {"type": "NUMBER", "pattern": "0"}}},
+                "fields": "userEnteredFormat.numberFormat",
+            }
+        },
+    ]
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=spreadsheet_id, body={"requests": requests}
+    ).execute()
+    print("Applied dashboard KPI colours + hotlist formatting.")
+
+
+def _apply_events_filter(service, spreadsheet_id, events_id):
+    # Idempotent saved filter view named "CI events" so anyone can slice by
+    # branch / type / date without disturbing others.
+    meta = (
+        service.spreadsheets()
+        .get(spreadsheetId=spreadsheet_id, fields="sheets(properties.sheetId,filterViews)")
+        .execute()
+    )
+    requests = []
+    for sheet in meta.get("sheets", []):
+        if sheet["properties"]["sheetId"] != events_id:
+            continue
+        for view in sheet.get("filterViews", []) or []:
+            if view.get("title") == "CI events":
+                requests.append({"deleteFilterView": {"filterId": view["filterViewId"]}})
+    requests.append(
+        {
+            "addFilterView": {
+                "filter": {
+                    "title": "CI events",
+                    "range": {
+                        "sheetId": events_id,
+                        "startRowIndex": 0,
+                        "startColumnIndex": 0,
+                        "endColumnIndex": EVENTS_COL_COUNT,
+                    },
+                }
+            }
+        }
+    )
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=spreadsheet_id, body={"requests": requests}
+    ).execute()
+    print("Created 'CI events' filter view.")
+
+
 def main() -> int:
     spreadsheet_id = os.environ["SHEET_SPREADSHEET_ID"]
     events_tab = os.environ.get("SHEET_TAB", "events")
@@ -396,6 +539,8 @@ def main() -> int:
     try:
         _ensure_tab(service, spreadsheet_id, meta, "dashboard")
         _write(service, spreadsheet_id, "dashboard!A1", _dashboard_layout(events_tab))
+        _write(service, spreadsheet_id, "dashboard!I6", [["Recent events (latest first)"]])
+        _write(service, spreadsheet_id, "dashboard!I7", [[_recent_events_query(events_tab)]])
         print("Wrote dashboard layout.")
     except Exception as exc:  # noqa: BLE001
         _warn(f"dashboard layout step failed: {exc}")
@@ -422,6 +567,19 @@ def main() -> int:
             )
     except Exception as exc:  # noqa: BLE001
         _warn(f"display formatting step failed: {exc}")
+
+    try:
+        meta = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        dashboard_id = _sheet_id(meta, "dashboard")
+        if dashboard_id is not None:
+            _apply_dashboard_formatting(service, spreadsheet_id, dashboard_id)
+    except Exception as exc:  # noqa: BLE001
+        _warn(f"dashboard formatting step failed: {exc}")
+
+    try:
+        _apply_events_filter(service, spreadsheet_id, events_id)
+    except Exception as exc:  # noqa: BLE001
+        _warn(f"events filter step failed: {exc}")
 
     print("Bootstrap complete.")
     return 0
