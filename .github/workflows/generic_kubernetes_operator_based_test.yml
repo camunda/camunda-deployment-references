@@ -751,11 +751,12 @@ jobs:
             # document from the public Keycloak issuer at startup, which only
             # converges minutes after install (realm provisioning + DNS + cert +
             # ingress). wait-for-keycloak.sh waits (bounded, fail-open) for it to
-            # answer, then restarts the crash-looping workloads; on timeout it warns
-            # and continues. The same script is shipped to customers
-            # and reused by the kind flow. KEYCLOAK_WAIT_INSECURE is enabled only
-            # when the Vault wildcard cert is in use (internal CA the runner does not
-            # trust); with Let's Encrypt certs the issuer poll keeps TLS verification.
+            # answer; the workloads are bounced by the steps below, after the CoreDNS
+            # refresh (hence KEYCLOAK_WAIT_SKIP_RESTART). The same script is shipped
+            # to customers and reused by the kind flow. KEYCLOAK_WAIT_INSECURE is
+            # enabled only when the Vault wildcard cert is in use (internal CA the
+            # runner does not trust); with Let's Encrypt certs the poll keeps TLS
+            # verification.
             - name: ⏳ Wait for Keycloak realm/issuer reachable
               if: matrix.declination.name == 'domain'
               timeout-minutes: 12
