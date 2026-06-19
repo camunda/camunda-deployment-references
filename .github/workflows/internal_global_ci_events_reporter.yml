@@ -98,59 +98,6 @@ jobs:
                   seed failure "main" "Tests - Integration - AWS Compute EC2 Single Region" ci-failure warning "SAMPLE: flaky EC2 run"
                   seed warning "main" "Tests - Integration - Generic Operator based" helm-config-drift info "SAMPLE: deprecation warning"
 
-            - name: Read back render and clear samples (PR preview only)
-              if: ${{ github.event_name == 'pull_request' }}
-              shell: bash
-              env:
-                  GOOGLE_SHEETS_SA_KEY: ${{ steps.secrets.outputs.GOOGLE_SHEETS_SA_KEY }}
-                  SHEET_SPREADSHEET_ID: ${{ env.SHEET_ID }}
-              run: |
-                  set -uo pipefail
-                  python3 - <<'PY'
-                  import base64
-                  import json
-                  import os
-                  import time
-
-                  from google.oauth2.service_account import Credentials
-                  from googleapiclient.discovery import build
-
-                  raw = os.environ["GOOGLE_SHEETS_SA_KEY"].strip()
-                  if not raw.startswith("{"):
-                      raw = base64.b64decode(raw).decode("utf-8")
-                  creds = Credentials.from_service_account_info(
-                      json.loads(raw),
-                      scopes=["https://www.googleapis.com/auth/spreadsheets"],
-                  )
-                  svc = build("sheets", "v4", credentials=creds, cache_discovery=False)
-                  sid = os.environ["SHEET_SPREADSHEET_ID"]
-
-                  # Let freshly-written formulas recalculate before reading them back.
-                  time.sleep(20)
-
-                  def show(title, rng):
-                      vals = (
-                          svc.spreadsheets()
-                          .values()
-                          .get(spreadsheetId=sid, range=rng, valueRenderOption="FORMATTED_VALUE")
-                          .execute()
-                          .get("values", [])
-                      )
-                      print(f"--- {title} ({rng}) ---")
-                      for row in vals:
-                          print(" | ".join(row))
-                      print()
-
-                  show("KPI scorecards", "dashboard!A3:E4")
-                  show("Hotlist (grouped)", "dashboard!C6:G14")
-                  show("Recent events", "dashboard!I6:M16")
-
-                  svc.spreadsheets().values().clear(
-                      spreadsheetId=sid, range="events!A2:N"
-                  ).execute()
-                  print("Cleared seeded sample rows.")
-                  PY
-
             - name: Sheet link
               shell: bash
               run: echo "Rendering at https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit"
