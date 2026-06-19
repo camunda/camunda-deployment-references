@@ -631,6 +631,15 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
+            - name: ⏳ Wait for the OIDC issuer to be reachable
+              if: matrix.declination.name == 'domain'
+              uses: ./.github/actions/internal-wait-oidc-issuer
+              with:
+                  issuer-url: https://${{ env.CAMUNDA_DOMAIN }}/auth/realms/camunda-platform
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  insecure: 'true'
+
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
               run: |

@@ -891,40 +891,14 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
-            # In domain + OIDC mode the Camunda app pods (Zeebe, Connectors, …)
-            # contact the public Keycloak URL at startup to fetch the OIDC
-            # discovery document. The public ingress (DNS + cert-manager + LB
-            # provisioning) typically takes several minutes to converge after
-            # `helm install`, during which time the app pods crash-loop. With
-            # exponential backoff the next restart can be delayed up to 5 min,
-            # so the deployment can fail to ever become healthy within the
-            # `Wait for the deployment` timeout. Wait for the public Keycloak
-            # URL to answer 200 first, then bounce the crash-looping
-            # statefulsets so they restart immediately instead of after the
-            # next backoff window.
-            - name: ⏳ Wait for Keycloak external URL reachable
+            - name: ⏳ Wait for the OIDC issuer to be reachable
               if: matrix.declination.name == 'domain'
-              timeout-minutes: 12
-              run: |
-                  set -uo pipefail
-                  KC_URL="https://${CAMUNDA_DOMAIN}/auth/realms/camunda-platform/.well-known/openid-configuration"
-                  echo "Waiting for Keycloak OIDC discovery: $KC_URL"
-                  ATTEMPTS=120 # 120 * 5s = 10 minutes
-                  for i in $(seq 1 "$ATTEMPTS"); do
-                      CODE=$(curl -ksS -o /dev/null -w '%{http_code}' --max-time 5 "$KC_URL" || echo "000")
-                      if [[ "$CODE" == "200" ]]; then
-                          echo "✅ Keycloak reachable (HTTP $CODE) after $i attempt(s)"
-                          # Bounce crash-looping app pods so they restart now
-                          # instead of waiting on exponential backoff.
-                          kubectl -n "$CAMUNDA_NAMESPACE" rollout restart \
-                              statefulset/camunda-zeebe \
-                              deployment/camunda-connectors 2>/dev/null || true
-                          exit 0
-                      fi
-                      echo "[$i/$ATTEMPTS] not ready yet (HTTP $CODE), sleeping 5s…"
-                      sleep 5
-                  done
-                  echo "::warning::Keycloak external URL did not respond 200 within ${ATTEMPTS}*5s; continuing anyway."
+              uses: ./.github/actions/internal-wait-oidc-issuer
+              with:
+                  issuer-url: https://${{ env.CAMUNDA_DOMAIN }}/auth/realms/camunda-platform
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  insecure: ${{ steps.cert-config.outputs.use-wildcard-cert }}
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
