@@ -23,6 +23,7 @@
 #   CAMUNDA_OIDC_ISSUER_URL       full issuer base URL; overrides the one built from CAMUNDA_DOMAIN
 #   KEYCLOAK_WAIT_TIMEOUT_SECONDS total wall-clock budget in seconds (default: 600)
 #   KEYCLOAK_WAIT_INSECURE        'true' to skip TLS verification (e.g. an untrusted internal CA)
+#   KEYCLOAK_WAIT_SKIP_RESTART    'true' to only wait for the issuer and not restart the workloads
 
 set -uo pipefail
 
@@ -74,6 +75,10 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
     code="${code:-000}"
     if [ "$code" = "200" ]; then
         echo "Keycloak issuer is reachable (HTTP ${code}) after ${attempt} attempt(s)."
+        if [ "${KEYCLOAK_WAIT_SKIP_RESTART:-false}" = "true" ]; then
+            echo "KEYCLOAK_WAIT_SKIP_RESTART=true; leaving the workload restart to the caller."
+            exit 0
+        fi
         echo "Restarting Camunda workloads to clear any first-start crash-loop backoff..."
         kubectl --namespace "$namespace" rollout restart "statefulset/${release}-zeebe" || true
         # Connectors may be disabled in some scenarios; tolerate that specific case
