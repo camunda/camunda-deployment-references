@@ -693,11 +693,7 @@ jobs:
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
 
-            # TODO: re-enable once the Helm chart schema recognises the Contour values
-            # (e.g. orchestration.service.annotations 'projectcontour.io/upstream-protocol.h2c').
-            # Tracked upstream in camunda/camunda-platform-helm#4564.
             - name: 🔍 Check for Helm deprecation warnings
-              continue-on-error: true
               uses: ./.github/actions/internal-helm-deprecation-check
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
