@@ -75,6 +75,17 @@ runs:
                   curl_opts+=(--insecure)
               fi
 
+              # Fail-open safety: coerce timeout-seconds to a positive base-10
+              # integer so the deadline arithmetic can never error out on an
+              # empty / non-numeric / leading-zero (octal) value.
+              if [[ "${TIMEOUT_SECONDS}" =~ ^[0-9]+$ ]]; then
+                  TIMEOUT_SECONDS=$(( 10#${TIMEOUT_SECONDS} ))
+              fi
+              if ! [[ "${TIMEOUT_SECONDS}" =~ ^[1-9][0-9]*$ ]]; then
+                  echo "::warning::Invalid timeout-seconds value; falling back to 600s."
+                  TIMEOUT_SECONDS=600
+              fi
+
               echo "Waiting up to ${TIMEOUT_SECONDS}s for the OIDC discovery document: ${discovery}"
               deadline=$(( $(date +%s) + TIMEOUT_SECONDS ))
               attempt=0
