@@ -479,13 +479,13 @@ runs:
 
                   if [[ "$not_ready" -eq 0 ]]; then
                       stable=$(( stable + 1 ))
-                      echo "✅ All pods Running and Ready (stable ${stable}/${STABLE_POLLS_REQUIRED})."
+                      echo "✅ All pods Ready (stable ${stable}/${STABLE_POLLS_REQUIRED})."
                       if [[ "$stable" -ge "$STABLE_POLLS_REQUIRED" ]]; then
                           break
                       fi
                   else
                       stable=0
-                      echo "⏳ ${not_ready} pod(s) not yet Running/Ready, waiting..."
+                      echo "⏳ ${not_ready} pod(s) not yet Ready, waiting..."
                   fi
 
                   if [[ "$(date +%s)" -ge "$deadline" ]]; then
