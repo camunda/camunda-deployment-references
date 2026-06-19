@@ -40,7 +40,7 @@ This action is a `composite` action.
 ## Usage
 
 ```yaml
-- uses: ***PROJECT***@***VERSION***
+- uses: camunda/camunda-deployment-references/.github/actions/internal-wait-oidc-issuer@main
   with:
     issuer-url:
     # OIDC issuer base URL. The discovery document polled is
