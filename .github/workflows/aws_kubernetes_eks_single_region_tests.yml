@@ -898,7 +898,7 @@ jobs:
                   issuer-url: https://${{ env.CAMUNDA_DOMAIN }}/auth/realms/camunda-platform
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
-                  insecure: ${{ steps.cert-config.outputs.use-wildcard-cert == 'true' && 'true' || '' }}
+                  insecure: ${{ steps.cert-config.outputs.use-wildcard-cert }}
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
