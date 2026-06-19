@@ -7,8 +7,6 @@ name: Internal - Global - CI Events to Google Sheet
 #
 # Trigger summary:
 # - workflow_run : append a row per failing run + scan annotations for warnings.
-# - pull_request : bootstrap the sheet (idempotent structure + dashboard), a
-#                  lightweight validation of the Sheets integration.
 # - workflow_dispatch : (re)bootstrap the sheet structure on demand.
 
 on:
@@ -26,10 +24,6 @@ on:
             - Tests - Integration - AWS Compute EC2 Single Region
             - Tests - Integration - AWS EKS/RDS/OS Modules
             - Tests - Integration - Local Kubernetes Kind Single Region
-    pull_request:
-        paths:
-            - .github/workflows/internal_global_ci_events_reporter.yml
-            - .github/actions/internal-report-event-to-sheet/**
     workflow_dispatch:
 
 permissions:
@@ -45,10 +39,9 @@ env:
 jobs:
     bootstrap:
         name: Bootstrap sheet
-        # Skip forked PRs: the bootstrap needs Vault secrets, which are not exposed
-        # to pull_request runs from forks.
-        if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
-            }}
+        # Manual only: the bootstrap pulls Vault secrets and runs repo code, so it
+        # is never wired to PR events (no secrets-exfiltration surface).
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
