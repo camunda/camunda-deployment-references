@@ -67,9 +67,6 @@ jobs:
               env:
                   GOOGLE_SHEETS_SA_KEY: ${{ steps.secrets.outputs.GOOGLE_SHEETS_SA_KEY }}
                   SHEET_SPREADSHEET_ID: ${{ env.SHEET_ID }}
-                  # One-off: clear the seeded preview sample rows. Removed in the
-                  # follow-up commit so routine bootstraps never wipe real data.
-                  SHEET_RESET: 'true'
               run: |
                   set -uo pipefail
                   python3 -m pip install --quiet --disable-pip-version-check \
