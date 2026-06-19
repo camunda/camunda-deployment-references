@@ -1,13 +1,15 @@
 ---
 name: Internal - Global - CI Events to Google Sheet
 
-# Centralised, main-only reporter. Lives on the default branch, so a single
-# copy observes runs from every branch via `workflow_run` and appends a row per
-# failing run to the reporting Google Sheet (grouped later by branch / workflow
-# / type). The `workflow_dispatch` entry point (re)creates the sheet headers.
+# Reports CI events (failures = alerts, non-blocking Helm drift = warnings) into
+# a Google Sheet for cross-branch grouping/triage. As a workflow_run reporter it
+# lives on the default branch yet observes runs from every branch.
 #
-# Activation switch: set the repository variable `CI_EVENTS_GOOGLE_SHEET_ID` to
-# the target spreadsheet id. When it is empty every job no-ops.
+# Trigger summary:
+# - workflow_run : append a row per failing run + scan annotations for warnings.
+# - pull_request : preview - bootstrap the sheet and seed a few sample rows so
+#                  the dashboard rendering can be reviewed from the PR.
+# - workflow_dispatch : (re)bootstrap the sheet structure on demand.
 
 on:
     workflow_run:
@@ -24,17 +26,26 @@ on:
             - Tests - Integration - AWS Compute EC2 Single Region
             - Tests - Integration - AWS EKS/RDS/OS Modules
             - Tests - Integration - Local Kubernetes Kind Single Region
-    # A manual dispatch (re)writes the `events` header row; no inputs needed.
+    pull_request:
+        paths:
+            - .github/workflows/internal_global_ci_events_reporter.yml
+            - .github/actions/internal-report-event-to-sheet/**
     workflow_dispatch:
 
 permissions:
     contents: read
     checks: read
 
+env:
+    # The reporting spreadsheet id (not a secret; access is controlled by sharing
+    # the sheet with the service account). Sheet:
+    # https://docs.google.com/spreadsheets/d/1wP6u0N4KHAU_WrogputF-6rdKjtZkf-To9VZnSWJNes
+    SHEET_ID: 1wP6u0N4KHAU_WrogputF-6rdKjtZkf-To9VZnSWJNes
+
 jobs:
     bootstrap:
-        name: Bootstrap sheet headers
-        if: ${{ github.event_name == 'workflow_dispatch' && vars.CI_EVENTS_GOOGLE_SHEET_ID != '' }}
+        name: Bootstrap sheet (+ seed on PR preview)
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -51,20 +62,50 @@ jobs:
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common GOOGLE_SHEETS_SA_KEY;
 
-            - name: Bootstrap headers
+            - name: Bootstrap structure and dashboard
               shell: bash
               env:
                   GOOGLE_SHEETS_SA_KEY: ${{ steps.secrets.outputs.GOOGLE_SHEETS_SA_KEY }}
-                  SHEET_SPREADSHEET_ID: ${{ vars.CI_EVENTS_GOOGLE_SHEET_ID }}
+                  SHEET_SPREADSHEET_ID: ${{ env.SHEET_ID }}
               run: |
-                  set -euo pipefail
+                  set -uo pipefail
                   python3 -m pip install --quiet --disable-pip-version-check \
                       "google-api-python-client>=2,<3" "google-auth>=2,<3"
                   python3 .github/actions/internal-report-event-to-sheet/bootstrap_sheet.py
 
+            - name: Seed sample events (PR preview only)
+              if: ${{ github.event_name == 'pull_request' }}
+              shell: bash
+              env:
+                  GOOGLE_SHEETS_SA_KEY: ${{ steps.secrets.outputs.GOOGLE_SHEETS_SA_KEY }}
+                  SHEET_SPREADSHEET_ID: ${{ env.SHEET_ID }}
+                  SHEET_STRICT: 'true'
+                  EVENT_REPO: ${{ github.repository }}
+                  EVENT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+                  EVENT_ACTOR: render-preview
+                  EVENT_COMMIT: ${{ github.sha }}
+              run: |
+                  set -uo pipefail
+                  seed() {
+                      EVENT_TYPE="$1" EVENT_BRANCH="$2" EVENT_WORKFLOW="$3" \
+                      EVENT_CATEGORY="$4" EVENT_SEVERITY="$5" EVENT_TITLE="$6" \
+                      EVENT_RUN_ID="${RANDOM}${RANDOM}" \
+                      python3 .github/actions/internal-report-event-to-sheet/append_event.py
+                  }
+                  seed failure "stable/8.9" "Tests - Integration - Azure Kubernetes AKS Single Region" ci-failure critical "SAMPLE: Azure vCPU quota"
+                  seed failure "stable/8.9" "Tests - Integration - Generic Operator based" ci-failure critical "SAMPLE: EKS deploy-health timeout"
+                  seed warning "stable/8.9" "Tests - Integration - Azure Kubernetes AKS Single Region" helm-config-drift info "SAMPLE: 33 unknown keys"
+                  seed failure "main" "Tests - Integration - AWS Compute EC2 Single Region" ci-failure warning "SAMPLE: flaky EC2 run"
+                  seed warning "main" "Tests - Integration - Generic Operator based" helm-config-drift info "SAMPLE: deprecation warning"
+                  seed failure "stable/8.8" "Tests - Integration - AWS OpenShift ROSA HCP Single Region" ci-failure critical "SAMPLE: ROSA create failed"
+
+            - name: Sheet link
+              shell: bash
+              run: echo "Rendering at https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit"
+
     report-failure:
         name: Report failing run
-        if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && vars.CI_EVENTS_GOOGLE_SHEET_ID != '' }}
+        if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -75,7 +116,7 @@ jobs:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  spreadsheet-id: ${{ vars.CI_EVENTS_GOOGLE_SHEET_ID }}
+                  spreadsheet-id: ${{ env.SHEET_ID }}
                   event-type: failure
                   category: ci-failure
                   severity: ${{ startsWith(github.event.workflow_run.head_branch, 'stable/') && 'critical' || 'warning' }}
@@ -89,7 +130,7 @@ jobs:
 
     report-warnings:
         name: Report non-blocking warnings
-        if: ${{ github.event_name == 'workflow_run' && vars.CI_EVENTS_GOOGLE_SHEET_ID != '' }}
+        if: ${{ github.event_name == 'workflow_run' }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -139,7 +180,7 @@ jobs:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  spreadsheet-id: ${{ vars.CI_EVENTS_GOOGLE_SHEET_ID }}
+                  spreadsheet-id: ${{ env.SHEET_ID }}
                   event-type: warning
                   category: helm-config-drift
                   severity: info
