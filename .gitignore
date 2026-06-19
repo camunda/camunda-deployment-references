@@ -142,3 +142,7 @@ actionlint
 # Claude Code local agent state (lock files, user-local settings)
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
+
+# Python bytecode cache
+__pycache__/
+*.pyc
