@@ -45,7 +45,10 @@ env:
 jobs:
     bootstrap:
         name: Bootstrap sheet
-        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
+        # Skip forked PRs: the bootstrap needs Vault secrets, which are not exposed
+        # to pull_request runs from forks.
+        if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+            }}
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
