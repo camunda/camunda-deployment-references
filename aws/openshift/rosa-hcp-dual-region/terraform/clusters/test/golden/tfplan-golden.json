@@ -1792,7 +1792,6 @@
                       null,
                       null
                     ],
-                    "channel_group": "stable",
                     "compute_machine_type": "m7i.xlarge",
                     "create_admin_user": null,
                     "destroy_timeout": null,
@@ -4705,7 +4704,6 @@
                       null,
                       null
                     ],
-                    "channel_group": "stable",
                     "compute_machine_type": "m7i.xlarge",
                     "create_admin_user": null,
                     "destroy_timeout": null,
