@@ -26,12 +26,12 @@ variable "default_tags" {
 
 variable "camunda_image" {
   type        = string
-  default     = "camunda/camunda:8.10-SNAPSHOT"
+  default     = "camunda/camunda:8.10.0-alpha1"
   description = "Container image for the Camunda orchestration cluster tasks (Zeebe broker + gateway + webapps)"
 }
 
 variable "connectors_image" {
   type        = string
-  default     = "camunda/connectors-bundle:8.10-SNAPSHOT"
+  default     = "camunda/connectors-bundle:8.10.0-alpha1"
   description = "Container image for the Camunda connectors-bundle tasks. Separate from camunda_image because connectors ship as a distinct artifact from the orchestration cluster."
 }
