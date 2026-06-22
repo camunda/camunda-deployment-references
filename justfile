@@ -163,6 +163,8 @@ regenerate-golden-file-all:
     # regeneration by providing test/golden/golden.tfvars; modules without it
     # (e.g. freshly added ones, or cross-state modules that cannot be planned
     # standalone) are skipped instead of failing the whole run.
+    # ECS dual-region modules currently lack golden coverage, tracked in:
+    # https://github.com/camunda/team-infrastructure-experience/issues/1158
     if [[ ! -f "${module_dir_abs}/test/golden/golden.tfvars" ]]; then
       echo "Skipping: ${module_dir_rel} (no test/golden/golden.tfvars)"
       continue
