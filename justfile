@@ -159,6 +159,15 @@ regenerate-golden-file-all:
       continue
     fi
 
+    # Skip modules that are not golden-tracked. A module opts in to golden
+    # regeneration by providing test/golden/golden.tfvars; modules without it
+    # (e.g. freshly added ones, or cross-state modules that cannot be planned
+    # standalone) are skipped instead of failing the whole run.
+    if [[ ! -f "${module_dir_abs}/test/golden/golden.tfvars" ]]; then
+      echo "Skipping: ${module_dir_rel} (no test/golden/golden.tfvars)"
+      continue
+    fi
+
     backend_key="golden.tfstate"
 
     echo "[${count}] Regenerating golden for: ${module_dir_rel}"
