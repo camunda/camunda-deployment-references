@@ -129,8 +129,12 @@ jobs:
                       exit 1
                     fi
 
-                    # Keep only real image tags (X.Y.Z-debian-12-rN); this drops the
-                    # bare majors, floating tags and the .sig/.att/.metadata artifacts.
+                    # Keep only Bitnami revisioned tags (ending in -debian-12-rN).
+                    # For most images this is X.Y.Z-debian-12-rN; os-shell is versioned
+                    # by Debian major only (e.g. 12-debian-12-rN), so we intentionally do
+                    # NOT require a full semver here or it would drop every os-shell tag.
+                    # This still drops floating tags (e.g. 14-debian-12, 14) and the
+                    # .sig/.att/.metadata artifacts.
                     mapfile -t tags < <(grep -E -- '-debian-12-r[0-9]+$' /tmp/all_tags | sort -V || true)
                     if [ "${#tags[@]}" -eq 0 ]; then
                       echo "ERROR: no '*-debian-12-rN' tags found for ${img} (${ref})." >&2
