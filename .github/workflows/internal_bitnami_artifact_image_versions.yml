@@ -56,6 +56,8 @@ env:
 jobs:
     save-bitnami-image-versions:
         runs-on: ubuntu-latest
+        permissions:
+            contents: write # push the generated files to the gh-pages branch
 
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
