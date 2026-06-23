@@ -26,6 +26,13 @@ on:
         paths:
             - .github/workflows/internal_bitnami_artifact_image_versions.yml
 
+# Serialize runs: the job checks out and pushes the gh-pages branch, so an
+# overlapping scheduled run and a manual dispatch/re-run could otherwise race on
+# the push. Do not cancel an in-progress publish midway.
+concurrency:
+    group: ${{ github.workflow }}
+    cancel-in-progress: false
+
 env:
     # Upstream Broadcom registry (source of truth).
     # Host is the stable GCP Artifact Registry endpoint; the repo prefix mirrors
@@ -173,6 +180,9 @@ jobs:
                   echo "::endgroup::"
 
             - name: Commit and push image tag artifacts to gh-pages
+              # Never mutate gh-pages from a pull_request run: PRs only validate
+              # generation; publishing happens on schedule / manual dispatch.
+              if: github.event_name != 'pull_request'
               shell: bash
               run: |
                   set -euo pipefail
