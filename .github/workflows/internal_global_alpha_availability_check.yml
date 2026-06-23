@@ -64,12 +64,19 @@ jobs:
                   # Scan for Docker image references like "org/image:X.Y-SNAPSHOT" or "org/image:X.Y.Z-SNAPSHOT"
                   # The pattern requires a version number before -SNAPSHOT to avoid matching
                   # file paths, variable names, or comments that happen to contain "SNAPSHOT"
+                  #
+                  # A line can opt out of this check with an inline "alpha-availability-check:ignore"
+                  # marker. Use it for images intentionally pinned to SNAPSHOT until a feature lands in
+                  # a later alpha (e.g. ECS dual-region region-awareness, shipping in 8.10 alpha3).
+                  # Such lines are dropped before image names are extracted.
                   while IFS= read -r image; do
                     if [[ -n "$image" ]] && ! printf '%s\n' "${SNAPSHOT_IMAGES[@]}" 2>/dev/null | grep -qxF "$image"; then
                       SNAPSHOT_IMAGES+=("$image")
                     fi
-                  done < <(grep -rohP '[a-z0-9._-]+/[a-z0-9._-]+(?=:\d+\.\d+[^\s"'"'"']*SNAPSHOT)' \
-                    --include="*.tf" --include="*.sh" --include="*.yml" --include="*.yaml" --include="*.tfvars" . || true)
+                  done < <(grep -rhP '[a-z0-9._-]+/[a-z0-9._-]+:\d+\.\d+[^\s"'"'"']*SNAPSHOT' \
+                    --include="*.tf" --include="*.sh" --include="*.yml" --include="*.yaml" --include="*.tfvars" . \
+                    | grep -vF 'alpha-availability-check:ignore' \
+                    | grep -ohP '[a-z0-9._-]+/[a-z0-9._-]+(?=:\d+\.\d+[^\s"'"'"']*SNAPSHOT)' || true)
 
                   if [[ ${#SNAPSHOT_IMAGES[@]} -eq 0 ]]; then
                     echo "No SNAPSHOT image references found in the repository."
