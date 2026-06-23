@@ -37,7 +37,8 @@ runs:
               echo "::endgroup::"
 
               echo "::group::Helm releases"
-              helm list -n "$NAMESPACE" -a "${CTX_ARGS[@]/#--context=/--kube-context=}" || true
+              # Helm 4 dropped the `-a`/`--all` flag; every status is listed by default.
+              helm list -n "$NAMESPACE" "${CTX_ARGS[@]/#--context=/--kube-context=}" || true
               echo "::endgroup::"
 
               echo "::group::Namespace events (last 50)"
@@ -136,7 +137,7 @@ runs:
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get svc,endpoints > "${DUMP_DIR}/services-endpoints.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get pvc > "${DUMP_DIR}/pvcs.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get configmaps,secrets > "${DUMP_DIR}/configmaps-secrets.txt" 2>&1 || true
-              helm list -n "$NAMESPACE" -a -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-releases.yaml" 2>&1 || true
+              helm list -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-releases.yaml" 2>&1 || true
               helm get values camunda -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-values-camunda.yaml" 2>&1 || true
 
               # Dump info for all non-Completed pods (per container)
