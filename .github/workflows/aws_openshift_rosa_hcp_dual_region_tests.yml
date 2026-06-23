@@ -762,7 +762,7 @@ jobs:
               run: |
                   set -euo pipefail
                   if [ -z "${CAMUNDA_BASIC_AUTH_USER:-}" ] || [ -z "${CAMUNDA_BASIC_AUTH_PASSWORD:-}" ]; then
-                    echo "::error::CAMUNDA_BASIC_AUTH_USER/PASSWORD not set; refusing to run the dual-region topology check against a demo:demo gateway (INC-5340)." >&2
+                    echo "::error::CAMUNDA_BASIC_AUTH_USER/PASSWORD not set; refusing to run the dual-region topology check against a default-auth gateway (INC-5340)." >&2
                     exit 1
                   fi
 
@@ -888,7 +888,7 @@ jobs:
             - integration-tests
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@aff27a56b63e8b408ad3af91df932558775356fc # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@da769276f29caf2b74d3dd00ba4b154714b1c0a5 # main
               with:
                   error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
                   run-id: ${{ github.run_id }}
