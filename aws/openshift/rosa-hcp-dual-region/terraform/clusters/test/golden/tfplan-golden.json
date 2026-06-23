@@ -413,6 +413,7 @@
                   "schema_version": 0,
                   "sensitive_values": {
                     "account_role_policies": {},
+                    "ocm_role_policies": {},
                     "operator_role_policies": {}
                   },
                   "type": "rhcs_hcp_policies"
@@ -3325,6 +3326,7 @@
                   "schema_version": 0,
                   "sensitive_values": {
                     "account_role_policies": {},
+                    "ocm_role_policies": {},
                     "operator_role_policies": {}
                   },
                   "type": "rhcs_hcp_policies"
