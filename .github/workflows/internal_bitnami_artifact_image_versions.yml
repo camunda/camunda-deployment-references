@@ -49,6 +49,27 @@ jobs:
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
 
+            # crane is installed here rather than via .tool-versions on purpose:
+            # it is only used by this workflow, and changing .tool-versions would
+            # trigger the (unrelated) Terraform golden-plan workflows that watch it.
+            - name: Install crane
+              shell: bash
+              env:
+                  # renovate: datasource=github-releases depName=google/go-containerregistry
+                  CRANE_VERSION: v0.21.6
+                  # sha256 of go-containerregistry_Linux_x86_64.tar.gz for CRANE_VERSION;
+                  # update it together with CRANE_VERSION.
+                  CRANE_SHA256: 7ebbdcd05b652345c1f5105f8475e518534b90d66f3bdb50017be63f426ea435
+              run: |
+                  set -euo pipefail
+                  tmp="$(mktemp -d)"
+                  curl -fsSL -o "${tmp}/crane.tar.gz" \
+                    "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
+                  echo "${CRANE_SHA256}  ${tmp}/crane.tar.gz" | sha256sum -c -
+                  tar -xzf "${tmp}/crane.tar.gz" -C "${tmp}" crane
+                  sudo install -m 0755 "${tmp}/crane" /usr/local/bin/crane
+                  crane version
+
             - name: Import Broadcom registry credentials from Vault
               id: secrets
               uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
