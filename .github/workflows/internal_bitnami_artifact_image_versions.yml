@@ -26,12 +26,13 @@ on:
         paths:
             - .github/workflows/internal_bitnami_artifact_image_versions.yml
 
-# Serialize runs: the job checks out and pushes the gh-pages branch, so an
-# overlapping scheduled run and a manual dispatch/re-run could otherwise race on
-# the push. Do not cancel an in-progress publish midway.
+# Publish events (schedule / manual dispatch) share one lock so they never race
+# on the gh-pages push, and a publish is never cancelled midway. pull_request
+# validation runs never push, so they get their own per-ref group (and may cancel
+# superseded runs) to avoid delaying a publish.
 concurrency:
-    group: ${{ github.workflow }}
-    cancel-in-progress: false
+    group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
     # Upstream Broadcom registry (source of truth).
