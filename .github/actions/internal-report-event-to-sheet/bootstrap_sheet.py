@@ -575,16 +575,39 @@ def _apply_events_filter(service, spreadsheet_id, events_id):
     # branch / type / date without disturbing others.
     meta = (
         service.spreadsheets()
-        .get(spreadsheetId=spreadsheet_id, fields="sheets(properties.sheetId,filterViews)")
+        .get(
+            spreadsheetId=spreadsheet_id,
+            fields="sheets(properties.sheetId,tables,filterViews)",
+        )
         .execute()
     )
-    requests = []
-    for sheet in meta.get("sheets", []):
-        if sheet["properties"]["sheetId"] != events_id:
-            continue
-        for view in sheet.get("filterViews", []) or []:
-            if view.get("title") == "CI events":
-                requests.append({"deleteFilterView": {"filterId": view["filterViewId"]}})
+    events_sheet = next(
+        (s for s in meta.get("sheets", []) if s["properties"]["sheetId"] == events_id),
+        None,
+    )
+    if events_sheet is None:
+        return
+
+    # Always drop a stale "CI events" view first so repeated bootstraps stay clean.
+    requests = [
+        {"deleteFilterView": {"filterId": view["filterViewId"]}}
+        for view in events_sheet.get("filterViews", []) or []
+        if view.get("title") == "CI events"
+    ]
+
+    # A native Sheets table on the events sheet already provides per-column
+    # filtering, and Sheets rejects a filter view whose range partially
+    # intersects a table ("You can't apply a filter to a range that partially
+    # intersects a table"). When a table is present, just clean up our view and
+    # skip re-adding it rather than failing the step.
+    if events_sheet.get("tables"):
+        if requests:
+            service.spreadsheets().batchUpdate(
+                spreadsheetId=spreadsheet_id, body={"requests": requests}
+            ).execute()
+        print("Events sheet has a native table (own filter); skipped 'CI events' filter view.")
+        return
+
     requests.append(
         {
             "addFilterView": {
