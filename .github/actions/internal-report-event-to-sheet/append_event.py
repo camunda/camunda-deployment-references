@@ -38,8 +38,21 @@ def _load_service_account(raw: str) -> dict:
     return json.loads(raw)
 
 
-def _build_row() -> list[str]:
-    now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+# Google Sheets stores dates as a serial number of days since this epoch
+# (1899-12-30). Writing the timestamp as that serial (rather than an ISO string)
+# makes Sheets treat column A as a real, natively-parseable date-time: it sorts,
+# filters and date-maths correctly, and a bare number can never be a formula so
+# it stays injection-safe even under RAW (see the append call below).
+_SHEETS_EPOCH = datetime.datetime(1899, 12, 30, tzinfo=datetime.timezone.utc)
+
+
+def _sheets_serial(dt: datetime.datetime) -> float:
+    """Convert a timezone-aware datetime to a Google Sheets date-time serial."""
+    return (dt - _SHEETS_EPOCH).total_seconds() / 86400.0
+
+
+def _build_row() -> list:
+    now = _sheets_serial(datetime.datetime.now(datetime.timezone.utc))
     # Order MUST match bootstrap_sheet.HEADERS.
     return [
         now,
@@ -80,7 +93,10 @@ def main() -> int:
             range=f"{tab}!A1",
             # RAW (never USER_ENTERED): event fields such as branch name, run title
             # or actor are attacker-influenceable, and USER_ENTERED would evaluate a
-            # leading =/+/-/@ as a formula (spreadsheet formula injection).
+            # leading =/+/-/@ as a formula (spreadsheet formula injection). Column A
+            # is a numeric date-time serial (see _sheets_serial), which RAW preserves
+            # as a real Sheets date-time while staying injection-safe (a number can
+            # never be a formula).
             valueInputOption="RAW",
             insertDataOption="INSERT_ROWS",
             body={"values": [row]},
