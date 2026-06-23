@@ -19,9 +19,6 @@ actionlint 1.7.12
 
 awscli 2.34.53
 
-# renovate: datasource=github-tags depName=google/go-containerregistry
-crane 0.21.6
-
 delta 0.18.2
 
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
