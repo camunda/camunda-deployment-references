@@ -1,0 +1,140 @@
+---
+name: Internal Report CI Event to Google Sheet
+description: |
+    Append a single CI event (a failure "alert" or a non-blocking "warning")
+    as a row to a Google Sheet used for cross-branch reporting and triage.
+
+    Credentials are a Google service-account key pulled from HashiCorp Vault
+    (`GOOGLE_SHEETS_SA_KEY`). The service account must have Editor access to the
+    target spreadsheet.
+
+    The append is best-effort: a reporting error is surfaced as a `::warning::`
+    and never fails the calling job (unless `strict` is set to `true`). The row
+    column order matches the `events` tab header created by the bootstrap
+    script in this action directory.
+
+inputs:
+    vault-addr:
+        description: HashiCorp Vault address.
+        required: true
+    vault-role-id:
+        description: Vault AppRole role id.
+        required: true
+    vault-secret-id:
+        description: Vault AppRole secret id.
+        required: true
+    spreadsheet-id:
+        description: Target Google spreadsheet id.
+        required: true
+    tab:
+        description: Worksheet (tab) name to append to.
+        required: false
+        default: events
+    event-type:
+        description: Event type, typically `failure` or `warning`.
+        required: true
+    category:
+        description: |
+            Free-form category (e.g. `test-failure`, `infra-failure`,
+            `helm-deprecation`, `helm-unknown-keys`).
+        required: false
+        default: ''
+    severity:
+        description: Optional severity label (`info`, `warning`, `critical`).
+        required: false
+        default: ''
+    title:
+        description: Short human-readable title / message for the event.
+        required: false
+        default: ''
+    branch:
+        description: Branch the event relates to (e.g. `stable/8.9`).
+        required: false
+        default: ''
+    workflow-name:
+        description: Workflow name the event relates to.
+        required: false
+        default: ''
+    run-id:
+        description: GitHub Actions run id of the observed run.
+        required: false
+        default: ''
+    run-url:
+        description: URL of the observed run.
+        required: false
+        default: ''
+    commit-sha:
+        description: Commit SHA of the observed run.
+        required: false
+        default: ''
+    actor:
+        description: Actor that triggered the observed run.
+        required: false
+        default: ''
+    consecutive-failures:
+        description: Optional consecutive-failure count, when known.
+        required: false
+        default: ''
+    slack-ts:
+        description: Optional Slack message timestamp to cross-link the alert.
+        required: false
+        default: ''
+    strict:
+        description: |
+            When `true`, a reporting error fails the step. Defaults to `false`
+            so reporting never blocks the observed pipeline.
+        required: false
+        default: 'false'
+
+runs:
+    using: composite
+    steps:
+        - name: Import Secrets
+          id: secrets
+          # Best-effort: a Vault hiccup must not turn the observed pipeline red.
+          # On failure the SA key is empty and append_event.py no-ops (unless strict).
+          continue-on-error: true
+          uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+          with:
+              url: ${{ inputs.vault-addr }}
+              method: approle
+              roleId: ${{ inputs.vault-role-id }}
+              secretId: ${{ inputs.vault-secret-id }}
+              exportEnv: false
+              secrets: |
+                  secret/data/products/infrastructure-experience/ci/common GOOGLE_SHEETS_SA_KEY;
+
+        - name: Append event row
+          shell: bash
+          env:
+              GOOGLE_SHEETS_SA_KEY: ${{ steps.secrets.outputs.GOOGLE_SHEETS_SA_KEY }}
+              SHEET_SPREADSHEET_ID: ${{ inputs.spreadsheet-id }}
+              SHEET_TAB: ${{ inputs.tab }}
+              SHEET_STRICT: ${{ inputs.strict }}
+              EVENT_TYPE: ${{ inputs.event-type }}
+              EVENT_CATEGORY: ${{ inputs.category }}
+              EVENT_SEVERITY: ${{ inputs.severity }}
+              EVENT_TITLE: ${{ inputs.title }}
+              EVENT_BRANCH: ${{ inputs.branch }}
+              EVENT_WORKFLOW: ${{ inputs.workflow-name }}
+              EVENT_RUN_ID: ${{ inputs.run-id }}
+              EVENT_RUN_URL: ${{ inputs.run-url }}
+              EVENT_COMMIT: ${{ inputs.commit-sha }}
+              EVENT_ACTOR: ${{ inputs.actor }}
+              EVENT_CONSECUTIVE_FAILURES: ${{ inputs.consecutive-failures }}
+              EVENT_SLACK_TS: ${{ inputs.slack-ts }}
+              EVENT_REPO: ${{ github.repository }}
+          run: |
+              set -uo pipefail
+              fail() {
+                  # Escape workflow-command metacharacters (%, CR, LF) before echoing.
+                  local msg="${1//'%'/%25}"
+                  msg="${msg//$'\r'/%0D}"
+                  msg="${msg//$'\n'/%0A}"
+                  echo "::warning title=report-event-to-sheet::${msg}"
+                  local strict="${SHEET_STRICT:-false}"
+                  [[ "${strict,,}" == "true" ]] && exit 1 || exit 0
+              }
+              python3 -m pip install --quiet --disable-pip-version-check \
+                  "google-api-python-client>=2,<3" "google-auth>=2,<3" || fail "dependency install failed"
+              python3 "${GITHUB_ACTION_PATH}/append_event.py"

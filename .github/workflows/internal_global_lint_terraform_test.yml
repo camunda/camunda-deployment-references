@@ -1,0 +1,87 @@
+---
+name: Internal - Global - Lint Terraform Test
+
+on:
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/internal_global_lint_terraform_test.yml
+            - .tool-versions
+            - aws/**/*.tf
+            - aws/**/*.tftest.hcl
+    push:
+        branches: [main]
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    triage:
+        runs-on: ubuntu-slim
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    terraform_test:
+        runs-on: ubuntu-latest
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Install asdf tooling
+              uses: asdf-vm/actions/install@1902764435ca0dd2f3388eea723a4f92a4eb8302 # v4
+
+            - name: Discover test directories
+              id: discover
+              run: |
+                  # Find every directory that has a tests/ subdir with at least one .tftest.hcl
+                  # Use -print0 / -d $'\0' to handle paths with spaces safely (shellcheck SC2038).
+                  mapfile -d $'\0' -t test_files < <(find aws -type f -name '*.tftest.hcl' -path '*/tests/*' -print0)
+                  declare -A unique_dirs=()
+                  for f in "${test_files[@]}"; do
+                      [[ -z "$f" ]] && continue
+                      # f is path/to/state/tests/foo.tftest.hcl → parent state dir is two levels up
+                      unique_dirs["$(dirname "$(dirname "$f")")"]=1
+                  done
+                  mapfile -t dirs < <(printf '%s\n' "${!unique_dirs[@]}" | sort -u)
+                  if [[ ${#dirs[@]} -eq 0 ]]; then
+                      echo "No terraform test directories found."
+                      echo "dirs=" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+                  printf '%s\n' "${dirs[@]}"
+                  {
+                      echo "dirs<<EOF"
+                      printf '%s\n' "${dirs[@]}"
+                      echo "EOF"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Run terraform test in each directory
+              if: steps.discover.outputs.dirs != ''
+              run: |
+                  fail=0
+                  while IFS= read -r dir; do
+                      [[ -z "$dir" ]] && continue
+                      echo "=== terraform test in $dir ==="
+                      pushd "$dir" > /dev/null
+                      if ! terraform init -input=false -backend=false -reconfigure; then
+                          echo "::error::terraform init failed in $dir"
+                          fail=1
+                          popd > /dev/null
+                          continue
+                      fi
+                      if ! terraform test; then
+                          echo "::error::terraform test failed in $dir"
+                          fail=1
+                      fi
+                      popd > /dev/null
+                  done <<< "${{ steps.discover.outputs.dirs }}"
+                  exit "$fail"

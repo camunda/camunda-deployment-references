@@ -18,6 +18,7 @@ global:
     host: ${CAMUNDA_DOMAIN}
     ingress:
         enabled: true
+        className: contour
         tls:
             enabled: true
             secretName: camunda-c8-tls
@@ -120,12 +121,19 @@ orchestration:
     ingress:
         grpc:
             enabled: true
+            className: contour
             host: zeebe-${CAMUNDA_DOMAIN}
             tls:
                 enabled: true
                 secretName: zeebe-c8-tls-grpc
             annotations:
                 kubernetes.io/tls-acme: 'true'
+
+    # Tell Contour the gRPC upstream (port 26500) speaks cleartext HTTP/2 (h2c).
+    # Required for Zeebe gRPC through the Contour ingress.
+    service:
+        annotations:
+            projectcontour.io/upstream-protocol.h2c: '26500'
 
 console:
     enabled: false # by default, console is not enabled

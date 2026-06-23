@@ -20,7 +20,7 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
@@ -50,6 +50,12 @@ jobs:
                     | jq -r '.Versions[] | select(startswith("OpenSearch_")) | sub("OpenSearch_"; "")' \
                     > docs/opensearch_versions.txt
                   cat docs/opensearch_versions.txt
+
+                  # Guard: never publish an empty/invalid artifact (see commit fa56123).
+                  if [ ! -s docs/opensearch_versions.txt ] || ! grep -qE '[0-9]' docs/opensearch_versions.txt; then
+                    echo "::error::Generated 'docs/opensearch_versions.txt' is empty or has no version numbers; aborting to avoid publishing an empty artifact."
+                    exit 1
+                  fi
 
             - name: Commit and push OpenSearch versions file to gh-pages
               shell: bash
