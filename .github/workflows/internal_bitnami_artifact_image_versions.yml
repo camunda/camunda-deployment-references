@@ -177,16 +177,20 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  # Guard on the plain tag lists only (no timestamp), so the JSON/Markdown
-                  # timestamp is bumped only when the actual tag set changes (avoids a
-                  # commit on every scheduled run).
-                  if git diff --exit-code docs/bitnami_*_versions.txt; then
+                  # Stage the tag lists first, then guard on the *staged* diff: this
+                  # detects newly created files too (e.g. the very first run, when the
+                  # files do not yet exist on gh-pages), which a plain `git diff` would
+                  # miss because it ignores untracked files. The JSON/Markdown (which
+                  # always change because of the timestamp) are only added when the tag
+                  # set actually changed, avoiding timestamp-only commits.
+                  git config --local user.name "github-actions[bot]"
+                  git config --local user.email "github-actions[bot]@users.noreply.github.com"
+                  git add docs/bitnami_*_versions.txt
+                  if git diff --cached --quiet -- docs/bitnami_*_versions.txt; then
                     echo "No tag changes detected; skipping commit."
                   else
                     echo "Tag changes detected, committing and pushing to gh-pages"
-                    git config --local user.name "github-actions[bot]"
-                    git config --local user.email "github-actions[bot]@users.noreply.github.com"
-                    git add docs/bitnami_*_versions.txt docs/available_images.json docs/available_images.md
+                    git add docs/available_images.json docs/available_images.md
                     git commit -m "Update Bitnami vendor-ee image tags"
                     git push origin gh-pages
                   fi
