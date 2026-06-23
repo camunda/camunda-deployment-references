@@ -54,6 +54,12 @@ jobs:
                     > docs/aurora_postgres_versions.txt
                   cat docs/aurora_postgres_versions.txt
 
+                  # Guard: never publish an empty/invalid artifact (see commit fa56123).
+                  if [ ! -s docs/aurora_postgres_versions.txt ] || ! grep -qE '[0-9]' docs/aurora_postgres_versions.txt; then
+                    echo "::error::Generated 'docs/aurora_postgres_versions.txt' is empty or has no version numbers; aborting to avoid publishing an empty artifact."
+                    exit 1
+                  fi
+
             - name: Commit and push Aurora PostgreSQL versions file to gh-pages
               shell: bash
               run: |
