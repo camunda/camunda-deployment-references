@@ -51,6 +51,12 @@ jobs:
                     > docs/opensearch_versions.txt
                   cat docs/opensearch_versions.txt
 
+                  # Guard: never publish an empty/invalid artifact (see commit fa56123).
+                  if [ ! -s docs/opensearch_versions.txt ] || ! grep -qE '[0-9]' docs/opensearch_versions.txt; then
+                    echo "::error::Generated 'docs/opensearch_versions.txt' is empty or has no version numbers; aborting to avoid publishing an empty artifact."
+                    exit 1
+                  fi
+
             - name: Commit and push OpenSearch versions file to gh-pages
               shell: bash
               run: |

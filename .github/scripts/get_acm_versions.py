@@ -4,6 +4,7 @@
 Retrieve OpenShift ACM versions from the official documentation and save it as txt file in docs folder.
 """
 
+import sys
 import requests
 from bs4 import BeautifulSoup
 import os
@@ -15,13 +16,24 @@ headers = {
 }
 
 response = requests.get(url, headers=headers)
+response.raise_for_status()
 soup = BeautifulSoup(response.text, "html.parser")
 
 versions = []
 select = soup.find("select", {"id": "product_version"})
 if select:
     for option in select.find_all("option"):
-        versions.append(option.get("value"))
+        value = option.get("value")
+        if value and value.strip():
+            versions.append(value.strip())
+
+# Fail loudly instead of overwriting the artifact with an empty list when the
+# documentation page structure changed or the request was throttled/blocked.
+if not versions:
+    sys.exit(
+        f"ERROR: no OpenShift ACM versions found at {url}. "
+        "The page structure may have changed; refusing to write an empty file."
+    )
 
 os.makedirs("docs", exist_ok=True)
 

@@ -76,6 +76,12 @@ jobs:
                   cat docs/rosa_versions.txt
                   echo "::endgroup::"
 
+                  # Guard: never publish an empty/invalid artifact (see commit fa56123).
+                  if [ ! -s docs/rosa_versions.txt ] || ! grep -qE '[0-9]' docs/rosa_versions.txt; then
+                    echo "::error::Generated 'docs/rosa_versions.txt' is empty or has no version numbers; aborting to avoid publishing an empty artifact."
+                    exit 1
+                  fi
+
             - name: Commit and push ROSA versions file to gh-pages
               shell: bash
               run: |
