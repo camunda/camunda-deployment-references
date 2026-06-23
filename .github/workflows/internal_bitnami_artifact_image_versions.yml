@@ -77,6 +77,7 @@ jobs:
               run: |
                   set -euo pipefail
                   tmp="$(mktemp -d)"
+                  trap 'rm -rf "${tmp}"' EXIT
                   asset="go-containerregistry_Linux_x86_64.tar.gz"
                   base="https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}"
                   curl -fsSL -o "${tmp}/${asset}" "${base}/${asset}"
@@ -115,6 +116,10 @@ jobs:
                   set -euo pipefail
 
                   mkdir -p docs
+                  # Drop any previously published per-image files first, so an image
+                  # removed from IMAGES does not linger on gh-pages (the commit step
+                  # stages deletions too).
+                  rm -f docs/bitnami_*.json
                   registry="${REGISTRY_HOST}/${REGISTRY_REPO_PREFIX}"
                   read -r -a images <<< "${IMAGES}"
 
@@ -223,8 +228,8 @@ jobs:
                   # changes.
                   git config --local user.name "github-actions[bot]"
                   git config --local user.email "github-actions[bot]@users.noreply.github.com"
-                  git add docs/bitnami_*.json
-                  if git diff --cached --quiet -- docs/bitnami_*.json; then
+                  git add -A -- "docs/bitnami_*.json"
+                  if git diff --cached --quiet -- "docs/bitnami_*.json"; then
                     echo "No tag or digest changes detected; skipping commit."
                   else
                     echo "Changes detected, committing and pushing to gh-pages"
