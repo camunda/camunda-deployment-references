@@ -1,0 +1,185 @@
+---
+# This workflow updates artifacts containing the available image tags for the
+# Bitnami Premium (vendor-ee) images shipped in the Camunda enterprise Helm charts.
+#
+# Tags are listed from the UPSTREAM source of truth (Broadcom / VMware Tanzu
+# Application Catalog), NOT from registry.camunda.cloud: the Camunda Harbor proxy
+# only exposes the cached subset, and listing it is incomplete for tags published
+# before the November 2025 vendor migration.
+#
+# It is consumed by:
+#   - renovate (per-image plain .txt lists, via custom datasources in
+#     camunda/infraex-common-config)
+#   - customers / field engineering (human-readable Markdown + machine JSON)
+#
+# Published at:
+#   https://camunda.github.io/camunda-deployment-references/bitnami_<image>_versions.txt
+#   https://camunda.github.io/camunda-deployment-references/available_images.json
+#   https://camunda.github.io/camunda-deployment-references/available_images.md
+name: Internal - Bitnami - Save vendor-ee image tags as an artifact
+
+on:
+    schedule:
+        - cron: 0 6 * * 1 # weekly, Monday 06:00 UTC
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/internal_bitnami_artifact_image_versions.yml
+
+env:
+    # Upstream Broadcom registry (source of truth).
+    # Host is the stable GCP Artifact Registry endpoint; the repo prefix mirrors
+    # the Harbor "vendor-ee" proxy mapping defined in camunda/infra-core
+    # (harbor-facade alias: project broadcom-514d25e16d5,
+    #  repositoryPrefix vmw-app-catalog/hosted-registry-514d25e16d5/containers/debian-12).
+    REGISTRY_HOST: us-west4-docker.pkg.dev
+    REGISTRY_REPO_PREFIX: vmw-app-catalog/hosted-registry-514d25e16d5/containers/debian-12
+    # vendor-ee images, verified identical across supported charts 8.7/8.8/8.9
+    # (charts/camunda-platform-8.*/values-enterprise.yaml). keycloak-ee/keycloak is
+    # intentionally excluded: it is Camunda-built, not served from this Broadcom path.
+    IMAGES: postgresql os-shell postgres-exporter elasticsearch elasticsearch-exporter keycloak-config-cli
+
+jobs:
+    save-bitnami-image-versions:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+
+            - name: Import Broadcom registry credentials from Vault
+              id: secrets
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common BROADCOM_BITNAMI_PREMIUM_REGISTRY_AUTH_USERNAME | REGISTRY_USERNAME;
+                      secret/data/products/infrastructure-experience/ci/common BROADCOM_BITNAMI_PREMIUM_REGISTRY_AUTH_PASSWORD | REGISTRY_PASSWORD;
+
+            - name: Switch to gh-pages branch
+              run: |
+                  cp .tool-versions /tmp/.tool-versions
+                  git fetch origin gh-pages
+                  git checkout gh-pages
+                  cp /tmp/.tool-versions .tool-versions
+
+            - name: Generate image tag artifacts
+              shell: bash
+              env:
+                  REGISTRY_USERNAME: ${{ steps.secrets.outputs.REGISTRY_USERNAME }}
+                  REGISTRY_PASSWORD: ${{ steps.secrets.outputs.REGISTRY_PASSWORD }}
+              run: |
+                  set -euo pipefail
+
+                  mkdir -p docs
+                  generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                  registry="${REGISTRY_HOST}/${REGISTRY_REPO_PREFIX}"
+                  read -r -a images <<< "${IMAGES}"
+
+                  # Authenticate to the upstream Broadcom registry. The Broadcom/Tanzu
+                  # credential is a GCP service-account key: username "_json_key",
+                  # password = the JSON key content (stored as-is in Vault).
+                  # crane is used instead of skopeo: it implements the GCP Artifact
+                  # Registry token flow that skopeo's list-tags does not handle.
+                  printf '%s' "${REGISTRY_PASSWORD}" \
+                    | crane auth login "${REGISTRY_HOST}" --username "${REGISTRY_USERNAME}" --password-stdin
+
+                  images_json='{}'
+                  for img in "${images[@]}"; do
+                    ref="${registry}/${img}"
+                    echo "Listing tags for ${img} (${ref})..."
+
+                    if ! crane ls "${ref}" > /tmp/all_tags 2> /tmp/crane_err; then
+                      echo "ERROR: crane ls failed for ${img} (${ref}):" >&2
+                      cat /tmp/crane_err >&2
+                      exit 1
+                    fi
+
+                    # Keep only real image tags (X.Y.Z-debian-12-rN); this drops the
+                    # bare majors, floating tags and the .sig/.att/.metadata artifacts.
+                    mapfile -t tags < <(grep -E -- '-debian-12-r[0-9]+$' /tmp/all_tags | sort -V || true)
+                    if [ "${#tags[@]}" -eq 0 ]; then
+                      echo "ERROR: no '*-debian-12-rN' tags found for ${img} (${ref})." >&2
+                      exit 1
+                    fi
+
+                    printf '%s\n' "${tags[@]}" > "docs/bitnami_${img}_versions.txt"
+
+                    tags_json="$(printf '%s\n' "${tags[@]}" | jq -R . | jq -s .)"
+                    images_json="$(jq -c \
+                      --arg img "${img}" \
+                      --arg repo "${registry}/${img}" \
+                      --argjson tags "${tags_json}" \
+                      '. + {($img): {repository: $repo, tags: $tags}}' <<< "${images_json}")"
+                  done
+
+                  jq -n \
+                    --arg ts "${generated_at}" \
+                    --arg reg "${registry}" \
+                    --argjson imgs "${images_json}" \
+                    '{generated_at: $ts, source: "Broadcom / VMware Tanzu Application Catalog (upstream)", registry: $reg, images: $imgs}' \
+                    > docs/available_images.json
+
+                  {
+                    echo "# Available Bitnami Premium (vendor-ee) image tags"
+                    echo
+                    echo "_Last updated: ${generated_at}._"
+                    echo
+                    echo "Source of truth: **upstream Broadcom / VMware Tanzu Application Catalog**."
+                    echo "These are the tags available behind \`registry.camunda.cloud/vendor-ee/<image>\`."
+                    echo
+                    echo "> The Harbor UI must **not** be used to browse these images: it only shows the"
+                    echo "> cached subset, not the full upstream catalog."
+                    echo
+                    for img in "${images[@]}"; do
+                      echo "## vendor-ee/${img}"
+                      echo
+                      echo '```text'
+                      cat "docs/bitnami_${img}_versions.txt"
+                      echo '```'
+                      echo
+                    done
+                  } > docs/available_images.md
+
+                  echo "::group::available_images.json"
+                  cat docs/available_images.json
+                  echo "::endgroup::"
+
+            - name: Commit and push image tag artifacts to gh-pages
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  # Guard on the plain tag lists only (no timestamp), so the JSON/Markdown
+                  # timestamp is bumped only when the actual tag set changes (avoids a
+                  # commit on every scheduled run).
+                  if git diff --exit-code docs/bitnami_*_versions.txt; then
+                    echo "No tag changes detected; skipping commit."
+                  else
+                    echo "Tag changes detected, committing and pushing to gh-pages"
+                    git config --local user.name "github-actions[bot]"
+                    git config --local user.email "github-actions[bot]@users.noreply.github.com"
+                    git add docs/bitnami_*_versions.txt docs/available_images.json docs/available_images.md
+                    git commit -m "Update Bitnami vendor-ee image tags"
+                    git push origin gh-pages
+                  fi
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: failure()
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ github.event_name == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ github.event_name == 'schedule' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ github.event_name == 'schedule' && 'false' || 'true' }}
