@@ -21,6 +21,7 @@ access to the spreadsheet.
 from __future__ import annotations
 
 import base64
+import datetime
 import json
 import os
 import sys
@@ -63,6 +64,35 @@ COL_RUN_ID = 4
 COL_TYPE = 6
 EVENTS_COL_COUNT = len(HEADERS)
 
+# Google Sheets date-time epoch (serial 0 == 1899-12-30), used to migrate any
+# legacy text timestamps in column A to real, natively-parseable date serials.
+_SHEETS_EPOCH = datetime.datetime(1899, 12, 30, tzinfo=datetime.timezone.utc)
+
+
+def _to_serial(value):
+    """Legacy text timestamp -> Google Sheets date-time serial, else ``None``.
+
+    Returns ``None`` for values that are already numeric (a serial written by
+    the current append_event.py), empty, or not a recognised timestamp string,
+    which keeps the migration idempotent and lossless.
+    """
+    if not isinstance(value, str):
+        return None  # already a number (migrated) or a non-text cell
+    text = value.strip()
+    if not text:
+        return None
+    # "%Y-%m-%dT%H:%M:%SZ" is the legacy ISO form; the space form is accepted
+    # defensively in case any timestamp was stored without the T/Z separators.
+    for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d %H:%M:%S"):
+        try:
+            dt = datetime.datetime.strptime(text, fmt).replace(
+                tzinfo=datetime.timezone.utc
+            )
+        except ValueError:
+            continue
+        return (dt - _SHEETS_EPOCH).total_seconds() / 86400.0
+    return None
+
 
 def _col_letter(n: int) -> str:
     """1-based column number -> A1 column letters (14 -> 'N')."""
@@ -80,10 +110,11 @@ def _dashboard_layout(tab: str) -> list[list]:
     SHEET_TAB names containing spaces still resolve.
     """
     q = f"'{tab}'"
-    # Timestamps are stored as text (RAW, for injection safety), so date filters
-    # use string comparison (ISO sorts chronologically) via SUMPRODUCT/QUERY
-    # rather than COUNTIFS, whose >=date criterion never matches text cells.
-    seven = 'TEXT(NOW()-7,"yyyy-mm-dd")'
+    # Column A holds real Google Sheets date-time serials (append_event.py writes
+    # the timestamp as a numeric serial under RAW: native date, injection-safe).
+    # Date filters therefore use real date math (>= TODAY()-N, QUERY date literals)
+    # rather than the string comparison the legacy text timestamps required.
+    seven = "TODAY()-7"
     return [
         ["CI Events Dashboard", "", "", "", ""],
         ["Auto-updates from the events tab. Most urgent first.", "", "", "", ""],
@@ -93,7 +124,7 @@ def _dashboard_layout(tab: str) -> list[list]:
             f'=SUMPRODUCT(({q}!$G$2:$G="warning")*({q}!$A$2:$A>={seven}))',
             f'=SUMPRODUCT(({q}!$G$2:$G="failure")*(LEFT({q}!$C$2:$C,7)="stable/")*({q}!$A$2:$A>={seven}))',
             f'=IFERROR(MAX(ARRAYFORMULA(IF({q}!M2:M="",0,VALUE({q}!M2:M)))),0)',
-            f'=IFERROR(INDEX(SORT(FILTER({q}!A2:A,{q}!A2:A<>""),1,FALSE),1,1),"-")',
+            f'=IFERROR(TEXT(INDEX(SORT(FILTER({q}!A2:A,{q}!A2:A<>""),1,FALSE),1,1),"yyyy-mm-dd hh:mm"),"-")',
         ],
         ["", "", "", "", ""],
         ["Failures (14d)", "Warnings (14d)", "Hotlist (branch / workflow / type, last 30d)", "", ""],
@@ -101,23 +132,24 @@ def _dashboard_layout(tab: str) -> list[list]:
             (
                 f'=SPARKLINE(BYCOL(SEQUENCE(1,14,TODAY()-13),'
                 f'LAMBDA(d,SUMPRODUCT(({q}!$G$2:$G="failure")*'
-                f'({q}!$A$2:$A>=TEXT(d,"yyyy-mm-dd"))*'
-                f'({q}!$A$2:$A<TEXT(d+1,"yyyy-mm-dd"))))),'
+                f'({q}!$A$2:$A>=d)*'
+                f'({q}!$A$2:$A<d+1)))),'
                 '{"charttype","column";"color","#cc0000"})'
             ),
             (
                 f'=SPARKLINE(BYCOL(SEQUENCE(1,14,TODAY()-13),'
                 f'LAMBDA(d,SUMPRODUCT(({q}!$G$2:$G="warning")*'
-                f'({q}!$A$2:$A>=TEXT(d,"yyyy-mm-dd"))*'
-                f'({q}!$A$2:$A<TEXT(d+1,"yyyy-mm-dd"))))),'
+                f'({q}!$A$2:$A>=d)*'
+                f'({q}!$A$2:$A<d+1)))),'
                 '{"charttype","column";"color","#e6a700"})'
             ),
             (
                 f'=QUERY({q}!A2:N,"select C, D, G, count(E), max(A) '
-                "where A is not null and A >= '\"&TEXT(NOW()-30,\"yyyy-mm-dd\")&\"' "
+                "where A is not null and A >= date '\"&TEXT(NOW()-30,\"yyyy-mm-dd\")&\"' "
                 "group by C, D, G order by count(E) desc "
                 "label C 'Branch', D 'Workflow', G 'Type', "
-                "count(E) '# events', max(A) 'Last seen'\",0)"
+                "count(E) '# events', max(A) 'Last seen' "
+                "format max(A) 'yyyy-mm-dd hh:mm'\",0)"
             ),
             "",
             "",
@@ -172,6 +204,51 @@ def _write(service, spreadsheet_id: str, rng: str, values: list[list]) -> None:
         valueInputOption="USER_ENTERED",
         body={"values": values},
     ).execute()
+
+
+def _migrate_timestamps(service, spreadsheet_id: str, tab: str) -> None:
+    """Convert legacy text timestamps in column A to native date-time serials.
+
+    Early rows were written as ISO-8601 text (``2026-06-23T14:30:00Z``, RAW),
+    which Sheets stores as plain strings the dashboard's date math cannot use.
+    Rewrite each such cell as a real Sheets serial so column A is uniformly a
+    native date-time.
+
+    Idempotent (cells already stored as numbers are skipped) and range-bounded:
+    only the rows read are rewritten, so a row appended below that range while
+    this runs is never clobbered. Writes RAW (bare numbers, injection-safe).
+    """
+    resp = (
+        service.spreadsheets()
+        .values()
+        .get(
+            spreadsheetId=spreadsheet_id,
+            range=f"{tab}!A2:A",
+            valueRenderOption="UNFORMATTED_VALUE",
+        )
+        .execute()
+    )
+    rows = resp.get("values", [])
+    if not rows:
+        return
+    out = []
+    converted = 0
+    for row in rows:
+        current = row[0] if row else ""
+        serial = _to_serial(current)
+        if serial is None:
+            out.append([current])  # already numeric, empty, or unparseable
+        else:
+            out.append([serial])
+            converted += 1
+    if converted:
+        service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f"{tab}!A2:A{1 + len(out)}",
+            valueInputOption="RAW",
+            body={"values": out},
+        ).execute()
+    print(f"Timestamp migration: converted {converted} legacy text cell(s).")
 
 
 def _solid(red: float, green: float, blue: float) -> dict:
@@ -342,7 +419,26 @@ def _apply_display_formatting(service, spreadsheet_id, events_id, triage_id, das
         _fmt(dashboard_id, 1, 2, 0, 1, italic=True, fg=grey),
         _fmt(dashboard_id, 2, 3, 0, 5, bold=True),
         _fmt(dashboard_id, 3, 4, 0, 5, bold=True, font_size=12),
+        # Render column A (timestamp_utc) as a native date-time. append_event.py
+        # writes it as a real Sheets serial, so this is a display format only.
+        {
+            "repeatCell": {
+                "range": {
+                    "sheetId": events_id,
+                    "startRowIndex": 1,
+                    "startColumnIndex": 0,
+                    "endColumnIndex": 1,
+                },
+                "cell": {
+                    "userEnteredFormat": {
+                        "numberFormat": {"type": "DATE_TIME", "pattern": "yyyy-mm-dd hh:mm:ss"}
+                    }
+                },
+                "fields": "userEnteredFormat.numberFormat",
+            }
+        },
         # Readable column widths on events.
+        _col_width(events_id, 0, 150),
         _col_width(events_id, COL_BRANCH, 110),
         _col_width(events_id, COL_WORKFLOW, 300),
         _col_width(events_id, 9, 320),
@@ -377,7 +473,8 @@ def _recent_events_query(tab: str) -> str:
     return (
         f'=QUERY({q}!A2:N,"select A, C, D, G, J '
         "where A is not null order by A desc limit 15 "
-        "label A 'Time', C 'Branch', D 'Workflow', G 'Type', J 'Title'\",0)"
+        "label A 'Time', C 'Branch', D 'Workflow', G 'Type', J 'Title' "
+        "format A 'yyyy-mm-dd hh:mm'\",0)"
     )
 
 
@@ -537,6 +634,13 @@ def main() -> int:
             range=f"{events_tab}!A2:{_col_letter(EVENTS_COL_COUNT)}",
         ).execute()
         print(f"Reset: cleared data rows in '{events_tab}'.")
+
+    # Best-effort: upgrade any legacy text timestamps to native date serials so
+    # the dashboard's date math is consistent across old and new rows.
+    try:
+        _migrate_timestamps(service, spreadsheet_id, events_tab)
+    except Exception as exc:  # noqa: BLE001
+        _warn(f"timestamp migration step failed: {exc}")
 
     _ensure_tab(service, spreadsheet_id, meta, "triage")
     _write(service, spreadsheet_id, "triage!A1", [TRIAGE_HEADERS])
