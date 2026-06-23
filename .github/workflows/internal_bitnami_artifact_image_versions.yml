@@ -42,10 +42,12 @@ env:
     #  repositoryPrefix vmw-app-catalog/hosted-registry-514d25e16d5/containers/debian-12).
     REGISTRY_HOST: us-west4-docker.pkg.dev
     REGISTRY_REPO_PREFIX: vmw-app-catalog/hosted-registry-514d25e16d5/containers/debian-12
-    # vendor-ee images, verified identical across supported charts 8.7/8.8/8.9
-    # (charts/camunda-platform-8.*/values-enterprise.yaml). keycloak-ee/keycloak is
-    # intentionally excluded: it is Camunda-built, not served from this Broadcom path.
-    IMAGES: postgresql os-shell postgres-exporter elasticsearch elasticsearch-exporter keycloak-config-cli
+    # Bitnami Premium images listed from the upstream Broadcom catalog. The
+    # vendor-ee/* set is verified across supported charts 8.7/8.8/8.9
+    # (charts/camunda-platform-8.*/values-enterprise.yaml). keycloak is the upstream
+    # Bitnami base image; it is distinct from the Camunda-built keycloak-ee/keycloak
+    # final image used by the charts, which is published/tracked separately.
+    IMAGES: postgresql os-shell postgres-exporter elasticsearch elasticsearch-exporter keycloak-config-cli keycloak
 
 jobs:
     save-bitnami-image-versions:
@@ -56,27 +58,6 @@ jobs:
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
-            # crane is installed here rather than via .tool-versions on purpose:
-            # it is only used by this workflow, and changing .tool-versions would
-            # trigger the (unrelated) Terraform golden-plan workflows that watch it.
-            - name: Install crane
-              shell: bash
-              env:
-                  # renovate: datasource=github-releases depName=google/go-containerregistry
-                  CRANE_VERSION: v0.21.6
-                  # sha256 of go-containerregistry_Linux_x86_64.tar.gz for CRANE_VERSION;
-                  # update it together with CRANE_VERSION.
-                  CRANE_SHA256: 7ebbdcd05b652345c1f5105f8475e518534b90d66f3bdb50017be63f426ea435
-              run: |
-                  set -euo pipefail
-                  tmp="$(mktemp -d)"
-                  curl -fsSL -o "${tmp}/crane.tar.gz" \
-                    "https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
-                  echo "${CRANE_SHA256}  ${tmp}/crane.tar.gz" | sha256sum -c -
-                  tar -xzf "${tmp}/crane.tar.gz" -C "${tmp}" crane
-                  sudo install -m 0755 "${tmp}/crane" /usr/local/bin/crane
-                  crane version
 
             - name: Import Broadcom registry credentials from Vault
               id: secrets
@@ -142,12 +123,29 @@ jobs:
                       exit 1
                     fi
 
+                    # Plain version list (one tag per line) — the Renovate source.
                     printf '%s\n' "${tags[@]}" > "docs/bitnami_${img}_versions.txt"
 
-                    tags_json="$(printf '%s\n' "${tags[@]}" | jq -R . | jq -s .)"
+                    # Resolve every tag to its image digest, in parallel. A failed
+                    # 'crane digest' aborts the whole pipeline (set -e + pipefail), so a
+                    # registry hiccup can never silently yield a partial/empty list.
+                    # shellcheck disable=SC2016 # $1/$2 are positional args of the inner sh, not outer expansions
+                    printf '%s\n' "${tags[@]}" \
+                      | xargs -P 8 -I {} sh -c 'd="$(crane digest "${1}:${2}")" || exit 1; printf "%s %s\n" "${2}" "${d}"' _ "${ref}" {} \
+                      | sort -V > "docs/bitnami_${img}_digests.txt"
+
+                    # Defensive: every tag must have produced exactly one digest line.
+                    dig_lines="$(wc -l < "docs/bitnami_${img}_digests.txt")"
+                    if [ "${dig_lines}" -ne "${#tags[@]}" ]; then
+                      echo "ERROR: digest resolution incomplete for ${img}: ${#tags[@]} tags but ${dig_lines} digests." >&2
+                      exit 1
+                    fi
+
+                    # Accumulate the combined JSON: tags = [{version, digest}].
+                    tags_json="$(jq -Rn '[inputs | split(" ") | {version: .[0], digest: .[1]}]' "docs/bitnami_${img}_digests.txt")"
                     images_json="$(jq -c \
                       --arg img "${img}" \
-                      --arg repo "${registry}/${img}" \
+                      --arg repo "${ref}" \
                       --argjson tags "${tags_json}" \
                       '. + {($img): {repository: $repo, tags: $tags}}' <<< "${images_json}")"
                   done
@@ -173,8 +171,10 @@ jobs:
                     for img in "${images[@]}"; do
                       echo "## vendor-ee/${img}"
                       echo
+                      echo "Tag and image digest (\`<version> <sha256>\`):"
+                      echo
                       echo '```text'
-                      cat "docs/bitnami_${img}_versions.txt"
+                      cat "docs/bitnami_${img}_digests.txt"
                       echo '```'
                       echo
                     done
@@ -183,6 +183,40 @@ jobs:
                   echo "::group::available_images.json"
                   cat docs/available_images.json
                   echo "::endgroup::"
+
+            - name: Validate generated artifacts are not empty
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  read -r -a images <<< "${IMAGES}"
+
+                  # Defensive guard: never let an empty or garbage artifact reach the
+                  # commit/push step, where it would overwrite the good list already
+                  # published on gh-pages (see the empty-file regression that wiped
+                  # docs/openshift_acm_versions.txt). A valid file must be non-empty and
+                  # contain at least one digit (a version/digest).
+                  check() {
+                    if [ ! -s "$1" ] || ! grep -qE '[0-9]' "$1"; then
+                      echo "::error::$1 is empty or has no version data; aborting before publish."
+                      exit 1
+                    fi
+                  }
+
+                  for img in "${images[@]}"; do
+                    check "docs/bitnami_${img}_versions.txt"
+                    check "docs/bitnami_${img}_digests.txt"
+                    # Every digest line must read "<tag> sha256:<64 hex>".
+                    if grep -qvE '^[^ ]+ sha256:[0-9a-f]{64}$' "docs/bitnami_${img}_digests.txt"; then
+                      echo "::error::docs/bitnami_${img}_digests.txt has a malformed line; aborting."
+                      exit 1
+                    fi
+                  done
+                  check docs/available_images.md
+                  if ! jq -e '.images | length > 0' docs/available_images.json >/dev/null 2>&1; then
+                    echo "::error::docs/available_images.json is invalid or has no images; aborting."
+                    exit 1
+                  fi
+                  echo "All generated artifacts are non-empty and well-formed."
 
             - name: Commit and push image tag artifacts to gh-pages
               # Never mutate gh-pages from a pull_request run: PRs only validate
@@ -197,14 +231,14 @@ jobs:
                   # files do not yet exist on gh-pages), which a plain `git diff` would
                   # miss because it ignores untracked files. The JSON/Markdown (which
                   # always change because of the timestamp) are only added when the tag
-                  # set actually changed, avoiding timestamp-only commits.
+                  # set or a digest actually changed, avoiding timestamp-only commits.
                   git config --local user.name "github-actions[bot]"
                   git config --local user.email "github-actions[bot]@users.noreply.github.com"
-                  git add docs/bitnami_*_versions.txt
-                  if git diff --cached --quiet -- docs/bitnami_*_versions.txt; then
-                    echo "No tag changes detected; skipping commit."
+                  git add docs/bitnami_*_versions.txt docs/bitnami_*_digests.txt
+                  if git diff --cached --quiet -- docs/bitnami_*_versions.txt docs/bitnami_*_digests.txt; then
+                    echo "No tag or digest changes detected; skipping commit."
                   else
-                    echo "Tag changes detected, committing and pushing to gh-pages"
+                    echo "Changes detected, committing and pushing to gh-pages"
                     git add docs/available_images.json docs/available_images.md
                     git commit -m "Update Bitnami vendor-ee image tags"
                     git push origin gh-pages
