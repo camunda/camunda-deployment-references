@@ -1,6 +1,8 @@
 ---
 # This workflow updates artifacts containing the available image tags for the
-# Bitnami Premium (vendor-ee) images shipped in the Camunda enterprise Helm charts.
+# Bitnami Premium images behind the Camunda enterprise Helm charts: the
+# vendor-ee/* set plus the upstream Bitnami keycloak base image (the chart's
+# keycloak-ee/keycloak is Camunda-built on top of it and tracked separately).
 #
 # Tags are listed from the UPSTREAM source of truth (Broadcom / VMware Tanzu
 # Application Catalog), NOT from registry.camunda.cloud: the Camunda Harbor proxy
@@ -10,10 +12,12 @@
 # It is consumed by:
 #   - renovate (per-image plain .txt lists, via custom datasources in
 #     camunda/infraex-common-config)
-#   - customers / field engineering (human-readable Markdown + machine JSON)
+#   - customers / field engineering (human-readable Markdown + machine JSON,
+#     each tag annotated with its image digest)
 #
 # Published at:
 #   https://camunda.github.io/camunda-deployment-references/bitnami_<image>_versions.txt
+#   https://camunda.github.io/camunda-deployment-references/bitnami_<image>_digests.txt
 #   https://camunda.github.io/camunda-deployment-references/available_images.json
 #   https://camunda.github.io/camunda-deployment-references/available_images.md
 name: Internal - Bitnami - Save vendor-ee image tags as an artifact
