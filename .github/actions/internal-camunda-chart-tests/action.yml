@@ -645,6 +645,61 @@ runs:
                 -d "$HELM_DEPLOYMENT_NAME" \
                 -c "$REQUIRED_CONTAINERS"
 
+        - name: ⏳ C8-SM-CHECKS - Wait for all pods to be stably Ready
+          if: ${{ inputs.enable-c8sm-connectivity-check == 'true' }}
+          shell: bash
+          env:
+              NAMESPACE: ${{ inputs.test-namespace }}
+          run: |
+              set -euo pipefail
+
+              # The connectivity check below probes every Service from every pod
+              # with a single-shot TCP test. Components such as Connectors can
+              # still be restarting / flapping (slow readiness probe) when it
+              # runs, failing the sweep against a momentarily-unready endpoint.
+              # Require every pod's pod-level Ready condition to be True
+              # (this honours readiness gates and matches what Service
+              # endpoints key off — per-container .ready does not), stable
+              # across a few consecutive polls, before starting the sweep.
+              # Completed Job/init pods (Succeeded/Failed) and pods being
+              # deleted (deletionTimestamp) are ignored, and the wait is
+              # bounded so a genuinely broken pod still surfaces (warning +
+              # the sweep's own failure) instead of hanging here.
+              READY_TIMEOUT_SECONDS="${READY_TIMEOUT_SECONDS:-300}"
+              STABLE_POLLS_REQUIRED="${STABLE_POLLS_REQUIRED:-3}"
+              POLL_INTERVAL_SECONDS="${POLL_INTERVAL_SECONDS:-10}"
+
+              deadline=$(( $(date +%s) + READY_TIMEOUT_SECONDS ))
+              stable=0
+
+              while true; do
+                  not_ready=$(kubectl get pods -n "$NAMESPACE" -o json | jq '
+                    [ .items[]
+                      | select(.status.phase != "Succeeded" and .status.phase != "Failed")
+                      | select(.metadata.deletionTimestamp == null)
+                      | select( ( [ .status.conditions[]? | select(.type == "Ready") | .status ] | first // "False" ) != "True" )
+                    ] | length')
+
+                  if [[ "$not_ready" -eq 0 ]]; then
+                      stable=$(( stable + 1 ))
+                      echo "✅ All pods Ready (stable ${stable}/${STABLE_POLLS_REQUIRED})."
+                      if [[ "$stable" -ge "$STABLE_POLLS_REQUIRED" ]]; then
+                          break
+                      fi
+                  else
+                      stable=0
+                      echo "⏳ ${not_ready} pod(s) not yet Ready, waiting..."
+                  fi
+
+                  if [[ "$(date +%s)" -ge "$deadline" ]]; then
+                      echo "::warning::Pods were not stably Ready within ${READY_TIMEOUT_SECONDS}s; running the connectivity check anyway."
+                      kubectl get pods -n "$NAMESPACE" -o wide || true
+                      break
+                  fi
+
+                  sleep "$POLL_INTERVAL_SECONDS"
+              done
+
         - name: 🧪 C8-SM-CHECKS - Run Kubernetes Connectivity Check
           if: ${{ inputs.enable-c8sm-connectivity-check == 'true' }}
           shell: bash
