@@ -74,9 +74,10 @@ done
 PRS=$(printf '%s\n' $PRS | awk 'NF' | sort -un | tr '\n' ' ')
 ```
 
-Build the list of PRs to drive (main + applicable backports). Run every step
-below for **each** PR, keeping their code changes identical where the code
-exists on both branches.
+This yields `$PRS`, the full set to drive (originating PR + applicable
+backports). The snippets in the steps below each iterate over `$PRS`, so run
+them in the same shell session; keep the code changes identical across sibling
+backports where the code exists on both branches.
 
 ### 1. Pause CI
 
@@ -99,24 +100,26 @@ Some repos auto-request Copilot on every push (branch ruleset "Review new
 pushes") — in that case a push is enough. To request explicitly:
 
 ```bash
-# Preferred (recent gh): add the Copilot reviewer by its login. A display name
-# like "Copilot" will not resolve — `gh pr edit` expects the bot login.
-gh pr edit "$n" --repo "$REPO" --add-reviewer copilot-pull-request-reviewer 2>/dev/null \
-  || {
-    # Fallback: GraphQL requestReviews with the Copilot bot id (note: the
-    # reviewer bot is not in suggestedActors on every repo, so this can be empty).
-    PR_ID=$(gh pr view "$n" --repo "$REPO" --json id -q .id)
-    BOT_ID=$(gh api graphql -f query='query($o:String!,$r:String!){repository(owner:$o,name:$r){suggestedActors(capabilities:[CAN_BE_ASSIGNED],first:100){nodes{login __typename ... on Bot{id} ... on User{id}}}}}' \
-      -f o="${REPO%/*}" -f r="${REPO#*/}" \
-      --jq '.data.repository.suggestedActors.nodes[] | select(.login=="copilot-pull-request-reviewer") | .id')
-    if [ -z "$BOT_ID" ]; then
-      echo "Copilot reviewer not assignable here (absent from suggestedActors); " \
-           "rely on auto-review on push, or request it from the GitHub UI." >&2
-    else
-      gh api graphql -f query='mutation($p:ID!,$b:ID!){requestReviews(input:{pullRequestId:$p,botIds:[$b],union:true}){pullRequest{id}}}' \
-        -f p="$PR_ID" -f b="$BOT_ID"
-    fi
-  }
+for n in $PRS; do
+  # Preferred (recent gh): add the Copilot reviewer by its login. A display name
+  # like "Copilot" will not resolve — `gh pr edit` expects the bot login.
+  gh pr edit "$n" --repo "$REPO" --add-reviewer copilot-pull-request-reviewer 2>/dev/null \
+    || {
+      # Fallback: GraphQL requestReviews with the Copilot bot id (note: the
+      # reviewer bot is not in suggestedActors on every repo, so this can be empty).
+      PR_ID=$(gh pr view "$n" --repo "$REPO" --json id -q .id)
+      BOT_ID=$(gh api graphql -f query='query($o:String!,$r:String!){repository(owner:$o,name:$r){suggestedActors(capabilities:[CAN_BE_ASSIGNED],first:100){nodes{login __typename ... on Bot{id} ... on User{id}}}}}' \
+        -f o="${REPO%/*}" -f r="${REPO#*/}" \
+        --jq '.data.repository.suggestedActors.nodes[] | select(.login=="copilot-pull-request-reviewer") | .id')
+      if [ -z "$BOT_ID" ]; then
+        echo "Copilot reviewer not assignable here (absent from suggestedActors); " \
+             "rely on auto-review on push, or request it from the GitHub UI." >&2
+      else
+        gh api graphql -f query='mutation($p:ID!,$b:ID!){requestReviews(input:{pullRequestId:$p,botIds:[$b],union:true}){pullRequest{id}}}' \
+          -f p="$PR_ID" -f b="$BOT_ID"
+      fi
+    }
+done
 ```
 
 ### 3. Wait for the review to land
@@ -125,8 +128,11 @@ Poll (non-blocking — re-check later, do not hang the session) until the Copilo
 review is present and **no longer pending**:
 
 ```bash
-gh pr view "$n" --repo "$REPO" --json reviews \
-  --jq '[.reviews[] | select(.author.login=="copilot-pull-request-reviewer")] | last | .state'
+for n in $PRS; do
+  printf 'PR #%s: ' "$n"
+  gh pr view "$n" --repo "$REPO" --json reviews \
+    --jq '[.reviews[] | select(.author.login=="copilot-pull-request-reviewer")] | last | .state // "NONE"'
+done
 ```
 
 A Copilot run typically takes a few minutes. Treat states
@@ -135,8 +141,10 @@ A Copilot run typically takes a few minutes. Treat states
 ### 4. Read and triage every finding
 
 ```bash
-gh api "/repos/$REPO/pulls/$n/comments" \
-  --jq '.[] | {id, path, line, body, user: .user.login, in_reply_to: .in_reply_to_id}'
+for n in $PRS; do
+  gh api "/repos/$REPO/pulls/$n/comments" \
+    --jq '.[] | {id, path, line, body, user: .user.login, in_reply_to: .in_reply_to_id}'
+done
 ```
 
 Read **every inline finding**, not just the review summary. For each finding:
@@ -197,11 +205,13 @@ Once tests are green and no Copilot findings remain, append a ` [ready]` tag to
 the **end** of the title (idempotently — never double-tag), for each PR:
 
 ```bash
-title=$(gh pr view "$n" --repo "$REPO" --json title -q .title)
-case "$title" in
-  *" [ready]") ;;                                          # already ready
-  *) gh pr edit "$n" --repo "$REPO" --title "$title [ready]" ;;
-esac
+for n in $PRS; do
+  title=$(gh pr view "$n" --repo "$REPO" --json title -q .title)
+  case "$title" in
+    *" [ready]") ;;                                         # already ready
+    *) gh pr edit "$n" --repo "$REPO" --title "$title [ready]" ;;
+  esac
+done
 ```
 
 Confirm `skip_all` is removed before declaring done.
