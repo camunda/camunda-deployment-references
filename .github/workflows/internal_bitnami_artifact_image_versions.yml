@@ -1,0 +1,254 @@
+---
+# This workflow updates artifacts containing the available image tags for the
+# Bitnami Premium images behind the Camunda enterprise Helm charts: the
+# vendor-ee/* set plus the upstream Bitnami keycloak base image (the chart's
+# keycloak-ee/keycloak is Camunda-built on top of it and tracked separately).
+#
+# Tags are listed from the UPSTREAM source of truth (Broadcom / VMware Tanzu
+# Application Catalog), NOT from registry.camunda.cloud: the Camunda Harbor proxy
+# only exposes the cached subset, and listing it is incomplete for tags published
+# before the November 2025 vendor migration.
+#
+# It is consumed by:
+#   - renovate, as a custom datasource (format: json) per image: each release
+#     carries the version and its image digest (newDigest) for optional pinning.
+#     Used by camunda/infraex-common-config, camunda/keycloak-aws and
+#     camunda/camunda-platform-helm.
+#   - customers / field engineering, to see which tags exist without skopeo/Harbor.
+#
+# Published at (one file per image):
+#   https://camunda.github.io/camunda-deployment-references/bitnami_<image>.json
+# Browse them at:
+#   https://github.com/camunda/camunda-deployment-references/tree/gh-pages/docs
+name: Internal - Bitnami - Save vendor-ee image tags and digests as an artifact
+
+on:
+    schedule:
+        - cron: 0 6 * * * # daily, 06:00 UTC
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/internal_bitnami_artifact_image_versions.yml
+
+# Publish events (schedule / manual dispatch) share one lock so they never race
+# on the gh-pages push, and a publish is never cancelled midway. pull_request
+# validation runs never push, so they get their own per-ref group (and may cancel
+# superseded runs) to avoid delaying a publish.
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+    # Upstream Broadcom registry (source of truth).
+    # Host is the stable GCP Artifact Registry endpoint; the repo prefix mirrors
+    # the Harbor "vendor-ee" proxy mapping defined in camunda/infra-core
+    # (harbor-facade alias: project broadcom-514d25e16d5,
+    #  repositoryPrefix vmw-app-catalog/hosted-registry-514d25e16d5/containers/debian-12).
+    REGISTRY_HOST: us-west4-docker.pkg.dev
+    REGISTRY_REPO_PREFIX: vmw-app-catalog/hosted-registry-514d25e16d5/containers/debian-12
+    # Bitnami Premium images listed from the upstream Broadcom catalog. The
+    # vendor-ee/* set is verified across supported charts 8.7/8.8/8.9
+    # (charts/camunda-platform-8.*/values-enterprise.yaml). keycloak is the upstream
+    # Bitnami base image; it is distinct from the Camunda-built keycloak-ee/keycloak
+    # final image used by the charts, which is published/tracked separately.
+    IMAGES: postgresql os-shell postgres-exporter elasticsearch elasticsearch-exporter keycloak-config-cli keycloak
+
+jobs:
+    save-bitnami-image-versions:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write # push the generated files to the gh-pages branch
+
+        steps:
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+
+            # crane is installed here rather than via .tool-versions on purpose: it is
+            # only used by this workflow, and a .tool-versions change would trigger the
+            # repo's Terraform golden-plan + integration suites, which are unrelated to
+            # this job. Renovate still manages the version via the annotation below; the
+            # download is integrity-checked against the release's own checksums.txt, so
+            # there is no hand-maintained hash to keep in sync.
+            - name: Install crane
+              shell: bash
+              env:
+                  # renovate: datasource=github-releases depName=google/go-containerregistry
+                  CRANE_VERSION: v0.21.6
+              run: |
+                  set -euo pipefail
+                  tmp="$(mktemp -d)"
+                  trap 'rm -rf "${tmp}"' EXIT
+                  asset="go-containerregistry_Linux_x86_64.tar.gz"
+                  base="https://github.com/google/go-containerregistry/releases/download/${CRANE_VERSION}"
+                  curl -fsSL -o "${tmp}/${asset}" "${base}/${asset}"
+                  curl -fsSL -o "${tmp}/checksums.txt" "${base}/checksums.txt"
+                  (cd "${tmp}" && grep " ${asset}\$" checksums.txt | sha256sum -c -)
+                  tar -xzf "${tmp}/${asset}" -C "${tmp}" crane
+                  sudo install -m 0755 "${tmp}/crane" /usr/local/bin/crane
+                  crane version
+
+            - name: Import Broadcom registry credentials from Vault
+              id: secrets
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common BROADCOM_BITNAMI_PREMIUM_REGISTRY_AUTH_USERNAME | REGISTRY_USERNAME;
+                      secret/data/products/infrastructure-experience/ci/common BROADCOM_BITNAMI_PREMIUM_REGISTRY_AUTH_PASSWORD | REGISTRY_PASSWORD;
+
+            - name: Switch to gh-pages branch
+              run: |
+                  cp .tool-versions /tmp/.tool-versions
+                  git fetch origin gh-pages
+                  git checkout gh-pages
+                  cp /tmp/.tool-versions .tool-versions
+
+            - name: Generate image tag artifacts
+              shell: bash
+              env:
+                  REGISTRY_USERNAME: ${{ steps.secrets.outputs.REGISTRY_USERNAME }}
+                  REGISTRY_PASSWORD: ${{ steps.secrets.outputs.REGISTRY_PASSWORD }}
+              run: |
+                  set -euo pipefail
+
+                  mkdir -p docs
+                  # Drop any previously published per-image files first, so an image
+                  # removed from IMAGES does not linger on gh-pages (the commit step
+                  # stages deletions too).
+                  rm -f docs/bitnami_*.json
+                  registry="${REGISTRY_HOST}/${REGISTRY_REPO_PREFIX}"
+                  read -r -a images <<< "${IMAGES}"
+
+                  # Authenticate to the upstream Broadcom registry. The Broadcom/Tanzu
+                  # credential is a GCP service-account key: username "_json_key",
+                  # password = the JSON key content (stored as-is in Vault).
+                  # crane is used instead of skopeo: it implements the GCP Artifact
+                  # Registry token flow that skopeo's list-tags does not handle.
+                  printf '%s' "${REGISTRY_PASSWORD}" \
+                    | crane auth login "${REGISTRY_HOST}" --username "${REGISTRY_USERNAME}" --password-stdin
+
+                  for img in "${images[@]}"; do
+                    ref="${registry}/${img}"
+                    echo "Listing tags for ${img} (${ref})..."
+
+                    if ! crane ls "${ref}" > /tmp/all_tags 2> /tmp/crane_err; then
+                      echo "ERROR: crane ls failed for ${img} (${ref}):" >&2
+                      cat /tmp/crane_err >&2
+                      exit 1
+                    fi
+
+                    # Keep only Bitnami revisioned tags (ending in -debian-12-rN).
+                    # For most images this is X.Y.Z-debian-12-rN; os-shell is versioned
+                    # by Debian major only (e.g. 12-debian-12-rN), so we intentionally do
+                    # NOT require a full semver here or it would drop every os-shell tag.
+                    # This still drops floating tags (e.g. 14-debian-12, 14) and the
+                    # .sig/.att/.metadata artifacts.
+                    mapfile -t tags < <(grep -E -- '-debian-12-r[0-9]+$' /tmp/all_tags | sort -V || true)
+                    if [ "${#tags[@]}" -eq 0 ]; then
+                      echo "ERROR: no '*-debian-12-rN' tags found for ${img} (${ref})." >&2
+                      exit 1
+                    fi
+
+                    # Resolve every tag to its image digest, in parallel. A failed
+                    # 'crane digest' aborts the whole pipeline (set -e + pipefail), so a
+                    # registry hiccup can never silently yield a partial/empty list.
+                    # shellcheck disable=SC2016 # $1/$2 are positional args of the inner sh, not outer expansions
+                    printf '%s\n' "${tags[@]}" \
+                      | xargs -P 8 -I {} sh -c 'd="$(crane digest "${1}:${2}")" || exit 1; printf "%s %s\n" "${2}" "${d}"' _ "${ref}" {} \
+                      | sort -V > /tmp/ver_dig
+
+                    # Defensive: every tag must have produced exactly one digest line.
+                    dig_lines="$(wc -l < /tmp/ver_dig)"
+                    if [ "${dig_lines}" -ne "${#tags[@]}" ]; then
+                      echo "ERROR: digest resolution incomplete for ${img}: ${#tags[@]} tags but ${dig_lines} digests." >&2
+                      exit 1
+                    fi
+
+                    # One self-contained file per image, directly consumable as a Renovate
+                    # custom datasource (format: json): each release carries the version and
+                    # its image digest (newDigest) for optional digest pinning. No timestamp
+                    # is stored, so the file changes only when the tags/digests change (the
+                    # gh-pages commit date conveys freshness).
+                    jq -Rn \
+                      --arg name "${img}" \
+                      --arg repo "${ref}" \
+                      '{name: $name, repository: $repo,
+                        releases: [inputs | split(" ") | {version: .[0], newDigest: .[1]}]}' \
+                      /tmp/ver_dig > "docs/bitnami_${img}.json"
+                  done
+
+                  echo "::group::generated files"
+                  ls -l docs/bitnami_*.json
+                  head -c 600 "docs/bitnami_${images[0]}.json"; echo
+                  echo "::endgroup::"
+
+            - name: Validate generated artifacts are not empty
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  read -r -a images <<< "${IMAGES}"
+
+                  # Defensive guard: never let an empty or garbage artifact reach the
+                  # commit/push step, where it would overwrite the good list already
+                  # published on gh-pages (cf. the empty-file regression that wiped
+                  # docs/openshift_acm_versions.txt).
+                  for img in "${images[@]}"; do
+                    f="docs/bitnami_${img}.json"
+                    if [ ! -s "${f}" ] || ! grep -qE '[0-9]' "${f}"; then
+                      echo "::error::${f} is empty or has no version data; aborting before publish."
+                      exit 1
+                    fi
+                    # Must be valid JSON with >=1 release, each with a version and a
+                    # well-formed sha256 digest.
+                    if ! jq -e \
+                      '(.releases | length > 0) and all(.releases[]; (.version | length > 0) and (.newDigest | test("^sha256:[0-9a-f]{64}$")))' \
+                      "${f}" >/dev/null 2>&1; then
+                      echo "::error::${f} is invalid or has a release without a valid sha256 digest; aborting."
+                      exit 1
+                    fi
+                  done
+                  echo "All generated artifacts are non-empty and well-formed."
+
+            - name: Commit and push image tag artifacts to gh-pages
+              # Never mutate gh-pages from a pull_request run: PRs only validate
+              # generation; publishing happens on schedule / manual dispatch.
+              if: github.event_name != 'pull_request'
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  # Stage first, then guard on the *staged* diff so newly created files
+                  # are detected too (e.g. the very first run, when nothing exists on
+                  # gh-pages yet) — a plain `git diff` ignores untracked files. The
+                  # files carry no timestamp, so they change only on real tag/digest
+                  # changes.
+                  git config --local user.name "github-actions[bot]"
+                  git config --local user.email "github-actions[bot]@users.noreply.github.com"
+                  git add -A -- "docs/bitnami_*.json"
+                  if git diff --cached --quiet -- "docs/bitnami_*.json"; then
+                    echo "No tag or digest changes detected; skipping commit."
+                  else
+                    echo "Changes detected, committing and pushing to gh-pages"
+                    git commit -m "Update Bitnami vendor-ee image tags"
+                    git push origin gh-pages
+                  fi
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: failure()
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ github.event_name == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ github.event_name == 'schedule' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ github.event_name == 'schedule' && 'false' || 'true' }}
