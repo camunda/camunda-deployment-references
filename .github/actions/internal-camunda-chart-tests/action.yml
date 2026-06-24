@@ -601,11 +601,48 @@ runs:
               C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh"
 
-              "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh" \
-                -H "$ZEEBE_ADDRESS" \
-                -p "$ZEEBE_DEFAULT_VERSION" \
-                -a "$ZEEBE_AUTHORIZATION_SERVER_URL" \
-                -i "$ZEEBE_CLIENT_ID" \
-                -s "$ZEEBE_CLIENT_SECRET" \
-                -u "$ZEEBE_TOKEN_AUDIENCE" \
-                -q grpc
+              # The gRPC probe mints a fresh Keycloak token and calls
+              # Gateway/Topology. Right after deployment the orchestration/Zeebe
+              # gateway can momentarily reject an otherwise valid token
+              # ("Unauthenticated: Invalid bearer token") until its OIDC issuer
+              # signing keys (JWKS) are fetched and cached. Retry the one-shot
+              # check a bounded number of times so this transient propagation
+              # window does not fail the smoke test; a genuine misconfiguration
+              # still fails after the budget is exhausted.
+              ZEEBE_CONNECTIVITY_RETRIES="${ZEEBE_CONNECTIVITY_RETRIES:-5}"
+              ZEEBE_CONNECTIVITY_RETRY_DELAY="${ZEEBE_CONNECTIVITY_RETRY_DELAY:-15}"
+
+              # Validate the (overridable) tuning knobs up front: retries must be a
+              # positive integer and the delay a non-negative integer. Otherwise the
+              # `[[ ... -ge ... ]]` / `sleep` below would fail mid-loop with a terse
+              # bash error under `set -euo pipefail` that is harder to diagnose.
+              if ! [[ "$ZEEBE_CONNECTIVITY_RETRIES" =~ ^[1-9][0-9]*$ ]]; then
+                  echo "::error::ZEEBE_CONNECTIVITY_RETRIES must be a positive integer (got '$ZEEBE_CONNECTIVITY_RETRIES')."
+                  exit 1
+              fi
+              if ! [[ "$ZEEBE_CONNECTIVITY_RETRY_DELAY" =~ ^[0-9]+$ ]]; then
+                  echo "::error::ZEEBE_CONNECTIVITY_RETRY_DELAY must be a non-negative integer (got '$ZEEBE_CONNECTIVITY_RETRY_DELAY')."
+                  exit 1
+              fi
+
+              attempt=1
+              while true; do
+                  if "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh" \
+                    -H "$ZEEBE_ADDRESS" \
+                    -p "$ZEEBE_DEFAULT_VERSION" \
+                    -a "$ZEEBE_AUTHORIZATION_SERVER_URL" \
+                    -i "$ZEEBE_CLIENT_ID" \
+                    -s "$ZEEBE_CLIENT_SECRET" \
+                    -u "$ZEEBE_TOKEN_AUDIENCE" \
+                    -q grpc; then
+                      echo "✅ Zeebe gRPC connectivity check passed (attempt ${attempt}/${ZEEBE_CONNECTIVITY_RETRIES})."
+                      break
+                  fi
+                  if [[ "$attempt" -ge "$ZEEBE_CONNECTIVITY_RETRIES" ]]; then
+                      echo "::error::Zeebe gRPC connectivity check failed after ${ZEEBE_CONNECTIVITY_RETRIES} attempt(s)."
+                      exit 1
+                  fi
+                  echo "::warning::Zeebe gRPC connectivity check failed (attempt ${attempt}/${ZEEBE_CONNECTIVITY_RETRIES}); retrying in ${ZEEBE_CONNECTIVITY_RETRY_DELAY}s..."
+                  attempt=$(( attempt + 1 ))
+                  sleep "$ZEEBE_CONNECTIVITY_RETRY_DELAY"
+              done
