@@ -1,6 +1,6 @@
 ---
 name: review-loop
-description: 'Drive one or more pull requests to a review-ready state by pausing CI, requesting a GitHub Copilot review, fixing every finding, re-requesting until the review is clean, then re-running the tests and marking the PR title with a trailing [ready] tag. USE WHEN: the user invokes "/review-loop", or says "pause the CI and get a Copilot review", "run the review loop", "fix what Copilot says and re-review", "drive this PR to ready", "mets le PR en ready". INVOKES: gh CLI (pr/api/run), the ci-feedback-loop skill for test triage. DO NOT USE FOR: merging PRs, or one-off log fetching (use ci-feedback-loop directly).'
+description: 'Drive one or more pull requests to a review-ready state by pausing CI, requesting a GitHub Copilot review, fixing every finding, re-requesting until the review is clean, then re-running the tests and appending the exact ` [ready]` tag (leading space) to the end of the PR title. USE WHEN: the user invokes "/review-loop", or says "pause the CI and get a Copilot review", "run the review loop", "fix what Copilot says and re-review", "drive this PR to ready", "mets le PR en ready". INVOKES: gh CLI (pr/api/run), the ci-feedback-loop skill for test triage. DO NOT USE FOR: merging PRs, or one-off log fetching (use ci-feedback-loop directly).'
 argument-hint: '[pr-number|pr-url ...] (defaults to the current branch PR + its backport PRs)'
 ---
 
@@ -29,11 +29,11 @@ ready for human review — **without ever merging it**.
 
 ## Repo conventions (camunda-deployment-references)
 
-- **Pause CI**: the `skip_all` label (red `#b60205`). `internal-triage-skip`
-  auto-creates only the per-workflow `skip_<workflow>` labels (blue `#1D76DB`,
-  built from workflow filenames); `skip_all` is a separate, pre-existing label
-  that every triage-guarded workflow honours to skip its heavy jobs. Never create
-  skip labels by hand — `skip_all` already exists.
+- **Pause CI**: the `skip_all` label. `internal-triage-skip` ensures every skip
+  label exists — both the per-workflow `skip_<workflow>` labels (built from
+  workflow filenames) and `skip_all` — so it is already present; never
+  hand-create skip labels. Every triage-guarded workflow honours `skip_all` and
+  skips its heavy jobs while you iterate.
 - **Ready marker**: a trailing ` [ready]` tag at the **end** of the PR **title**
   (e.g. `fix(ci): ... [ready]`) — appended, never a prefix.
 - **Copilot reviewer**: `copilot-pull-request-reviewer[bot]`.
@@ -50,15 +50,23 @@ ready for human review — **without ever merging it**.
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-# Explicit args win; otherwise the PR for the current branch:
-PR=${1:-$(gh pr view --json number -q .number)}
-# Discover sibling backports of THIS change: the backport workflow writes
+# Explicit args win — accept one or more PR numbers and/or PR URLs; otherwise
+# fall back to the current-branch PR. Normalise every arg to a bare number:
+if [ "$#" -gt 0 ]; then
+  seeds=$(printf '%s\n' "$@" | sed -E 's#.*/pull/##; s/[^0-9].*$//' | awk 'NF')
+else
+  seeds=$(gh pr view --json number -q .number)
+fi
+# Discover sibling backports of EACH seed: the backport workflow writes
 # "Backport of #<PR>" into each backport's body, so match on that (a title
 # search like `backport in:title` would catch unrelated backports repo-wide).
-backports=$(gh pr list --repo "$REPO" --state open \
-  --search "in:body \"Backport of #$PR\"" --json number -q '.[].number')
-# The full set to drive (originating PR + its backports):
-PRS="$PR $backports"
+PRS="$seeds"
+for PR in $seeds; do
+  PRS="$PRS $(gh pr list --repo "$REPO" --state open \
+    --search "in:body \"Backport of #$PR\"" --json number -q '.[].number')"
+done
+# De-duplicate into the final set to drive (seeds + their backports):
+PRS=$(printf '%s\n' $PRS | awk 'NF' | sort -un | tr '\n' ' ')
 ```
 
 Build the list of PRs to drive (main + applicable backports). Run every step
@@ -86,10 +94,12 @@ Some repos auto-request Copilot on every push (branch ruleset "Review new
 pushes") — in that case a push is enough. To request explicitly:
 
 ```bash
-# Preferred (recent gh): add Copilot as a reviewer.
-gh pr edit "$n" --repo "$REPO" --add-reviewer Copilot 2>/dev/null \
+# Preferred (recent gh): add the Copilot reviewer by its login. A display name
+# like "Copilot" will not resolve — `gh pr edit` expects the bot login.
+gh pr edit "$n" --repo "$REPO" --add-reviewer copilot-pull-request-reviewer 2>/dev/null \
   || {
-    # Fallback: GraphQL requestReviews with the Copilot bot id.
+    # Fallback: GraphQL requestReviews with the Copilot bot id (note: the
+    # reviewer bot is not in suggestedActors on every repo, so this can be empty).
     PR_ID=$(gh pr view "$n" --repo "$REPO" --json id -q .id)
     BOT_ID=$(gh api graphql -f query='query($o:String!,$r:String!){repository(owner:$o,name:$r){suggestedActors(capabilities:[CAN_BE_ASSIGNED],first:100){nodes{login __typename ... on Bot{id} ... on User{id}}}}}' \
       -f o="${REPO%/*}" -f r="${REPO#*/}" \
