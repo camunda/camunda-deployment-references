@@ -10,7 +10,7 @@ Autonomously drive a PR (and its sibling backport PRs) through this loop:
 
 ```
 pause CI → request Copilot review → fix every finding → re-review (loop until clean)
-        → relaunch tests → on failure: fix + re-enter loop → on success: tag [ready]
+        → relaunch tests → on failure: fix + re-enter loop → on success: append " [ready]"
 ```
 
 The goal is a PR that is green and has no outstanding Copilot findings, marked
@@ -199,7 +199,7 @@ for non-blocking status, focused logs, and artifacts — read it and follow its
 - Then go back to **step 1** (pause CI, re-review the fix, …). The loop repeats
   until tests are green **and** Copilot has no findings.
 
-### 9. On success → append the [ready] tag
+### 9. On success → append the ` [ready]` tag
 
 Once tests are green and no Copilot findings remain, append a ` [ready]` tag to
 the **end** of the title (idempotently — never double-tag), for each PR:
@@ -222,7 +222,7 @@ Confirm `skip_all` is removed before declaring done.
 - **Don't** silently drop a Copilot finding — fix it or reply with a rationale.
 - **Don't** skip/disable a failing check to force green — fix the root cause.
 - **Don't** leave `skip_all` on a PR you just marked ready.
-- **Don't** prefix or double-tag `[ready]` — it is appended once, at the end.
+- **Don't** prefix or double-tag ` [ready]` — it is appended once, at the end.
 - **Don't** block the session on long polls — re-check later.
 
 ## References
