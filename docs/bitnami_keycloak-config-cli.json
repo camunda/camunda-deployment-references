@@ -4,70 +4,87 @@
   "releases": [
     {
       "version": "6.4.0-debian-12-r14",
+      "digest": "sha256:3e59355b6ae7b784f0c9bd7ae3bb0932be203a5b1c5ddd45e35b55256c3f5aa1",
       "newDigest": "sha256:3e59355b6ae7b784f0c9bd7ae3bb0932be203a5b1c5ddd45e35b55256c3f5aa1"
     },
     {
       "version": "6.4.0-debian-12-r15",
+      "digest": "sha256:7f60fc6b7c6177c322a3e32b90f09a80eb048365bce42271253d935c846df536",
       "newDigest": "sha256:7f60fc6b7c6177c322a3e32b90f09a80eb048365bce42271253d935c846df536"
     },
     {
       "version": "6.4.0-debian-12-r16",
+      "digest": "sha256:e49775ec44c343c7dbe74b0eedb1308b9049975f8f288d743351880fe781fb7b",
       "newDigest": "sha256:e49775ec44c343c7dbe74b0eedb1308b9049975f8f288d743351880fe781fb7b"
     },
     {
       "version": "6.4.0-debian-12-r17",
+      "digest": "sha256:2df2e12eecbc6b52f989a3f5545294652f25e2d5f98ffd8e29ea87eafaf68764",
       "newDigest": "sha256:2df2e12eecbc6b52f989a3f5545294652f25e2d5f98ffd8e29ea87eafaf68764"
     },
     {
       "version": "6.4.0-debian-12-r18",
+      "digest": "sha256:396a922fc8b0a0e4cf622160c9f2c5bade714b83f9a6cea0c0a5f7307d5e0fbb",
       "newDigest": "sha256:396a922fc8b0a0e4cf622160c9f2c5bade714b83f9a6cea0c0a5f7307d5e0fbb"
     },
     {
       "version": "6.4.1-debian-12-r0",
+      "digest": "sha256:63774bbebc978e5ca5999a4c62d96ce4744d18dc806daa53b0ef0e0662dff033",
       "newDigest": "sha256:63774bbebc978e5ca5999a4c62d96ce4744d18dc806daa53b0ef0e0662dff033"
     },
     {
       "version": "6.4.1-debian-12-r1",
+      "digest": "sha256:9aa78f13096acf5d19396fe680cd61defec6d74ca663841680e4984d5448062a",
       "newDigest": "sha256:9aa78f13096acf5d19396fe680cd61defec6d74ca663841680e4984d5448062a"
     },
     {
       "version": "6.4.1-debian-12-r2",
+      "digest": "sha256:ff3bdbea1ed7948e4a8e672dea9276401ac373dfa61ef7f9add1e63ffa0e1366",
       "newDigest": "sha256:ff3bdbea1ed7948e4a8e672dea9276401ac373dfa61ef7f9add1e63ffa0e1366"
     },
     {
       "version": "6.4.1-debian-12-r3",
+      "digest": "sha256:a7f899e47b928e53989ab8231f2c996998cc0f1d43c0d54e4d9b341b70b5cd15",
       "newDigest": "sha256:a7f899e47b928e53989ab8231f2c996998cc0f1d43c0d54e4d9b341b70b5cd15"
     },
     {
       "version": "6.5.0-debian-12-r0",
+      "digest": "sha256:ee66f8246e0dadfc93de2ba9652f2bad76be4a35d7295203ffb57bad80d94b60",
       "newDigest": "sha256:ee66f8246e0dadfc93de2ba9652f2bad76be4a35d7295203ffb57bad80d94b60"
     },
     {
       "version": "6.5.0-debian-12-r1",
+      "digest": "sha256:eee480e2d067c7e7e7885e5a1ab939339f96709789fc6506596545f060c534a4",
       "newDigest": "sha256:eee480e2d067c7e7e7885e5a1ab939339f96709789fc6506596545f060c534a4"
     },
     {
       "version": "6.5.0-debian-12-r2",
+      "digest": "sha256:7393307d37737395c00318bbebbafe009c0d0b95cc6aee5fd582b72bba8cbc91",
       "newDigest": "sha256:7393307d37737395c00318bbebbafe009c0d0b95cc6aee5fd582b72bba8cbc91"
     },
     {
       "version": "6.5.0-debian-12-r3",
+      "digest": "sha256:c0c90e79caa80fdb095c1a7fed89b1927f7b3eb4b115386865ee1238a9e88844",
       "newDigest": "sha256:c0c90e79caa80fdb095c1a7fed89b1927f7b3eb4b115386865ee1238a9e88844"
     },
     {
       "version": "6.5.0-debian-12-r4",
+      "digest": "sha256:6bab4878469f45a6822fdab97047c16e2446cde176f5c5c83a145504f95602a7",
       "newDigest": "sha256:6bab4878469f45a6822fdab97047c16e2446cde176f5c5c83a145504f95602a7"
     },
     {
       "version": "6.5.1-debian-12-r0",
+      "digest": "sha256:dce4d7561414678d3427b335ee223c1ee99910a1714e5e485de9080c4d0d91d9",
       "newDigest": "sha256:dce4d7561414678d3427b335ee223c1ee99910a1714e5e485de9080c4d0d91d9"
     },
     {
       "version": "6.5.1-debian-12-r1",
+      "digest": "sha256:9fc98e38c1ee36bba49d05c5c99f694f7aaccc11c8069bf04a02149cc753e1ec",
       "newDigest": "sha256:9fc98e38c1ee36bba49d05c5c99f694f7aaccc11c8069bf04a02149cc753e1ec"
     },
     {
       "version": "6.5.1-debian-12-r2",
+      "digest": "sha256:e9cfd7055d220fc5d289ee2ccb9879301dee8ad8abc89353be24f83be130c715",
       "newDigest": "sha256:e9cfd7055d220fc5d289ee2ccb9879301dee8ad8abc89353be24f83be130c715"
     }
   ]
