@@ -253,10 +253,11 @@ runs:
               # Total partition replicas the golden topology expects (sum of every
               # broker's partitions). A broker can join the cluster (so clusterSize
               # already matches) before it has loaded its partitions, reporting
-              # "partitions": []. That empty broker is invisible to the flattened
-              # health/partitions-count checks below, so without this total the
-              # loop would exit "ready" against a still-converging topology and the
-              # golden-file diff would then flake.
+              # "partitions": []. That empty broker contributes nothing to the
+              # flattened health check and is still counted by clusterSize, so the
+              # aggregate checks below all pass; without this total the loop would
+              # exit "ready" against a still-converging topology and then flake on
+              # the golden-file diff.
               golden_zeebe_topology_total_replicas=$(jq '[.brokers[].partitions[]] | length' < "$reference_file")
 
               # The Zeebe cluster can take a while to fully form after the Helm
@@ -356,7 +357,8 @@ runs:
                 echo "✅ Partition replicas total is $check_zeebe_topology_total_replicas (every broker loaded its partitions)."
               else
                 echo "❌ Partition replicas total is not $golden_zeebe_topology_total_replicas" \
-                  "(got '${check_zeebe_topology_total_replicas:-<empty>}'); a broker joined the cluster without loading its partitions."
+                  "(got '${check_zeebe_topology_total_replicas:-<empty>}');" \
+                  "topology not fully converged (a broker is missing partitions or the output was incomplete)."
                 error_found=true
               fi
 
