@@ -29,10 +29,11 @@ ready for human review — **without ever merging it**.
 
 ## Repo conventions (camunda-deployment-references)
 
-- **Pause CI**: the `skip_all` label (auto-created by `internal-triage-skip`,
-  color `#1D76DB` for per-workflow labels / `#b60205` for `skip_all`). Every
-  triage-guarded workflow checks it and skips its heavy jobs. Never create skip
-  labels by hand — `skip_all` already exists.
+- **Pause CI**: the `skip_all` label (red `#b60205`). `internal-triage-skip`
+  auto-creates only the per-workflow `skip_<workflow>` labels (blue `#1D76DB`,
+  built from workflow filenames); `skip_all` is a separate, pre-existing label
+  that every triage-guarded workflow honours to skip its heavy jobs. Never create
+  skip labels by hand — `skip_all` already exists.
 - **Ready marker**: a trailing ` [ready]` tag at the **end** of the PR **title**
   (e.g. `fix(ci): ... [ready]`) — appended, never a prefix.
 - **Copilot reviewer**: `copilot-pull-request-reviewer[bot]`.
@@ -51,9 +52,13 @@ ready for human review — **without ever merging it**.
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 # Explicit args win; otherwise the PR for the current branch:
 PR=${1:-$(gh pr view --json number -q .number)}
-# Discover sibling backport PRs opened from this change:
-gh pr list --repo "$REPO" --state open --search "backport in:title" \
-  --json number,headRefName,title
+# Discover sibling backports of THIS change: the backport workflow writes
+# "Backport of #<PR>" into each backport's body, so match on that (a title
+# search like `backport in:title` would catch unrelated backports repo-wide).
+backports=$(gh pr list --repo "$REPO" --state open \
+  --search "in:body \"Backport of #$PR\"" --json number -q '.[].number')
+# The full set to drive (originating PR + its backports):
+PRS="$PR $backports"
 ```
 
 Build the list of PRs to drive (main + applicable backports). Run every step
@@ -63,10 +68,13 @@ exists on both branches.
 ### 1. Pause CI
 
 ```bash
-for n in $PRS; do gh pr edit "$n" --repo "$REPO" --add-label skip_all; done
-# Free the runners: cancel in-progress runs for the head branch.
-gh run list --repo "$REPO" --branch "$HEAD_REF" --status in_progress \
-  --json databaseId -q '.[].databaseId' | xargs -r -n1 gh run cancel --repo "$REPO"
+for n in $PRS; do
+  gh pr edit "$n" --repo "$REPO" --add-label skip_all
+  # Free the runners: cancel this PR's in-progress runs on its own head branch.
+  head_ref=$(gh pr view "$n" --repo "$REPO" --json headRefName -q .headRefName)
+  gh run list --repo "$REPO" --branch "$head_ref" --status in_progress \
+    --json databaseId -q '.[].databaseId' | xargs -r -n1 gh run cancel --repo "$REPO"
+done
 ```
 
 `skip_all` makes the triage job report `should_skip=true`, so subsequent runs
@@ -138,12 +146,15 @@ for n in $PRS; do gh pr edit "$n" --repo "$REPO" --remove-label skip_all; done
 ```
 
 Removing `skip_all` alone does not re-trigger workflows (the `unlabeled` event
-is not in the triggers). Start fresh runs by either re-running the latest run
-(now that triage will no longer skip) or pushing:
+is not in the triggers). Start fresh runs — per PR, on its own head branch — by
+re-running the latest run (now that triage will no longer skip), or just push:
 
 ```bash
-gh run list --repo "$REPO" --branch "$HEAD_REF" --json databaseId,workflowName -q '.[].databaseId' \
-  | head -1 | xargs -r -n1 gh run rerun --repo "$REPO"
+for n in $PRS; do
+  head_ref=$(gh pr view "$n" --repo "$REPO" --json headRefName -q .headRefName)
+  gh run list --repo "$REPO" --branch "$head_ref" \
+    --json databaseId -q '.[0].databaseId' | xargs -r -n1 gh run rerun --repo "$REPO"
+done
 # or, if there is a fix to push, the push already re-triggers them.
 ```
 
