@@ -1,0 +1,190 @@
+---
+name: review-loop
+description: 'Drive one or more pull requests to a review-ready state by pausing CI, requesting a GitHub Copilot review, fixing every finding, re-requesting until the review is clean, then re-running the tests and marking the PR title with a trailing [ready] tag. USE WHEN: the user invokes "/review-loop", or says "pause the CI and get a Copilot review", "run the review loop", "fix what Copilot says and re-review", "drive this PR to ready", "mets le PR en ready". INVOKES: gh CLI (pr/api/run), the ci-feedback-loop skill for test triage. DO NOT USE FOR: merging PRs, or one-off log fetching (use ci-feedback-loop directly).'
+argument-hint: '[pr-number|pr-url ...] (defaults to the current branch PR + its backport PRs)'
+---
+
+# PR Review Loop
+
+Autonomously drive a PR (and its sibling backport PRs) through this loop:
+
+```
+pause CI → request Copilot review → fix every finding → re-review (loop until clean)
+        → relaunch tests → on failure: fix + re-enter loop → on success: tag [ready]
+```
+
+The goal is a PR that is green and has no outstanding Copilot findings, marked
+ready for human review — **without ever merging it**.
+
+## When to use
+
+- The user wants a hands-off "get this PR reviewed and green" cycle.
+- A change spans a main PR + one or more `backport-*-to-stable/*` PRs that must stay in sync.
+
+## Prerequisites
+
+- `gh` authenticated (`gh auth status`) with `pull-requests: write`.
+- Working dir inside the target repo; the feature branch is pushed.
+- You know the PR number(s). Backports are discovered automatically (step 0).
+
+## Repo conventions (camunda-deployment-references)
+
+- **Pause CI**: the `skip_all` label (auto-created by `internal-triage-skip`,
+  color `#1D76DB` for per-workflow labels / `#b60205` for `skip_all`). Every
+  triage-guarded workflow checks it and skips its heavy jobs. Never create skip
+  labels by hand — `skip_all` already exists.
+- **Ready marker**: a trailing ` [ready]` tag at the **end** of the PR **title**
+  (e.g. `fix(ci): ... [ready]`) — appended, never a prefix.
+- **Copilot reviewer**: `copilot-pull-request-reviewer[bot]`.
+- **Findings**: inline review comments via
+  `gh api /repos/<owner>/<repo>/pulls/<n>/comments`; thread state via the
+  GraphQL `reviewThreads` field.
+- **Backport rule** (AGENTS.md): a valid Copilot finding on one branch is valid
+  on all — propagate the fix + thread reply to every sibling backport PR.
+- Resolve `<owner>/<repo>` once: `REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)`.
+
+## Procedure
+
+### 0. Identify the target PR set
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+# Explicit args win; otherwise the PR for the current branch:
+PR=${1:-$(gh pr view --json number -q .number)}
+# Discover sibling backport PRs opened from this change:
+gh pr list --repo "$REPO" --state open --search "backport in:title" \
+  --json number,headRefName,title
+```
+
+Build the list of PRs to drive (main + applicable backports). Run every step
+below for **each** PR, keeping their code changes identical where the code
+exists on both branches.
+
+### 1. Pause CI
+
+```bash
+for n in $PRS; do gh pr edit "$n" --repo "$REPO" --add-label skip_all; done
+# Free the runners: cancel in-progress runs for the head branch.
+gh run list --repo "$REPO" --branch "$HEAD_REF" --status in_progress \
+  --json databaseId -q '.[].databaseId' | xargs -r -n1 gh run cancel --repo "$REPO"
+```
+
+`skip_all` makes the triage job report `should_skip=true`, so subsequent runs
+skip the heavy jobs while you iterate.
+
+### 2. Request a Copilot review
+
+Some repos auto-request Copilot on every push (branch ruleset "Review new
+pushes") — in that case a push is enough. To request explicitly:
+
+```bash
+# Preferred (recent gh): add Copilot as a reviewer.
+gh pr edit "$n" --repo "$REPO" --add-reviewer Copilot 2>/dev/null \
+  || {
+    # Fallback: GraphQL requestReviews with the Copilot bot id.
+    PR_ID=$(gh pr view "$n" --repo "$REPO" --json id -q .id)
+    BOT_ID=$(gh api graphql -f query='query($o:String!,$r:String!){repository(owner:$o,name:$r){suggestedActors(capabilities:[CAN_BE_ASSIGNED],first:100){nodes{login __typename ... on Bot{id} ... on User{id}}}}}' \
+      -f o="${REPO%/*}" -f r="${REPO#*/}" \
+      --jq '.data.repository.suggestedActors.nodes[] | select(.login=="copilot-pull-request-reviewer") | .id')
+    gh api graphql -f query='mutation($p:ID!,$b:ID!){requestReviews(input:{pullRequestId:$p,botIds:[$b],union:true}){pullRequest{id}}}' \
+      -f p="$PR_ID" -f b="$BOT_ID"
+  }
+```
+
+### 3. Wait for the review to land
+
+Poll (non-blocking — re-check later, do not hang the session) until the Copilot
+review is present and **no longer pending**:
+
+```bash
+gh pr view "$n" --repo "$REPO" --json reviews \
+  --jq '[.reviews[] | select(.author.login=="copilot-pull-request-reviewer")] | last | .state'
+```
+
+A Copilot run typically takes a few minutes. Treat states
+`COMMENTED` / `CHANGES_REQUESTED` / `APPROVED` as "done"; `PENDING` means keep waiting.
+
+### 4. Read and triage every finding
+
+```bash
+gh api "/repos/$REPO/pulls/$n/comments" \
+  --jq '.[] | {id, path, line, body, user: .user.login, in_reply_to: .in_reply_to_id}'
+```
+
+Read **every inline finding**, not just the review summary. For each finding:
+
+- **Fix it in code** with the minimal correct change, **or**
+- **Reply on that specific thread** explaining why it is intentionally not
+  addressed (`gh api /repos/$REPO/pulls/$n/comments/<comment_id>/replies -f body=...`).
+- Never silently ignore a finding.
+- **Propagate** any code fix + reply to every sibling backport PR where the same
+  code exists.
+- Leave thread **resolution** to the human author; do not resolve threads yourself.
+
+### 5. Push fixes, then re-review
+
+```bash
+git add -u && git commit -m "fix(<scope>): address Copilot review" && git push
+```
+
+Re-request the review (step 2) and return to step 3. **Loop steps 2–5 until the
+newest Copilot review adds no new actionable findings** (only resolved threads /
+"looks good" remain).
+
+### 6. Relaunch the tests
+
+```bash
+for n in $PRS; do gh pr edit "$n" --repo "$REPO" --remove-label skip_all; done
+```
+
+Removing `skip_all` alone does not re-trigger workflows (the `unlabeled` event
+is not in the triggers). Start fresh runs by either re-running the latest run
+(now that triage will no longer skip) or pushing:
+
+```bash
+gh run list --repo "$REPO" --branch "$HEAD_REF" --json databaseId,workflowName -q '.[].databaseId' \
+  | head -1 | xargs -r -n1 gh run rerun --repo "$REPO"
+# or, if there is a fix to push, the push already re-triggers them.
+```
+
+### 7. Watch the tests
+
+Use the **ci-feedback-loop** skill (`.github/skills/ci-feedback-loop/SKILL.md`)
+for non-blocking status, focused logs, and artifacts — read it and follow its
+`locate` / `summarize` / `logs` / `artifacts` procedure.
+
+### 8. On failure → fix → re-enter the loop
+
+- Map the failure to its source, read it, apply the **minimal real fix**.
+- Never edit a workflow just to skip a check to go green.
+- Then go back to **step 1** (pause CI, re-review the fix, …). The loop repeats
+  until tests are green **and** Copilot has no findings.
+
+### 9. On success → append the [ready] tag
+
+Once tests are green and no Copilot findings remain, append a ` [ready]` tag to
+the **end** of the title (idempotently — never double-tag), for each PR:
+
+```bash
+title=$(gh pr view "$n" --repo "$REPO" --json title -q .title)
+case "$title" in
+  *" [ready]") ;;                                          # already ready
+  *) gh pr edit "$n" --repo "$REPO" --title "$title [ready]" ;;
+esac
+```
+
+Confirm `skip_all` is removed before declaring done.
+
+## Anti-patterns
+
+- **Don't merge.** This skill stops at the ` [ready]` tag.
+- **Don't** silently drop a Copilot finding — fix it or reply with a rationale.
+- **Don't** skip/disable a failing check to force green — fix the root cause.
+- **Don't** leave `skip_all` on a PR you just marked ready.
+- **Don't** prefix or double-tag `[ready]` — it is appended once, at the end.
+- **Don't** block the session on long polls — re-check later.
+
+## References
+
+- [ci-feedback-loop](../ci-feedback-loop/SKILL.md) — CI status/logs/artifacts.
+- `AGENTS.md` → "PR review rules" — the Copilot-triage + backport-propagation contract.
