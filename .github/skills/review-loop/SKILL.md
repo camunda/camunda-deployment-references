@@ -110,7 +110,7 @@ for n in $PRS; do
       PR_ID=$(gh pr view "$n" --repo "$REPO" --json id -q .id)
       BOT_ID=$(gh api graphql -f query='query($o:String!,$r:String!){repository(owner:$o,name:$r){suggestedActors(capabilities:[CAN_BE_ASSIGNED],first:100){nodes{login __typename ... on Bot{id} ... on User{id}}}}}' \
         -f o="${REPO%/*}" -f r="${REPO#*/}" \
-        --jq '.data.repository.suggestedActors.nodes[] | select(.login=="copilot-pull-request-reviewer") | .id')
+        --jq '.data.repository.suggestedActors.nodes[] | select(.login | startswith("copilot-pull-request-reviewer")) | .id')
       if [ -z "$BOT_ID" ]; then
         echo "Copilot reviewer not assignable here (absent from suggestedActors); " \
              "rely on auto-review on push, or request it from the GitHub UI." >&2
@@ -131,7 +131,7 @@ review is present and **no longer pending**:
 for n in $PRS; do
   printf 'PR #%s: ' "$n"
   gh pr view "$n" --repo "$REPO" --json reviews \
-    --jq '[.reviews[] | select(.author.login=="copilot-pull-request-reviewer")] | last | .state // "NONE"'
+    --jq '[.reviews[] | select(.author.login | startswith("copilot-pull-request-reviewer"))] | last | .state // "NONE"'
 done
 ```
 
