@@ -596,6 +596,19 @@ runs:
               ZEEBE_CONNECTIVITY_RETRIES="${ZEEBE_CONNECTIVITY_RETRIES:-5}"
               ZEEBE_CONNECTIVITY_RETRY_DELAY="${ZEEBE_CONNECTIVITY_RETRY_DELAY:-15}"
 
+              # Validate the (overridable) tuning knobs up front: retries must be a
+              # positive integer and the delay a non-negative integer. Otherwise the
+              # `[[ ... -ge ... ]]` / `sleep` below would fail mid-loop with a terse
+              # bash error under `set -euo pipefail` that is harder to diagnose.
+              if ! [[ "$ZEEBE_CONNECTIVITY_RETRIES" =~ ^[1-9][0-9]*$ ]]; then
+                  echo "::error::ZEEBE_CONNECTIVITY_RETRIES must be a positive integer (got '$ZEEBE_CONNECTIVITY_RETRIES')."
+                  exit 1
+              fi
+              if ! [[ "$ZEEBE_CONNECTIVITY_RETRY_DELAY" =~ ^[0-9]+$ ]]; then
+                  echo "::error::ZEEBE_CONNECTIVITY_RETRY_DELAY must be a non-negative integer (got '$ZEEBE_CONNECTIVITY_RETRY_DELAY')."
+                  exit 1
+              fi
+
               attempt=1
               while true; do
                   if "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh" \
