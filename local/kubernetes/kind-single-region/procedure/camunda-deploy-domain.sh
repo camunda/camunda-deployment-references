@@ -59,6 +59,18 @@ else
         --values helm-values/values-mkcert.yml
 fi
 
+# Wait (bounded, fail-open) for the public Keycloak issuer, then restart the app
+# pods so they recover from the first-start crash-loop instead of waiting out the
+# backoff. On timeout it warns and continues. Reuses the shared readiness script
+# (also shipped to customers and used by CI). Under CI the host may not trust the
+# mkcert CA (mkcert -install is best-effort), so default to skipping TLS
+# verification there; a caller can override via KEYCLOAK_WAIT_INSECURE, and local
+# runs stay secure by default.
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    export KEYCLOAK_WAIT_INSECURE="${KEYCLOAK_WAIT_INSECURE:-true}"
+fi
+"$SCRIPT_DIR/../../../../generic/kubernetes/single-region/procedure/wait-for-keycloak.sh"
+
 echo ""
 if [[ "$SECONDARY_STORAGE" == "postgres" ]]; then
     echo "Camunda Platform deployed (PostgreSQL RDBMS — Optimize disabled)"
