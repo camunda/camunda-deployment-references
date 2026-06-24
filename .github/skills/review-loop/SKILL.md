@@ -50,10 +50,15 @@ ready for human review — **without ever merging it**.
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-# Explicit args win — accept one or more PR numbers and/or PR URLs; otherwise
-# fall back to the current-branch PR. Normalise every arg to a bare number:
+# Explicit args win — accept one or more PR numbers (`123` or `#123`) and/or
+# PR URLs; otherwise fall back to the current-branch PR. Reduce each arg to the
+# first numeric group (strip any `.../pull/` prefix first so the PR number wins):
 if [ "$#" -gt 0 ]; then
-  seeds=$(printf '%s\n' "$@" | sed -E 's#.*/pull/##; s/[^0-9].*$//' | awk 'NF')
+  seeds=""
+  for a in "$@"; do
+    num=$(printf '%s' "$a" | sed -E 's#.*/pull/##' | grep -oE '[0-9]+' | head -1)
+    [ -n "$num" ] && seeds="$seeds $num"
+  done
 else
   seeds=$(gh pr view --json number -q .number)
 fi
@@ -104,8 +109,13 @@ gh pr edit "$n" --repo "$REPO" --add-reviewer copilot-pull-request-reviewer 2>/d
     BOT_ID=$(gh api graphql -f query='query($o:String!,$r:String!){repository(owner:$o,name:$r){suggestedActors(capabilities:[CAN_BE_ASSIGNED],first:100){nodes{login __typename ... on Bot{id} ... on User{id}}}}}' \
       -f o="${REPO%/*}" -f r="${REPO#*/}" \
       --jq '.data.repository.suggestedActors.nodes[] | select(.login=="copilot-pull-request-reviewer") | .id')
-    gh api graphql -f query='mutation($p:ID!,$b:ID!){requestReviews(input:{pullRequestId:$p,botIds:[$b],union:true}){pullRequest{id}}}' \
-      -f p="$PR_ID" -f b="$BOT_ID"
+    if [ -z "$BOT_ID" ]; then
+      echo "Copilot reviewer not assignable here (absent from suggestedActors); " \
+           "rely on auto-review on push, or request it from the GitHub UI." >&2
+    else
+      gh api graphql -f query='mutation($p:ID!,$b:ID!){requestReviews(input:{pullRequestId:$p,botIds:[$b],union:true}){pullRequest{id}}}' \
+        -f p="$PR_ID" -f b="$BOT_ID"
+    fi
   }
 ```
 
@@ -163,7 +173,7 @@ re-running the latest run (now that triage will no longer skip), or just push:
 for n in $PRS; do
   head_ref=$(gh pr view "$n" --repo "$REPO" --json headRefName -q .headRefName)
   gh run list --repo "$REPO" --branch "$head_ref" \
-    --json databaseId -q '.[0].databaseId' | xargs -r -n1 gh run rerun --repo "$REPO"
+    --json databaseId -q '.[0].databaseId // empty' | xargs -r -n1 gh run rerun --repo "$REPO"
 done
 # or, if there is a fix to push, the push already re-triggers them.
 ```
