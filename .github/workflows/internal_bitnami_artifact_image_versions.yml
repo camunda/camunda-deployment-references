@@ -171,15 +171,16 @@ jobs:
                     fi
 
                     # One self-contained file per image, directly consumable as a Renovate
-                    # custom datasource (format: json): each release carries the version and
-                    # its image digest (newDigest) for optional digest pinning. No timestamp
-                    # is stored, so the file changes only when the tags/digests change (the
-                    # gh-pages commit date conveys freshness).
+                    # custom datasource (format: json): each release carries the version
+                    # and its image digest. "newDigest" is the field Renovate reads for
+                    # digest pinning; "digest" is the same value under a human-readable
+                    # name. No timestamp is stored, so the file changes only when the
+                    # tags/digests change (the gh-pages commit date conveys freshness).
                     jq -Rn \
                       --arg name "${img}" \
                       --arg repo "${ref}" \
                       '{name: $name, repository: $repo,
-                        releases: [inputs | split(" ") | {version: .[0], newDigest: .[1]}]}' \
+                        releases: [inputs | split(" ") | {version: .[0], digest: .[1], newDigest: .[1]}]}' \
                       /tmp/ver_dig > "docs/bitnami_${img}.json"
                   done
 
