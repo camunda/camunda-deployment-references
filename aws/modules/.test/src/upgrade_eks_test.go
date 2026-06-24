@@ -55,7 +55,7 @@ func (suite *UpgradeEKSTestSuite) SetupTest() {
 	// module default) so the start version never drifts out of EKS's supported
 	// range and the upgrade always targets a creatable version.
 	// renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
-	latestKubeVersion := "1.35"
+	latestKubeVersion := "1.36"
 	startVersion, err := utils.DecrementMinorVersionTwoParts(latestKubeVersion)
 	suite.Require().NoErrorf(err, "failed to derive the start Kubernetes version from latest %q", latestKubeVersion)
 	suite.kubeVersion = startVersion
