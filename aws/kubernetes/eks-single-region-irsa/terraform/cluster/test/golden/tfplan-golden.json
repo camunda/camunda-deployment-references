@@ -332,7 +332,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.35.5-SUFFIX",
+                    "release_version": "1.36.2-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -356,7 +356,7 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.35"
+                    "version": "1.36"
                   }
                 },
                 "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]": {
@@ -1005,7 +1005,7 @@
                 "remote_network_config": [],
                 "tags": null,
                 "timeouts": null,
-                "version": "1.35",
+                "version": "1.36",
                 "vpc_config": [
                   {
                     "endpoint_private_access": true,
@@ -1552,7 +1552,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "aws-ebs-csi-driver",
-                "kubernetes_version": "1.35",
+                "kubernetes_version": "1.36",
                 "most_recent": true
               }
             },
@@ -1566,7 +1566,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "coredns",
-                "kubernetes_version": "1.35",
+                "kubernetes_version": "1.36",
                 "most_recent": true
               }
             },
@@ -1580,7 +1580,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "kube-proxy",
-                "kubernetes_version": "1.35",
+                "kubernetes_version": "1.36",
                 "most_recent": true
               }
             },
@@ -1594,7 +1594,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "vpc-cni",
-                "kubernetes_version": "1.35",
+                "kubernetes_version": "1.36",
                 "most_recent": true
               }
             },
@@ -1627,7 +1627,7 @@
                 "create_duration": "30s",
                 "destroy_duration": null,
                 "triggers": {
-                  "kubernetes_version": "1.35"
+                  "kubernetes_version": "1.36"
                 }
               }
             }
