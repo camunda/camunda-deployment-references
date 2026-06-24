@@ -23,7 +23,11 @@ ready for human review — **without ever merging it**.
 
 ## Prerequisites
 
-- `gh` authenticated (`gh auth status`) with `pull-requests: write`.
+- `gh` authenticated (`gh auth status`) with permissions for everything the
+  loop touches: **pull-requests: write** (request reviews, edit the title),
+  **issues: write** (add/remove the `skip_all` label), and **actions: write**
+  (cancel/rerun workflow runs). A classic token with the `repo` + `workflow`
+  scopes covers all three.
 - Working dir inside the target repo; the feature branch is pushed.
 - You know the PR number(s). Backports are discovered automatically (step 0).
 
