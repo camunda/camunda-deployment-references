@@ -7,7 +7,8 @@ DNS-resolvable (cold multi-region start)"* — using a single
 [Kind](https://kind.sigs.k8s.io/) cluster, no cloud account and no Submariner.
 
 > **Status:** proposed reproduction scenario. The **startup hang** (issue steps
-> 1–3) is reproduced and validated end-to-end on Kind. See
+> 1–3) is reproduced and validated end-to-end on Kind on both the 8.7 standalone
+> broker and the 8.9 unified image. See
 > [What this does / does not reproduce](#what-this-does-and-does-not-reproduce)
 > for the exact fidelity boundary versus the production report.
 
@@ -316,33 +317,47 @@ brokers recover on their own — see the fidelity note below.
 A broker that starts while a configured `*.svc.clusterset.local` name is `NXDOMAIN`
 parks during `BrokerStartupProcess` at `Startup Cluster Topology Manager`, never
 binds 9600, and stays `0/1 Running` — issue #55038 **steps 1–3** and the
-*"Current behavior"* symptoms. Validated in **two** DNS conditions: (A) every
-clusterset name `NXDOMAIN` (Steps 2–4), and (B) the more faithful split where the
-headless name resolves but per-pod names are `NXDOMAIN` (the Variant above).
+*"Current behavior"* symptoms. Validated on **both** the 8.7 standalone broker
+(`camunda/zeebe:8.7.29`) and the 8.9 unified image (`camunda/camunda:8.9.5` + a real
+Elasticsearch — see [the unified-image section](#reproduce-on-the-unified-image-8810)),
+and in **two** DNS conditions: (A) every clusterset name `NXDOMAIN` (Steps 2–4), and
+(B) the more faithful split where the headless name resolves but per-pod names are
+`NXDOMAIN` (the Variant above). On 8.9 the broker logs the **exact** error from the
+issue while dialing the peer's advertised per-pod name:
+
+```text
+io.netty.resolver.dns.DnsErrorCauseException: Query failed with NXDOMAIN
+  Failed to resolve 'zeebe-1.zeebe.camunda.svc.clusterset.local'
+```
 
 **Not reproduced by this minimal single-cluster model:** the production-reported
-**permanent** hang. In *both* conditions, once the missing name became resolvable,
-`camunda/zeebe:8.7.29` **re-resolved and finished startup on its own within
-~30–60 s — no pod restart needed**. The field report (ROSA HCP + Submariner,
-`clusterSize 8` / `RF 4`) is that the broker stays wedged **even after** the names
-resolve, and only `kubectl delete pod` recovers it.
+**permanent** hang. In *every* variant, once the missing name became resolvable the
+broker **re-resolved and finished startup on its own within ~20–60 s — no pod
+restart needed** (`0` restarts, `Transition to LEADER … completed`, 9600 `UP`). The
+field report (ROSA HCP + Submariner, `clusterSize 8` / `RF 4`) is that the broker
+stays wedged **even after** the names resolve, and only `kubectl delete pod`
+recovers it.
 
 So this scenario reliably reproduces the **trigger and the hang**; turning it into
-the **permanent** hang is the open question. Plausible reasons the 8.7 standalone
-broker recovered here but the field brokers do not — each directly testable, and
-worth confirming upstream (the issue's root cause is still **Open**):
+the **permanent** hang is the open question. Two hypotheses were **tested here and
+ruled out**:
 
-- **JVM/Netty negative-DNS cache.** This JRE re-resolved `NXDOMAIN` within seconds
-  (default `networkaddress.cache.negative.ttl`). If the field images cache the
-  negative answer for much longer, the broker would never re-resolve and would stay
-  wedged until restarted — test with `-Dnetworkaddress.cache.negative.ttl=<large>`.
-- **Discovery path / version.** 8.9/8.10 route contact points through
-  `DynamicDiscoveryProvider` (60 s re-resolve) whereas 8.7 uses
-  `BootstrapDiscoveryProvider`; the permanent wedge may be specific to one
-  path/version.
-- **Fuller multi-region conditions** — cross-region quorum across 8 brokers / RF 4
-  and Submariner's specific connection-close behavior — not present in a 2-broker
-  model.
+- **JVM negative-DNS cache — ruled out.** Pinning the JVM negative cache to forever
+  (`-Dnetworkaddress.cache.negative.ttl=-1 -Dsun.net.inetaddr.negative.ttl=-1`) did
+  **not** prevent recovery — the broker still re-resolved and reached Ready in ~20 s.
+  The failing/recovering lookups come from **Netty's own resolver**
+  (`io.netty.resolver.dns`), which keeps its own non-caching negative cache and
+  ignores the JVM security property.
+- **8.9/8.10 discovery path — ruled out.** 8.9.5 (`DynamicDiscoveryProvider`)
+  self-heals exactly like 8.7.29 (`BootstrapDiscoveryProvider`), so the wedge is not
+  specific to one discovery path/version.
+
+The remaining leading hypothesis — **not reproducible in a 2-broker model** — is the
+**full-scale cold-start path**: the dynamic cluster-configuration consensus
+(`ClusterConfigurationInitializer` Gossip/Sync) across **8 brokers / RF 4** stretched
+over two regions, and/or Submariner Lighthouse's specific DNS behavior (intermittent
+`SERVFAIL` / never-resolves rather than a clean `NXDOMAIN`→resolve transition).
+Pinning the exact blocking line upstream is the way to settle it.
 
 ## Version mapping
 
@@ -357,6 +372,46 @@ var was renamed:
 | 8.8  | `camunda/camunda:8.8.24`    | `ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS` |
 | 8.9  | `camunda/camunda:8.9.5`     | `CAMUNDA_CLUSTER_INITIALCONTACTPOINTS`      |
 | 8.10 | `camunda/camunda:8.10.0-alpha2` | `CAMUNDA_CLUSTER_INITIALCONTACTPOINTS`  |
+
+## Reproduce on the unified image (8.8–8.10)
+
+The standalone `camunda/zeebe` broker above is the simplest repro. To reproduce on
+the current line, swap in the unified `camunda/camunda` image — with two differences
+(both validated on 8.9.5):
+
+1. **It hard-requires a secondary storage.** Without one the app exits `255` (~5 min)
+   and crash-loops instead of hanging, and the broker-only shortcuts both fail-fast:
+   `CAMUNDA_DATA_SECONDARYSTORAGE_TYPE=none` → *"Basic Authentication is not supported
+   when secondary storage is disabled"*, and `CAMUNDA_SECURITY_AUTHENTICATION_METHOD=none`
+   → *"unsupported authentication method: none"*. So deploy a single-node Elasticsearch
+   (the version the matching chart bundles, e.g. `8.18.0` for 8.9) on `cluster.local`
+   and point the broker at it — the app context then starts and the broker hangs
+   **indefinitely** at topology init. ES is local infra (always resolvable), so the
+   only thing that hangs is the cross-region peer lookup.
+2. **Config is under `camunda.cluster.*`** (env `CAMUNDA_CLUSTER_*`) and the broker
+   binary is `/usr/local/camunda/bin/camunda`:
+
+```yaml
+image: camunda/camunda:8.9.5            # or 8.10.x
+command: ["/bin/sh", "-c"]
+args:
+  - |
+    export CAMUNDA_CLUSTER_NODEID="${HOSTNAME##*-}"
+    export CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST="${HOSTNAME}.zeebe.camunda.svc.clusterset.local"
+    exec /usr/local/camunda/bin/camunda
+env:
+  - { name: CAMUNDA_CLUSTER_SIZE,                            value: "2" }
+  - { name: CAMUNDA_CLUSTER_PARTITIONCOUNT,                  value: "2" }
+  - { name: CAMUNDA_CLUSTER_REPLICATIONFACTOR,              value: "2" }
+  - { name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS,           value: "zeebe.camunda.svc.clusterset.local:26502" }
+  - { name: CAMUNDA_CLUSTER_NETWORK_HOST,                   value: "0.0.0.0" }
+  - { name: CAMUNDA_DATA_SECONDARYSTORAGE_TYPE,             value: "elasticsearch" }
+  - { name: CAMUNDA_DATA_SECONDARYSTORAGE_ELASTICSEARCH_URL, value: "http://elasticsearch.camunda.svc.cluster.local:9200" }
+```
+
+Everything else — the split-DNS CoreDNS rewrite, the `tcpSocket:9600` readiness
+probe, the hang, and the self-heal once DNS resolves — is identical to the
+standalone repro.
 
 ## Deploy-layer workarounds (already in this repo)
 
