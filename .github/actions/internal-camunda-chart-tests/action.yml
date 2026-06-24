@@ -250,6 +250,14 @@ runs:
 
               golden_zeebe_topology_cluster_size=$(jq '.clusterSize' < "$reference_file")
               golden_zeebe_topology_partitions_count=$(jq '.partitionsCount' < "$reference_file")
+              # Total partition replicas the golden topology expects (sum of every
+              # broker's partitions). A broker can join the cluster (so clusterSize
+              # already matches) before it has loaded its partitions, reporting
+              # "partitions": []. That empty broker is invisible to the flattened
+              # health/partitions-count checks below, so without this total the
+              # loop would exit "ready" against a still-converging topology and the
+              # golden-file diff would then flake.
+              golden_zeebe_topology_total_replicas=$(jq '[.brokers[].partitions[]] | length' < "$reference_file")
 
               # The Zeebe cluster can take a while to fully form after the Helm
               # release reports ready. Retry fetching the topology until it
@@ -288,16 +296,19 @@ runs:
                 check_zeebe_topology_all_healthy=$(echo "$check_zeebe_topology_output" | jq -r "$healthy_filter" 2>/dev/null || echo "false")
                 check_zeebe_topology_cluster_size=$(echo "$check_zeebe_topology_output" | jq -r '.clusterSize // empty' 2>/dev/null || echo "")
                 check_zeebe_topology_partitions_count=$(echo "$check_zeebe_topology_output" | jq -r '.partitionsCount // empty' 2>/dev/null || echo "")
+                check_zeebe_topology_total_replicas=$(echo "$check_zeebe_topology_output" | jq -r '[.brokers[]?.partitions[]?] | length' 2>/dev/null || echo "0")
 
                 if [ "$check_zeebe_topology_all_healthy" = "true" ] \
                   && [ "$check_zeebe_topology_cluster_size" = "$golden_zeebe_topology_cluster_size" ] \
-                  && [ "$check_zeebe_topology_partitions_count" = "$golden_zeebe_topology_partitions_count" ]; then
+                  && [ "$check_zeebe_topology_partitions_count" = "$golden_zeebe_topology_partitions_count" ] \
+                  && [ "$check_zeebe_topology_total_replicas" = "$golden_zeebe_topology_total_replicas" ]; then
                   echo "✅ Zeebe topology is ready."
                   break
                 fi
 
                 echo "Topology not ready yet (size='${check_zeebe_topology_cluster_size:-<empty>}'," \
                   "partitions='${check_zeebe_topology_partitions_count:-<empty>}'," \
+                  "replicas='${check_zeebe_topology_total_replicas:-<empty>}'/'${golden_zeebe_topology_total_replicas}'," \
                   "healthy='${check_zeebe_topology_all_healthy}')."
                 # Only sleep when another attempt will follow, to avoid an
                 # unnecessary delay after the final attempt.
@@ -338,6 +349,14 @@ runs:
                 echo "✅ Partitions count is $check_zeebe_topology_partitions_count."
               else
                 echo "❌ Partitions count is not $golden_zeebe_topology_partitions_count (got '${check_zeebe_topology_partitions_count:-<empty>}')."
+                error_found=true
+              fi
+
+              if [[ "$check_zeebe_topology_total_replicas" =~ ^[0-9]+$ ]] && [ "$check_zeebe_topology_total_replicas" -eq "$golden_zeebe_topology_total_replicas" ]; then
+                echo "✅ Partition replicas total is $check_zeebe_topology_total_replicas (every broker loaded its partitions)."
+              else
+                echo "❌ Partition replicas total is not $golden_zeebe_topology_total_replicas" \
+                  "(got '${check_zeebe_topology_total_replicas:-<empty>}'); a broker joined the cluster without loading its partitions."
                 error_found=true
               fi
 
