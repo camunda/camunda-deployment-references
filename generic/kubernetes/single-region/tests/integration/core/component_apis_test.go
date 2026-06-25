@@ -12,13 +12,15 @@ import (
 )
 
 // componentReadyTimeout is the minimum time the component reachability probes
-// keep retrying a transient 5xx before giving up. Satellite components (reached
-// via the ingress) can briefly return 5xx while they finish starting — even
-// after their readiness probe is green — until the orchestration's domain-mode
-// OIDC startup settles. (Observed on a ROSA HCP domain run: a component's API
-// returned 500 for ~45s, just past the short cfg.RetryAttempts budget.) A
-// larger configured cfg.RetryAttempts/cfg.RetryDelay still wins; either way the
-// probe stays finite and fails a component that never becomes reachable.
+// keep retrying before giving up. The loop retries on any status outside the
+// per-case acceptCodes; satellite components (reached via the ingress) can
+// briefly return such a status — typically a 5xx — while they finish starting,
+// even after their readiness probe is green, until the orchestration's
+// domain-mode OIDC startup settles. (Observed on a ROSA HCP domain run: a
+// component's API returned 500 for ~45s, past the short cfg.RetryAttempts
+// budget.) A larger configured cfg.RetryAttempts/cfg.RetryDelay still wins;
+// either way the probe stays finite and fails a component that never becomes
+// reachable.
 const componentReadyTimeout = 3 * time.Minute
 
 // TestComponentAPIs verifies the authenticated API endpoints exposed by the
@@ -87,12 +89,19 @@ func TestComponentAPIs(t *testing.T) {
 				t.Skipf("%s URL not configured", tc.name)
 			}
 			fullURL := tc.url + tc.path
-			// Reachability probes: warm up for at least componentReadyTimeout
-			// to absorb a component's transient startup 5xx, taking the larger
-			// of that and the configured per-request budget.
+			// Reachability probe: warm up for at least componentReadyTimeout to
+			// absorb a component's transient startup errors, taking the larger of
+			// that and the configured per-request budget. The window is the
+			// (readyAttempts-1) sleeps between attempts, so round the division up
+			// so it is never shorter than componentReadyTimeout.
 			readyAttempts := cfg.RetryAttempts
 			if cfg.RetryDelay > 0 {
-				if want := int(componentReadyTimeout/cfg.RetryDelay) + 1; readyAttempts < want {
+				want := int(componentReadyTimeout / cfg.RetryDelay)
+				if componentReadyTimeout%cfg.RetryDelay != 0 {
+					want++
+				}
+				want++ // the first attempt has no preceding sleep
+				if readyAttempts < want {
 					readyAttempts = want
 				}
 			}
