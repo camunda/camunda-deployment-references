@@ -421,17 +421,37 @@ does on 8.9+. For **8.7/8.8** the cleanest path is to **backport that provider**
 ### Scope: 8.9/8.10 is a separate failure mode
 
 This explains **8.7/8.8**. **8.9/8.10 self-heal here** in every condition tested
-(all-`NXDOMAIN`, the per-pod-lag split, and the slow search domain), yet the field
-reports them permanently wedged too — likely a **separate** mode (the per-pod-name
-lag, or Submariner connection behaviour). The way to tell them apart: check a stuck
-**8.9/8.10** field pod for the same *`getent` resolves but the broker does not*
-signature — same root cause if present, a second one to chase if not.
+(all-`NXDOMAIN`, the per-pod-lag split, the slow search domain, and even with the JVM
+negative-DNS cache pinned to forever) — their `DynamicDiscoveryProvider` re-resolves
+on a background timer once the name appears. So on 8.9/8.10 there is **no distinct
+permanent broker bug**; the dual-region CI failures attributed to them are a
+combination of two other things:
+
+- **Submariner/Lighthouse cross-region DNS that publishes late or not at all.** While
+  a peer's per-pod `*.svc.clusterset.local` name is genuinely unresolvable, *any*
+  broker stays `0/1` — there is nothing to re-resolve to. The OpenShift dual-region
+  CI shows this directly: the `wait-clusterset-dns` gate **exhausts its ~12-min
+  budget** (`giving up … global ~12 min DNS budget exhausted; starting broker anyway`)
+  and region brokers sit `0/1 Running` for ~20 min. That is infra latency, not a hang
+  the JVM recovers from on its own — but on 8.9/8.10 the broker *does* join once the
+  record finally appears.
+- **A topology/partition-convergence test-timing flake.** A broker can already be
+  counted in `clusterSize` while still reporting empty `partitions` (cross-region
+  topology still converging), so a check that only asserts `clusterSize` +
+  `partitionsCount` can pass against a still-converging cluster and then flake on the
+  golden-file diff. The fix is to also wait for the **total partition replicas**.
+
+To tell a genuine 8.9/8.10 broker hang from these: check a stuck pod for the
+*`getent` resolves the name but the broker stays `0/1`* signature. If `getent` also
+fails, the cross-region DNS simply has not published yet (infra), and the broker will
+join once it does.
 
 ## Version mapping
 
-The same hang affects 8.7 → 8.10. This repro uses the standalone broker
-(`camunda/zeebe`) for a clean, ES-free, well-known-env reproduction; on 8.8+ the
-broker ships inside the unified `camunda/camunda` image and the contact-point env
+The startup **park** affects 8.7 → 8.10 (the **permanent** hang only on 8.7/8.8 —
+see [Scope](#scope-8910-is-a-separate-failure-mode)). This repro uses the standalone
+broker (`camunda/zeebe`) for a clean, ES-free, well-known-env reproduction; on 8.8+
+the broker ships inside the unified `camunda/camunda` image and the contact-point env
 var was renamed:
 
 | Line | Broker image                | Contact-point env var                       |
