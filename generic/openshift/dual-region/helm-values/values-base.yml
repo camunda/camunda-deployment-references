@@ -82,10 +82,16 @@ zeebe:
           valueFrom:
               fieldRef:
                   fieldPath: metadata.namespace
+        # Cross-region SWIM membership tuning for stretched clusters. The default probe
+        # timeout (100ms) is too tight for cross-region latency: on a cold start brokers
+        # transiently see peers in the other region as unreachable, SWIM ejects them,
+        # membership churns, and brokers flap so the topology never converges.
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT
-          value: 500ms
+          value: 1000ms
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
+        - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_FAILURETIMEOUT
+          value: 10000ms
         - name: ZEEBE_BROKER_EXPERIMENTAL_RAFT_SNAPSHOTREQUESTTIMEOUT
           value: 10s
         - name: ZEEBE_BROKER_CLUSTER_MESSAGECOMPRESSION
@@ -150,9 +156,11 @@ zeebeGateway:
         - name: ZEEBE_GATEWAY_CLUSTER_MESSAGECOMPRESSION
           value: GZIP
         - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
-          value: 500ms
+          value: 1000ms
         - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
+        - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_FAILURETIMEOUT
+          value: 10000ms
 
     resources:
         requests:
