@@ -4,14 +4,29 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+)
 
-	"github.com/camunda/camunda-deployment-references/tests/integration/helpers"
+// componentReadyTimeout bounds, in wall-clock time, how long a component
+// reachability probe keeps retrying; componentReadyPollInterval is the wait
+// between tries. Satellite components (reached via the ingress) can briefly
+// return a status outside the per-case acceptCodes — typically a 5xx — while
+// they finish starting, even after their readiness probe is green, until the
+// orchestration's domain-mode OIDC startup settles. (Observed on a ROSA HCP
+// domain run: a component's API returned 500 for ~45s, past the short
+// cfg.RetryAttempts budget.) The probe stops at the deadline plus at most one
+// in-flight request — however many tries fit in between — so a slow or hung
+// component cannot stretch the run open-endedly; transient startup errors answer
+// quickly, so a healthy probe settles well under the window.
+const (
+	componentReadyTimeout      = 90 * time.Second
+	componentReadyPollInterval = 5 * time.Second
 )
 
 // TestComponentAPIs verifies the authenticated API endpoints exposed by the
-// satellite components (Console, Identity, Connectors). Mirrors the venom
+// satellite components reachable through the ingress. Mirrors the venom
 // "TEST - Interacting with Web API" suite.
 //
 // Each sub-test is skipped when the corresponding component is disabled or
@@ -76,7 +91,7 @@ func TestComponentAPIs(t *testing.T) {
 				t.Skipf("%s URL not configured", tc.name)
 			}
 			fullURL := tc.url + tc.path
-			err := helpers.Retry(cfg.RetryAttempts, cfg.RetryDelay, func() error {
+			probe := func() error {
 				resp, err := client.Get(fullURL)
 				if err != nil {
 					return fmt.Errorf("GET %s failed: %w", fullURL, err)
@@ -88,7 +103,25 @@ func TestComponentAPIs(t *testing.T) {
 					}
 				}
 				return fmt.Errorf("GET %s: unexpected status %d (accepted: %v)", fullURL, resp.StatusCode, tc.acceptCodes)
-			})
+			}
+			// Retry the reachability probe until it returns an accepted status or
+			// componentReadyTimeout of wall-clock elapses, waiting
+			// componentReadyPollInterval between tries (clamped so a sleep never
+			// runs past the deadline). See the consts for the rationale.
+			deadline := time.Now().Add(componentReadyTimeout)
+			err := probe()
+			for err != nil {
+				remaining := time.Until(deadline)
+				if remaining <= 0 {
+					break
+				}
+				sleep := componentReadyPollInterval
+				if sleep > remaining {
+					sleep = remaining
+				}
+				time.Sleep(sleep)
+				err = probe()
+			}
 			assert.NoError(t, err, "%s API endpoint %s should be reachable", tc.name, tc.path)
 		})
 	}
