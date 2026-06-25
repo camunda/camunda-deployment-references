@@ -11,12 +11,14 @@ import (
 	"github.com/camunda/camunda-deployment-references/tests/integration/helpers"
 )
 
-// componentReadyTimeout bounds how long the component reachability probes keep
-// retrying a transient 5xx. Satellite components (reached via the ingress) can
-// briefly return 5xx while they finish starting — even after their readiness
-// probe is green — until the orchestration's domain-mode OIDC startup settles.
-// (Observed: Identity's /api/users returned 500 for ~45s on a ROSA HCP domain
-// run.) Bounded so a component that stays unreachable past it still fails.
+// componentReadyTimeout is the minimum time the component reachability probes
+// keep retrying a transient 5xx before giving up. Satellite components (reached
+// via the ingress) can briefly return 5xx while they finish starting — even
+// after their readiness probe is green — until the orchestration's domain-mode
+// OIDC startup settles. (Observed on a ROSA HCP domain run: a component's API
+// returned 500 for ~45s, just past the short cfg.RetryAttempts budget.) A
+// larger configured cfg.RetryAttempts/cfg.RetryDelay still wins; either way the
+// probe stays finite and fails a component that never becomes reachable.
 const componentReadyTimeout = 3 * time.Minute
 
 // TestComponentAPIs verifies the authenticated API endpoints exposed by the
@@ -85,9 +87,9 @@ func TestComponentAPIs(t *testing.T) {
 				t.Skipf("%s URL not configured", tc.name)
 			}
 			fullURL := tc.url + tc.path
-			// These are reachability probes, so allow a longer bounded warm-up
-			// than the short per-request cfg.RetryAttempts to absorb a
-			// component's transient startup 5xx (see componentReadyTimeout).
+			// Reachability probes: warm up for at least componentReadyTimeout
+			// to absorb a component's transient startup 5xx, taking the larger
+			// of that and the configured per-request budget.
 			readyAttempts := cfg.RetryAttempts
 			if cfg.RetryDelay > 0 {
 				if want := int(componentReadyTimeout/cfg.RetryDelay) + 1; readyAttempts < want {
