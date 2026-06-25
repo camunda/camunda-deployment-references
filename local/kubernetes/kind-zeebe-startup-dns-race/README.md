@@ -6,11 +6,10 @@ Local, single-machine reproduction of
 DNS-resolvable (cold multi-region start)"* — using a single
 [Kind](https://kind.sigs.k8s.io/) cluster, no cloud account and no Submariner.
 
-> **Status:** proposed reproduction scenario. The **startup hang** (issue steps
-> 1–3) is reproduced and validated end-to-end on Kind on both the 8.7 standalone
-> broker and the 8.9 unified image. See
-> [What this does / does not reproduce](#what-this-does-and-does-not-reproduce)
-> for the exact fidelity boundary versus the production report.
+> **Status:** proposed reproduction scenario, validated end-to-end on Kind. The
+> startup park reproduces on 8.7 (standalone) and 8.9 (unified), and the
+> **permanent** hang on 8.7/8.8 is reproduced and root-caused as a
+> [DNS search-domain timeout-budget race](#root-cause-verified-the-dns-search-domain-timeout-budget-race).
 
 ## The bug in one paragraph
 
@@ -308,56 +307,125 @@ kubectl -n camunda logs zeebe-0 | grep -E "Failed to probe|ConnectionClosed" | t
 ```
 
 This is the closest match to the field trigger and directly motivates the per-pod
-DNS gate. Restore the Step 4 blanket rewrite (per-pod names resolve) and the
-brokers recover on their own — see the fidelity note below.
+DNS gate. Restore the Step 4 blanket rewrite (per-pod names resolve) and the brokers
+recover on their own (in *this* split — but see
+[Root cause](#root-cause-verified-the-dns-search-domain-timeout-budget-race) below for
+the search-domain timeout that makes 8.7/8.8 hang **permanently**).
 
-## What this does and does not reproduce
+## Root cause (verified): the DNS search-domain timeout-budget race
 
-**Reproduced and validated on Kind (the hard part):** the **startup hang** itself.
-A broker that starts while a configured `*.svc.clusterset.local` name is `NXDOMAIN`
-parks during `BrokerStartupProcess` at `Startup Cluster Topology Manager`, never
-binds 9600, and stays `0/1 Running` — issue #55038 **steps 1–3** and the
-*"Current behavior"* symptoms. Validated on **both** the 8.7 standalone broker
-(`camunda/zeebe:8.7.29`) and the 8.9 unified image (`camunda/camunda:8.9.5` + a real
-Elasticsearch — see [the unified-image section](#reproduce-on-the-unified-image-8810)),
-and in **two** DNS conditions: (A) every clusterset name `NXDOMAIN` (Steps 2–4), and
-(B) the more faithful split where the headless name resolves but per-pod names are
-`NXDOMAIN` (the Variant above). On 8.9 the broker logs the **exact** error from the
-issue while dialing the peer's advertised per-pod name:
+Steps 2–4 and the Variant reproduce the **startup park**, but on their own they
+**self-heal** the moment the name resolves — because every search-domain query in
+this Kind setup returns a *fast* `NXDOMAIN`, so the resolver quickly reaches the bare
+name. Adding the one ingredient that was missing from this model but present in the
+field — **a search-domain query that does not answer within the broker's probe
+budget** — turns the park into the production **permanent** hang and pins the
+mechanism. Everything below was reproduced live on Kind.
+
+### The race
+
+The pod's `resolv.conf` has `options ndots:5`, and `zeebe.camunda.svc.clusterset.local`
+has **4 dots (< 5)**, so the resolver treats it as *relative* and appends each
+**search domain first**, trying the bare name **last**:
 
 ```text
-io.netty.resolver.dns.DnsErrorCauseException: Query failed with NXDOMAIN
-  Failed to resolve 'zeebe-1.zeebe.camunda.svc.clusterset.local'
+zeebe.camunda.svc.clusterset.local.camunda.svc.cluster.local  → NXDOMAIN (fast)
+zeebe.camunda.svc.clusterset.local.svc.cluster.local          → NXDOMAIN (fast)
+zeebe.camunda.svc.clusterset.local.cluster.local              → NXDOMAIN (fast)
+zeebe.camunda.svc.clusterset.local.<slow-search-domain>       → TIMEOUT
+zeebe.camunda.svc.clusterset.local            (bare)          → never queried
 ```
 
-**Not reproduced by this minimal single-cluster model:** the production-reported
-**permanent** hang. In *every* variant, once the missing name became resolvable the
-broker **re-resolved and finished startup on its own within ~20–60 s — no pod
-restart needed** (`0` restarts, `Transition to LEADER … completed`, 9600 `UP`). The
-field report (ROSA HCP + Submariner, `clusterSize 8` / `RF 4`) is that the broker
-stays wedged **even after** the names resolve, and only `kubectl delete pod`
-recovers it.
+- **8.7 / 8.8 (`BootstrapDiscoveryProvider`)** resolve the peer **inline during a SWIM
+  probe** (~2 s budget) via Netty's `DnsNameResolver`. One slow/unanswered
+  search-domain query makes the probe abort **before** the walk reaches the bare
+  (resolvable) name; it retries every ~1 s and stalls identically — **forever**. Peer
+  never discovered → topology step never completes → startup parks **permanently**.
+- **8.9 / 8.10 (`DynamicDiscoveryProvider`)** re-resolve on a **background timer** with
+  the JVM resolver and hand SWIM a pre-resolved peer, so they are **not** bounded by
+  the 2 s probe and **self-heal**.
 
-So this scenario reliably reproduces the **trigger and the hang**; turning it into
-the **permanent** hang is the open question. Two hypotheses were **tested here and
-ruled out**:
+### Verified signatures (wedged `camunda/zeebe:8.7.29`)
 
-- **JVM negative-DNS cache — ruled out.** Pinning the JVM negative cache to forever
-  (`-Dnetworkaddress.cache.negative.ttl=-1 -Dsun.net.inetaddr.negative.ttl=-1`) did
-  **not** prevent recovery — the broker still re-resolved and reached Ready in ~20 s.
-  The failing/recovering lookups come from **Netty's own resolver**
-  (`io.netty.resolver.dns`), which keeps its own non-caching negative cache and
-  ignores the JVM security property.
-- **8.9/8.10 discovery path — ruled out.** 8.9.5 (`DynamicDiscoveryProvider`)
-  self-heals exactly like 8.7.29 (`BootstrapDiscoveryProvider`), so the wedge is not
-  specific to one discovery path/version.
+- `cat /etc/resolv.conf` → `options ndots:5`; search `camunda.svc.cluster.local
+  svc.cluster.local cluster.local`; FQDN has 4 dots `< 5` ⇒ search-first.
+- `LOGGING_LEVEL_IO_NETTY_RESOLVER=DEBUG` shows queries only for **search-expanded**
+  names (`…clusterset.local.cluster.local`, `…clusterset.local.<slow>`) and **never**
+  the bare `…svc.clusterset.local`; the slow one is `timed out or cancelled`.
+- `getent hosts zeebe.camunda.svc.clusterset.local` **succeeds** inside the same pod
+  (glibc waits out the slow domain, then reaches the bare name, ~12 s) while the
+  broker stays `0/1`, 9600 refused. **glibc resolves it; Netty under the 2 s probe
+  deadline does not** — the field signature.
+- **Decisive check:** with the broker already wedged, changing **only** the slow query
+  to a fast `NXDOMAIN` (nothing else) recovered both 8.7 brokers in ~60–80 s, **no
+  restart**. The identical setup on **8.9.5** **self-heals in ~40 s** even while the
+  slow domain keeps timing out.
 
-The remaining leading hypothesis — **not reproducible in a 2-broker model** — is the
-**full-scale cold-start path**: the dynamic cluster-configuration consensus
-(`ClusterConfigurationInitializer` Gossip/Sync) across **8 brokers / RF 4** stretched
-over two regions, and/or Submariner Lighthouse's specific DNS behavior (intermittent
-`SERVFAIL` / never-resolves rather than a clean `NXDOMAIN`→resolve transition).
-Pinning the exact blocking line upstream is the way to settle it.
+### Reproduce the permanent hang
+
+On top of Step 1's cluster and the Step 4 blanket rewrite (so the bare name resolves),
+add (1) a UDP blackhole, (2) a CoreDNS zone for a search domain that forwards to it,
+and (3) that search domain in the broker pods' `dnsConfig` (`10.96.0.53` is in Kind's
+default Service CIDR):
+
+```bash
+# 1. a UDP sink that receives and never replies
+kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: Pod
+metadata: { name: dns-blackhole, namespace: kube-system, labels: { app: dns-blackhole } }
+spec:
+  containers:
+    - name: sink
+      image: python:3.12-slim
+      command: ["python3", "-c"]
+      args:
+        - |
+          import socket
+          s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+          s.bind(("0.0.0.0", 5300))
+          while True:
+              s.recvfrom(65535)
+      ports: [{ containerPort: 5300, protocol: UDP }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: dns-blackhole, namespace: kube-system }
+spec:
+  clusterIP: 10.96.0.53
+  selector: { app: dns-blackhole }
+  ports: [{ protocol: UDP, port: 53, targetPort: 5300 }]
+EOF
+
+# 2. append a server block to the Step 4 Corefile so slow.example.com never answers:
+#      slow.example.com:53 { forward . 10.96.0.53 { max_fails 0 } }
+#    then: kubectl -n kube-system rollout restart deployment coredns
+
+# 3. give the broker StatefulSet pods the slow domain in their search path:
+#      spec.template.spec.dnsConfig:
+#        searches: [slow.example.com]
+#        options: [{ name: ndots, value: "5" }]
+```
+
+`camunda/zeebe:8.7.29` then hangs **permanently** (while `getent` still resolves the
+bare name). Flip only the slow query to a fast `NXDOMAIN`
+(`slow.example.com:53 { template ANY ANY { rcode NXDOMAIN } }`, then restart CoreDNS)
+and the wedged brokers recover **without a restart**.
+
+### The fix
+
+Move contact-point resolution **off the probe's critical path** — background JVM
+re-resolution feeding SWIM, which is exactly what `DynamicDiscoveryProvider` already
+does on 8.9+. For **8.7/8.8** the cleanest path is to **backport that provider**.
+
+### Scope: 8.9/8.10 is a separate failure mode
+
+This explains **8.7/8.8**. **8.9/8.10 self-heal here** in every condition tested
+(all-`NXDOMAIN`, the per-pod-lag split, and the slow search domain), yet the field
+reports them permanently wedged too — likely a **separate** mode (the per-pod-name
+lag, or Submariner connection behaviour). The way to tell them apart: check a stuck
+**8.9/8.10** field pod for the same *`getent` resolves but the broker does not*
+signature — same root cause if present, a second one to chase if not.
 
 ## Version mapping
 
