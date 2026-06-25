@@ -11,20 +11,20 @@ import (
 	"github.com/camunda/camunda-deployment-references/tests/integration/helpers"
 )
 
-// componentReadyTimeout is the minimum time the component reachability probes
-// keep retrying before giving up. The loop retries on any status outside the
-// per-case acceptCodes; satellite components (reached via the ingress) can
-// briefly return such a status — typically a 5xx — while they finish starting,
-// even after their readiness probe is green, until the orchestration's
-// domain-mode OIDC startup settles. (Observed on a ROSA HCP domain run: a
-// component's API returned 500 for ~45s, past the short cfg.RetryAttempts
-// budget.) A larger configured cfg.RetryAttempts/cfg.RetryDelay still wins;
-// either way the probe stays finite and fails a component that never becomes
-// reachable.
-const componentReadyTimeout = 3 * time.Minute
+// componentReadyTimeout is the target warm-up window for the component
+// reachability probes when a positive cfg.RetryDelay is configured. The loop
+// retries on any status outside the per-case acceptCodes; satellite components
+// (reached via the ingress) can briefly return such a status — typically a 5xx
+// — while they finish starting, even after their readiness probe is green,
+// until the orchestration's domain-mode OIDC startup settles. (Observed on a
+// ROSA HCP domain run: a component's API returned 500 for ~45s, past the short
+// cfg.RetryAttempts budget.) Transient startup errors answer quickly, so a
+// probe rarely costs the whole window; a larger configured cfg.RetryAttempts /
+// cfg.RetryDelay still wins, and the probe stays finite either way.
+const componentReadyTimeout = 2 * time.Minute
 
 // TestComponentAPIs verifies the authenticated API endpoints exposed by the
-// satellite components (Console, Identity, Connectors). Mirrors the venom
+// satellite components reachable through the ingress. Mirrors the venom
 // "TEST - Interacting with Web API" suite.
 //
 // Each sub-test is skipped when the corresponding component is disabled or
@@ -81,11 +81,11 @@ func TestComponentAPIs(t *testing.T) {
 				t.Skipf("%s URL not configured", tc.name)
 			}
 			fullURL := tc.url + tc.path
-			// Reachability probe: warm up for at least componentReadyTimeout to
-			// absorb a component's transient startup errors, taking the larger of
-			// that and the configured per-request budget. The window is the
-			// (readyAttempts-1) sleeps between attempts, so round the division up
-			// so it is never shorter than componentReadyTimeout.
+			// Reachability probe: with a positive retry delay, warm up for at
+			// least componentReadyTimeout (rounding the attempt count up so the
+			// inter-attempt sleeps cover it), taking the larger of that and the
+			// configured per-request budget. With cfg.RetryDelay <= 0 the retries
+			// are back-to-back, so only the configured count applies.
 			readyAttempts := cfg.RetryAttempts
 			if cfg.RetryDelay > 0 {
 				want := int(componentReadyTimeout / cfg.RetryDelay)
