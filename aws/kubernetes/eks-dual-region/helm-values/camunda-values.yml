@@ -98,8 +98,7 @@ orchestration:
         # over VPN/transit-gateway). The default probe timeout (100ms) is too tight for
         # cross-region latency: on a cold start brokers transiently see peers in the
         # other region as unreachable, SWIM ejects them, membership churns, and brokers
-        # flap 1/1<->0/1 so the topology never converges within the test window. Matches
-        # the proven aws/containers/ecs-dual-region-fargate tuning (Transit Gateway).
+        # flap 1/1<->0/1 so the topology never converges within the test window.
         - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 1000ms
         - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBEINTERVAL

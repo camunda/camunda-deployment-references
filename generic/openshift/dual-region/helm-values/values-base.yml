@@ -91,8 +91,7 @@ orchestration:
         # Cross-region SWIM membership tuning for stretched clusters. The default probe
         # timeout (100ms) is too tight for cross-region latency: on a cold start brokers
         # transiently see peers in the other region as unreachable, SWIM ejects them,
-        # membership churns, and brokers flap so the topology never converges. Matches
-        # the proven aws/containers/ecs-dual-region-fargate tuning.
+        # membership churns, and brokers flap so the topology never converges.
         - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 1000ms
         - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBEINTERVAL
