@@ -97,10 +97,17 @@ orchestration:
         # Zeebe cluster tuning
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
+        # Cross-region SWIM membership tuning for stretched clusters (London <-> Paris
+        # over VPN/transit-gateway). The default probe timeout (100ms) is too tight for
+        # cross-region latency: on a cold start brokers transiently see peers in the
+        # other region as unreachable, SWIM ejects them, membership churns, and brokers
+        # flap 1/1<->0/1 so the topology never converges within the test window.
         - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBETIMEOUT
-          value: 500ms
+          value: 1000ms
         - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
+        - name: CAMUNDA_CLUSTER_MEMBERSHIP_FAILURETIMEOUT
+          value: 10000ms
         - name: CAMUNDA_CLUSTER_RAFT_SNAPSHOTREQUESTTIMEOUT
           value: 10s
         - name: CAMUNDA_CLUSTER_COMPRESSIONALGORITHM
