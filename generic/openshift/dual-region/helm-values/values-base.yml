@@ -60,10 +60,16 @@ orchestration:
         # Zeebe cluster tuning
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
+        # Cross-region SWIM membership tuning for stretched clusters. The default probe
+        # timeout (100ms) is too tight for cross-region latency: on a cold start brokers
+        # transiently see peers in the other region as unreachable, SWIM ejects them,
+        # membership churns, and brokers flap so the topology never converges.
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT
-          value: 500ms
+          value: 1000ms
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
+        - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_FAILURETIMEOUT
+          value: 10000ms
         - name: ZEEBE_BROKER_EXPERIMENTAL_RAFT_SNAPSHOTREQUESTTIMEOUT
           value: 10s
         - name: ZEEBE_BROKER_CLUSTER_MESSAGECOMPRESSION
@@ -75,9 +81,11 @@ orchestration:
         - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MESSAGECOMPRESSION
           value: GZIP
         - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
-          value: 500ms
+          value: 1000ms
         - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_FAILURETIMEOUT
+          value: 10000ms
     # TEMPORARY WORKAROUND — remove once the upstream Camunda fix is released.
     # A Zeebe broker resolves its initialContactPoints only once at startup; if a
     # cross-region "*.svc.clusterset.local" name is not yet published by Submariner
