@@ -4,11 +4,20 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/camunda/camunda-deployment-references/tests/integration/helpers"
 )
+
+// componentReadyTimeout bounds how long the component reachability probes keep
+// retrying a transient 5xx. Satellite components (reached via the ingress) can
+// briefly return 5xx while they finish starting — even after their readiness
+// probe is green — until the orchestration's domain-mode OIDC startup settles.
+// (Observed: Identity's /api/users returned 500 for ~45s on a ROSA HCP domain
+// run.) Bounded so a component that stays unreachable past it still fails.
+const componentReadyTimeout = 3 * time.Minute
 
 // TestComponentAPIs verifies the authenticated API endpoints exposed by the
 // satellite components (Console, Identity, Connectors). Mirrors the venom
@@ -68,7 +77,16 @@ func TestComponentAPIs(t *testing.T) {
 				t.Skipf("%s URL not configured", tc.name)
 			}
 			fullURL := tc.url + tc.path
-			err := helpers.Retry(cfg.RetryAttempts, cfg.RetryDelay, func() error {
+			// These are reachability probes, so allow a longer bounded warm-up
+			// than the short per-request cfg.RetryAttempts to absorb a
+			// component's transient startup 5xx (see componentReadyTimeout).
+			readyAttempts := cfg.RetryAttempts
+			if cfg.RetryDelay > 0 {
+				if want := int(componentReadyTimeout/cfg.RetryDelay) + 1; readyAttempts < want {
+					readyAttempts = want
+				}
+			}
+			err := helpers.Retry(readyAttempts, cfg.RetryDelay, func() error {
 				resp, err := client.Get(fullURL)
 				if err != nil {
 					return fmt.Errorf("GET %s failed: %w", fullURL, err)
