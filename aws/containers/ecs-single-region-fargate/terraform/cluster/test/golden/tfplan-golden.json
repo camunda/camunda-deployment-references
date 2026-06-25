@@ -2034,6 +2034,13 @@
           }
         },
         "module.orchestration_cluster.aws_cloudwatch_log_stream.orchestration_cluster_log_stream": {
+          "identity": {
+            "account_id": null,
+            "log_group_name": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "orchestration_cluster_log_stream",
           "provider_name": "registry.terraform.io/hashicorp/aws",
