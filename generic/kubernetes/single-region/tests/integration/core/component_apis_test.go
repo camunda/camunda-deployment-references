@@ -7,21 +7,19 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/camunda/camunda-deployment-references/tests/integration/helpers"
 )
 
-// componentReadyTimeout is the target warm-up window for the component
-// reachability probes when a positive cfg.RetryDelay is configured. The loop
-// retries on any status outside the per-case acceptCodes; satellite components
-// (reached via the ingress) can briefly return such a status — typically a 5xx
-// — while they finish starting, even after their readiness probe is green,
-// until the orchestration's domain-mode OIDC startup settles. (Observed on a
-// ROSA HCP domain run: a component's API returned 500 for ~45s, past the short
-// cfg.RetryAttempts budget.) Transient startup errors answer quickly, so a
-// probe rarely costs the whole window; a larger configured cfg.RetryAttempts /
-// cfg.RetryDelay still wins, and the probe stays finite either way.
-const componentReadyTimeout = 2 * time.Minute
+// componentReadyTimeout bounds, in wall-clock time, how long a component
+// reachability probe keeps retrying. Satellite components (reached via the
+// ingress) can briefly return a status outside the per-case acceptCodes —
+// typically a 5xx — while they finish starting, even after their readiness
+// probe is green, until the orchestration's domain-mode OIDC startup settles.
+// (Observed on a ROSA HCP domain run: a component's API returned 500 for ~45s,
+// past the short cfg.RetryAttempts budget.) The bound is wall-clock — not an
+// attempt count — so a hung component cannot stretch the run by cfg.HTTPTimeout
+// per try; transient startup errors answer quickly, so a probe usually settles
+// well under it.
+const componentReadyTimeout = 90 * time.Second
 
 // TestComponentAPIs verifies the authenticated API endpoints exposed by the
 // satellite components reachable through the ingress. Mirrors the venom
@@ -81,23 +79,7 @@ func TestComponentAPIs(t *testing.T) {
 				t.Skipf("%s URL not configured", tc.name)
 			}
 			fullURL := tc.url + tc.path
-			// Reachability probe: with a positive retry delay, warm up for at
-			// least componentReadyTimeout (rounding the attempt count up so the
-			// inter-attempt sleeps cover it), taking the larger of that and the
-			// configured per-request budget. With cfg.RetryDelay <= 0 the retries
-			// are back-to-back, so only the configured count applies.
-			readyAttempts := cfg.RetryAttempts
-			if cfg.RetryDelay > 0 {
-				want := int(componentReadyTimeout / cfg.RetryDelay)
-				if componentReadyTimeout%cfg.RetryDelay != 0 {
-					want++
-				}
-				want++ // the first attempt has no preceding sleep
-				if readyAttempts < want {
-					readyAttempts = want
-				}
-			}
-			err := helpers.Retry(readyAttempts, cfg.RetryDelay, func() error {
+			probe := func() error {
 				resp, err := client.Get(fullURL)
 				if err != nil {
 					return fmt.Errorf("GET %s failed: %w", fullURL, err)
@@ -109,7 +91,17 @@ func TestComponentAPIs(t *testing.T) {
 					}
 				}
 				return fmt.Errorf("GET %s: unexpected status %d (accepted: %v)", fullURL, resp.StatusCode, tc.acceptCodes)
-			})
+			}
+			// Retry until the component answers an accepted status or
+			// componentReadyTimeout of wall-clock elapses, sleeping cfg.RetryDelay
+			// between tries, to absorb a transient startup status (see
+			// componentReadyTimeout).
+			deadline := time.Now().Add(componentReadyTimeout)
+			err := probe()
+			for err != nil && time.Now().Before(deadline) {
+				time.Sleep(cfg.RetryDelay)
+				err = probe()
+			}
 			assert.NoError(t, err, "%s API endpoint %s should be reachable", tc.name, tc.path)
 		})
 	}
