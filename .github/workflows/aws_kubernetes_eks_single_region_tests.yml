@@ -642,7 +642,6 @@ jobs:
                   mail: ${{ env.MAIL_OVERWRITE }}
                   tld: ${{ env.TLD }}
                   ref-arch: ${{ matrix.scenario.name }}
-                  ingress-controller: contour
                   use-wildcard-cert: ${{ steps.cert-config.outputs.use-wildcard-cert }}
                   wildcard-cert-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   wildcard-cert-secret-name: |

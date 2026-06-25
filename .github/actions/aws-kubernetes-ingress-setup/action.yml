@@ -1,6 +1,6 @@
 ---
 name: AWS Kubernetes Ingress Setup
-description: Install and configure an ingress controller (ingress-nginx or Contour), external-dns, and cert-manager for AWS EKS clusters
+description: Install and configure Contour, external-dns, and cert-manager for AWS EKS clusters
 
 inputs:
     cluster-name:
@@ -25,13 +25,6 @@ inputs:
         description: Reference architecture name (eks-single-region, eks-single-region-irsa)
         required: false
         default: eks-single-region
-    ingress-controller:
-        description: |
-            Which ingress controller to install. One of:
-              - 'nginx'   (default) — installs ingress-nginx via Helm
-              - 'contour' — installs Project Contour via the ref-arch's install-contour.sh
-        required: false
-        default: nginx
     use-wildcard-cert:
         description: |
             Use wildcard certificate from Vault instead of ACME/Let's Encrypt.
@@ -71,16 +64,9 @@ runs:
               namespace: external-dns
 
         - name: 🏗️ Clean contour operator namespace
-          if: ${{ inputs.ingress-controller == 'contour' }}
           uses: ./.github/actions/internal-clean-namespace
           with:
               namespace: projectcontour
-
-        - name: 🏗️ Clean ingress-nginx operator namespace
-          if: ${{ inputs.ingress-controller == 'nginx' }}
-          uses: ./.github/actions/internal-clean-namespace
-          with:
-              namespace: ingress-nginx
 
         - name: Setup ingress components for EKS cluster
           shell: bash
@@ -93,7 +79,6 @@ runs:
               echo "Mail: ${{ inputs.mail }}"
               echo "TLD: ${{ inputs.tld }}"
               echo "Ref-arch: ${{ inputs.ref-arch }}"
-              echo "Ingress controller: ${{ inputs.ingress-controller }}"
               echo "Use wildcard cert: ${{ inputs.use-wildcard-cert }}"
 
               # Set required environment variables for ingress setup
@@ -121,28 +106,9 @@ runs:
               fi
               echo "✅ Found cert-manager IRSA ARN: $CERT_MANAGER_IRSA_ARN"
 
-              # Install the selected ingress controller
-              case "${{ inputs.ingress-controller }}" in
-                  nginx)
-                      install_script="./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-ingress-nginx.sh"
-                      ;;
-                  contour)
-                      install_script="./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-contour.sh"
-                      ;;
-                  *)
-                      echo "❌ ERROR: unsupported ingress-controller '${{ inputs.ingress-controller }}'. Supported: nginx, contour" >&2
-                      exit 1
-                      ;;
-              esac
-
-              if [[ ! -f "$install_script" ]]; then
-                  echo "❌ ERROR: ingress controller install script not found: $install_script" >&2
-                  echo "The '${{ inputs.ingress-controller }}' controller is not available for ref-arch '${{ inputs.ref-arch }}'." >&2
-                  exit 1
-              fi
-
-              echo "Installing ingress controller '${{ inputs.ingress-controller }}' via $install_script ..."
-              "$install_script"
+              # Install Contour
+              echo "Installing Contour..."
+              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-contour.sh
 
               # Tag the ingress controller load balancer for the AWS MAP program.
               # The NLB is provisioned by the in-tree AWS cloud provider from the Service
