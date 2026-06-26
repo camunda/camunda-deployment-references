@@ -55,13 +55,19 @@ ready for human review — **without ever merging it**.
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 # Explicit args win — accept one or more PR numbers (`123` or `#123`) and/or
-# PR URLs; otherwise fall back to the current-branch PR. Reduce each arg to the
-# first numeric group (strip any `.../pull/` prefix first so the PR number wins):
+# PR URLs (`.../pull/<n>`); otherwise fall back to the current-branch PR. Strip a
+# `/pull/` URL prefix (and any trailing `/...`/`?...`) and a leading `#`, then
+# require the token to be ALL digits, so version tags / branch names
+# (`v8.7.0`, `release-1.2.3`) are rejected with a warning instead of being
+# silently truncated to a stray PR number:
 if [ "$#" -gt 0 ]; then
   seeds=""
   for a in "$@"; do
-    num=$(printf '%s' "$a" | sed -E 's#.*/pull/##' | grep -oE '[0-9]+' | head -1)
-    [ -n "$num" ] && seeds="$seeds $num"
+    t=$(printf '%s' "$a" | sed -E 's#^.*/pull/##; s#[/?].*$##; s/^#//')
+    case "$t" in
+      ''|*[!0-9]*) printf 'warning: ignoring unrecognised PR argument: %s\n' "$a" >&2 ;;
+      *) seeds="$seeds $t" ;;
+    esac
   done
 else
   seeds=$(gh pr view --json number -q .number)
@@ -87,16 +93,29 @@ backports where the code exists on both branches.
 
 ```bash
 for n in $PRS; do
-  gh pr edit "$n" --repo "$REPO" --add-label skip_all
+  gh pr edit "$n" --repo "$REPO" --add-label skip_all   # a label add is idempotent
+  # Pausing means the PR is no longer ready: strip any trailing ` [ready]`
+  # (AGENTS.md — remove the tag when a later change makes the PR not-ready).
+  title=$(gh pr view "$n" --repo "$REPO" --json title -q .title)
+  [ "$title" != "${title% \[ready\]}" ] \
+    && gh pr edit "$n" --repo "$REPO" --title "${title% \[ready\]}"
   # Free the runners: cancel this PR's in-progress runs on its own head branch.
   head_ref=$(gh pr view "$n" --repo "$REPO" --json headRefName -q .headRefName)
   gh run list --repo "$REPO" --branch "$head_ref" --status in_progress \
-    --json databaseId -q '.[].databaseId' | xargs -r -n1 gh run cancel --repo "$REPO"
+    --json databaseId -q '.[].databaseId' \
+    | while read -r id; do [ -n "$id" ] && gh run cancel --repo "$REPO" "$id"; done
 done
 ```
 
 `skip_all` makes the triage job report `should_skip=true`, so subsequent runs
 skip the heavy jobs while you iterate.
+
+> **Safety — never strand `skip_all`.** It silently bypasses CI for *every*
+> contributor, so it must not outlive the loop. Remove it on the normal path
+> (step 6) **and** on any early exit (error, interruption, abandoning the PR):
+> `for n in $PRS; do gh pr edit "$n" --repo "$REPO" --remove-label skip_all; done`.
+> Re-entering after a regression (step 8) re-adds it idempotently, so it is safe
+> to strip first and re-add.
 
 ### 2. Request a Copilot review
 
@@ -109,8 +128,12 @@ for n in $PRS; do
   # like "Copilot" will not resolve — `gh pr edit` expects the bot login.
   gh pr edit "$n" --repo "$REPO" --add-reviewer copilot-pull-request-reviewer 2>/dev/null \
     || {
-      # Fallback: GraphQL requestReviews with the Copilot bot id (note: the
-      # reviewer bot is not in suggestedActors on every repo, so this can be empty).
+      # Fallback: resolve the Copilot bot node id from suggestedActors, then
+      # request via GraphQL. NOTE: suggestedActors only exposes the
+      # `CAN_BE_ASSIGNED` / `CAN_BE_AUTHOR` capabilities (the schema has no
+      # review-request filter), so this only works where the reviewer bot is
+      # *also* assignable; otherwise BOT_ID is empty and we fall through to the
+      # guidance below. The reliable path is the `--add-reviewer <login>` above.
       PR_ID=$(gh pr view "$n" --repo "$REPO" --json id -q .id)
       BOT_ID=$(gh api graphql -f query='query($o:String!,$r:String!){repository(owner:$o,name:$r){suggestedActors(capabilities:[CAN_BE_ASSIGNED],first:100){nodes{login __typename ... on Bot{id} ... on User{id}}}}}' \
         -f o="${REPO%/*}" -f r="${REPO#*/}" \
@@ -139,19 +162,36 @@ for n in $PRS; do
 done
 ```
 
-A Copilot run typically takes a few minutes. Treat states
-`COMMENTED` / `CHANGES_REQUESTED` / `APPROVED` as "done"; `PENDING` means keep waiting.
+This is a single **non-blocking** check, not a busy-wait. Treat `COMMENTED` /
+`CHANGES_REQUESTED` / `APPROVED` as "done" and proceed to step 4. If the state
+is `NONE` or `PENDING`, the review has **not** landed yet — do **not** continue
+to step 4 (there are no findings to triage; doing so would push an empty fix and
+spin the loop). Stop here and re-check later. If it stays `NONE` well past the
+usual few minutes, the request probably never landed (see step 2) — re-request,
+or fall back to the GitHub UI, rather than looping forever.
 
 ### 4. Read and triage every finding
 
 ```bash
 for n in $PRS; do
-  gh api "/repos/$REPO/pulls/$n/comments" \
-    --jq '.[] | {id, path, line, body, user: .user.login, in_reply_to: .in_reply_to_id}'
+  printf '===== PR #%s =====\n' "$n"
+  # Copilot's review summary (the overview text) lives on the review object,
+  # not the inline comments:
+  gh api "/repos/$REPO/pulls/$n/reviews" --paginate \
+    --jq '.[] | select(.user.login | ascii_downcase | startswith("copilot"))
+              | {review_state: .state, summary: .body}'
+  # Copilot's inline findings ONLY — filter out human reviewers and other bots.
+  # On the comments endpoint Copilot authors as login "Copilot" (no `[bot]`),
+  # so match case-insensitively on the "copilot" prefix:
+  gh api "/repos/$REPO/pulls/$n/comments" --paginate \
+    --jq '.[] | select(.user.login | ascii_downcase | startswith("copilot"))
+              | {id, path, line, body, in_reply_to: .in_reply_to_id}'
 done
 ```
 
-Read **every inline finding**, not just the review summary. For each finding:
+Read **every Copilot finding** — both the summary body and each inline comment
+(the filter keeps this loop scoped to Copilot; human review threads are for the
+humans, do not auto-reply to them). For each Copilot finding:
 
 - **Fix it in code** with the minimal correct change, **or**
 - **Reply on that specific thread** explaining why it is intentionally not
@@ -164,7 +204,15 @@ Read **every inline finding**, not just the review summary. For each finding:
 ### 5. Push fixes, then re-review
 
 ```bash
-git add -u && git commit -m "fix(<scope>): address Copilot review" && git push
+# Stage ONLY the files you changed for this fix — never `git add -u` / `git add .`,
+# which would sweep unrelated scratch/diagnostic edits in the working tree into a
+# public commit:
+git add -- <paths-you-actually-changed>
+git status --short      # confirm only the intended paths are staged before committing
+# Use a real, specific scope (the component/area you touched) and message — not a
+# literal placeholder — so `git log` stays auditable and commitlint (scope
+# allowlist `[a-z0-9-]+`) does not reject the angle brackets:
+git commit -m "fix(<real-scope>): <what this fix changed>" && git push
 ```
 
 Re-request the review (step 2) and return to step 3. **Loop steps 2–5 until the
@@ -184,8 +232,13 @@ re-running the latest run (now that triage will no longer skip), or just push:
 ```bash
 for n in $PRS; do
   head_ref=$(gh pr view "$n" --repo "$REPO" --json headRefName -q .headRefName)
-  gh run list --repo "$REPO" --branch "$head_ref" \
-    --json databaseId -q '.[0].databaseId // empty' | xargs -r -n1 gh run rerun --repo "$REPO"
+  # Rerun the latest COMPLETED run only — filtering out in_progress/queued avoids
+  # the HTTP 422 "cannot rerun a run that has not completed". A *full* rerun is
+  # wanted here because the heavy jobs were skipped (not failed) while paused, so
+  # this does not use `--failed` (that belongs in step 8, for real test failures).
+  gh run list --repo "$REPO" --branch "$head_ref" --status completed \
+    --json databaseId -q '.[0].databaseId // empty' \
+    | while read -r id; do [ -n "$id" ] && gh run rerun --repo "$REPO" "$id"; done
 done
 # or, if there is a fix to push, the push already re-triggers them.
 ```
@@ -199,9 +252,13 @@ for non-blocking status, focused logs, and artifacts — read it and follow its
 ### 8. On failure → fix → re-enter the loop
 
 - Map the failure to its source, read it, apply the **minimal real fix**.
+- To re-run only the failed jobs of a completed run (cheaper than a full rerun):
+  `gh run rerun --repo "$REPO" --failed <run-id>`.
 - Never edit a workflow just to skip a check to go green.
-- Then go back to **step 1** (pause CI, re-review the fix, …). The loop repeats
-  until tests are green **and** Copilot has no findings.
+- Then go back to **step 1** — which re-adds `skip_all` idempotently and strips
+  any ` [ready]` tag (the regression makes it not-ready again) before you
+  re-review the fix. The loop repeats until tests are green **and** Copilot has
+  no findings.
 
 ### 9. On success → append the ` [ready]` tag
 
@@ -224,8 +281,10 @@ Confirm `skip_all` is removed before declaring done.
 
 - **Don't merge.** This skill stops at the ` [ready]` tag.
 - **Don't** silently drop a Copilot finding — fix it or reply with a rationale.
+- **Don't** `git add -u` / `git add .` — stage only the paths you changed.
 - **Don't** skip/disable a failing check to force green — fix the root cause.
-- **Don't** leave `skip_all` on a PR you just marked ready.
+- **Don't** leave `skip_all` on the PR on *any* exit path — it bypasses CI for
+  everyone, not just you.
 - **Don't** prefix or double-tag ` [ready]` — it is appended once, at the end.
 - **Don't** block the session on long polls — re-check later.
 
