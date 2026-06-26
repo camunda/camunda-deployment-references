@@ -67,7 +67,7 @@ REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 if [ "$#" -gt 0 ]; then
   seeds=""
   for a in "$@"; do
-    t=$(printf '%s' "$a" | sed -E 's#^.*/pull/##; s/^#//; s#[/?#].*$##')
+    t=$(printf '%s' "$a" | sed -E 's#^.*/pull/##; s/^#//; s|[/?#].*$||')
     case "$t" in
       ''|*[!0-9]*) printf 'warning: ignoring unrecognised PR argument: %s\n' "$a" >&2 ;;
       *) seeds="$seeds $t" ;;
