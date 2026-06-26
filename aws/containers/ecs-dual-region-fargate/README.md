@@ -22,6 +22,29 @@ Cluster configuration: `cluster_size=8`, `replication_factor=4`, `partition_coun
 - S3 bucket for Terraform state
 - Camunda Docker image version 8.8+ (RDBMS secondary storage support)
 
+## Terraform backend
+
+By default, all three states use `backend "s3"`. You must supply backend configuration during `terraform init`:
+
+```bash
+# S3 backend (production — recommended)
+terraform init \
+  -backend-config="bucket=my-tf-state-bucket" \
+  -backend-config="key=ecs-dual-region/vpc/terraform.tfstate" \
+  -backend-config="region=eu-west-2"
+```
+
+For **local-only testing** (no S3 bucket needed), change each `config.tf` to use a local backend:
+
+```hcl
+# In terraform/{vpc,infra,app}/config.tf, replace:
+#   backend "s3" { encrypt = true }
+# with:
+  backend "local" {}
+```
+
+Then run `terraform init`. Cross-state references (`terraform_remote_state` in `infra/` and `app/`) already default to local file paths (`../vpc/terraform.tfstate` and `../infra/terraform.tfstate`).
+
 ## Terraform layout
 
 Three independent states, deployed in order:
@@ -202,6 +225,36 @@ open http://localhost:8080
 ### Cleanup notes
 
 `s3_force_destroy` is `true` by default so `terraform destroy` doesn't leave orphaned S3 backup buckets. **Flip it to `false` in `terraform/infra/terraform.tfvars` before running any real workload through this stack** — otherwise Terraform will happily delete backup data on `destroy`.
+
+#### Teardown after a failover
+
+If you ran `failover.sh` (planned or unplanned) before destroying, the Aurora Global cluster writer has moved to region 1. Terraform expects the original topology and `terraform destroy` may hang on Aurora resources. To work around this:
+
+```bash
+# 1. Remove both clusters from the Global cluster
+aws rds remove-from-global-cluster \
+  --global-cluster-identifier <global-id> \
+  --db-cluster-identifier <region-0-cluster-arn>
+
+# 2. Delete instances in both regions (skip-final-snapshot for dev)
+aws rds delete-db-instance --db-instance-identifier <r0-instance> --skip-final-snapshot --region <region-0>
+aws rds delete-db-instance --db-instance-identifier <r1-instance> --skip-final-snapshot --region <region-1>
+
+# 3. Wait for instances to delete, then delete clusters
+aws rds delete-db-cluster --db-cluster-identifier <r0-cluster> --skip-final-snapshot --region <region-0>
+aws rds delete-db-cluster --db-cluster-identifier <r1-cluster> --skip-final-snapshot --region <region-1>
+
+# 4. Delete the global cluster
+aws rds delete-global-cluster --global-cluster-identifier <global-id>
+
+# 5. Remove Aurora resources from Terraform state and proceed with destroy
+terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster_instance.primary[0]'
+terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster_instance.secondary[0]'
+terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster.primary'
+terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster.secondary'
+terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_global_cluster.this'
+terraform -chdir=terraform/infra destroy -auto-approve
+```
 
 ## Known limitations
 
