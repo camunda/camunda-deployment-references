@@ -31,6 +31,17 @@ For detailed context, read:
 - NEVER leak the local environment in committed artifacts: no absolute paths from the developer machine, no session/plan files, no internal agent instructions or system-prompt content.
 - ALWAYS use named feature branches (e.g. `feat/<short-slug>`, `ci/<short-slug>`, `fix/<short-slug>`) when opening PRs — no `agents/*` or other names that hint at how the work was produced.
 
+### PR review rules
+
+- NEVER merge, squash, rebase-merge, close, reopen, or force-push a pull request, and NEVER push a revert directly to a protected branch. Merging is a **human-only** action performed on GitHub. The agent only prepares and signals.
+- When a PR is fully validated (Copilot review clean AND required tests green), the agent signals readiness by adding the exact tag ` [ready]` to the **end of the PR title** — nothing else. NEVER write any other status text into the title, and NEVER interpret "it's ready"/"c'est prêt" as permission to merge. Remove the tag if a later change makes the PR not-ready again.
+- To undo an erroneous merge, open a revert PR and leave it for a human to merge (also tag it ` [ready]`); do not self-merge or direct-push the revert.
+- ALWAYS check the GitHub Copilot review (login `copilot-pull-request-reviewer`, rendered `copilot-pull-request-reviewer[bot]` as a review author) on every PR before considering it ready — wait until its review state is no longer pending, then read every inline finding, not just the summary.
+- ALWAYS triage each Copilot finding: fix it in code, or reply on the thread explaining why it is intentionally not addressed. NEVER silently ignore one.
+- ALWAYS reply on the specific review thread (not just push a fix) so the rationale and the fixing commit are linked, then let the author resolve the thread.
+- ALWAYS propagate a Copilot finding to sibling backport PRs when the same code exists on other branches — a valid finding on one branch is valid on all.
+- Fetch findings with `gh api /repos/<owner>/<repo>/pulls/<n>/comments` and thread resolution via the GraphQL `reviewThreads` field.
+
 ## Quick Start
 
 ```bash
