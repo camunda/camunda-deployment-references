@@ -40,7 +40,11 @@ ready for human review — **without ever merging it**.
   skips its heavy jobs while you iterate.
 - **Ready marker**: a trailing ` [ready]` tag at the **end** of the PR **title**
   (e.g. `fix(ci): ... [ready]`) — appended, never a prefix.
-- **Copilot reviewer**: `copilot-pull-request-reviewer[bot]`.
+- **Copilot reviewer**: login `copilot-pull-request-reviewer` — the canonical
+  identifier to pass to `gh pr edit --add-reviewer`. It renders as
+  `copilot-pull-request-reviewer[bot]` as a review author (and on the `/reviews`
+  API / GraphQL `author.login`), and as `Copilot` on the inline-comments API —
+  match all three with a case-insensitive `copilot` prefix when filtering.
 - **Findings**: inline review comments via
   `gh api /repos/<owner>/<repo>/pulls/<n>/comments`; thread state via the
   GraphQL `reviewThreads` field.
@@ -82,6 +86,13 @@ for PR in $seeds; do
 done
 # De-duplicate into the final set to drive (seeds + their backports):
 PRS=$(printf '%s\n' $PRS | awk 'NF' | sort -un | tr '\n' ' ')
+# Fail fast if nothing resolved (e.g. every argument was unrecognised) — without
+# this guard, every `for n in $PRS` loop below is a silent no-op:
+case "$PRS" in
+  *[0-9]*) ;;
+  *) echo "error: no valid PR number resolved from the arguments" >&2
+     return 1 2>/dev/null || exit 1 ;;
+esac
 ```
 
 This yields `$PRS`, the full set to drive (originating PR + applicable
