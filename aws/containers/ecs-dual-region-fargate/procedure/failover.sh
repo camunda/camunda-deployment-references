@@ -160,10 +160,10 @@ else
 
     # Wait for the global cluster to exit the 'switching-over' state before
     # querying for the new writer. During switchover, IsWriter flags are stale.
-    local elapsed=0
-    local max_switchover_wait=300
+    elapsed=0
+    max_switchover_wait=300
     while [ "${elapsed}" -lt "${max_switchover_wait}" ]; do
-        local global_status
+        global_status=""
         global_status=$(aws rds describe-global-clusters \
             --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
             --query 'GlobalClusters[0].Status' \
