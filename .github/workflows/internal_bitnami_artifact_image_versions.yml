@@ -60,7 +60,7 @@ jobs:
             contents: write # push the generated files to the gh-pages branch
 
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
@@ -75,7 +75,7 @@ jobs:
               shell: bash
               env:
                   # renovate: datasource=github-releases depName=google/go-containerregistry
-                  CRANE_VERSION: v0.21.6
+                  CRANE_VERSION: v0.21.7
               run: |
                   set -euo pipefail
                   tmp="$(mktemp -d)"
