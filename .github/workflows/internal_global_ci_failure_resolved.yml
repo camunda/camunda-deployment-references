@@ -1,0 +1,77 @@
+---
+# DRAFT — Closes the loop opened by `Internal - Global - CI failure to agent fix`.
+#
+# When an auto-created CI-failure issue is closed (e.g. its fix PR merged, or a
+# maintainer dismisses it), this workflow replies in the original Slack alert
+# thread so the alert reader sees the failure was resolved without leaving the
+# thread. The Slack thread coordinates are read back from the hidden
+# `<!-- slack-thread: channel=... ts=... -->` marker the watcher stamped on the
+# issue body.
+name: Internal - Global - CI failure resolved
+
+on:
+    issues:
+        types:
+            - closed
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.issue.number }}
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+    id-token: write
+
+jobs:
+    notify-resolution:
+        name: Reply resolved in Slack thread
+        runs-on: ubuntu-latest
+        # Only the auto-created CI-failure issues carry the `ci-failure` label.
+        if: contains(github.event.issue.labels.*.name, 'ci-failure')
+        steps:
+            - name: Parse Slack thread reference
+              id: parse
+              env:
+                  ISSUE_BODY: ${{ github.event.issue.body }}
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  line=$(printf '%s' "$ISSUE_BODY" | grep -oE '<!-- slack-thread: channel=[^ ]+ ts=[^ ]+ -->' | head -1 || true)
+                  if [ -z "$line" ]; then
+                    echo "No Slack thread marker on the issue; nothing to notify."
+                    echo "found=false" | tee -a "$GITHUB_OUTPUT"
+                    exit 0
+                  fi
+                  channel=$(printf '%s' "$line" | sed -E 's/.*channel=([^ ]+) ts=.*/\1/')
+                  ts=$(printf '%s' "$line" | sed -E 's/.*ts=([^ ]+) -->/\1/')
+                  echo "found=true"      | tee -a "$GITHUB_OUTPUT"
+                  echo "channel=$channel" | tee -a "$GITHUB_OUTPUT"
+                  echo "ts=$ts"          | tee -a "$GITHUB_OUTPUT"
+
+            - name: Checkout repository
+              if: steps.parse.outputs.found == 'true'
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+            - name: Import Slack token
+              id: slack-creds
+              if: steps.parse.outputs.found == 'true'
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common SLACK_BOT_TOKEN | SLACK_BOT_TOKEN;
+
+            - name: Reply resolved in Slack thread
+              if: steps.parse.outputs.found == 'true'
+              uses: ./.github/actions/internal-slack-thread-reply
+              with:
+                  slack-bot-token: ${{ steps.slack-creds.outputs.SLACK_BOT_TOKEN }}
+                  channel-id: ${{ steps.parse.outputs.channel }}
+                  thread-ts: ${{ steps.parse.outputs.ts }}
+                  message: >-
+                      ✅ Resolved: ${{ github.event.issue.html_url }} was closed. The
+                      auto-fix loop for this failure is complete.

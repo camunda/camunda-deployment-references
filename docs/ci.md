@@ -105,6 +105,43 @@ All reusable CI logic lives in `.github/actions/`. Each action has:
 - **Auto-labeling:** `.github/labeler.yml` assigns labels based on changed paths (e.g. `aws/`, `azure/`, `generic/`)
 - **Renovate:** `.github/renovate.json5` extends `github>camunda/infraex-common-config:default.json5`. This shared config governs scheduling (weekends only, except CVEs), grouping (minor+patch together), automerge, and custom regex managers for non-standard deps (ROSA, Helm chart versions). Update `baseBranchPatterns` when branches are added/removed.
 
+## Automated CI-failure → agent fix loop (DRAFT / public preview)
+
+In addition to the Slack alert (`report-failure-on-slack`), scheduled test failures can bootstrap an automated fix attempt:
+
+1. `internal_global_failure_to_agent_fix.yml` runs on `workflow_run: completed` for the workflows listed in its `workflows:` array, but only when `conclusion == failure` **and** the run was scheduled — either a real `schedule` event **or** a simulated schedule (branch prefixed `schedules/`, matching the staggered-test convention). PR/push runs already have a human author, so they are skipped. `workflow_dispatch` is available for manual testing.
+2. It calls the `internal-failure-to-agent-fix` action, which classifies the failure, de-duplicates it onto a single open issue per failure class, creates the issue with the run context (only for a new class), and assigns it to a coding agent.
+
+**Classification & grouping.** A failure is classified by a hidden signature marker (`<!-- ci-failure:<signature> -->`). The signature defaults to the **workflow name** (override with the `classification-key` input to group by a job name or error fingerprint instead). With `group-across-branches: 'true'` (default) the branch is intentionally left out of the signature, so the *same* workflow failing on several branches is recognised as **one failure class** and collapses into a single issue. When a matching open issue already exists, the action does **not** open a new one — it posts a grouping comment recording the new branch/SHA/run, and tracks the set of affected branches in a hidden `<!-- branches: ... -->` marker so a new branch bumps a visible "now impacts N branch(es)" note. Set `group-across-branches: 'false'` to keep one issue per workflow+branch. When `notify-bot-on-group: 'true'` (default), the grouping comment @-mentions the assigned coding-agent bot (`@anthropic-code-agent` / `@copilot` / `@openai-code-agent`, override with `bot-handle`) so it is notified of the new occurrence and re-evaluates the open fix — the bot must be configured to react to that mention.
+
+**Coding-agent assignment** (`agent` input, default `anthropic`). Every backend uses the **same mechanism**: the issue is assigned to a coding-agent actor via GitHub's issue-assignment API (the same action a maintainer performs by hand from the issue sidebar), and the agent then opens its own draft PR. The `agent` input only selects which actor is assigned:
+
+- **`anthropic`** (default) → `anthropic-code-agent`
+- **`copilot`** → `copilot-swe-agent`
+- **`openai`** → `openai-code-agent`
+
+The assignment requires a **user-to-server token** (`agent-token`, Vault key `COPILOT_AGENT_PAT`) because the API rejects GitHub App / installation tokens; the GitHub App installation token (`github-token`) is used only for the issue bookkeeping (search/create/comment). If the token is missing, expired or the agent is not assignable for its owner, the run logs a warning, posts a standalone Slack credential alert, and leaves the issue open for manual assignment rather than failing.
+
+**Human review stays mandatory.** The agent opens its PR in draft, the PR's workflow runs require maintainer approval, and it goes through the normal review + CI gates before merge. The automation never merges anything.
+
+**Flaky-failure handling.** The assigned agent first decides whether the failure is *flaky* (a transient infra/network/timeout issue unrelated to the commit) or a *real* failure. The instructions handed to the agent ask it to comment on the issue explaining the flaky verdict instead of changing code when the run looks transient; otherwise it drafts the smallest fix as usual.
+
+**Slack thread integration.** The failure alert is posted by `report-failure-on-slack` inside the test workflow (channel `SLACK_CHANNEL_ID`, default `C076N4G1162`). The watcher then threads the auto-created issue onto that same alert via the `internal-slack-thread-reply` action, which locates the parent message by the failed run URL in the alert text and replies in its thread. The Slack thread coordinates are stamped on the issue body as a hidden `<!-- slack-thread: channel=... ts=... -->` marker; when the issue is later closed, `internal_global_ci_failure_resolved.yml` reads that marker and posts a `✅ Resolved` reply in the same thread. A reader of the Slack alert therefore sees what failed, the issue that was opened, and whether it was resolved — all in one thread.
+
+**AI root-cause analysis.** Before the issue is opened, the `internal-failure-log-analyzer` action downloads the failed-step logs of the run, trims them to the error-relevant lines, and asks a [GitHub Models](https://github.com/marketplace/models) model (via `actions/ai-inference`, `models: read`) for a concise root-cause summary that also classifies the failure as *real* vs *flaky*. This mirrors `camunda/infraex-common-config`'s `gha-failure-log-analyzer`, but returns the summary as an output instead of only posting to Slack, so it is reused in three places: embedded in the issue body (collapsed `<details>`), handed to the coding agent as an unverified hint, and threaded onto the Slack alert. GitHub Models does not host Anthropic Opus, and `actions/ai-inference` only serves part of the catalog, so the default analyzer model is the strongest widely-available chat model on that endpoint (`ANALYZER_MODEL`, default `openai/gpt-4o`); the analysis uses the workflow `GITHUB_TOKEN` and needs no extra AI credential. Toggle it off with the action's `enable-log-analysis` input.
+
+**Exercising the loop from this PR.** `workflow_run` watchers only trigger from the default branch, so while this stays a draft the workflow also runs on `push` to `ci/ci-failure-agent-autofix` (when the loop's own files change). That push resolves the known-failing `DEMO_RUN_ID` into real run context and drives the **full** flow end-to-end: analyze → open issue → dispatch agent → Slack update. Remove the `push:` trigger and the `DEMO_RUN_ID` env before merge.
+
+**Setup notes (`TODO [setup]`):**
+- Add `ANTHROPIC_API_KEY` (service key) to the shared CI secret in Vault for the `claude` backend; add `COPILOT_AGENT_PAT` (user PAT with read/write on issues, contents, pull-requests, actions) only if you enable the `copilot` backend.
+- Ensure `SLACK_BOT_TOKEN` (scopes `conversations.history` + `chat:write`) is in the shared CI secret for the Slack threading + resolution replies.
+- Ensure the GitHub App installation token has `actions: write` so the `claude` backend can re-run flaky runs.
+- Set `DEFAULT_MODEL` to the exact Opus 4.x model id once confirmed against Anthropic's model list.
+- Pin `anthropics/claude-code-action` to a commit SHA (Renovate then tracks it).
+- Bump `ANALYZER_MODEL` if a stronger code model becomes available on GitHub Models.
+- Remove the `push:` trigger + `DEMO_RUN_ID` once the loop is validated and enabled on the default branch.
+- Opt a new test workflow in by adding its display `name:` to the workflow's `workflows:` list.
+
 ## Customer-Facing Repo
 
 `camunda-deployment-references` is a **customer-facing** repository. This means:
