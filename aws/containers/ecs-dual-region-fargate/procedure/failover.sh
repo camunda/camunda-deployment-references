@@ -24,6 +24,8 @@ set -euo pipefail
 : "${CLUSTER_1:?CLUSTER_1 must be set}"
 : "${AURORA_GLOBAL_CLUSTER_ID:?AURORA_GLOBAL_CLUSTER_ID must be set}"
 : "${ALB_ENDPOINT_1:?ALB_ENDPOINT_1 must be set}"
+: "${ADMIN_USER:?ADMIN_USER must be set (default: admin)}"
+: "${ADMIN_PASS:?ADMIN_PASS must be set}"
 
 UNPLANNED=false
 if [ "${1:-}" = "--unplanned" ]; then
@@ -154,17 +156,36 @@ else
         --target-db-cluster-identifier "${SECONDARY_ARN}" \
         --no-cli-pager
 
-    log "Planned failover initiated. Waiting for completion..."
-    sleep 15
+    log "Planned failover initiated. Waiting for Global Cluster to finish switching over..."
 
-    # Wait for both clusters to stabilize
-    # shellcheck disable=SC2016  # JMESPath uses literal backticks, not shell command substitution
-    PRIMARY_CLUSTER_ID=$(aws rds describe-global-clusters \
-        --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-        --query 'GlobalClusters[0].GlobalClusterMembers[?IsWriter==`true`].DBClusterArn' \
-        --output text 2>/dev/null | awk -F':' '{print $7}')
+    # Wait for the global cluster to exit the 'switching-over' state before
+    # querying for the new writer. During switchover, IsWriter flags are stale.
+    elapsed=0
+    max_switchover_wait=300
+    while [ "${elapsed}" -lt "${max_switchover_wait}" ]; do
+        global_status=""
+        global_status=$(aws rds describe-global-clusters \
+            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+            --query 'GlobalClusters[0].Status' \
+            --output text 2>/dev/null || echo "unknown")
 
-    wait_aurora_available "${PRIMARY_CLUSTER_ID}" "${REGION_1}"
+        if [ "${global_status}" = "available" ]; then
+            log "Global cluster switchover complete."
+            break
+        fi
+
+        log "  Global cluster status: ${global_status} (${elapsed}s elapsed)"
+        sleep 15
+        elapsed=$((elapsed + 15))
+    done
+
+    if [ "${elapsed}" -ge "${max_switchover_wait}" ]; then
+        err "Timed out waiting for global cluster switchover to complete."
+        exit 1
+    fi
+
+    # Now query the new writer — the secondary (in REGION_1) should be the writer
+    wait_aurora_available "${SECONDARY_CLUSTER_ID}" "${REGION_1}"
 fi
 
 # Verify writer moved
@@ -188,7 +209,7 @@ log "=== Step 4: Verify region 1 health ==="
 log "Waiting 60s for Zeebe brokers to detect topology change..."
 sleep 60
 
-TOPOLOGY=$(curl -sf --max-time 15 "http://${ALB_ENDPOINT_1}/v2/topology" 2>/dev/null || echo "")
+TOPOLOGY=$(curl -sf --max-time 15 -u "${ADMIN_USER}:${ADMIN_PASS}" "http://${ALB_ENDPOINT_1}/v2/topology" 2>/dev/null || echo "")
 
 if [ -z "${TOPOLOGY}" ]; then
     err "Cannot reach Zeebe topology endpoint at ${ALB_ENDPOINT_1}"
@@ -226,6 +247,6 @@ else
 fi
 log ""
 log "Next steps:"
-log "  1. Verify workflow execution: curl http://${ALB_ENDPOINT_1}/v2/topology"
+log "  1. Verify workflow execution: curl -u ${ADMIN_USER}:<pass> http://${ALB_ENDPOINT_1}/v2/topology"
 log "  2. Run verification: ./verify_dual_region.sh"
 log "  3. To restore: ./failback.sh"

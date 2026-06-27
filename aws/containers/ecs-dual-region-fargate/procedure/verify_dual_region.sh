@@ -17,11 +17,13 @@ set -euo pipefail
 
 : "${REGION_0:?REGION_0 must be set — source export_environment_prerequisites.sh first}"
 : "${REGION_1:?REGION_1 must be set}"
-: "${CLUSTER_0:?CLUSTER_0 must be set}"
+: "${CLUSTER_0:?CLUSTER_0 must be set — did export_environment_prerequisites.sh run successfully?}"
 : "${CLUSTER_1:?CLUSTER_1 must be set}"
 : "${ALB_ENDPOINT_0:?ALB_ENDPOINT_0 must be set}"
 : "${ALB_ENDPOINT_1:?ALB_ENDPOINT_1 must be set}"
 : "${AURORA_GLOBAL_CLUSTER_ID:?AURORA_GLOBAL_CLUSTER_ID must be set}"
+: "${ADMIN_USER:?ADMIN_USER must be set (default: admin)}"
+: "${ADMIN_PASS:?ADMIN_PASS must be set — retrieve via: terraform -chdir=terraform/app output -raw admin_user_password}"
 
 PASS=0
 FAIL=0
@@ -120,7 +122,7 @@ check_topology() {
     local label=$2
 
     local topology
-    topology=$(curl -sf --max-time 15 "http://${alb}/v2/topology" 2>/dev/null || echo "")
+    topology=$(curl -sf --max-time 15 -u "${ADMIN_USER}:${ADMIN_PASS}" "http://${alb}/v2/topology" 2>/dev/null || echo "")
 
     if [ -z "${topology}" ]; then
         check "Region ${label}: Zeebe topology endpoint reachable" 1
@@ -210,6 +212,7 @@ test_workflow() {
     # Create a simple process instance via REST API
     local response
     response=$(curl -sf --max-time 30 \
+        -u "${ADMIN_USER}:${ADMIN_PASS}" \
         -X POST "http://${alb}/v2/process-instances" \
         -H "Content-Type: application/json" \
         -d '{"bpmnProcessId":"dual-region-health-check","variables":{}}' \
