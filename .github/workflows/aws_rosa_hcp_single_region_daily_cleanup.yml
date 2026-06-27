@@ -86,6 +86,7 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+                      secret/data/products/infrastructure-experience/ci/common SLACK_BOT_TOKEN;
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -134,6 +135,64 @@ jobs:
                   modules-order: vpn,cluster
                   openshift: 'true'
                   delete-ghost-rosa-clusters: 'true'
+
+            # Clusters that have been stuck in a deletion/error state for more than
+            # 24h are not a cleanup failure: Red Hat still owns their teardown. We
+            # surface them through a dedicated Slack alert without failing the job.
+            - name: Detect stuck ROSA clusters
+              id: stuck_clusters
+              if: always()
+              env:
+                  STUCK_LIST: ${{ steps.retry_delete_clusters.outputs.stuck-rosa-clusters || steps.delete_clusters.outputs.stuck-rosa-clusters }}
+                  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+                  MENTION: ${{ env.IS_SCHEDULE == 'true' && ' (cc @infraex-medic)' || '' }}
+              run: |
+                  set -euo pipefail
+                  if [ -z "${STUCK_LIST}" ]; then
+                    echo "found=false" | tee -a "$GITHUB_OUTPUT"
+                    exit 0
+                  fi
+                  echo "found=true" | tee -a "$GITHUB_OUTPUT"
+
+                  TEXT_PLAIN="ROSA HCP single region: cluster(s) stuck in deletion for >24h: ${STUCK_LIST}."
+                  TEXT_PLAIN="${TEXT_PLAIN} Still owned by Red Hat, skipped to avoid failing the cleanup. This is NOT a cleanup failure."
+                  TEXT_PLAIN="${TEXT_PLAIN} See ${RUN_URL}${MENTION}"
+
+                  TEXT_BLOCK=":hourglass_flowing_sand: *ROSA HCP single region* — cluster(s) stuck in deletion for >24h: \`${STUCK_LIST}\`."
+                  TEXT_BLOCK="${TEXT_BLOCK} Still owned by Red Hat and skipped to avoid failing the cleanup; a manual check on the Red Hat console may be required."
+                  TEXT_BLOCK="${TEXT_BLOCK} :link: <${RUN_URL}|Cleanup run>${MENTION}"
+
+                  {
+                    echo "text_plain<<EOF_TP"
+                    printf '%s\n' "$TEXT_PLAIN"
+                    echo "EOF_TP"
+                    echo "text_block<<EOF_TB"
+                    printf '%s\n' "$TEXT_BLOCK"
+                    echo "EOF_TB"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Notify in Slack about stuck ROSA clusters
+              if: ${{ steps.stuck_clusters.outputs.found == 'true' }}
+              uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
+              with:
+                  method: chat.postMessage
+                  token: ${{ steps.secrets.outputs.SLACK_BOT_TOKEN }}
+                  payload: |
+                      {
+                        "channel": ${{ toJSON(env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB') }},
+                        "unfurl_links": false,
+                        "unfurl_media": false,
+                        "text": ${{ toJSON(steps.stuck_clusters.outputs.text_plain) }},
+                        "blocks": [
+                          {
+                            "type": "section",
+                            "text": {
+                              "type": "mrkdwn",
+                              "text": ${{ toJSON(steps.stuck_clusters.outputs.text_block) }}
+                            }
+                          }
+                        ]
+                      }
 
             - name: Notify in Slack in case of failure
               id: slack-notification

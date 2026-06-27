@@ -22,6 +22,13 @@ This GitHub Action automates the deletion of generic terraform resources using a
 | `delete-ghost-rosa-clusters` | <p>Specify whether to delete ghost rosa clusters (true or false)</p> | `false` | `false` |
 
 
+## Outputs
+
+| name | description |
+| --- | --- |
+| `stuck-rosa-clusters` | <p>Comma-separated list of ROSA clusters stuck in a deletion/error state for longer than the configured threshold (24h by default), reported so a dedicated alert can be raised without failing the cleanup. Empty when no cluster is stuck.</p> |
+
+
 ## Runs
 
 This action is a `composite` action.

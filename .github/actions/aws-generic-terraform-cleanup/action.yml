@@ -50,6 +50,14 @@ inputs:
         description: Specify whether to delete ghost rosa clusters (true or false)
         default: 'false'
 
+outputs:
+    stuck-rosa-clusters:
+        description: >-
+            Comma-separated list of ROSA clusters stuck in a deletion/error state for longer than the configured
+            threshold (24h by default), reported so a dedicated alert can be raised without failing the cleanup.
+            Empty when no cluster is stuck.
+        value: ${{ steps.delete_resources.outputs.stuck_clusters }}
+
 runs:
     using: composite
     steps:
@@ -98,6 +106,10 @@ runs:
           env:
               OPENSHIFT: ${{ inputs.openshift }}   # as an indicator in the script whether EKS vs ROSA
               DISABLE_TELEMETRY: true # Disable telemetry for cloud-nuke
+              # S3-persisted state used by cleanup-ghost-rosa-clusters.sh to track,
+              # across runs, how long each ghost cluster has been stuck in deletion.
+              STUCK_STATE_BUCKET: ${{ inputs.tf-bucket }}
+              STUCK_STATE_KEY: ${{ inputs.tf-bucket-key-prefix }}ghost-rosa-cluster-deletion-state.json
           run: |
               set -euo pipefail
 
