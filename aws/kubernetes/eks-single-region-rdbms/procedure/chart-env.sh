@@ -1,0 +1,1 @@
+../../../../generic/kubernetes/single-region/procedure/chart-env.sh
