@@ -1,0 +1,154 @@
+---
+# AWS EKS Domain Configuration for Camunda Platform (RDBMS variant)
+#
+# This file contains infrastructure configuration with ingress/domain enabled,
+# using Amazon Aurora PostgreSQL (RDBMS) as the orchestration secondary storage
+# instead of Amazon OpenSearch.
+#
+# Combine with an auth overlay:
+#   - Keycloak Operator: yq ". *+ load(\"generic/kubernetes/operator-based/keycloak/camunda-keycloak-domain-values.yml\")" values-domain.yml > values.yml
+#   - OIDC:              yq ". *+ load(\"values-oidc.yml\")" values-domain.yml > values.yml
+#
+# Differences from the OpenSearch variant:
+# - OpenSearch is not provisioned and not referenced
+# - Optimize is disabled (it requires Elasticsearch/OpenSearch)
+# - Orchestration uses RDBMS secondary storage on Aurora PostgreSQL
+#
+# Required environment variables:
+#   - CAMUNDA_DOMAIN: Your domain name
+#   - DB_HOST, DB_PORT: Aurora endpoint and port
+#   - DB_IDENTITY_USERNAME, DB_IDENTITY_NAME: Identity database connection
+#   - DB_ORCHESTRATION_USERNAME, DB_ORCHESTRATION_NAME: Orchestration (secondary storage) connection
+
+global:
+    security:
+        authentication:
+            method: oidc
+
+    ingress:
+        enabled: true
+        className: contour
+        host: ${CAMUNDA_DOMAIN}
+        tls:
+            enabled: true
+            secretName: camunda-c8-tls
+        annotations:
+            kubernetes.io/tls-acme: 'true'
+
+    identity:
+        auth:
+            enabled: true
+            console:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/console
+            webModeler:
+                redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
+
+identity:
+    enabled: true
+    contextPath: /managementidentity
+
+    fullURL: https://${CAMUNDA_DOMAIN}/managementidentity
+
+    firstUser:
+        enabled: true
+        username: admin
+        email: admin@camunda.local
+        firstName: Admin
+        lastName: User
+        secret:
+            existingSecret: identity-secret-for-components
+            existingSecretKey: identity-first-user-password
+
+    externalDatabase:
+        enabled: true
+        host: ${DB_HOST}
+        port: ${DB_PORT}
+        username: ${DB_IDENTITY_USERNAME}
+        database: ${DB_IDENTITY_NAME}
+        secret:
+            existingSecret: identity-postgres-secret
+            existingSecretKey: password
+
+
+connectors:
+    contextPath: /connectors
+
+# Optimize requires Elasticsearch/OpenSearch and is not available in RDBMS mode
+optimize:
+    enabled: false
+
+orchestration:
+    contextPath: /
+
+    exporters:
+        camunda:
+            enabled: false
+        rdbms:
+            enabled: true
+
+    data:
+        secondaryStorage:
+            type: rdbms
+            rdbms:
+                url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_ORCHESTRATION_NAME}?sslmode=require
+                username: ${DB_ORCHESTRATION_USERNAME}
+                secret:
+                    existingSecret: orchestration-postgres-secret
+                    existingSecretKey: password
+
+    security:
+        initialization:
+            defaultRoles:
+                admin:
+                    users:
+                        - admin
+
+    ingress:
+        grpc:
+            enabled: true
+            className: contour
+            host: zeebe-${CAMUNDA_DOMAIN}
+            tls:
+                enabled: true
+                secretName: zeebe-c8-tls-grpc
+            annotations:
+                kubernetes.io/tls-acme: 'true'
+
+    service:
+        annotations:
+            projectcontour.io/upstream-protocol.h2c: '26500'
+
+
+console:
+    enabled: false # by default, console is not enabled
+    contextPath: /console
+
+
+webModeler:
+    enabled: false # by default, webModeler is not enabled
+    contextPath: /modeler
+
+    restapi:
+        externalDatabase:
+            url: jdbc:aws-wrapper:postgresql://${DB_HOST}:${DB_PORT}/${DB_WEBMODELER_NAME}
+            user: ${DB_WEBMODELER_USERNAME}
+            secret:
+                existingSecret: webmodeler-postgres-secret
+                existingSecretKey: password
+        env:
+            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+              value: software.amazon.jdbc.Driver
+        mail:
+            secret:
+                existingSecret: webmodeler-secret
+                existingSecretKey: smtp-password
+            fromAddress: changeme@example.com   # change this required value
+
+webModelerPostgresql:
+    # Will deploy a postgresql database for webModeler.
+    # If you enable webModeler, you either need to turn it true or use an external database
+    enabled: false
+
+# Disable Elasticsearch (not needed in RDBMS mode)
+elasticsearch:
+    enabled: false

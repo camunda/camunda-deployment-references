@@ -1,0 +1,1 @@
+../../eks-single-region/procedure/install-external-dns.sh
