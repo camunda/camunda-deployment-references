@@ -96,10 +96,19 @@ orchestration:
     contextPath: /
 
     exporters:
-        camunda:
-            enabled: false
         rdbms:
             enabled: true
+    # `orchestration.exporters.camunda.enabled` is deprecated and removed in chart
+    # v16 (Camunda 8.11). With the RDBMS exporter enabled the inbuilt Camunda
+    # exporter is already disabled; the equivalent unified-config toggle is set via
+    # `extraConfiguration` (imported last) so the deployed config stays identical.
+    extraConfiguration:
+        - file: orchestration-exporter.yaml
+          content: |
+              camunda:
+                data:
+                  secondary-storage:
+                    autoconfigure-camunda-exporter: false
 
     data:
         secondaryStorage:

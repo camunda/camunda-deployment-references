@@ -48,8 +48,12 @@ connectors:
 
 orchestration:
     clusterSize: '8'
-    partitionCount: '8'
-    replicationFactor: '4'
+    # `orchestration.partitionCount`, `orchestration.replicationFactor` and
+    # `orchestration.logLevel` are deprecated and removed in chart v16
+    # (Camunda 8.11). They are provided below via `orchestration.env` (unified
+    # configuration env vars) to match this overlay's existing env-based style and
+    # to avoid Helm array-replacement when this file is merged with the
+    # multi-tenancy fixture (helm -f replaces list values).
     data:
         secondaryStorage:
             type: elasticsearch
@@ -60,6 +64,14 @@ orchestration:
         zeebe:
             enabled: false
     env:
+        # Cluster topology and log level, migrated from the deprecated
+        # orchestration.partitionCount / replicationFactor / logLevel keys.
+        - name: CAMUNDA_CLUSTER_PARTITIONCOUNT
+          value: '8'
+        - name: CAMUNDA_CLUSTER_REPLICATIONFACTOR
+          value: '4'
+        - name: ZEEBE_LOG_LEVEL
+          value: ERROR
         # Config
         - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
           value: camunda_backup
@@ -110,7 +122,6 @@ orchestration:
         - name: CAMUNDA_CLUSTER_COMPRESSIONALGORITHM
           value: GZIP
     pvcSize: 32Gi
-    logLevel: ERROR
 
     resources:
         requests:

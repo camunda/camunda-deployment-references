@@ -38,7 +38,7 @@ See: https://github.com/camunda/camunda-platform-helm/issues/4564
 | `release-name` | <p>The Helm release name to check</p> | `false` | `camunda` |
 | `namespace` | <p>The Kubernetes namespace where the release is deployed</p> | `false` | `camunda` |
 | `kube-context` | <p>The Kubernetes context to use (optional, defaults to current context)</p> | `false` | `""` |
-| `exclude-patterns` | <p>Newline-separated list of fixed strings to exclude from warnings and errors. Messages containing any of these strings will be ignored.</p> | `false` | `""` |
+| `exclude-patterns` | <p>Newline-separated list of fixed strings to exclude from warnings and errors. Messages containing any of these strings will be ignored.</p> <p>The default excludes deprecation warnings for keys that the camunda-platform 8.10 chart still <em>requires</em> or still <em>uses as a template toggle</em>, so they cannot yet be migrated away in these reference architectures without breaking the deployment:</p> <ul> <li>webModeler.restapi.mail.fromAddress / fromName: still flagged <code>required</code> by the web-modeler restapi template, so removing them aborts <code>helm template</code>.</li> <li>orchestration.exporters.camunda.enabled: drives the chart's <code>hasCamundaExporter</code> helper (the <code>zeebe.broker.exporters</code> block), so in the dual-region setup it must stay a values key — moving it to extraConfiguration would re-enable the inbuilt exporter alongside the region-specific ones. All other deprecated keys are migrated to <code>extraConfiguration</code> / <code>orchestration.env</code> in the helm-values files. Remove the matching line below once the chart drops the requirement / toggle. On older stable branches these strings simply never match.</li> </ul> | `false` | `webModeler.restapi.mail.fromAddress webModeler.restapi.mail.fromName orchestration.exporters.camunda.enabled` |
 | `check-unknown-keys` | <p>When set to 'true', deployed values are validated against a strict version of the chart's JSON Schema to detect unknown keys (typos, removed properties). The schema is automatically extracted from the deployed chart. See: https://github.com/camunda/camunda-platform-helm/issues/4564</p> | `false` | `true` |
 | `comment-section-key` | <p>Optional extra identifier mixed into the PR comment section ID. Use this when the same workflow + job + release-name + namespace tuple runs more than once (e.g. across matrix entries) and each run should produce its own section in the shared PR comment.</p> | `false` | `""` |
 | `github-token` | <p>Token used to read and update the shared PR comment. Defaults to the workflow-provided GITHUB_TOKEN. The token needs <code>pull-requests: write</code> permission for the comment to be posted.</p> | `false` | `${{ github.token }}` |
@@ -79,9 +79,25 @@ This action is a `composite` action.
     exclude-patterns:
     # Newline-separated list of fixed strings to exclude from warnings and errors.
     # Messages containing any of these strings will be ignored.
+    # The default excludes deprecation warnings for keys that the
+    # camunda-platform 8.10 chart still *requires* or still *uses as a
+    # template toggle*, so they cannot yet be migrated away in these
+    # reference architectures without breaking the deployment:
+    #   - webModeler.restapi.mail.fromAddress / fromName: still flagged
+    #     `required` by the web-modeler restapi template, so removing them
+    #     aborts `helm template`.
+    #   - orchestration.exporters.camunda.enabled: drives the chart's
+    #     `hasCamundaExporter` helper (the `zeebe.broker.exporters`
+    #     block), so in the dual-region setup it must stay a values key —
+    #     moving it to extraConfiguration would re-enable the inbuilt
+    #     exporter alongside the region-specific ones.
+    # All other deprecated keys are migrated to `extraConfiguration` /
+    # `orchestration.env` in the helm-values files. Remove the matching
+    # line below once the chart drops the requirement / toggle.
+    # On older stable branches these strings simply never match.
     #
     # Required: false
-    # Default: ""
+    # Default: webModeler.restapi.mail.fromAddress webModeler.restapi.mail.fromName orchestration.exporters.camunda.enabled
 
     check-unknown-keys:
     # When set to 'true', deployed values are validated against a strict

@@ -29,11 +29,9 @@ global:
             console:
                 redirectUrl: http://localhost:8087/
 
-orchestration:
-    security:
-        authentication:
-            oidc:
-                redirectUrl: http://localhost:8080
+# `orchestration.security.authentication.oidc.redirectUrl` (deprecated, removed in
+# chart v16 / Camunda 8.11) is intentionally omitted: the no-domain default is
+# already `http://localhost:8080`, so the convenience key was redundant.
 
 identity:
     fullURL: http://localhost:8085

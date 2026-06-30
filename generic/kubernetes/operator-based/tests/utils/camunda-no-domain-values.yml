@@ -44,11 +44,9 @@ orchestration:
             annotations:
                 kubernetes.io/tls-acme: 'true'
 
-    security:
-        authentication:
-            oidc:
-                redirectUrl: http://localhost:8080
-
+# `orchestration.security.authentication.oidc.redirectUrl` (deprecated, removed
+# in chart v16 / Camunda 8.11) is intentionally omitted: the no-domain default
+# is already `http://localhost:8080`, so the convenience key was redundant.
 optimize:
     contextPath: /optimize
 
