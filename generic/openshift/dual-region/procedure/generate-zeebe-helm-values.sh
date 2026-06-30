@@ -11,9 +11,13 @@ generate_initial_contact() {
   local port_number=${7:-26502}
   local result=()
 
+  # Trailing dot marks each name as a fully-qualified domain name so the resolver
+  # queries it directly instead of walking the pod's ndots search domains. Guards
+  # against the search-domain startup hang (camunda/camunda#55038): it forces FQDN
+  # resolution regardless of the contact-point label count vs the pod's ndots.
   for ((i = 0; i < count / 2; i++)); do
-    result+=("${release}-zeebe-${i}.${cluster_0}.${release}-zeebe.${namespace_0}.svc.clusterset.local:${port_number}")
-    result+=("${release}-zeebe-${i}.${cluster_1}.${release}-zeebe.${namespace_1}.svc.clusterset.local:${port_number}")
+    result+=("${release}-zeebe-${i}.${cluster_0}.${release}-zeebe.${namespace_0}.svc.clusterset.local.:${port_number}")
+    result+=("${release}-zeebe-${i}.${cluster_1}.${release}-zeebe.${namespace_1}.svc.clusterset.local.:${port_number}")
   done
 
   IFS=","; echo "${result[*]}"; unset IFS
