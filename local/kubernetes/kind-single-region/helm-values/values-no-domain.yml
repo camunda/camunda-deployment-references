@@ -95,16 +95,17 @@ optimize:
 orchestration:
     clusterSize: '1'
     # `orchestration.partitionCount` / `orchestration.replicationFactor` are
-    # deprecated and removed in chart v16 (Camunda 8.11); migrated to their
-    # unified configuration equivalents via `extraConfiguration` (imported last
-    # into the Orchestration application config).
-    extraConfiguration:
-        - file: orchestration-cluster.yaml
-          content: |
-              camunda:
-                cluster:
-                  partition-count: "1"
-                  replication-factor: "1"
+    # deprecated and removed in chart v16 (Camunda 8.11). They are provided via
+    # `orchestration.env` (unified configuration env vars) rather than
+    # `extraConfiguration`, because the kind deployment layers several value files
+    # through repeated `helm --values`, where Helm *replaces* list-typed fields like
+    # `extraConfiguration` — only one file's list would survive. `env` here is the
+    # single Orchestration env source across those layers, so it is collision-free.
+    env:
+        - name: CAMUNDA_CLUSTER_PARTITIONCOUNT
+          value: '1'
+        - name: CAMUNDA_CLUSTER_REPLICATIONFACTOR
+          value: '1'
     pvcSize: 10Gi
     resources:
         requests:

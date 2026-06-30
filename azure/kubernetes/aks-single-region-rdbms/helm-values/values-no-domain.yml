@@ -54,20 +54,16 @@ optimize:
 
 # RDBMS secondary storage configuration
 orchestration:
+    # `orchestration.exporters.camunda.enabled` is deprecated (removed in chart v16 /
+    # Camunda 8.11) but intentionally kept as a values key: with the RDBMS exporter
+    # enabled the inbuilt Camunda exporter is already disabled, so behaviour is
+    # unchanged. The non-blocking deprecation warning is filtered by
+    # internal-helm-deprecation-check (exclude-patterns).
     exporters:
+        camunda:
+            enabled: false
         rdbms:
             enabled: true
-    # `orchestration.exporters.camunda.enabled` is deprecated and removed in chart
-    # v16 (Camunda 8.11). With the RDBMS exporter enabled the inbuilt Camunda
-    # exporter is already disabled; the equivalent unified-config toggle is set via
-    # `extraConfiguration` (imported last) so the deployed config stays identical.
-    extraConfiguration:
-        - file: orchestration-exporter.yaml
-          content: |
-              camunda:
-                data:
-                  secondary-storage:
-                    autoconfigure-camunda-exporter: false
 
     data:
         secondaryStorage:
