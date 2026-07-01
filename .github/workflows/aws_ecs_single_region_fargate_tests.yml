@@ -1,10 +1,8 @@
 ---
 name: Tests - Integration - AWS Containers ECS Single Region Fargate
-
 permissions:
-    contents: read # don't allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
-
+    contents: read
+    pull-requests: write
 on:
     schedule:
         - cron: 30 3 * * 3
@@ -28,53 +26,32 @@ on:
                 required: false
                 type: string
                 default: ecs-single-region-fargate
-    pull_request:
-        paths:
-            - .github/actions/aws-generic-terraform-cleanup/**
-            - .github/actions/aws-containers-ecs-single-region-fargate-create/**
-            - .github/actions/aws-configure-cli/**
-            - .github/actions/internal-generic-terraform-outputs/**
-            - .github/actions/camunda-smoke-test/**
-            - .github/actions/internal-terraform-drift-detect/**
-            - .github/workflows/aws_ecs_single_region_fargate_tests.yml
-            - .tool-versions
-            - aws/containers/ecs-single-region-fargate/**
-            - '!aws/containers/ecs-single-region-fargate/terraform/test/golden/**'
-            - aws/modules/ecs/**
-
-# limit to a single execution per actor of this workflow
+    pull_request: {}
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
     cancel-in-progress: false
-
 env:
     IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
-
     AWS_PROFILE: infraex
     AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-    S3_BACKEND_BUCKET_PREFIX: aws/containers/ecs-single-region-fargate/ # keep it synced with the name of the module for simplicity
+    S3_BACKEND_BUCKET_PREFIX: aws/containers/ecs-single-region-fargate/
     TF_MODULES_PATH: ./.action-tf-modules/aws-containers-ecs-single-region-fargate-create
-
     CI_MATRIX_FILE: .github/workflows-config/aws-containers-ecs-single-region-fargate/test_matrix.yml
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
-
 jobs:
     triage:
         runs-on: ubuntu-slim
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
-
     clusters-info:
         needs:
             - triage
@@ -84,13 +61,11 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
               with:
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
               id: matrix
@@ -101,7 +76,6 @@ jobs:
                   cluster_prefix: ecs-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
-
     prepare-clusters:
         needs:
             - clusters-info
@@ -113,11 +87,9 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
             - name: Checkout repository
-              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -126,14 +98,12 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
             - name: Set current target branch
               id: target-branch
               run: |
                   set -euo pipefail
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
             - name: Create Infrastructure
               id: create_infrastructure
               uses: ./.github/actions/aws-containers-ecs-single-region-fargate-create
@@ -150,6 +120,8 @@ jobs:
                   ref-arch: ${{ matrix.scenario.name }}
                   tags: >
                       {
+
+
                         "ci-run-id": "${{ github.run_id }}",
                         "ci-run-number": "${{ github.run_number }}",
                         "ci-workflow": "${{ github.workflow }}",
@@ -174,11 +146,9 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -187,14 +157,12 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
             - name: Set current target branch
               id: target-branch
               run: |
                   set -euo pipefail
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
             - name: Get Terraform outputs
               id: terraform-outputs
               uses: ./.github/actions/internal-generic-terraform-outputs
@@ -204,89 +172,28 @@ jobs:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-
             - name: Run smoke tests against ECS deployment
               if: env.TESTS_ENABLED == 'true'
               id: smoke-tests
               timeout-minutes: 30
-              run: |
-                  set -euo pipefail
-
-                  # Retrieve the ALB DNS name from Terraform outputs
-                  ALB_DNS=${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
-                  NLB_DNS=${{ fromJson(steps.terraform-outputs.outputs.json_output).nlb_endpoint.value }}
-
-                  if [[ -z "$ALB_DNS" ]]; then
-                    echo "⚠️ ALB DNS name not found in Terraform outputs, skipping HTTP tests"
-                  else
-                    echo "🔍 Testing ALB endpoint: http://${ALB_DNS}"
-
-                    # Wait for ALB to be healthy
-                    for i in {1..30}; do
-                      HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${ALB_DNS}/operate" || echo "000")
-                      if [[ "$HTTP_CODE" == "200" ]]; then
-                        echo "✅ ALB health check passed"
-                        break
-                      fi
-                      echo "⏳ Waiting for ALB to be healthy (attempt $i/30, got HTTP $HTTP_CODE)..."
-                      sleep 10
-                    done
-
-                    if [[ "$HTTP_CODE" != "200" ]]; then
-                      echo "❌ ALB health check failed after 30 attempts"
-                      exit 1
-                    fi
-                  fi
-
-                  if [[ -z "$NLB_DNS" ]]; then
-                    echo "⚠️ NLB DNS name not found in Terraform outputs, skipping gRPC tests"
-                  else
-                    echo "🔍 Testing NLB endpoint (Zeebe gateway): ${NLB_DNS}:26500"
-
-                    # Create gRPC health check proto file
-                    cat > health.proto <<'EOF'
-                  syntax = "proto3";
-                  package grpc.health.v1;
-                  service Health {
-                    rpc Check (HealthCheckRequest) returns (HealthCheckResponse);
-                  }
-                  message HealthCheckRequest { string service = 1; }
-                  message HealthCheckResponse {
-                    enum ServingStatus {
-                      UNKNOWN = 0; SERVING = 1; NOT_SERVING = 2; SERVICE_UNKNOWN = 3;
-                    }
-                    ServingStatus status = 1;
-                  }
-                  EOF
-
-                    # Test Zeebe gateway gRPC health
-                    for i in {1..30}; do
-                      if grpcurl -plaintext \
-                          -import-path . \
-                          -proto health.proto \
-                          -d '{"service": ""}' \
-                          "${NLB_DNS}:26500" \
-                          grpc.health.v1.Health/Check | grep -q SERVING; then
-                        echo "✅ Zeebe gateway gRPC health check passed"
-                        break
-                      fi
-                      echo "⏳ Waiting for Zeebe gateway to be healthy (attempt $i/30)..."
-                      sleep 10
-                    done
-
-                    if ! grpcurl -plaintext \
-                        -import-path . \
-                        -proto health.proto \
-                        -d '{"service": ""}' \
-                        "${NLB_DNS}:26500" \
-                        grpc.health.v1.Health/Check | grep -q SERVING; then
-                      echo "❌ Zeebe gateway gRPC health check failed after 30 attempts"
-                      exit 1
-                    fi
-                  fi
-
-                  echo "✅ Smoke tests completed successfully"
-
+              run: "set -euo pipefail\n\n# Retrieve the ALB DNS name from Terraform outputs\nALB_DNS=${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value\
+                  \ }}\nNLB_DNS=${{ fromJson(steps.terraform-outputs.outputs.json_output).nlb_endpoint.value }}\n\nif [[ -z \"$ALB_DNS\" ]]; then\n  echo\
+                  \ \"⚠️ ALB DNS name not found in Terraform outputs, skipping HTTP tests\"\nelse\n  echo \"\U0001F50D Testing ALB endpoint: http://${ALB_DNS}\"\
+                  \n\n  # Wait for ALB to be healthy\n  for i in {1..30}; do\n    HTTP_CODE=$(curl -s -o /dev/null -w \"%{http_code}\" \"http://${ALB_DNS}/operate\"\
+                  \ || echo \"000\")\n    if [[ \"$HTTP_CODE\" == \"200\" ]]; then\n      echo \"✅ ALB health check passed\"\n      break\n    fi\n    echo\
+                  \ \"⏳ Waiting for ALB to be healthy (attempt $i/30, got HTTP $HTTP_CODE)...\"\n    sleep 10\n  done\n\n  if [[ \"$HTTP_CODE\" != \"200\"\
+                  \ ]]; then\n    echo \"❌ ALB health check failed after 30 attempts\"\n    exit 1\n  fi\nfi\n\nif [[ -z \"$NLB_DNS\" ]]; then\n  echo \"\
+                  ⚠️ NLB DNS name not found in Terraform outputs, skipping gRPC tests\"\nelse\n  echo \"\U0001F50D Testing NLB endpoint (Zeebe gateway):\
+                  \ ${NLB_DNS}:26500\"\n\n  # Create gRPC health check proto file\n  cat > health.proto <<'EOF'\nsyntax = \"proto3\";\npackage grpc.health.v1;\n\
+                  service Health {\n  rpc Check (HealthCheckRequest) returns (HealthCheckResponse);\n}\nmessage HealthCheckRequest { string service = 1;\
+                  \ }\nmessage HealthCheckResponse {\n  enum ServingStatus {\n    UNKNOWN = 0; SERVING = 1; NOT_SERVING = 2; SERVICE_UNKNOWN = 3;\n  }\n\
+                  \  ServingStatus status = 1;\n}\nEOF\n\n  # Test Zeebe gateway gRPC health\n  for i in {1..30}; do\n    if grpcurl -plaintext \\\n   \
+                  \     -import-path . \\\n        -proto health.proto \\\n        -d '{\"service\": \"\"}' \\\n        \"${NLB_DNS}:26500\" \\\n      \
+                  \  grpc.health.v1.Health/Check | grep -q SERVING; then\n      echo \"✅ Zeebe gateway gRPC health check passed\"\n      break\n    fi\n\
+                  \    echo \"⏳ Waiting for Zeebe gateway to be healthy (attempt $i/30)...\"\n    sleep 10\n  done\n\n  if ! grpcurl -plaintext \\\n   \
+                  \   -import-path . \\\n      -proto health.proto \\\n      -d '{\"service\": \"\"}' \\\n      \"${NLB_DNS}:26500\" \\\n      grpc.health.v1.Health/Check\
+                  \ | grep -q SERVING; then\n    echo \"❌ Zeebe gateway gRPC health check failed after 30 attempts\"\n    exit 1\n  fi\nfi\n\necho \"✅ Smoke\
+                  \ tests completed successfully\"\n"
             - name: 🔥 Run Camunda Smoke Test
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 15
@@ -298,7 +205,6 @@ jobs:
                   basic-auth-user: admin
                   basic-auth-password: ${{ fromJson(steps.terraform-outputs.outputs.json_output).admin_user_password.value }}
                   benchmark-duration: '300'
-
     cleanup-clusters:
         name: Cleanup ECS cluster
         if: always()
@@ -313,15 +219,13 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b
             - name: Configure AWS CLI
               if: env.CLEANUP_CLUSTERS == 'true'
               uses: ./.github/actions/aws-configure-cli
@@ -331,14 +235,12 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
             - name: Set current target branch
               id: target-branch
               run: |
                   set -euo pipefail
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
             - name: Delete on-demand Infrastructure
               uses: ./.github/actions/aws-generic-terraform-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
@@ -350,7 +252,6 @@ jobs:
                   target: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: cluster
-
     report-success:
         name: Report success
         if: ${{ !failure() && !cancelled() }}
@@ -359,14 +260,12 @@ jobs:
             - integration-tests
             - cleanup-clusters
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
               env:
                   GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
-
     report-failure:
         name: Report failure
         runs-on: ubuntu-slim
@@ -377,7 +276,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
@@ -385,3 +284,5 @@ jobs:
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
                   slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}
+
+# Scheduled trigger: 2026-07-01T22:34:09Z - Wednesday schedules 8.9
