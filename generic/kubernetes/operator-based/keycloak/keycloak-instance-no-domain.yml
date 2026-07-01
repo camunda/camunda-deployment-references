@@ -37,3 +37,17 @@ spec:
         requests:
             cpu: 250m
             memory: 512Mi
+    # Workaround for the camunda/keycloak quay-optimized images: the AWS JDBC wrapper ships an
+    # older Netty under /opt/keycloak/providers that shadows Keycloak's bundled, Vert.x-aligned
+    # Netty. Over plain HTTP (port-forward, no TLS) a browser sends "Upgrade: h2c", which drives
+    # the HTTP/2 cleartext path and crashes the pod with a NoSuchMethodError. Disabling HTTP/2
+    # forces HTTP/1.1, which is all port-forward access needs. Remove once the pinned image ships
+    # a Netty-aligned build (fixed upstream in camunda/keycloak).
+    # See https://github.com/camunda/camunda-deployment-references/issues/2809
+    unsupported:
+        podTemplate:
+            spec:
+                containers:
+                    - env:
+                          - name: QUARKUS_HTTP_HTTP2
+                            value: 'false'
