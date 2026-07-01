@@ -39,12 +39,13 @@ spec:
         requests:
             cpu: 250m
             memory: 512Mi
-    # Workaround for the camunda/keycloak quay-optimized images: the AWS JDBC wrapper ships an
-    # older Netty under /opt/keycloak/providers that shadows Keycloak's bundled, Vert.x-aligned
-    # Netty. Over plain HTTP (port-forward, no TLS) a browser sends "Upgrade: h2c", which drives
-    # the HTTP/2 cleartext path and crashes the pod with a NoSuchMethodError. Disabling HTTP/2
-    # forces HTTP/1.1, which is all port-forward access needs. Remove once the pinned image ships
-    # a Netty-aligned build (fixed upstream in camunda/keycloak#596).
+    # Workaround for the camunda/keycloak quay-optimized images. The image build copies the AWS
+    # JDBC wrapper's transitive dependencies into /opt/keycloak/providers, adding a second, older
+    # Netty (netty-nio-client) that shadows Keycloak's bundled, Vert.x-aligned Netty. Any client
+    # that negotiates HTTP/2 cleartext (h2c) against this plain-HTTP endpoint (port-forward, no
+    # TLS) then hits a NoSuchMethodError that terminates the Keycloak process; HTTP/1.1 traffic is
+    # unaffected. Disabling HTTP/2 keeps access on HTTP/1.1, which is all port-forward needs.
+    # Remove once the pinned image ships a Netty-aligned build (fixed upstream in camunda/keycloak#596).
     # See https://github.com/camunda/camunda-deployment-references/issues/2809
     unsupported:
         podTemplate:
