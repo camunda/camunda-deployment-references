@@ -23,8 +23,17 @@ KEYCLOAK_HTTP_PORT=${KEYCLOAK_HTTP_PORT:-18080}
 LOCAL_PORT=${LOCAL_PORT:-18080}
 PROBE_PATH=${PROBE_PATH:-/auth/realms/master}
 
+# Fail fast (and clearly) if this runner's curl cannot negotiate HTTP/2 — otherwise
+# `curl --http2` would error and be misreported below as an H2C regression.
+if ! curl -V | grep -qiw HTTP2; then
+    echo "❌ curl on this runner was built without HTTP/2 support; cannot run the h2c probe."
+    exit 1
+fi
+
+# Keycloak is already deployed and waited on by keycloak/deploy.sh before this runs,
+# so this is a short defensive re-check rather than a long provisioning wait.
 echo "Waiting for Keycloak to be Ready..."
-kubectl wait --for=condition=Ready --timeout=300s keycloak --all -n "$CAMUNDA_NAMESPACE"
+kubectl wait --for=condition=Ready --timeout=120s keycloak --all -n "$CAMUNDA_NAMESPACE"
 
 echo "Port-forwarding svc/${KEYCLOAK_SERVICE} ${LOCAL_PORT}:${KEYCLOAK_HTTP_PORT} (namespace ${CAMUNDA_NAMESPACE})..."
 kubectl port-forward -n "$CAMUNDA_NAMESPACE" "svc/${KEYCLOAK_SERVICE}" "${LOCAL_PORT}:${KEYCLOAK_HTTP_PORT}" >/dev/null 2>&1 &
@@ -62,10 +71,10 @@ if [ "$curl_rc" -ne 0 ] || [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
 fi
 
 # An h2c crash exits the JVM (pod restart); make sure Keycloak is still up.
-if ! kubectl wait --for=condition=Ready --timeout=90s keycloak --all -n "$CAMUNDA_NAMESPACE"; then
+if ! kubectl wait --for=condition=Ready --timeout=60s keycloak --all -n "$CAMUNDA_NAMESPACE"; then
     echo "❌ Keycloak is not Ready after the H2C probe — it likely crashed on the h2c request."
     kubectl get pods -n "$CAMUNDA_NAMESPACE" -o wide || true
     exit 1
 fi
 
-echo "✅ H2C probe passed: Keycloak answered the h2c upgrade (http_code=${http_code}) and stayed Ready."
+echo "✅ H2C probe passed: Keycloak responded to the h2c request without dropping the connection (http_code=${http_code}) and stayed Ready."

@@ -706,7 +706,7 @@ jobs:
             # has no such workaround and is not user-affected (ingress speaks HTTP/1.1 upstream).
             - name: 🧪 Keycloak H2C regression probe
               if: matrix.declination.name != 'domain'
-              timeout-minutes: 5
+              timeout-minutes: 8
               working-directory: ./generic/kubernetes/operator-based/
               run: ./tests/check-keycloak-h2c.sh
 
