@@ -171,6 +171,10 @@
       "newDigest": "sha256:8c2058e1c698113a349ee4ab5c4f53f2bf7b5007be432a748ce69958ac1d23f4"
     },
     {
+      "version": "14.23.0-debian-12-r11",
+      "newDigest": "sha256:5c228eba3ad0fc3e07c7ea9c19ca6e896e50cf1003c545209ee4bc0d22742a69"
+    },
+    {
       "version": "15.15.0-debian-12-r0",
       "newDigest": "sha256:fc2e864ca5117330c010054894e62ab8855bb425d8139c9ab969975cf726dfa0"
     },
@@ -335,6 +339,10 @@
       "newDigest": "sha256:96304187ed658fa8bc9d0eaf804dbab4bd1348c0d0fbf7fe3387ad253e92b0c0"
     },
     {
+      "version": "15.18.0-debian-12-r11",
+      "newDigest": "sha256:c5506248f6360e4627a548cf39b1937764ec4e7586aa17efee15bd7e8d9efa56"
+    },
+    {
       "version": "16.11.0-debian-12-r0",
       "newDigest": "sha256:760d6a0a2a490cae41b6fd1b74c8cb3207bbffc5ea7e6725f92a75542a44a1b6"
     },
@@ -493,6 +501,10 @@
     {
       "version": "16.14.0-debian-12-r11",
       "newDigest": "sha256:2360c5e7ef33fe4d0d3a3375919abef0c081889470095838f4798e8b39d4b8ac"
+    },
+    {
+      "version": "16.14.0-debian-12-r12",
+      "newDigest": "sha256:dabed8c36f281a03287bb36020a9f25d29ba75e69b20401de31051a798ea5649"
     },
     {
       "version": "17.6.0-debian-12-r28",
@@ -675,6 +687,14 @@
       "newDigest": "sha256:1f4cf8809f6e2169d9a13c71d445a114add346787d93240b3f170159a3783642"
     },
     {
+      "version": "17.10.0-debian-12-r11",
+      "newDigest": "sha256:e3dd5947c252883bcbfa7e5282b1c6b194bf7a23eadda8ed8c5117240dfed049"
+    },
+    {
+      "version": "17.10.0-debian-12-r12",
+      "newDigest": "sha256:ec7f8929e034e596f42a26f0a0f6263db8c30a63f9ccd52f51c6d761f5abc590"
+    },
+    {
       "version": "18.0.0-debian-12-r16",
       "newDigest": "sha256:1c4144964df608d7ef3d9101ccaf92f762a4e704415944b94cae0215d8a2b698"
     },
@@ -833,6 +853,10 @@
     {
       "version": "18.4.0-debian-12-r9",
       "newDigest": "sha256:b52199dd5b9654c89af1bc06dd5f3d89f3df80b17d6eb428e20b9b510884f845"
+    },
+    {
+      "version": "18.4.0-debian-12-r10",
+      "newDigest": "sha256:bdd8468ce4a9dd388cc567925e20557dc305255fe260c95a0ee956a44b0157bd"
     }
   ]
 }
