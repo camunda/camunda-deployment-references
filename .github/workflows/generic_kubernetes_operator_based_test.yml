@@ -706,6 +706,17 @@ jobs:
 
                   echo "All operator-based infrastructure deployed successfully."
 
+            # Regression guard for the Keycloak quay-optimized H2C crash (issue #2809): an
+            # HTTP/2 cleartext upgrade throws NoSuchMethodError and terminates the process on an
+            # affected image. The no-domain CR disables HTTP/2 (QUARKUS_HTTP_HTTP2=false) to avoid
+            # it; this probe fails if that regresses. Scoped to no-domain — the domain declination
+            # has no such workaround and is not user-affected (ingress speaks HTTP/1.1 upstream).
+            - name: 🧪 Keycloak H2C regression probe
+              if: matrix.declination.name != 'domain'
+              timeout-minutes: 5
+              working-directory: ./generic/kubernetes/operator-based/
+              run: ./tests/check-keycloak-h2c.sh
+
             - name: 🔑 Create Camunda credentials and export test tokens
               timeout-minutes: 5
               run: |
