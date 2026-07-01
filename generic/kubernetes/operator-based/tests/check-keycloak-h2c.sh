@@ -19,7 +19,8 @@ set -euo pipefail
 
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 KEYCLOAK_SERVICE=${KEYCLOAK_SERVICE:-keycloak-service}
-KEYCLOAK_HTTP_PORT=${KEYCLOAK_HTTP_PORT:-18080}
+# Derived from the Service object once Keycloak is up (see below), unless overridden here.
+KEYCLOAK_HTTP_PORT=${KEYCLOAK_HTTP_PORT:-}
 LOCAL_PORT=${LOCAL_PORT:-18080}
 PROBE_PATH=${PROBE_PATH:-/auth/realms/master}
 
@@ -35,6 +36,17 @@ fi
 echo "Waiting for Keycloak to be Ready..."
 kubectl wait --for=condition=Ready --timeout=120s keycloak --all -n "$CAMUNDA_NAMESPACE"
 
+# Derive the Keycloak service HTTP port from the Service object rather than hard-coding it
+# (the no-domain CR configures 18080). Prefer the port named "http", else the first port,
+# else fall back to 18080.
+if [ -z "$KEYCLOAK_HTTP_PORT" ]; then
+    KEYCLOAK_HTTP_PORT=$(kubectl get "svc/${KEYCLOAK_SERVICE}" -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.spec.ports[?(@.name=="http")].port}' 2>/dev/null || true)
+fi
+if [ -z "$KEYCLOAK_HTTP_PORT" ]; then
+    KEYCLOAK_HTTP_PORT=$(kubectl get "svc/${KEYCLOAK_SERVICE}" -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.spec.ports[0].port}' 2>/dev/null || true)
+fi
+KEYCLOAK_HTTP_PORT=${KEYCLOAK_HTTP_PORT:-18080}
+
 echo "Port-forwarding svc/${KEYCLOAK_SERVICE} ${LOCAL_PORT}:${KEYCLOAK_HTTP_PORT} (namespace ${CAMUNDA_NAMESPACE})..."
 kubectl port-forward -n "$CAMUNDA_NAMESPACE" "svc/${KEYCLOAK_SERVICE}" "${LOCAL_PORT}:${KEYCLOAK_HTTP_PORT}" >/dev/null 2>&1 &
 pf_pid=$!
@@ -46,6 +58,10 @@ url="http://localhost:${LOCAL_PORT}${PROBE_PATH}"
 # Wait until the tunnel accepts plain HTTP/1.1 traffic before probing h2c.
 ready=false
 for _ in $(seq 1 30); do
+    if ! kill -0 "$pf_pid" 2>/dev/null; then
+        echo "❌ kubectl port-forward exited early (service missing, or local port ${LOCAL_PORT} already in use); aborting probe."
+        exit 1
+    fi
     if curl -fsS -o /dev/null "$url" 2>/dev/null; then
         ready=true
         break
