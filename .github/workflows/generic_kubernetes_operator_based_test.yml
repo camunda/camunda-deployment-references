@@ -712,7 +712,7 @@ jobs:
             # it; this probe fails if that regresses. Scoped to no-domain — the domain declination
             # has no such workaround and is not user-affected (ingress speaks HTTP/1.1 upstream).
             - name: 🧪 Keycloak H2C regression probe
-              if: matrix.declination.name != 'domain'
+              if: matrix.declination.name == 'no-domain'
               timeout-minutes: 8
               working-directory: ./generic/kubernetes/operator-based/
               run: ./tests/check-keycloak-h2c.sh
