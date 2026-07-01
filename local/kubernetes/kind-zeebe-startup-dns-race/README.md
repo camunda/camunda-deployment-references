@@ -6,10 +6,17 @@ Local, single-machine reproduction of
 DNS-resolvable (cold multi-region start)"* — using a single
 [Kind](https://kind.sigs.k8s.io/) cluster, no cloud account and no Submariner.
 
-> **Status:** proposed reproduction scenario, validated end-to-end on Kind. The
-> startup park reproduces on 8.7 (standalone) and 8.9 (unified), and the
-> **permanent** hang on 8.7/8.8 is reproduced and root-caused as a
-> [DNS search-domain timeout-budget race](#root-cause-verified-the-dns-search-domain-timeout-budget-race).
+> **Status:** proposed reproduction scenario, validated end-to-end on Kind. Two
+> distinct outcomes — do not conflate them:
+> - **By default (Steps 1–4)** the startup **park** reproduces on 8.7 (standalone)
+>   and 8.9 (unified), but on its own it **self-heals** the moment the name
+>   resolves. This alone is *not* the field hang.
+> - **The permanent 8.7/8.8 hang** reproduces only after adding one more
+>   ingredient — a search-domain query that never answers within the broker's
+>   probe budget. The
+>   [Root cause](#root-cause-verified-the-dns-search-domain-timeout-budget-race)
+>   section sets that up and root-causes it as a DNS search-domain timeout-budget
+>   race.
 
 ## The bug in one paragraph
 
@@ -204,6 +211,13 @@ reached from the single startup join in
 Apply a CoreDNS `rewrite` so `*.svc.clusterset.local` resolves to the in-cluster
 `*.svc.cluster.local` records, then restart CoreDNS. Doing this **after** the
 brokers started is the cold-start race: the names become resolvable too late.
+
+> **Warning — this overwrites the entire `kube-system/coredns` ConfigMap.** It
+> replaces the whole `Corefile` (not a strategic patch), so only run it against
+> the disposable `camunda-repro-55038` Kind cluster from Step 1 — never a shared
+> or production cluster, where it would clobber the existing CoreDNS
+> configuration. Confirm your context first:
+> `kubectl config current-context` should print `kind-camunda-repro-55038`.
 
 ```bash
 kubectl apply -f - <<'EOF'
