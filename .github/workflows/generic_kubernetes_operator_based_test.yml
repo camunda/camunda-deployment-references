@@ -699,11 +699,13 @@ jobs:
 
                   echo "All operator-based infrastructure deployed successfully."
 
-            # Regression guard for the Keycloak quay-optimized H2C crash (issue #2809): an
-            # HTTP/2 cleartext upgrade throws NoSuchMethodError and terminates the process on an
-            # affected image. The no-domain CR disables HTTP/2 (QUARKUS_HTTP_HTTP2=false) to avoid
-            # it; this probe fails if that regresses. Scoped to no-domain — the domain declination
-            # has no such workaround and is not user-affected (ingress speaks HTTP/1.1 upstream).
+            # Regression guard for the Keycloak quay-optimized H2C crash (issue #2809): on an
+            # affected image an HTTP/2 cleartext (h2c) upgrade throws NoSuchMethodError and
+            # terminates the process. The fix ships in the pinned image (the conflicting Netty is
+            # removed from /opt/keycloak/providers, camunda/keycloak#596); this probe sends an h2c
+            # request and fails if that regresses. Scoped to no-domain, where Keycloak is reached
+            # directly over cleartext (the domain declination sits behind ingress speaking HTTP/1.1
+            # upstream, so it never exercises the h2c path).
             - name: 🧪 Keycloak H2C regression probe
               if: matrix.declination.name == 'no-domain'
               timeout-minutes: 8
