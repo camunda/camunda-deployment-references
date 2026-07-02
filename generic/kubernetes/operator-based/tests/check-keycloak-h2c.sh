@@ -36,15 +36,15 @@ echo "Waiting for Keycloak to be Ready..."
 kubectl wait --for=condition=Ready --timeout=120s keycloak --all -n "$CAMUNDA_NAMESPACE"
 
 # Derive the Keycloak service HTTP port from the Service object rather than hard-coding it
-# (the no-domain CR configures 18080). Prefer the port named "http", else the first port,
-# else fall back to 18080.
+# (the no-domain CR leaves httpPort unset, so Keycloak serves on its default 8080). Prefer
+# the port named "http", else the first port, else fall back to 8080.
 if [ -z "$KEYCLOAK_HTTP_PORT" ]; then
     KEYCLOAK_HTTP_PORT=$(kubectl get "svc/${KEYCLOAK_SERVICE}" -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.spec.ports[?(@.name=="http")].port}' 2>/dev/null || true)
 fi
 if [ -z "$KEYCLOAK_HTTP_PORT" ]; then
     KEYCLOAK_HTTP_PORT=$(kubectl get "svc/${KEYCLOAK_SERVICE}" -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.spec.ports[0].port}' 2>/dev/null || true)
 fi
-KEYCLOAK_HTTP_PORT=${KEYCLOAK_HTTP_PORT:-18080}
+KEYCLOAK_HTTP_PORT=${KEYCLOAK_HTTP_PORT:-8080}
 
 echo "Port-forwarding svc/${KEYCLOAK_SERVICE} ${LOCAL_PORT}:${KEYCLOAK_HTTP_PORT} (namespace ${CAMUNDA_NAMESPACE})..."
 kubectl port-forward -n "$CAMUNDA_NAMESPACE" "svc/${KEYCLOAK_SERVICE}" "${LOCAL_PORT}:${KEYCLOAK_HTTP_PORT}" >/dev/null 2>&1 &
@@ -61,7 +61,7 @@ for _ in $(seq 1 30); do
         echo "❌ kubectl port-forward exited early (service missing, or local port ${LOCAL_PORT} already in use); aborting probe."
         exit 1
     fi
-    if curl -fsS -o /dev/null "$url" 2>/dev/null; then
+    if curl -sS -o /dev/null --max-time 5 "$url" 2>/dev/null; then
         ready=true
         break
     fi
@@ -75,8 +75,10 @@ fi
 
 echo "Sending an HTTP/2 cleartext (h2c) upgrade request to ${url}..."
 curl_rc=0
-http_code=$(curl -sS -o /dev/null -w '%{http_code}' --http2 --max-time 20 "$url") || curl_rc=$?
-echo "curl exit=${curl_rc} http_code=${http_code}"
+metrics=$(curl -sS -o /dev/null -w '%{http_code} %{http_version}' --http2 --max-time 20 "$url") || curl_rc=$?
+http_code=${metrics%% *}
+http_version=${metrics##* }
+echo "curl exit=${curl_rc} http_code=${http_code:-} http_version=${http_version:-}"
 
 if [ "$curl_rc" -ne 0 ] || [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
     echo "❌ H2C regression: Keycloak dropped the HTTP/2 cleartext connection (NoSuchMethodError crash)."
@@ -85,6 +87,19 @@ if [ "$curl_rc" -ne 0 ] || [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
     kubectl get pods -n "$CAMUNDA_NAMESPACE" -o wide || true
     exit 1
 fi
+
+# The request must actually negotiate HTTP/2, otherwise the h2c upgrade path (the one that
+# used to crash) was never exercised and this probe would pass without guarding anything.
+case "${http_version:-}" in
+    2 | 2.0) : ;;
+    *)
+        echo "❌ H2C probe ineffective: the request negotiated HTTP/${http_version:-unknown}, not HTTP/2."
+        echo "   The h2c upgrade path was not exercised. Ensure HTTP/2 is enabled on Keycloak"
+        echo "   (do not set QUARKUS_HTTP_HTTP2=false on the pinned, Netty-fixed image)."
+        kubectl get pods -n "$CAMUNDA_NAMESPACE" -o wide || true
+        exit 1
+        ;;
+esac
 
 # An h2c crash exits the JVM (pod restart); make sure Keycloak is still up.
 if ! kubectl wait --for=condition=Ready --timeout=60s keycloak --all -n "$CAMUNDA_NAMESPACE"; then
