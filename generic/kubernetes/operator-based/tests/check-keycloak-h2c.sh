@@ -4,12 +4,11 @@
 # Regression probe for the HTTP/2 cleartext (h2c) crash of the camunda/keycloak
 # quay-optimized images (see issue #2809 and camunda/keycloak#596).
 #
-# The image build copies the AWS JDBC wrapper's transitive dependencies into
-# /opt/keycloak/providers, which includes an older Netty (netty-nio-client) that
-# shadows Keycloak's bundled, Vert.x-aligned Netty. On an affected image an h2c
-# upgrade throws NoSuchMethodError and terminates the Keycloak process (the
-# connection is dropped). The no-domain Keycloak CR disables HTTP/2
-# (QUARKUS_HTTP_HTTP2=false) to avoid this; this probe fails if that protection
+# A previously-affected image copied the AWS JDBC wrapper's transitive dependencies
+# into /opt/keycloak/providers, including an older Netty that shadowed Keycloak's
+# bundled, Vert.x-aligned Netty; an h2c upgrade then threw NoSuchMethodError and
+# terminated the Keycloak process. The fix ships in the image itself (the conflicting
+# Netty is removed from providers, camunda/keycloak#596); this probe fails if that
 # regresses.
 #
 # It port-forwards the Keycloak service, sends an h2c upgrade with `curl --http2`,
@@ -81,7 +80,8 @@ echo "curl exit=${curl_rc} http_code=${http_code}"
 
 if [ "$curl_rc" -ne 0 ] || [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
     echo "❌ H2C regression: Keycloak dropped the HTTP/2 cleartext connection (NoSuchMethodError crash)."
-    echo "   Keep QUARKUS_HTTP_HTTP2=false on the no-domain Keycloak CR, or use a Netty-aligned image (camunda/keycloak#596)."
+    echo "   Fix: use a camunda/keycloak image whose /opt/keycloak/providers has no conflicting Netty (camunda/keycloak#596)."
+    echo "   Or, on an older image without that fix, set QUARKUS_HTTP_HTTP2=false on the Keycloak CR to force HTTP/1.1."
     kubectl get pods -n "$CAMUNDA_NAMESPACE" -o wide || true
     exit 1
 fi

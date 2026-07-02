@@ -5,7 +5,7 @@ metadata:
     name: keycloak
 spec:
     # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-    image: docker.io/camunda/keycloak:quay-optimized-26.6.3
+    image: docker.io/camunda/keycloak:quay-optimized-26.6.4
     instances: 1
     db:
         # Use official url parameter instead of individual host/port/database
@@ -39,18 +39,3 @@ spec:
         requests:
             cpu: 250m
             memory: 512Mi
-    # Workaround for the camunda/keycloak quay-optimized images. The image build copies the AWS
-    # JDBC wrapper's transitive dependencies into /opt/keycloak/providers, adding a second, older
-    # Netty (netty-nio-client) that shadows Keycloak's bundled, Vert.x-aligned Netty. Any client
-    # that negotiates HTTP/2 cleartext (h2c) against this plain-HTTP endpoint (port-forward, no
-    # TLS) then hits a NoSuchMethodError that terminates the Keycloak process; HTTP/1.1 traffic is
-    # unaffected. Disabling HTTP/2 keeps access on HTTP/1.1, which is all port-forward needs.
-    # Remove once the pinned image ships a Netty-aligned build (fixed upstream in camunda/keycloak#596).
-    # See https://github.com/camunda/camunda-deployment-references/issues/2809
-    unsupported:
-        podTemplate:
-            spec:
-                containers:
-                    - env:
-                          - name: QUARKUS_HTTP_HTTP2
-                            value: 'false'
