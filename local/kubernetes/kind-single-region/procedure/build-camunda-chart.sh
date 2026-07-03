@@ -68,7 +68,12 @@ if ! git clone --depth 1 --branch "$_chart_git_ref" -- "$_chart_git_url" "$_char
     echo "ERROR: failed to clone '$_chart_git_url' (ref '$_chart_git_ref')." >&2
     exit 1
 fi
-touch "$_chart_checkout_dir/$_clone_marker"
+if ! touch "$_chart_checkout_dir/$_clone_marker"; then
+    # Remove the partial checkout so the marker guard does not block a rerun.
+    rm -rf -- "$_chart_checkout_dir"
+    echo "ERROR: failed to write the marker file in '$_chart_checkout_dir'." >&2
+    exit 1
+fi
 
 _local_chart="$_chart_checkout_dir/charts/camunda-platform-$_camunda_version"
 if [[ ! -d "$_local_chart" ]]; then
