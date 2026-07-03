@@ -23,6 +23,8 @@ CLUSTER_NAME ?= camunda-platform-local
 CAMUNDA_NAMESPACE ?= camunda
 CAMUNDA_RELEASE_NAME ?= camunda
 CERT_DIR ?= .certs
+# Camunda version (drives the upstream chart directory camunda-platform-<version>)
+CAMUNDA_VERSION := $(shell cat ../../../.camunda-version)
 # SECONDARY_STORAGE has no default - must be explicitly set to 'elasticsearch' or 'postgres'
 
 export CLUSTER_NAME CAMUNDA_NAMESPACE CAMUNDA_RELEASE_NAME CERT_DIR SECONDARY_STORAGE
@@ -129,8 +131,11 @@ domain.infra: cluster.create ingress.deploy coredns.config hosts.add certs.gener
 	@echo "✓ Domain infrastructure ready!"
 	@echo "  Before installing Camunda, create the required credentials secret (camunda-credentials):"
 	@echo "    make identity-secrets.create"
-	@echo "  Deploy Camunda with your own values:"
-	@echo "    helm upgrade --install camunda oci://registry.camunda.cloud/team-distribution/camunda-platform --version <CHART_VERSION> -n camunda --create-namespace -f your-values.yaml"
+	@echo "  Deploy Camunda with your own values. Pre-release: the chart is built from"
+	@echo "  source (no registry login required); see ./procedure/build-camunda-chart.sh:"
+	@echo "    git clone --depth 1 https://github.com/camunda/camunda-platform-helm.git"
+	@echo "    helm dependency update camunda-platform-helm/charts/camunda-platform-$(CAMUNDA_VERSION)"
+	@echo "    helm upgrade --install camunda camunda-platform-helm/charts/camunda-platform-$(CAMUNDA_VERSION) -n camunda --create-namespace -f your-values.yaml"
 	@echo ""
 
 .PHONY: no-domain.infra
@@ -139,8 +144,11 @@ no-domain.infra: cluster.create hosts.add-keycloak operators.deploy-no-domain
 	@echo "✓ No-domain infrastructure ready!"
 	@echo "  Before installing Camunda, create the required credentials secret (camunda-credentials):"
 	@echo "    make identity-secrets.create"
-	@echo "  Deploy Camunda with your own values:"
-	@echo "    helm upgrade --install camunda oci://registry.camunda.cloud/team-distribution/camunda-platform --version <CHART_VERSION> -n camunda --create-namespace -f your-values.yaml"
+	@echo "  Deploy Camunda with your own values. Pre-release: the chart is built from"
+	@echo "  source (no registry login required); see ./procedure/build-camunda-chart.sh:"
+	@echo "    git clone --depth 1 https://github.com/camunda/camunda-platform-helm.git"
+	@echo "    helm dependency update camunda-platform-helm/charts/camunda-platform-$(CAMUNDA_VERSION)"
+	@echo "    helm upgrade --install camunda camunda-platform-helm/charts/camunda-platform-$(CAMUNDA_VERSION) -n camunda --create-namespace -f your-values.yaml"
 	@echo ""
 
 .PHONY: no-domain.clean

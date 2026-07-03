@@ -11,7 +11,14 @@ set -euo pipefail
 #                      - elasticsearch: Uses Elasticsearch (full platform with Optimize)
 #                      - postgres: Uses PostgreSQL RDBMS only (Optimize disabled)
 
-# renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+# Camunda Helm chart version.
+#
+# Pre-release: the chart for this Camunda minor is not published to a public Helm
+# repo yet, and the dev build lives only in an internal OCI registry that needs
+# authentication. So the active install below builds the chart from source (git
+# clone), which needs no registry login. This pinned version is still consumed by
+# the standard-Helm install in the [release-duty] block below and by CI checks.
+# renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
 export CAMUNDA_HELM_CHART_VERSION="15-dev-latest"
 # TODO: [release-duty] before the release, update this!
 # TODO: [release-duty] adjust renovate comment to bump the major version
@@ -32,11 +39,16 @@ if [[ "$SECONDARY_STORAGE" != "elasticsearch" && "$SECONDARY_STORAGE" != "postgr
     exit 1
 fi
 
+# Build the Camunda chart from source so this guide needs no registry
+# authentication during the pre-release phase (sets LOCAL_CHART).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=build-camunda-chart.sh
+source "$SCRIPT_DIR/build-camunda-chart.sh"
+
 if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
     echo "Installing Camunda Platform (no-domain mode, Elasticsearch)..."
 
-    helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
-        --version "$CAMUNDA_HELM_CHART_VERSION" \
+    helm upgrade --install "camunda" "$LOCAL_CHART" \
         --namespace "camunda" \
         --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \
         --values "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-no-domain-values.yml" \
@@ -46,8 +58,7 @@ if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
 else
     echo "Installing Camunda Platform (no-domain mode, PostgreSQL RDBMS)..."
 
-    helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
-        --version "$CAMUNDA_HELM_CHART_VERSION" \
+    helm upgrade --install "camunda" "$LOCAL_CHART" \
         --namespace "camunda" \
         --values "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-no-domain-values.yml" \
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
@@ -56,8 +67,9 @@ else
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml"
 fi
 
-# TODO: [release-duty] before the release, update this by removing the oci pull above
-# and uncomment the installation instruction below
+# TODO: [release-duty] before the release, remove the source-build install above
+# (the "source .../build-camunda-chart.sh" line and the "helm upgrade --install"
+# calls using "$LOCAL_CHART") and uncomment the standard Helm install below.
 
 # if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
 #     helm upgrade --install "camunda" camunda-platform \
