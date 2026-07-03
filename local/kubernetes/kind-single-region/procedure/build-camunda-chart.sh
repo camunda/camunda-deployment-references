@@ -20,14 +20,23 @@ _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda
 _chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-main}"
 _chart_checkout_dir="${CAMUNDA_HELM_CHART_CHECKOUT_DIR:-$_chart_src_dir/../.camunda-platform-helm}"
 
-# The checkout dir is overridable and is deleted+recreated below. Two safety rules:
-#   1. require an absolute path (rejects relative values like '.' or '..'), and
-#   2. only ever delete a directory THIS script created — detected via a marker
+# The checkout dir is overridable and is deleted+recreated below. Three safety rules:
+#   1. require an absolute path (rejects relative values like '.' or '..'),
+#   2. never allow the filesystem root, and
+#   3. only ever delete a directory THIS script created — detected via a marker
 #      file — so pointing the override at an existing directory never removes it.
 # '--' also keeps a value starting with '-' from being read as a flag.
 _clone_marker=".built-by-build-camunda-chart"
 if [[ "$_chart_checkout_dir" != /* ]]; then
     echo "ERROR: CAMUNDA_HELM_CHART_CHECKOUT_DIR must be an absolute path, got: '$_chart_checkout_dir'" >&2
+    exit 1
+fi
+# Reject the filesystem root outright (any number of trailing slashes), so rm -rf
+# can never target '/' even if a stray marker file were present there.
+_root_probe="$_chart_checkout_dir"
+while [[ "$_root_probe" == */ ]]; do _root_probe="${_root_probe%/}"; done
+if [[ -z "$_root_probe" ]]; then
+    echo "ERROR: refusing to use the filesystem root as the checkout directory." >&2
     exit 1
 fi
 if [[ -e "$_chart_checkout_dir" && ! -f "$_chart_checkout_dir/$_clone_marker" ]]; then
