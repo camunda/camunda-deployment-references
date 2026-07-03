@@ -19,7 +19,11 @@ _repo_root="$_chart_src_dir/../../../.."
 _camunda_version="$(cat "$_repo_root/.camunda-version")"
 
 _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda-platform-helm.git}"
-_chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-main}"
+# Pin to the released chart tag the guide targets (the pre-release 15.x line), not a
+# moving 'main': 'main' can be mid-migration and drop components (e.g. console when
+# values move under camundaHub), which breaks the deployment tests.
+# TODO: [release-duty] bump this tag alongside CAMUNDA_HELM_CHART_VERSION and the helm-values.
+_chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-camunda-platform-8.10-15.0.0-alpha2}"
 _default_checkout_dir="$(cd "$_chart_src_dir/.." && pwd)/.camunda-platform-helm"
 _chart_checkout_dir="${CAMUNDA_HELM_CHART_CHECKOUT_DIR:-$_default_checkout_dir}"
 
