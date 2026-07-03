@@ -20,19 +20,25 @@ _camunda_version="$(cat "$_repo_root/.camunda-version")"
 
 _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda-platform-helm.git}"
 _chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-main}"
-_chart_checkout_dir="${CAMUNDA_HELM_CHART_CHECKOUT_DIR:-$_chart_src_dir/../.camunda-platform-helm}"
+_default_checkout_dir="$(cd "$_chart_src_dir/.." && pwd)/.camunda-platform-helm"
+_chart_checkout_dir="${CAMUNDA_HELM_CHART_CHECKOUT_DIR:-$_default_checkout_dir}"
 
-# The checkout dir is overridable and is deleted+recreated below. Three safety rules:
-#   1. require an absolute path (rejects relative values like '.' or '..'),
-#   2. never allow the filesystem root, and
-#   3. only ever delete a directory THIS script created — detected via a marker
-#      file — so pointing the override at an existing directory never removes it.
-# '--' also keeps a value starting with '-' from being read as a flag.
+# The checkout dir is overridable and is deleted+recreated below, so validate it
+# before the rm -rf: it must be an absolute path, contain no '.'/'..' segments, and
+# not be the filesystem root; and a pre-existing dir must carry our marker file, so
+# we only ever delete a checkout this script created. '--' below also keeps a value
+# starting with '-' from being read as a flag.
 _clone_marker=".built-by-build-camunda-chart"
 if [[ "$_chart_checkout_dir" != /* ]]; then
     echo "ERROR: CAMUNDA_HELM_CHART_CHECKOUT_DIR must be an absolute path, got: '$_chart_checkout_dir'" >&2
     exit 1
 fi
+case "/$_chart_checkout_dir/" in
+    */../* | */./*)
+        echo "ERROR: CAMUNDA_HELM_CHART_CHECKOUT_DIR must not contain '.' or '..' path segments: '$_chart_checkout_dir'" >&2
+        exit 1
+        ;;
+esac
 # Reject the filesystem root outright (any number of trailing slashes), so rm -rf
 # can never target '/' even if a stray marker file were present there.
 _root_probe="$_chart_checkout_dir"
