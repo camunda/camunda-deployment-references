@@ -1,31 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
-# Build the Camunda Helm chart from its source repository.
+# Build the Camunda Helm chart from source (camunda/camunda-platform-helm) so the
+# kind guide needs no registry auth during the pre-release phase. Meant to be
+# sourced by camunda-deploy-*.sh; sets and exports LOCAL_CHART.
 #
-# TODO: [release-duty] this whole helper is a pre-release workaround. Delete it at
-# release time, once the deploy scripts switch to installing the published chart
-# from https://helm.camunda.io (see the [release-duty] blocks in camunda-deploy-*.sh).
+# TODO: [release-duty] delete this helper at release time — the guide then installs
+# the published chart from https://helm.camunda.io.
 #
-# Why: during the pre-release phase of a Camunda minor, the chart (e.g. 15.x for
-# Camunda 8.10) is not yet published to a public Helm repository, and the dev
-# build is only pushed to an internal OCI registry that requires authentication
-# (registry.camunda.cloud). Building the chart directly from
-# https://github.com/camunda/camunda-platform-helm keeps this guide usable by
-# everyone with no registry login required.
-#
-# The chart's only dependency is the in-repo "common" library (referenced via a
-# file:// path), so "helm dependency update" resolves everything from the clone
-# without contacting any registry.
-#
-# Usage: this script is meant to be *sourced* by the camunda-deploy-*.sh
-# scripts. It sets and exports LOCAL_CHART to the path of the built chart, ready
-# to be passed to "helm upgrade --install <release> \"$LOCAL_CHART\"".
-#
-# Optional override knobs (env vars):
-#   CAMUNDA_HELM_CHART_GIT_URL       source repo URL (default: upstream GitHub)
-#   CAMUNDA_HELM_CHART_GIT_REF       branch or tag to build (default: main)
-#   CAMUNDA_HELM_CHART_CHECKOUT_DIR  clone location (default: ../.camunda-platform-helm)
+# Optional overrides: CAMUNDA_HELM_CHART_GIT_URL, CAMUNDA_HELM_CHART_GIT_REF,
+# CAMUNDA_HELM_CHART_CHECKOUT_DIR.
 
 _chart_src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _repo_root="$_chart_src_dir/../../../.."
@@ -46,7 +30,6 @@ if [[ ! -d "$LOCAL_CHART" ]]; then
     exit 1
 fi
 
-# Resolve the file:// "common" library dependency locally — no registry auth.
 helm dependency update "$LOCAL_CHART"
 
 export LOCAL_CHART
