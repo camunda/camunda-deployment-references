@@ -451,7 +451,16 @@ runs:
               fi
 
               if [[ "${{ inputs.console-enabled }}" == "true" ]]; then
-                REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},console"
+                # Console was consolidated into Camunda Hub in Camunda 8.10
+                # (chart 15.x): it is no longer a standalone deployment but a
+                # feature of Web Modeler (CAMUNDA_MODELER_FEATURE_CONSOLE_ENABLED),
+                # so there is no dedicated `console` container to check for.
+                # Only require it on versions before 8.10.
+                CONSOLE_VERSION="${{ inputs.camunda-version }}"
+                CONSOLE_LOWEST=$(printf '%s\n%s\n' "$CONSOLE_VERSION" "8.10" | sort -V | head -n1)
+                if [[ "$CONSOLE_VERSION" != "8.10" && "$CONSOLE_LOWEST" == "$CONSOLE_VERSION" ]]; then
+                  REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},console"
+                fi
               fi
 
               echo "Required containers for Camunda ${{ inputs.camunda-version }}: $REQUIRED_CONTAINERS"
