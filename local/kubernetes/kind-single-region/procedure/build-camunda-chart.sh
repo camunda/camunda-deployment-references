@@ -9,8 +9,10 @@ set -euo pipefail
 # TODO: [release-duty] delete this helper at release time — the guide then installs
 # the published chart from https://helm.camunda.io.
 #
-# Optional overrides: CAMUNDA_HELM_CHART_GIT_URL, CAMUNDA_HELM_CHART_GIT_REF,
-# CAMUNDA_HELM_CHART_CHECKOUT_DIR.
+# Optional overrides (env vars):
+#   CAMUNDA_HELM_CHART_GIT_URL       source repo URL
+#   CAMUNDA_HELM_CHART_GIT_REF       branch or tag to build (passed to git clone --branch)
+#   CAMUNDA_HELM_CHART_CHECKOUT_DIR  clone location; must be an absolute path
 
 _chart_src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _repo_root="$_chart_src_dir/../../../.."
@@ -47,7 +49,12 @@ fi
 # Progress goes to stderr so stdout carries only the chart path.
 echo "Building Camunda Helm chart 'camunda-platform-$_camunda_version' from source (ref: $_chart_git_ref)..." >&2
 rm -rf -- "$_chart_checkout_dir"
-git clone --depth 1 --branch "$_chart_git_ref" -- "$_chart_git_url" "$_chart_checkout_dir" >&2
+if ! git clone --depth 1 --branch "$_chart_git_ref" -- "$_chart_git_url" "$_chart_checkout_dir" >&2; then
+    # Remove the partial checkout so the marker guard does not block a rerun.
+    rm -rf -- "$_chart_checkout_dir"
+    echo "ERROR: failed to clone '$_chart_git_url' (ref '$_chart_git_ref')." >&2
+    exit 1
+fi
 touch "$_chart_checkout_dir/$_clone_marker"
 
 _local_chart="$_chart_checkout_dir/charts/camunda-platform-$_camunda_version"
