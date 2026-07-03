@@ -10,14 +10,6 @@
 
 # Orchestration secondary storage configuration (RDBMS instead of Elasticsearch)
 orchestration:
-    # `orchestration.exporters.camunda.enabled` is deprecated (removed in chart v16 /
-    # Camunda 8.11) but intentionally kept as a values key here. With the RDBMS
-    # exporter enabled the inbuilt Camunda exporter is already disabled, so behaviour
-    # is unchanged. It is NOT moved to `extraConfiguration` because this snippet is
-    # layered into the kind pg-only deployment via repeated `helm --values`, where
-    # Helm *replaces* (not deep-merges) list-typed fields like `extraConfiguration` —
-    # which would silently drop another layer's override. The non-blocking
-    # deprecation warning is filtered by internal-helm-deprecation-check.
     exporters:
         camunda:
             enabled: false

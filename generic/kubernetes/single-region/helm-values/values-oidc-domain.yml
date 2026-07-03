@@ -9,12 +9,6 @@
 #   - CAMUNDA_DOMAIN: Your domain name
 
 orchestration:
-    # `orchestration.security.authentication.oidc.redirectUrl` is deprecated and
-    # is removed in chart v16 (Camunda 8.11). It is migrated to its unified
-    # configuration equivalents through `extraConfiguration` (imported last into
-    # the Orchestration application config). The chart appended `/sso-callback`
-    # for the Orchestration redirect-uri and `/operate` and `/tasklist` for the
-    # Operate/Tasklist redirect roots; all three are reproduced here verbatim.
     extraConfiguration:
         - file: orchestration-oidc.yaml
           content: |

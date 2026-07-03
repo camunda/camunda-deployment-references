@@ -46,10 +46,6 @@ orchestration:
         secondaryStorage:
             type: elasticsearch
     clusterSize: '8'
-    # `orchestration.partitionCount`, `orchestration.replicationFactor` and
-    # `orchestration.logLevel` are deprecated and removed in chart v16
-    # (Camunda 8.11); provided below via `orchestration.env` (unified
-    # configuration env vars) to match this overlay's existing env-based style.
     # Disable the Camunda and Zeebe exporters as we use region specific ones below
     exporters:
         camunda:
@@ -57,8 +53,6 @@ orchestration:
         zeebe:
             enabled: false
     env:
-        # Cluster topology and log level, migrated from the deprecated
-        # orchestration.partitionCount / replicationFactor / logLevel keys.
         - name: CAMUNDA_CLUSTER_PARTITIONCOUNT
           value: '8'
         - name: CAMUNDA_CLUSTER_REPLICATIONFACTOR

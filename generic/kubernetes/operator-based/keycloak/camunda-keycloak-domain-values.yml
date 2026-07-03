@@ -42,12 +42,6 @@ global:
                     existingSecretKey: password
 
 orchestration:
-    # `orchestration.security.authentication.oidc.redirectUrl` is deprecated and
-    # is removed in chart v16 (Camunda 8.11). It is migrated to its unified
-    # configuration equivalents through `extraConfiguration`, which the chart
-    # imports last into the Orchestration application config. The convenience key
-    # expanded to the Orchestration redirect-uri plus the Operate/Tasklist
-    # redirect roots, so all three are reproduced here verbatim.
     extraConfiguration:
         - file: orchestration-oidc.yaml
           content: |

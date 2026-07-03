@@ -52,9 +52,6 @@ orchestration:
         annotations:
             projectcontour.io/upstream-protocol.h2c: '26500'
 
-# The Orchestration OIDC redirect (deprecated `orchestration.security.authentication.oidc.redirectUrl`,
-# removed in chart v16 / Camunda 8.11) is configured via `extraConfiguration` in the
-# co-applied keycloak/camunda-keycloak-domain-values.yml snippet, so it is not repeated here.
 optimize:
     contextPath: /optimize
 

@@ -1,11 +1,4 @@
 ---
-# `orchestration.multitenancy.checks.enabled` / `.api.enabled` are deprecated and
-# removed in chart v16 (Camunda 8.11). They are migrated to their unified
-# configuration equivalents via `extraConfiguration` (imported last into the
-# Orchestration application config). The convenience keys drove the Orchestration
-# security flags plus the Operate/Tasklist/gateway multitenancy toggles, so all of
-# them are reproduced here. `global.multitenancy.enabled` is intentionally NOT used
-# because it also requires Management Identity, which is disabled in dual-region.
 orchestration:
     extraConfiguration:
         - file: orchestration-multitenancy.yaml

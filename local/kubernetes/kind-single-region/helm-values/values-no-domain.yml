@@ -94,13 +94,6 @@ optimize:
 # Reduce Zeebe resources for local development
 orchestration:
     clusterSize: '1'
-    # `orchestration.partitionCount` / `orchestration.replicationFactor` are
-    # deprecated and removed in chart v16 (Camunda 8.11). They are provided via
-    # `orchestration.env` (unified configuration env vars) rather than
-    # `extraConfiguration`, because the kind deployment layers several value files
-    # through repeated `helm --values`, where Helm *replaces* list-typed fields like
-    # `extraConfiguration` — only one file's list would survive. `env` here is the
-    # single Orchestration env source across those layers, so it is collision-free.
     env:
         - name: CAMUNDA_CLUSTER_PARTITIONCOUNT
           value: '1'
