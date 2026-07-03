@@ -3,6 +3,10 @@ set -euo pipefail
 
 # Build the Camunda Helm chart from its source repository.
 #
+# TODO: [release-duty] this whole helper is a pre-release workaround. Delete it at
+# release time, once the deploy scripts switch to installing the published chart
+# from https://helm.camunda.io (see the [release-duty] blocks in camunda-deploy-*.sh).
+#
 # Why: during the pre-release phase of a Camunda minor, the chart (e.g. 15.x for
 # Camunda 8.10) is not yet published to a public Helm repository, and the dev
 # build is only pushed to an internal OCI registry that requires authentication

@@ -36,33 +36,6 @@ make get-keycloak-password
 
 > **Note:** The Keycloak admin password is different from the Camunda admin password.
 
-## How the Camunda chart is installed (no registry login required)
-
-During the pre-release phase of a Camunda minor, the Helm chart (e.g. `15.x` for
-Camunda 8.10) is not yet published to a public Helm repository, and the dev build
-is only pushed to an internal OCI registry that requires authentication. To keep
-this guide usable by everyone, the deploy scripts build the chart directly from
-its source repository instead of pulling a published artifact:
-
-1. `git clone` [`camunda/camunda-platform-helm`](https://github.com/camunda/camunda-platform-helm) (into a git-ignored `.camunda-platform-helm/`).
-2. `helm dependency update` on `charts/camunda-platform-<version>` — the only
-   dependency is the in-repo `common` library (`file://`), so nothing is pulled
-   from a registry and **no login is needed**.
-3. `helm upgrade --install` from that local chart directory.
-
-This logic lives in [`procedure/build-camunda-chart.sh`](./procedure/build-camunda-chart.sh)
-and is shared by both deploy scripts. Optional overrides:
-
-```bash
-# Build a specific branch/tag or a fork instead of upstream main
-export CAMUNDA_HELM_CHART_GIT_REF=my-branch
-export CAMUNDA_HELM_CHART_GIT_URL=https://github.com/my-org/camunda-platform-helm.git
-```
-
-> Once the chart is generally available, the deploy scripts switch to a standard
-> `helm upgrade --install ... --repo https://helm.camunda.io` (see the
-> `[release-duty]` blocks in `procedure/camunda-deploy-*.sh`).
-
 ## Further Instructions
 
 For detailed setup instructions and additional options, see:

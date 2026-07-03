@@ -124,6 +124,9 @@ no-domain.init: cluster.create hosts.add-keycloak operators.deploy-no-domain ide
 	)
 
 # Infrastructure only (no Camunda) — bring your own values.yaml
+# TODO: [release-duty] at release time, replace the pre-release "build from source"
+# deploy hints in the *.infra recipes below with the standard
+# `helm upgrade --install camunda camunda-platform --repo https://helm.camunda.io` command.
 
 .PHONY: domain.infra
 domain.infra: cluster.create ingress.deploy coredns.config hosts.add certs.generate certs.create-secret certs.create-ca-configmap operators.deploy-domain

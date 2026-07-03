@@ -42,6 +42,10 @@ fi
 
 # Build the Camunda chart from source so this guide needs no registry
 # authentication during the pre-release phase (sets LOCAL_CHART).
+# TODO: [release-duty] remove the source-build at release time: delete the
+# 'source ".../build-camunda-chart.sh"' line below and the
+# procedure/build-camunda-chart.sh helper, then switch the install(s) below to
+# the standard Helm command in the [release-duty] block at the bottom.
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=build-camunda-chart.sh
 source "$SCRIPT_DIR/build-camunda-chart.sh"
