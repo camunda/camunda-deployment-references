@@ -47,6 +47,9 @@ if [[ -z "$_root_probe" ]]; then
     echo "ERROR: refusing to use the filesystem root as the checkout directory." >&2
     exit 1
 fi
+# Use the trailing-slash-stripped form for every use below, so 'rm -rf' can never
+# follow a symlink via a path that ends in '/'.
+_chart_checkout_dir="$_root_probe"
 if [[ -e "$_chart_checkout_dir" && ! -f "$_chart_checkout_dir/$_clone_marker" ]]; then
     echo "ERROR: '$_chart_checkout_dir' already exists and was not created by this script; refusing to delete it." >&2
     exit 1
