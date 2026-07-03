@@ -60,10 +60,18 @@ inputs:
                 moving it to extraConfiguration would re-enable the inbuilt
                 exporter alongside the region-specific ones.
             All other deprecated keys are migrated to `extraConfiguration` /
-            `orchestration.env` in the helm-values files. Remove the matching
-            line below once the chart drops the requirement / toggle.
+            `orchestration.env` in the helm-values files.
             On older stable branches these strings simply never match.
+
+            TODO: this is a workaround for an upstream chart bug — these keys are
+            deprecated toward `extraConfiguration` but cannot be migrated there
+            (one is still `required`, the other is a template-time toggle). Drop
+            the matching line(s) below once that is fixed upstream, or once chart
+            v16 (Camunda 8.11) removes the keys.
+            Upstream: https://github.com/camunda/camunda-platform-helm/issues/6507
         required: false
+        # TODO(camunda-platform-helm#6507): remove these excludes once the upstream
+        # deprecation bug is fixed (or chart v16 / Camunda 8.11 removes the keys).
         default: |-
             webModeler.restapi.mail.fromAddress
             webModeler.restapi.mail.fromName
