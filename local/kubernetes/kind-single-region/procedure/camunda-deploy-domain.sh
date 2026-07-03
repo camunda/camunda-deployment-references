@@ -33,11 +33,9 @@ if [[ "$SECONDARY_STORAGE" != "elasticsearch" && "$SECONDARY_STORAGE" != "postgr
     exit 1
 fi
 
-# Pre-release only: build the chart from source so no registry login is needed (sets LOCAL_CHART).
-# TODO: [release-duty] drop this source-build and build-camunda-chart.sh; use the standard Helm install below.
-# shellcheck source-path=SCRIPTDIR
-# shellcheck source=build-camunda-chart.sh
-source "$SCRIPT_DIR/build-camunda-chart.sh"
+# Pre-release only: build the chart from source so no registry login is needed.
+# TODO: [release-duty] drop this and build-camunda-chart.sh; use the standard Helm install below.
+LOCAL_CHART="$("$SCRIPT_DIR/build-camunda-chart.sh")"
 
 if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
     echo "Installing Camunda Platform (domain mode, Elasticsearch)..."
