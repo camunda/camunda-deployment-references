@@ -14,7 +14,7 @@ cat >&2 <<'PRERELEASE_WARNING'
   ############################################################################
   #  ⚠  PRE-RELEASE — NOT A STABLE CAMUNDA RELEASE                           #
   #                                                                          #
-  #  This deploys an unreleased, in-development Camunda 8 chart.             #
+  #  This targets an unreleased, in-development Camunda 8 chart.             #
   #  It may be unstable or fail to start — that is expected here.            #
   #                                                                          #
   #  Need a stable, supported setup? Follow the Administrator quickstart:    #
