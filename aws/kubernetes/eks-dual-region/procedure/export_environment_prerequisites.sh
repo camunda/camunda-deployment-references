@@ -9,6 +9,7 @@
 # to export the environment variables to the current shell
 
 # Warn that this targets an unreleased, in-development chart (to stderr).
+# TODO: [release-duty] remove this pre-release warning at release.
 cat >&2 <<'PRERELEASE_WARNING'
 
   ############################################################################
