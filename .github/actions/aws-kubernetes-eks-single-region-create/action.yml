@@ -61,6 +61,18 @@ inputs:
     deploy-opensearch:
         description: Deploy OpenSearch domain
         default: 'true'
+    np-capacity-type:
+        description: |
+            Override the node pool capacity type (ON_DEMAND or SPOT). When empty, the value
+            defined in the reference cluster.tf is used. Tests use SPOT for cost efficiency
+            (see https://github.com/camunda/camunda-deployment-references/issues/109).
+        default: ''
+    np-instance-types:
+        description: |
+            Override the node pool instance types as a comma-separated list (e.g.
+            "m6i.xlarge,m5.xlarge,m5a.xlarge"). When empty, the value defined in the reference
+            cluster.tf is used. Providing several same-size types improves SPOT availability.
+        default: ''
 
 outputs:
     terraform-state-url-cluster:
@@ -179,6 +191,23 @@ runs:
                 sed -i -E "s/(^\s*private_vpc\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
               else
                 echo "No private-vpc value provided, skipping private modification."
+              fi
+
+              # Optional CI-only node pool overrides (see issue #109): run tests on
+              # cost-efficient SPOT capacity with diversified instance types. Injected via
+              # sed because the reference module exposes these knobs as locals, not variables.
+              if [ -n "${{ inputs.np-capacity-type }}" ]; then
+                sed -i -E "s/(np_capacity_type\s*=\s*\")[^\"]*(\")/\1${{ inputs.np-capacity-type }}\2/" cluster.tf
+              fi
+              if [ -n "${{ inputs.np-instance-types }}" ]; then
+                # Convert the comma-separated list into an HCL list literal.
+                IFS=',' read -ra _np_types <<< "${{ inputs.np-instance-types }}"
+                _np_hcl="["
+                for _np_type in "${_np_types[@]}"; do
+                  _np_hcl+="\"${_np_type}\", "
+                done
+                _np_hcl="${_np_hcl%, }]"
+                sed -i -E "s|(np_instance_types\s*=\s*).*|\1${_np_hcl}|" cluster.tf
               fi
 
               echo "Displaying templated cluster.tf file:"
