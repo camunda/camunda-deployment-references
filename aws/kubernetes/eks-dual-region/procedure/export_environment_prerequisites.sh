@@ -8,6 +8,21 @@
 # . ./export_environment_prerequisites.sh
 # to export the environment variables to the current shell
 
+# Warn that this targets an unreleased, in-development chart (to stderr).
+cat >&2 <<'PRERELEASE_WARNING'
+
+  ############################################################################
+  #  ⚠  PRE-RELEASE — NOT A STABLE CAMUNDA RELEASE                           #
+  #                                                                          #
+  #  This deploys an unreleased, in-development Camunda 8 chart.             #
+  #  It may be unstable or fail to start — that is expected here.            #
+  #                                                                          #
+  #  Need a stable, supported setup? Follow the Administrator quickstart:    #
+  #  https://docs.camunda.io/docs/self-managed/quickstart/administrator-quickstart/
+  ############################################################################
+
+PRERELEASE_WARNING
+
 # The AWS regions of your Kubernetes cluster 0 and 1
 export REGION_0=${REGION_0:-eu-west-2}
 export REGION_1=${REGION_1:-eu-west-3}
