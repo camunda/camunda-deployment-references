@@ -1,11 +1,9 @@
 ################################################################
-#               Backup S3 Bucket (shared, region 0)            #
+#            Backup S3 Bucket (single, shared by both regions) #
 #                                                              #
-# Single bucket shared by both regions. All backup data lands  #
-# wherever the Zeebe partition leader runs; with per-region    #
-# buckets the restore-side bucket is always empty. Region 1    #
-# brokers write cross-region — S3 is globally accessible with  #
-# the right IAM permissions, and the AWS SDK handles routing.  #
+# Both regions write backups to this bucket and restore from   #
+# it. A single shared bucket ensures all backup data is in     #
+# one place, regardless of which region is active.             #
 ################################################################
 
 # Region 0 backup bucket
