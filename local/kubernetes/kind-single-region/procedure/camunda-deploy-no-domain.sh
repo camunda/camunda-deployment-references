@@ -12,7 +12,7 @@ set -euo pipefail
 #                      - postgres: Uses PostgreSQL RDBMS only (Optimize disabled)
 
 # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-export CAMUNDA_HELM_CHART_VERSION="14.5.0"
+export CAMUNDA_HELM_CHART_VERSION="14.6.0"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OPERATOR_VALUES_DIR="$SCRIPT_DIR/../../../../generic/kubernetes/operator-based"
