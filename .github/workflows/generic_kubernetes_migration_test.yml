@@ -52,7 +52,7 @@ env:
     BENCHMARK_SCENARIO: ${{ github.event.inputs.benchmark_scenario || 'light' }}
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 14.5.0
+    CAMUNDA_HELM_CHART_VERSION: 14.6.0
 
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
     TESTS_CAMUNDA_HELM_CHART_REPO_REF: main
