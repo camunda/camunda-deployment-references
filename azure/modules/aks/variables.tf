@@ -33,9 +33,10 @@ variable "tags" {
 
 # System node pool configuration
 variable "system_node_pool_vm_size" {
+  # Dsv6 is a recent VM generation (as of 2026-07).
   description = "VM size for the system node pool"
   type        = string
-  default     = "Standard_D2s_v3"
+  default     = "Standard_D2s_v6"
 }
 
 variable "system_node_disk_size_gb" {
@@ -52,9 +53,10 @@ variable "system_node_pool_count" {
 
 # User node pool configuration
 variable "user_node_pool_vm_size" {
+  # Dsv6 is a recent VM generation (as of 2026-07).
   description = "VM size for the user node pool"
   type        = string
-  default     = "Standard_D4s_v3"
+  default     = "Standard_D4s_v6"
 }
 
 variable "user_node_disk_size_gb" {
