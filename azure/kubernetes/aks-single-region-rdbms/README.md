@@ -1,10 +1,41 @@
-# aks
+# AKS Single Region — RDBMS Variant
+
+This is the RDBMS variant of the AKS single-region reference architecture.
+It uses **Azure Database for PostgreSQL - Flexible Server** as both the component database and the **secondary storage** for the orchestration cluster, replacing Elasticsearch.
+
+## Differences from the Elasticsearch Variant
+
+| Aspect | Elasticsearch (`aks-single-region`) | RDBMS (`aks-single-region-rdbms`) |
+|--------|-------------------------------------|-----------------------------------|
+| Secondary storage | Elasticsearch (ECK operator) | Azure Flexible Server PostgreSQL |
+| Optimize | Enabled | Disabled (requires Elasticsearch) |
+| Orchestration DB | N/A | `camunda_orchestration` database |
+| Infrastructure | ES cluster + PG server | PG server only (lighter) |
+
+## Shared Files
+
+Most Terraform and procedure files are **symlinked** from `aks-single-region/` to avoid duplication.
+Only files that differ for RDBMS are maintained as separate copies:
+
+- `db.tf` — Adds orchestration database credentials
+- `outputs.tf` — Adds orchestration database outputs
+- `helm-values/` — RDBMS-specific Helm values (no ES, RDBMS secondary storage)
+- `manifests/setup-postgres-create-db.yml` — Creates the additional orchestration database
+- `procedure/vars-create-db.sh` — Exports orchestration DB variables
+- `procedure/create-setup-db-secret.sh` — Creates secret with orchestration DB credentials
+- `procedure/create-external-db-secrets.sh` — Creates orchestration-postgres-secret
+- `procedure/check-env-variables.sh` — Validates orchestration DB env vars
+
+## Quick Start
+
+Follow the same procedure as `aks-single-region`, but use this directory instead.
+Refer to the [AKS single-region documentation](../aks-single-region/README.md) for the full setup guide.
 
 <!-- BEGIN_TF_DOCS -->
 ## Modules
 
 | Name | Source | Version |
-|------|--------|---------|
+| ---- | ------ | ------- |
 | <a name="module_aks"></a> [aks](#module\_aks) | ../../modules/aks | n/a |
 | <a name="module_kms"></a> [kms](#module\_kms) | ../../modules/kms | n/a |
 | <a name="module_network"></a> [network](#module\_network) | ../../modules/network | n/a |
@@ -12,12 +43,16 @@
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [azurerm_resource_group.app_rg](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
+| [random_password.db_admin](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.identity_db](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.orchestration_db](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.webmodeler_db](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_aks_dns_service_ip"></a> [aks\_dns\_service\_ip](#input\_aks\_dns\_service\_ip) | IP address within the service CIDR that will be used for DNS | `string` | `"10.0.0.10"` | no |
 | <a name="input_aks_network_plugin"></a> [aks\_network\_plugin](#input\_aks\_network\_plugin) | Network plugin to use for Kubernetes networking | `string` | `"azure"` | no |
 | <a name="input_aks_network_policy"></a> [aks\_network\_policy](#input\_aks\_network\_policy) | Network policy to use for Kubernetes networking | `string` | `"calico"` | no |
@@ -33,7 +68,7 @@
 | <a name="input_postgres_sku_tier"></a> [postgres\_sku\_tier](#input\_postgres\_sku\_tier) | SKU tier for PostgreSQL Flexible Server | `string` | `"GP_Standard_D2s_v3"` | no |
 | <a name="input_postgres_standby_zone"></a> [postgres\_standby\_zone](#input\_postgres\_standby\_zone) | Standby Availability Zone for PostgreSQL high availability | `string` | `"2"` | no |
 | <a name="input_postgres_storage_mb"></a> [postgres\_storage\_mb](#input\_postgres\_storage\_mb) | Storage size in MB for PostgreSQL | `number` | `32768` | no |
-| <a name="input_postgres_version"></a> [postgres\_version](#input\_postgres\_version) | PostgreSQL version | `string` | `"15"` | no |
+| <a name="input_postgres_version"></a> [postgres\_version](#input\_postgres\_version) | PostgreSQL version | `string` | `"18"` | no |
 | <a name="input_postgres_zone"></a> [postgres\_zone](#input\_postgres\_zone) | Primary Availability Zone for PostgreSQL server | `string` | `"1"` | no |
 | <a name="input_resource_prefix_placeholder"></a> [resource\_prefix\_placeholder](#input\_resource\_prefix\_placeholder) | Placeholder for the resource prefix | `string` | `""` | no |
 | <a name="input_subscription_id"></a> [subscription\_id](#input\_subscription\_id) | The Azure Subscription ID to deploy into | `string` | n/a | yes |
@@ -49,21 +84,22 @@
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_aks_cluster_id"></a> [aks\_cluster\_id](#output\_aks\_cluster\_id) | ID of the deployed AKS cluster |
 | <a name="output_aks_cluster_name"></a> [aks\_cluster\_name](#output\_aks\_cluster\_name) | Name of the AKS cluster |
 | <a name="output_aks_fqdn"></a> [aks\_fqdn](#output\_aks\_fqdn) | FQDN of the AKS cluster |
 | <a name="output_camunda_database_identity"></a> [camunda\_database\_identity](#output\_camunda\_database\_identity) | n/a |
-| <a name="output_camunda_database_keycloak"></a> [camunda\_database\_keycloak](#output\_camunda\_database\_keycloak) | n/a |
+| <a name="output_camunda_database_orchestration"></a> [camunda\_database\_orchestration](#output\_camunda\_database\_orchestration) | RDBMS secondary storage: orchestration database outputs |
 | <a name="output_camunda_database_webmodeler"></a> [camunda\_database\_webmodeler](#output\_camunda\_database\_webmodeler) | n/a |
 | <a name="output_camunda_identity_db_password"></a> [camunda\_identity\_db\_password](#output\_camunda\_identity\_db\_password) | n/a |
 | <a name="output_camunda_identity_db_username"></a> [camunda\_identity\_db\_username](#output\_camunda\_identity\_db\_username) | n/a |
-| <a name="output_camunda_keycloak_db_password"></a> [camunda\_keycloak\_db\_password](#output\_camunda\_keycloak\_db\_password) | n/a |
-| <a name="output_camunda_keycloak_db_username"></a> [camunda\_keycloak\_db\_username](#output\_camunda\_keycloak\_db\_username) | n/a |
+| <a name="output_camunda_orchestration_db_password"></a> [camunda\_orchestration\_db\_password](#output\_camunda\_orchestration\_db\_password) | n/a |
+| <a name="output_camunda_orchestration_db_username"></a> [camunda\_orchestration\_db\_username](#output\_camunda\_orchestration\_db\_username) | n/a |
 | <a name="output_camunda_webmodeler_db_password"></a> [camunda\_webmodeler\_db\_password](#output\_camunda\_webmodeler\_db\_password) | n/a |
 | <a name="output_camunda_webmodeler_db_username"></a> [camunda\_webmodeler\_db\_username](#output\_camunda\_webmodeler\_db\_username) | n/a |
 | <a name="output_postgres_admin_password"></a> [postgres\_admin\_password](#output\_postgres\_admin\_password) | PostgreSQL admin password |
 | <a name="output_postgres_admin_username"></a> [postgres\_admin\_username](#output\_postgres\_admin\_username) | PostgreSQL admin user |
 | <a name="output_postgres_fqdn"></a> [postgres\_fqdn](#output\_postgres\_fqdn) | The fully qualified domain name of the PostgreSQL Flexible Server |
+| <a name="output_postgres_version"></a> [postgres\_version](#output\_postgres\_version) | PostgreSQL major version |
 | <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | Name of the resource group |
 <!-- END_TF_DOCS -->

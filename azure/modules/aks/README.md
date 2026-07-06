@@ -30,7 +30,7 @@ No modules.
 | <a name="input_subnet_id"></a> [subnet\_id](#input\_subnet\_id) | ID of the subnet where the AKS cluster will be deployed | `string` | n/a | yes |
 | <a name="input_system_node_disk_size_gb"></a> [system\_node\_disk\_size\_gb](#input\_system\_node\_disk\_size\_gb) | OS disk size in GB for system nodes | `number` | `30` | no |
 | <a name="input_system_node_pool_count"></a> [system\_node\_pool\_count](#input\_system\_node\_pool\_count) | Number of nodes in the system node pool | `number` | `3` | no |
-| <a name="input_system_node_pool_vm_size"></a> [system\_node\_pool\_vm\_size](#input\_system\_node\_pool\_vm\_size) | VM size for the system node pool | `string` | `"Standard_D2s_v3"` | no |
+| <a name="input_system_node_pool_vm_size"></a> [system\_node\_pool\_vm\_size](#input\_system\_node\_pool\_vm\_size) | VM size for the system node pool | `string` | `"Standard_D2s_v6"` | no |
 | <a name="input_system_node_pool_zones"></a> [system\_node\_pool\_zones](#input\_system\_node\_pool\_zones) | AZs for system node pool, e.g. ["1","2","3"] | `list(string)` | <pre>[<br/>  "1",<br/>  "2",<br/>  "3"<br/>]</pre> | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_uami_id"></a> [uami\_id](#input\_uami\_id) | User-assigned identity ID to use for KMS | `string` | n/a | yes |
@@ -40,7 +40,7 @@ No modules.
 | <a name="input_user_node_pool_drain_timeout_in_minutes"></a> [user\_node\_pool\_drain\_timeout\_in\_minutes](#input\_user\_node\_pool\_drain\_timeout\_in\_minutes) | The amount of time in minutes to wait on eviction of pods and graceful termination per node | `number` | `0` | no |
 | <a name="input_user_node_pool_max_surge"></a> [user\_node\_pool\_max\_surge](#input\_user\_node\_pool\_max\_surge) | The maximum number or percentage of nodes which will be added to the Node Pool size during an upgrade | `number` | `10` | no |
 | <a name="input_user_node_pool_node_soak_duration_in_minutes"></a> [user\_node\_pool\_node\_soak\_duration\_in\_minutes](#input\_user\_node\_pool\_node\_soak\_duration\_in\_minutes) | The amount of time in minutes to wait after draining a node and before reimaging and moving on to next node | `number` | `0` | no |
-| <a name="input_user_node_pool_vm_size"></a> [user\_node\_pool\_vm\_size](#input\_user\_node\_pool\_vm\_size) | VM size for the user node pool | `string` | `"Standard_D4s_v3"` | no |
+| <a name="input_user_node_pool_vm_size"></a> [user\_node\_pool\_vm\_size](#input\_user\_node\_pool\_vm\_size) | VM size for the user node pool | `string` | `"Standard_D4s_v6"` | no |
 | <a name="input_user_node_pool_zones"></a> [user\_node\_pool\_zones](#input\_user\_node\_pool\_zones) | AZs for user node pool | `list(string)` | <pre>[<br/>  "1",<br/>  "2",<br/>  "3"<br/>]</pre> | no |
 ## Outputs
 
