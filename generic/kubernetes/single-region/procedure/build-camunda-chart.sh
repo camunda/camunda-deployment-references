@@ -16,6 +16,14 @@ set -euo pipefail
 #   CAMUNDA_HELM_CHART_GIT_REF       branch or tag to build (passed to git clone --branch)
 #   CAMUNDA_HELM_CHART_CHECKOUT_DIR  clone location; must be an absolute path
 
+# Fail fast with a clear message if a required tool is missing.
+for _tool in git helm; do
+    if ! command -v "$_tool" >/dev/null 2>&1; then
+        echo "ERROR: '$_tool' is required to build the Camunda chart from source but was not found in PATH." >&2
+        exit 1
+    fi
+done
+
 _chart_src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Repo root computed relative to this script (generic/kubernetes/single-region/
 # procedure), so the helper works even without a .git dir (e.g. a source archive).
