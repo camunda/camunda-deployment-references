@@ -128,7 +128,7 @@
                 "node_public_ip_enabled": null,
                 "node_public_ip_prefix_id": null,
                 "only_critical_addons_enabled": true,
-                "orchestrator_version": "1.34",
+                "orchestrator_version": "1.36",
                 "os_disk_size_gb": 30,
                 "os_disk_type": "Managed",
                 "pod_subnet_id": null,
@@ -175,7 +175,7 @@
               }
             ],
             "key_vault_secrets_provider": [],
-            "kubernetes_version": "1.34",
+            "kubernetes_version": "1.36",
             "linux_profile": [],
             "local_account_disabled": null,
             "location": "swedencentral",
@@ -233,7 +233,9 @@
             "node_labels": {},
             "node_network_profile": [],
             "tags": {},
-            "upgrade_settings": [],
+            "upgrade_settings": [
+              {}
+            ],
             "windows_profile": [],
             "zones": [
               false,
@@ -267,7 +269,7 @@
             "node_public_ip_enabled": null,
             "node_public_ip_prefix_id": null,
             "node_taints": null,
-            "orchestrator_version": "1.34",
+            "orchestrator_version": "1.36",
             "os_disk_size_gb": 30,
             "os_disk_type": "Managed",
             "os_type": "Linux",
@@ -284,10 +286,6 @@
             "temporary_name_for_rotation": null,
             "timeouts": null,
             "ultra_ssd_enabled": false,
-<<<<<<< HEAD
-            "upgrade_settings": [],
-            "vm_size": "Standard_D4s_v3",
-=======
             "upgrade_settings": [
               {
                 "drain_timeout_in_minutes": 0,
@@ -298,7 +296,6 @@
               }
             ],
             "vm_size": "Standard_D4s_v6",
->>>>>>> 5697b0f (fix(azure): switch AKS node pools to Dsv6 to fix recurring OverconstrainedZonalAllocationRequest [ready] (#2843))
             "windows_profile": [],
             "workload_runtime": null,
             "zones": [
@@ -680,6 +677,13 @@
           }
         },
         "module.network.azurerm_subnet.aks_subnet": {
+          "identity": {
+            "name": null,
+            "resource_group_name": null,
+            "subscription_id": null,
+            "virtual_network_name": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "aks_subnet",
           "provider_name": "registry.terraform.io/hashicorp/azurerm",
@@ -711,6 +715,13 @@
           }
         },
         "module.network.azurerm_subnet.db_subnet": {
+          "identity": {
+            "name": null,
+            "resource_group_name": null,
+            "subscription_id": null,
+            "virtual_network_name": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "db_subnet",
           "provider_name": "registry.terraform.io/hashicorp/azurerm",
@@ -764,6 +775,13 @@
           }
         },
         "module.network.azurerm_subnet.pe_subnet": {
+          "identity": {
+            "name": null,
+            "resource_group_name": null,
+            "subscription_id": null,
+            "virtual_network_name": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "pe_subnet",
           "provider_name": "registry.terraform.io/hashicorp/azurerm",
@@ -877,8 +895,7 @@
           },
           "type": "azurerm_postgresql_flexible_server",
           "values": {
-            "administrator_login": "secret_user",
-            "administrator_password": "secretvalue%23",
+            "administrator_login": "c8admin",
             "administrator_password_wo": null,
             "administrator_password_wo_version": null,
             "auto_grow_enabled": false,
@@ -910,11 +927,17 @@
               "Purpose": "Reference Implementation"
             },
             "timeouts": null,
-            "version": "15",
+            "version": "18",
             "zone": "1"
           }
         },
         "module.postgres_db.azurerm_private_endpoint.postgres": {
+          "identity": {
+            "name": null,
+            "resource_group_name": null,
+            "subscription_id": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "postgres",
           "provider_name": "registry.terraform.io/hashicorp/azurerm",
@@ -968,6 +991,106 @@
             "timeouts": null
           }
         }
+      }
+    },
+    "random_password.db_admin": {
+      "mode": "managed",
+      "name": "db_admin",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.identity_db": {
+      "mode": "managed",
+      "name": "identity_db",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.orchestration_db": {
+      "mode": "managed",
+      "name": "orchestration_db",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.webmodeler_db": {
+      "mode": "managed",
+      "name": "webmodeler_db",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 24,
+        "lower": true,
+        "min_lower": 1,
+        "min_numeric": 1,
+        "min_special": 1,
+        "min_upper": 1,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%&*()-_=+[]{}:?",
+        "special": true,
+        "upper": true
       }
     }
   }
