@@ -118,8 +118,9 @@ variable "postgres_version" {
 }
 
 variable "postgres_sku_tier" {
-  # Ddsv5 is the newest GP tier offered for Flexible Server in swedencentral
-  # (v6 is not available for Flexible Server, unlike the AKS node pools).
+  # GP_Standard_D2ds_v5 is the newest General Purpose tier offered for Flexible
+  # Server in swedencentral (v6 is not available for Flexible Server, unlike the
+  # AKS node pools).
   description = "SKU tier for PostgreSQL Flexible Server"
   type        = string
   default     = "GP_Standard_D2ds_v5"
