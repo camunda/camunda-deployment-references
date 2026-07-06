@@ -19,7 +19,8 @@ PRERELEASE_WARNING
 
 # Build the chart from source so no registry authentication is required; prints the
 # local chart directory. The build helper is shared with the generic k8s guide.
-LOCAL_CHART="$("$(git rev-parse --show-toplevel)/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
+_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
 
 helm upgrade --install \
     "$CAMUNDA_RELEASE_NAME" "$LOCAL_CHART" \

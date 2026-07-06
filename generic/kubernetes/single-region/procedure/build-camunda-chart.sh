@@ -17,7 +17,9 @@ set -euo pipefail
 #   CAMUNDA_HELM_CHART_CHECKOUT_DIR  clone location; must be an absolute path
 
 _chart_src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_repo_root="$(git -C "$_chart_src_dir" rev-parse --show-toplevel)"
+# Repo root computed relative to this script (generic/kubernetes/single-region/
+# procedure), so the helper works even without a .git dir (e.g. a source archive).
+_repo_root="$(cd "$_chart_src_dir/../../../.." && pwd)"
 _camunda_version="$(cat "$_repo_root/.camunda-version")"
 
 _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda-platform-helm.git}"
