@@ -745,6 +745,7 @@ jobs:
               timeout-minutes: 20
               uses: ./.github/actions/internal-integration-tests
               with:
+                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}

@@ -26,6 +26,7 @@ Tests run from the GHA runner using port-forward (no-domain) or ingress URLs (do
 | `elasticsearch-enabled` | <p>Whether Elasticsearch is enabled</p> | `false` | `true` |
 | `webmodeler-enabled` | <p>Whether WebModeler is enabled</p> | `false` | `false` |
 | `console-enabled` | <p>Whether Console is enabled</p> | `false` | `false` |
+| `camunda-version` | <p>Camunda minor version (e.g. 8.9, 8.10). Gates version-specific test behaviour: the standalone Console suites are skipped from 8.10 on, where Console is a Camunda Hub / Web Modeler feature rather than a standalone component.</p> | `false` | `""` |
 | `optimize-enabled` | <p>Whether Optimize is enabled</p> | `false` | `true` |
 | `zeebe-gateway-url` | <p>Zeebe gateway URL (for port-forward mode)</p> | `false` | `http://localhost:8080` |
 | `keycloak-url` | <p>Keycloak URL (for port-forward mode)</p> | `false` | `http://localhost:18080/auth` |
@@ -148,6 +149,12 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: false
+
+    camunda-version:
+    # Camunda minor version (e.g. 8.9, 8.10). Gates version-specific test behaviour: the standalone Console suites are skipped from 8.10 on, where Console is a Camunda Hub / Web Modeler feature rather than a standalone component.
+    #
+    # Required: false
+    # Default: ""
 
     optimize-enabled:
     # Whether Optimize is enabled
