@@ -71,6 +71,11 @@ if [[ -e "$_chart_checkout_dir" && ! -f "$_chart_checkout_dir/$_clone_marker" ]]
     exit 1
 fi
 
+# On any exit or interrupt, remove a checkout that never got its marker (e.g. an
+# interrupted clone), so a rerun is not blocked by the guard above. A completed
+# build keeps its marker, so this never deletes a successful checkout.
+trap 'if [[ -e "$_chart_checkout_dir" && ! -f "$_chart_checkout_dir/$_clone_marker" ]]; then rm -rf -- "$_chart_checkout_dir"; fi' EXIT
+
 # Progress goes to stderr so stdout carries only the chart path.
 echo "Building Camunda Helm chart 'camunda-platform-$_camunda_version' from source (ref: $_chart_git_ref)..." >&2
 rm -rf -- "$_chart_checkout_dir"
