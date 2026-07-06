@@ -938,7 +938,6 @@ jobs:
               timeout-minutes: 20
               uses: ./.github/actions/internal-integration-tests
               with:
-                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
@@ -956,7 +955,6 @@ jobs:
                       env.CAMUNDA_RELEASE_NAME) }}
                   elasticsearch-enabled: 'false'
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
                   # EKS domain values set connectors.contextPath: /connectors so the
                   # actuator endpoints live under that prefix. The no-domain values
                   # do not set a contextPath, so connectors serve at root there.
@@ -971,7 +969,6 @@ jobs:
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_DOMAIN_GRPC }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
                   elasticsearch-enabled: 'false'
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}

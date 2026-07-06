@@ -60,16 +60,6 @@ inputs:
     webmodeler-enabled:
         description: Whether WebModeler is enabled
         default: 'false'
-    console-enabled:
-        description: Whether Console is enabled
-        default: 'false'
-    camunda-version:
-        description: >
-            Camunda minor version (e.g. 8.9, 8.10). Gates version-specific test
-            behaviour: the standalone Console suites are skipped from 8.10 on,
-            where Console is a Camunda Hub / Web Modeler feature rather than a
-            standalone component.
-        default: ''
     optimize-enabled:
         description: Whether Optimize is enabled
         default: 'true'
@@ -135,31 +125,6 @@ outputs:
 runs:
     using: composite
     steps:
-        # ==============================================================
-        # Resolve whether the standalone Console suites should run
-        # ==============================================================
-        - name: 🧭 Resolve Console gating for this Camunda version
-          id: console-gate
-          shell: bash
-          env:
-              CONSOLE_ENABLED_INPUT: ${{ inputs.console-enabled }}
-              CAMUNDA_VERSION: ${{ inputs.camunda-version }}
-          run: |
-              set -euo pipefail
-              # Console became a Camunda Hub / Web Modeler feature in 8.10 (chart
-              # 15.x): there is no standalone Console deployment, service, or URL,
-              # so its suites cannot pass. Force Console off from 8.10 on,
-              # regardless of the input, so the same workflow inputs stay valid
-              # across version branches.
-              enabled="${CONSOLE_ENABLED_INPUT:-false}"
-              if [[ -n "$CAMUNDA_VERSION" ]]; then
-                  LOWEST=$(printf '%s\n%s\n' "$CAMUNDA_VERSION" "8.10" | sort -V | head -n1)
-                  if [[ "$CAMUNDA_VERSION" == "8.10" || "$LOWEST" != "$CAMUNDA_VERSION" ]]; then
-                      enabled="false"
-                  fi
-              fi
-              echo "enabled=$enabled" | tee -a "$GITHUB_OUTPUT"
-
         # ==============================================================
         # /etc/hosts setup (domain mode on Kind / local clusters)
         # ==============================================================
@@ -351,7 +316,9 @@ runs:
               TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
-              CONSOLE_ENABLED: ${{ steps.console-gate.outputs.enabled }}
+              # Console is a Web Modeler feature from 8.10 (Camunda Hub); it has
+              # no standalone deployment/URL, so the Console suites never run.
+              CONSOLE_ENABLED: 'false'
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
@@ -479,7 +446,9 @@ runs:
               TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
-              CONSOLE_ENABLED: ${{ steps.console-gate.outputs.enabled }}
+              # Console is a Web Modeler feature from 8.10 (Camunda Hub); it has
+              # no standalone deployment/URL, so the Console suites never run.
+              CONSOLE_ENABLED: 'false'
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}

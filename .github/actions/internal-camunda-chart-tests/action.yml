@@ -33,9 +33,6 @@ inputs:
     webmodeler-enabled:
         description: Whether the Webmodeler is enabled in the chart
         default: 'false'
-    console-enabled:
-        description: Whether the Console is enabled in the chart
-        default: 'false'
     optimize-enabled:
         description: Whether Optimize is enabled in the chart
         default: 'true'
@@ -148,7 +145,6 @@ runs:
               echo "  - Cluster Type: ${{ inputs.test-cluster-type }}"
               echo "  - Domain: ${{ inputs.camunda-domain || '(not configured)' }}"
               echo "  - WebModeler Enabled: ${{ inputs.webmodeler-enabled }}"
-              echo "  - Console Enabled: ${{ inputs.console-enabled }}"
               echo "  - Elasticsearch Enabled: ${{ inputs.elasticsearch-enabled }}"
               echo ""
               echo "======================================"
@@ -450,18 +446,9 @@ runs:
                 REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},web-modeler"
               fi
 
-              if [[ "${{ inputs.console-enabled }}" == "true" ]]; then
-                # Console was consolidated into Camunda Hub in Camunda 8.10
-                # (chart 15.x): it is no longer a standalone deployment but a
-                # feature of Web Modeler (CAMUNDA_MODELER_FEATURE_CONSOLE_ENABLED),
-                # so there is no dedicated `console` container to check for.
-                # Only require it on versions before 8.10.
-                CONSOLE_VERSION="${{ inputs.camunda-version }}"
-                CONSOLE_LOWEST=$(printf '%s\n%s\n' "$CONSOLE_VERSION" "8.10" | sort -V | head -n1)
-                if [[ "$CONSOLE_VERSION" != "8.10" && "$CONSOLE_LOWEST" == "$CONSOLE_VERSION" ]]; then
-                  REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},console"
-                fi
-              fi
+              # Console is part of Web Modeler from Camunda 8.10 (Camunda Hub):
+              # it has no standalone deployment/container, so it is never added
+              # to the required-container list.
 
               echo "Required containers for Camunda ${{ inputs.camunda-version }}: $REQUIRED_CONTAINERS"
 

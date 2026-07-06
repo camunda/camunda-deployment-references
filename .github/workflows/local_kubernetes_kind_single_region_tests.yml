@@ -386,7 +386,6 @@ jobs:
               timeout-minutes: 20
               uses: ./.github/actions/internal-integration-tests
               with:
-                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
@@ -399,7 +398,6 @@ jobs:
                   keycloak-url: http://keycloak-service:18080/auth
                   elasticsearch-enabled: 'false'
                   webmodeler-enabled: 'true'
-                  console-enabled: 'true'
                   # Optimize requires Elasticsearch; disabled in pg-only mode
                   # (matches the helm install flag set in deploy step).
                   optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
@@ -417,7 +415,6 @@ jobs:
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
                   webmodeler-enabled: 'true'
-                  console-enabled: 'true'
                   # Optimize requires Elasticsearch, so it's disabled in RDBMS-only mode
                   optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
                   elasticsearch-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}

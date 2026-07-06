@@ -745,7 +745,6 @@ jobs:
               timeout-minutes: 20
               uses: ./.github/actions/internal-integration-tests
               with:
-                  camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
@@ -763,7 +762,6 @@ jobs:
                       env.CAMUNDA_RELEASE_NAME) }}
                   elasticsearch-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
                   optimize-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   # AKS domain values set connectors.contextPath: /connectors;
                   # no-domain values keep root, so omit when domain is empty.
@@ -778,7 +776,6 @@ jobs:
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_DOMAIN_GRPC }}
                   webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
                   optimize-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   elasticsearch-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
