@@ -17,6 +17,14 @@ cat >&2 <<'PRERELEASE_WARNING'
 
 PRERELEASE_WARNING
 
+# yq is required below to resolve the broker image for the cross-region DNS gate.
+# Check it up front so we fail fast with a clear message before the network-heavy
+# chart source-build, instead of a generic "command not found" mid-install.
+if ! command -v yq >/dev/null 2>&1; then
+  echo "ERROR: 'yq' is required to resolve the broker image for the cross-region DNS gate but was not found in PATH." >&2
+  exit 1
+fi
+
 # Build the chart from source so no registry authentication is required; prints the
 # local chart directory. The build helper is shared with the generic k8s guide.
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
@@ -27,12 +35,6 @@ LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-cam
 # same image as the broker — already pulled on the node, no extra pull, and no
 # hardcoded tag to maintain. The generated values carry a literal ${BROKER_IMAGE}
 # placeholder (passed through the first envsubst via ${DOLLAR}); resolve it here.
-# yq is required for this; fail fast with a clear message instead of a generic
-# "command not found" in the middle of the install flow.
-if ! command -v yq >/dev/null 2>&1; then
-  echo "ERROR: 'yq' is required to resolve the broker image for the cross-region DNS gate but was not found in PATH." >&2
-  exit 1
-fi
 # TODO: [release-duty] before the release, resolve the broker image from the public
 # chart `camunda/camunda-platform` instead of the source-built chart, consistent with
 # the install commands at the bottom of this file.
