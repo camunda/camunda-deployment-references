@@ -17,10 +17,6 @@ cat >&2 <<'PRERELEASE_WARNING'
 
 PRERELEASE_WARNING
 
-# --force-update keeps this idempotent under `set -e` if the repo already exists.
-helm repo add camunda https://helm.camunda.io --force-update
-helm repo update
-
 # Build the chart from source so no registry authentication is required; prints the
 # local chart directory. The build helper is shared with the generic k8s guide.
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
@@ -79,6 +75,10 @@ helm upgrade --install \
 
 # TODO: [release-duty] before the release, remove the source-build above and
 # uncomment the installation instruction below
+
+# # --force-update keeps this idempotent under `set -e` if the repo already exists.
+# helm repo add camunda https://helm.camunda.io --force-update
+# helm repo update
 
 # helm upgrade --install \
 #    "$CAMUNDA_RELEASE_NAME" camunda/camunda-platform \
