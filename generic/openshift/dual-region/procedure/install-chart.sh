@@ -21,6 +21,10 @@ PRERELEASE_WARNING
 helm repo add camunda https://helm.camunda.io --force-update
 helm repo update
 
+# Build the chart from source so no registry authentication is required; prints the
+# local chart directory. The build helper is shared with the generic k8s guide.
+LOCAL_CHART="$("$(git rev-parse --show-toplevel)/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
+
 # Resolve the broker image of the chart being installed so the cross-region
 # DNS-gate initContainer (see helm-values/values-base.yml) reuses the exact
 # same image as the broker — already pulled on the node, no extra pull, and no
@@ -32,13 +36,10 @@ if ! command -v yq >/dev/null 2>&1; then
   echo "ERROR: 'yq' is required to resolve the broker image for the cross-region DNS gate but was not found in PATH." >&2
   exit 1
 fi
-# TODO: [release-duty] before the release, switch the chart reference below from the
-# dev OCI registry (oci://registry.camunda.cloud/team-distribution/camunda-platform)
-# to the public chart `camunda/camunda-platform`, consistent with the install commands
-# at the bottom of this file.
-BROKER_IMAGE="$(helm show values \
-  oci://registry.camunda.cloud/team-distribution/camunda-platform \
-  --version "$HELM_CHART_VERSION" \
+# TODO: [release-duty] before the release, resolve the broker image from the public
+# chart `camunda/camunda-platform` instead of the source-built chart, consistent with
+# the install commands at the bottom of this file.
+BROKER_IMAGE="$(helm show values "$LOCAL_CHART" \
   | yq -r '(.orchestration.image // .zeebe.image) | ([.registry, .repository] | map(. // "") | map(select(. != "")) | join("/")) + ":" + .tag')"
 # Guard against a malformed result (e.g. unexpected chart values shape) so we never
 # substitute an invalid image into the generated values and fail later with a confusing
@@ -64,23 +65,19 @@ for region_values in generated-values-region-0.yml generated-values-region-1.yml
 done
 
 helm upgrade --install \
-  "$CAMUNDA_RELEASE_NAME" \
-   oci://registry.camunda.cloud/team-distribution/camunda-platform \
-  --version "$HELM_CHART_VERSION" \
+  "$CAMUNDA_RELEASE_NAME" "$LOCAL_CHART" \
   --kube-context "$CLUSTER_0" \
   --namespace "$CAMUNDA_NAMESPACE_0" \
   -f generated-values-region-0.yml
 
 helm upgrade --install \
-  "$CAMUNDA_RELEASE_NAME" \
-   oci://registry.camunda.cloud/team-distribution/camunda-platform \
-  --version "$HELM_CHART_VERSION" \
+  "$CAMUNDA_RELEASE_NAME" "$LOCAL_CHART" \
   --kube-context "$CLUSTER_1" \
   --namespace "$CAMUNDA_NAMESPACE_1" \
   -f generated-values-region-1.yml
 
-# TODO: [release-duty] before the release, update this by removing the oci pull above
-# and uncomment the installation instruction below
+# TODO: [release-duty] before the release, remove the source-build above and
+# uncomment the installation instruction below
 
 # helm upgrade --install \
 #    "$CAMUNDA_RELEASE_NAME" camunda/camunda-platform \

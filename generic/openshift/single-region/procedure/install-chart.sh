@@ -17,13 +17,17 @@ cat >&2 <<'PRERELEASE_WARNING'
 
 PRERELEASE_WARNING
 
+# Build the chart from source so no registry authentication is required; prints the
+# local chart directory. The build helper is shared with the generic k8s guide.
+LOCAL_CHART="$("$(git rev-parse --show-toplevel)/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
+
 helm upgrade --install \
-    "$CAMUNDA_RELEASE_NAME" oci://registry.camunda.cloud/team-distribution/camunda-platform \
-    --version "$CAMUNDA_HELM_CHART_VERSION" --namespace "$CAMUNDA_NAMESPACE" \
+    "$CAMUNDA_RELEASE_NAME" "$LOCAL_CHART" \
+    --namespace "$CAMUNDA_NAMESPACE" \
     -f generated-values.yml
 
-# TODO: [release-duty] before the release, update this by removing the oci pull above
-# and uncomment the installation instruction below
+# TODO: [release-duty] before the release, remove the source-build above and
+# uncomment the standard Helm install below.
 
 # helm upgrade --install \
 #   "$CAMUNDA_RELEASE_NAME" camunda-platform \
