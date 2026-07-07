@@ -284,21 +284,8 @@
             "temporary_name_for_rotation": null,
             "timeouts": null,
             "ultra_ssd_enabled": false,
-<<<<<<< HEAD
             "upgrade_settings": [],
-            "vm_size": "Standard_D4s_v3",
-=======
-            "upgrade_settings": [
-              {
-                "drain_timeout_in_minutes": 0,
-                "max_surge": "10",
-                "max_unavailable": null,
-                "node_soak_duration_in_minutes": 0,
-                "undrainable_node_behavior": null
-              }
-            ],
             "vm_size": "Standard_D4s_v6",
->>>>>>> 5697b0f (fix(azure): switch AKS node pools to Dsv6 to fix recurring OverconstrainedZonalAllocationRequest [ready] (#2843))
             "windows_profile": [],
             "workload_runtime": null,
             "zones": [
