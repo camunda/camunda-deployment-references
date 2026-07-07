@@ -89,7 +89,6 @@ env:
 
     # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
     WEBMODELER_ENABLED: 'true'
-    CONSOLE_ENABLED: 'true'
 
     ROSA_CLI_VERSION: latest
 
@@ -529,11 +528,11 @@ jobs:
                   yq ". *+ load(\"${OPERATOR_PG_PATH}/camunda-identity-values.yml\")" values.yml > values-merged.yml
                   cat values-merged.yml && mv values-merged.yml values.yml
 
-                  # Chart 15.x consolidates Console + WebModeler under
-                  # `camundaHub.enabled: true`. The legacy `console.enabled` /
-                  # `webModeler.enabled` keys are deprecated and emit warnings.
-                  if [ "$WEBMODELER_ENABLED" == "true" ] || [ "$CONSOLE_ENABLED" == "true" ]; then
-                    echo "Enabling Camunda Hub (Console + WebModeler)"
+                  # Chart 15.x consolidates WebModeler under `camundaHub.enabled:
+                  # true`. The legacy `webModeler.enabled` key is deprecated and
+                  # emits warnings.
+                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                    echo "Enabling Camunda Hub (WebModeler)"
                     yq -i '.camundaHub.enabled = true' values.yml
                   fi
 

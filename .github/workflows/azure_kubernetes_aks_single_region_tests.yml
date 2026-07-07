@@ -107,7 +107,6 @@ env:
 
     # Optional components that are not enabled by default in the doc
     WEBMODELER_ENABLED: 'true'
-    CONSOLE_ENABLED: 'true'
 
 jobs:
     triage:
@@ -537,11 +536,11 @@ jobs:
                   fi
 
 
-                  # Chart 15.x consolidates Console + WebModeler under
-                  # `camundaHub.enabled: true`. The legacy `console.enabled` /
-                  # `webModeler.enabled` keys are deprecated and emit warnings.
-                  if [ "$WEBMODELER_ENABLED" == "true" ] || [ "$CONSOLE_ENABLED" == "true" ]; then
-                    echo "Enabling Camunda Hub (Console + WebModeler)"
+                  # Chart 15.x consolidates WebModeler under `camundaHub.enabled:
+                  # true`. The legacy `webModeler.enabled` key is deprecated and
+                  # emits warnings.
+                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                    echo "Enabling Camunda Hub (WebModeler)"
                     yq -i '.camundaHub.enabled = true' values.yml
                   fi
 

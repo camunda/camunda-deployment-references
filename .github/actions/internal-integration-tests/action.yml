@@ -316,9 +316,6 @@ runs:
               TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
-              # Console is a Web Modeler feature from 8.10 (Camunda Hub); it has
-              # no standalone deployment/URL, so the Console suites never run.
-              CONSOLE_ENABLED: 'false'
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
@@ -446,9 +443,6 @@ runs:
               TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
-              # Console is a Web Modeler feature from 8.10 (Camunda Hub); it has
-              # no standalone deployment/URL, so the Console suites never run.
-              CONSOLE_ENABLED: 'false'
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
