@@ -171,9 +171,6 @@ output "s3_backup_access_policy_region_0_arn" {
   value = aws_iam_policy.s3_backup_access_region_0.arn
 }
 
-output "s3_backup_access_policy_region_1_arn" {
-  value = aws_iam_policy.s3_backup_access_region_1.arn
-}
 
 ################################################################
 #                        Secrets Outputs                       #
@@ -257,9 +254,6 @@ output "backup_bucket_region_0_name" {
   value = aws_s3_bucket.backup_region_0.bucket
 }
 
-output "backup_bucket_region_1_name" {
-  value = aws_s3_bucket.backup_region_1.bucket
-}
 
 output "s3_force_destroy" {
   value = var.s3_force_destroy
