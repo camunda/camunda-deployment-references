@@ -25,12 +25,6 @@ global:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-admin-client-token
 
-            console:
-                redirectUrl: https://camunda.example.com/console
-                secret:
-                    existingSecret: camunda-credentials
-                    existingSecretKey: identity-console-client-token
-
             identity:
                 redirectUrl: https://camunda.example.com/managementidentity
 
