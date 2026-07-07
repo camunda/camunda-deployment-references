@@ -18,12 +18,6 @@ variable "enable_webmodeler" {
   default     = false
 }
 
-variable "enable_console" {
-  description = "Enable Console component (creates additional client)"
-  type        = bool
-  default     = false
-}
-
 variable "create_test_user" {
   description = "Create a test user for simulating human login"
   type        = bool

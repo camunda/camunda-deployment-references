@@ -133,15 +133,6 @@ orchestration:
 
 camundaHub:
     enabled: true
-    console:
-        contextPath: /console
-        resources:
-            requests:
-                cpu: 50m
-                memory: 64Mi
-            limits:
-                cpu: 500m
-                memory: 256Mi
 
     webModeler:
         contextPath: /modeler

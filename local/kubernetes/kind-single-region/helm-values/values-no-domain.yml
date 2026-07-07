@@ -111,14 +111,6 @@ orchestration:
                         - admin
 camundaHub:
     enabled: true
-    console:
-        resources:
-            requests:
-                cpu: 50m
-                memory: 64Mi
-            limits:
-                cpu: 500m
-                memory: 256Mi
 
     webModeler:
         # Chart 15.x defaults webModeler.image.tag to "8.10.0-alpha1-rc1",

@@ -26,8 +26,6 @@ global:
                 redirectUrl: http://localhost:8083/api/authentication/callback
             webModeler:
                 redirectUrl: http://localhost:8070/login-callback
-            console:
-                redirectUrl: http://localhost:8087/
 
 orchestration:
     security:

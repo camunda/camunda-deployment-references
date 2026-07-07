@@ -344,10 +344,9 @@ jobs:
                           -o jsonpath="{.data.$1}" 2>/dev/null | base64 -d || true
                   }
                   M2M_JSON='{}'
-                  # NOTE: 'console' is a Keycloak public client (no
-                  # service account) — client_credentials grant is not allowed
-                  # for it, so it must NOT be added here. Venom only covered
-                  # connectors / optimize / orchestration anyway.
+                  # Only components with a Keycloak service account support the
+                  # client_credentials (M2M) grant; Venom covered
+                  # connectors / optimize / orchestration.
                   ENTRIES=(
                       "orchestration:identity-orchestration-client-token"
                       "connectors:identity-connectors-client-token"

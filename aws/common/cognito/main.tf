@@ -15,7 +15,6 @@ locals {
     "https://${var.domain_name}/auth/login-callback",
     "https://${var.domain_name}/optimize/api/authentication/callback",
     "https://${var.domain_name}/sso-callback",
-    "https://${var.domain_name}/console/",
     "https://${var.domain_name}/modeler/login-callback",
     "https://${var.domain_name}/connectors/login-callback"
   ] : ["http://localhost:8080/sso-callback"]
@@ -23,8 +22,7 @@ locals {
   logout_urls = var.domain_name != "" ? [
     "https://${var.domain_name}/",
     "https://${var.domain_name}/auth/logout",
-    "https://${var.domain_name}/optimize/",
-    "https://${var.domain_name}/console/"
+    "https://${var.domain_name}/optimize/"
   ] : ["http://localhost:8080/"]
 
   common_tags = merge(var.tags, {
@@ -156,11 +154,6 @@ resource "aws_cognito_resource_server" "camunda" {
   }
 
   scope {
-    scope_name        = "console"
-    scope_description = "Access to Console"
-  }
-
-  scope {
     scope_name        = "connectors"
     scope_description = "Access to Connectors"
   }
@@ -265,46 +258,6 @@ resource "aws_cognito_user_pool_client" "orchestration" {
   logout_urls = var.domain_name != "" ? [
     "https://${var.domain_name}/"
   ] : ["http://localhost:8080/"]
-
-  supported_identity_providers = ["COGNITO"]
-
-  explicit_auth_flows = [
-    "ALLOW_REFRESH_TOKEN_AUTH",
-    "ALLOW_USER_SRP_AUTH",
-    "ALLOW_USER_PASSWORD_AUTH"
-  ]
-
-  token_validity_units {
-    access_token  = "hours"
-    id_token      = "hours"
-    refresh_token = "days"
-  }
-
-  access_token_validity  = 1
-  id_token_validity      = 1
-  refresh_token_validity = 30
-}
-
-# Console App Client (Public - no secret for SPA)
-resource "aws_cognito_user_pool_client" "console" {
-  count = var.enable_console ? 1 : 0
-
-  name         = "${local.resource_prefix}-console"
-  user_pool_id = aws_cognito_user_pool.camunda.id
-
-  generate_secret = false # Public client for SPA
-
-  allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_flows                  = ["code"]
-  allowed_oauth_scopes                 = ["email", "openid", "profile"]
-
-  callback_urls = var.domain_name != "" ? [
-    "https://${var.domain_name}/console/"
-  ] : ["http://localhost:8087/"]
-
-  logout_urls = var.domain_name != "" ? [
-    "https://${var.domain_name}/console/"
-  ] : ["http://localhost:8087/"]
 
   supported_identity_providers = ["COGNITO"]
 

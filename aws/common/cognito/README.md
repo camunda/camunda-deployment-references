@@ -107,7 +107,6 @@ No modules.
 | [aws_cognito_user.test](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user) | resource |
 | [aws_cognito_user_pool.camunda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool) | resource |
 | [aws_cognito_user_pool_client.connectors](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
-| [aws_cognito_user_pool_client.console](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
 | [aws_cognito_user_pool_client.identity](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
 | [aws_cognito_user_pool_client.optimize](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
 | [aws_cognito_user_pool_client.orchestration](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
@@ -126,7 +125,6 @@ No modules.
 | <a name="input_auto_cleanup_hours"></a> [auto\_cleanup\_hours](#input\_auto\_cleanup\_hours) | Hours after which this Cognito pool should be automatically cleaned up (for CI tracking) | `number` | `72` | no |
 | <a name="input_create_test_user"></a> [create\_test\_user](#input\_create\_test\_user) | Create a test user for simulating human login | `bool` | `false` | no |
 | <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | Bare hostname for Camunda deployment (e.g., my-cluster.camunda.example.com). No protocol, no trailing slash. Used to construct OIDC callback URLs. | `string` | `""` | no |
-| <a name="input_enable_console"></a> [enable\_console](#input\_enable\_console) | Enable Console component (creates additional client) | `bool` | `false` | no |
 | <a name="input_enable_webmodeler"></a> [enable\_webmodeler](#input\_enable\_webmodeler) | Enable Web Modeler component (creates additional client) | `bool` | `false` | no |
 | <a name="input_mfa_enabled"></a> [mfa\_enabled](#input\_mfa\_enabled) | Enable MFA for Cognito users (OPTIONAL mode) | `bool` | `false` | no |
 | <a name="input_resource_prefix"></a> [resource\_prefix](#input\_resource\_prefix) | Prefix for Cognito resources. If empty, uses 'camunda-test' | `string` | `""` | no |
@@ -142,7 +140,6 @@ No modules.
 | <a name="output_cognito_domain"></a> [cognito\_domain](#output\_cognito\_domain) | Cognito User Pool domain prefix |
 | <a name="output_connectors_client_id"></a> [connectors\_client\_id](#output\_connectors\_client\_id) | Connectors App Client ID |
 | <a name="output_connectors_client_secret"></a> [connectors\_client\_secret](#output\_connectors\_client\_secret) | Connectors App Client Secret |
-| <a name="output_console_client_id"></a> [console\_client\_id](#output\_console\_client\_id) | Console App Client ID (empty if not enabled) |
 | <a name="output_created_at"></a> [created\_at](#output\_created\_at) | Timestamp when this Cognito pool was created |
 | <a name="output_expires_at"></a> [expires\_at](#output\_expires\_at) | Timestamp when this Cognito pool should be cleaned up |
 | <a name="output_identity_client_id"></a> [identity\_client\_id](#output\_identity\_client\_id) | Identity App Client ID |
