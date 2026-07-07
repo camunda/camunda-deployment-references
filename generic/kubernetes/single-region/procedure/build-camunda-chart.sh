@@ -33,9 +33,15 @@ _camunda_version="$(cat "$_repo_root/.camunda-version")"
 _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda-platform-helm.git}"
 # Pin to the released chart tag the guides target (the pre-release 15.x line), not a
 # moving 'main': 'main' can be mid-migration and drop components (e.g. console when
-# values move under camundaHub), which breaks the deployment tests.
-# TODO: [release-duty] bump this tag alongside CAMUNDA_HELM_CHART_VERSION and the helm-values.
-_chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-camunda-platform-8.10-15.0.0-alpha2}"
+# values move under camundaHub) or ship an inconsistent set of component images,
+# which breaks the deployment tests. Renovate bumps the pin below only once a newer
+# 8.10 chart tag is *published* (not the moving 'main' tip); the default is split out
+# on its own line so the '# renovate:' inline manager can parse it (the ${VAR:-...}
+# override wrapper is not cleanly matchable).
+# renovate: datasource=github-tags depName=camunda/camunda-platform-helm versioning=regex:^camunda-platform-8\.10-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?:-(?<prerelease>.+))?$
+_chart_default_git_ref="camunda-platform-8.10-15.0.0-alpha2"
+# TODO: [release-duty] bump the 8.10 pin above as the 15.x line advances (keep in sync with CAMUNDA_HELM_CHART_VERSION and the helm-values).
+_chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-$_chart_default_git_ref}"
 _default_checkout_dir="$_repo_root/.camunda-platform-helm"
 _chart_checkout_dir="${CAMUNDA_HELM_CHART_CHECKOUT_DIR:-$_default_checkout_dir}"
 
