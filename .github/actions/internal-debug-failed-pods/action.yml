@@ -101,6 +101,25 @@ runs:
                     kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous --tail="$LOG_TAIL" || true
                     echo "::endgroup::"
                   fi
+
+                  # Surface the likely crash cause up front: grep crash/fatal
+                  # signatures out of the previous (crashed) then current logs, so
+                  # the root cause is visible without scrolling or downloading the
+                  # artifact. Purely diagnostic — never fails the step.
+                  crash_re='Caused by:|APPLICATION FAILED TO START|[[:space:]]FATAL[[:space:]]|panic:'
+                  crash_re="${crash_re}|failed to start|invalid licen|licen[sc]e (is )?(required|invalid|missing|not)"
+                  crash_re="${crash_re}|UnknownHostException|ConnectException|Connection refused"
+                  crash_re="${crash_re}|Access denied|Unauthorized|OutOfMemory|BindException"
+                  cause=$(
+                    {
+                      kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous 2>/dev/null || true
+                      kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" 2>/dev/null || true
+                    } | grep -aiE "$crash_re" | head -25 || true)
+                  if [[ -n "$cause" ]]; then
+                    echo "::group::🚨 ${pod_name}/${container} — likely root cause"
+                    printf '%s\n' "$cause"
+                    echo "::endgroup::"
+                  fi
                 done
               done
 
