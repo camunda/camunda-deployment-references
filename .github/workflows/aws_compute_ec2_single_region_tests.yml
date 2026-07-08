@@ -22,6 +22,19 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
+
+            keep_alive:
+                description: |
+                    Spawn a long-lived on-demand DEMO instead of an ephemeral test run.
+                    When true the clusters deploy to the AWS weekly-work region(s)
+                    (us-east-1, plus us-east-2 for dual-region) instead of the
+                    nightly-wiped CI regions, their Terraform state uses a dedicated
+                    "-keep-alive" prefix that the daily-cleanup workflow never scans,
+                    and the in-run teardown is skipped. The demo therefore lives the
+                    whole work week and is removed by the InfraEx weekly cleanup on
+                    Saturday ~05:00 UTC. Re-run with the SAME cluster_name to rebuild it.
+                type: boolean
+                default: false
             ref-arch:
                 description: |
                     Valid values are `ec2-single-region`.
@@ -53,15 +66,15 @@ env:
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infraex
-    AWS_REGION: eu-west-2
+    AWS_REGION: ${{ github.event.inputs.keep_alive == 'true' && 'us-east-1' || 'eu-west-2' }}
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-    S3_BACKEND_BUCKET_PREFIX: aws/compute/ec2-single-region/ # keep it synced with the name of the module for simplicity
+    # keep it synced with the name of the module for simplicity
+    S3_BACKEND_BUCKET_PREFIX: aws/compute/ec2-single-region${{ github.event.inputs.keep_alive == 'true' && '-keep-alive/' || '/' }}
     TF_MODULES_PATH: ./.action-tf-modules/aws-compute-ec2-single-region-create
 
     CI_MATRIX_FILE: .github/workflows-config/aws-compute-ec2-single-region/test_matrix.yml
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.keep_alive == 'true' && 'false' || github.event.inputs.delete_clusters || 'true' }}
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.8?(\.(?<patch>\d+))?$
