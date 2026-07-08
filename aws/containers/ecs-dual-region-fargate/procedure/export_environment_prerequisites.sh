@@ -33,18 +33,24 @@ echo "Fetching Terraform outputs from ${TF_DIR} ..."
 
 TF_OUTPUT=$(terraform -chdir="${TF_DIR}" output -json)
 
+# Override region defaults from Terraform outputs if available
+_TF_REGION_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0.value // empty')
+_TF_REGION_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1.value // empty')
+[ -n "${_TF_REGION_0}" ] && export REGION_0="${_TF_REGION_0}"
+[ -n "${_TF_REGION_1}" ] && export REGION_1="${_TF_REGION_1}"
+
 # Region 0
-CLUSTER_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0_ecs_cluster_name.value')
+CLUSTER_0=$(echo "${TF_OUTPUT}" | jq -r '.ecs_cluster_region_0_id.value | split("/") | last')
 ALB_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0_alb_endpoint.value')
 NLB_GRPC_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0_nlb_grpc_endpoint.value')
-NLB_RAFT_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0_nlb_raft_endpoint.value')
+NLB_RAFT_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.nlb_raft_region_0_dns_name.value')
 export CLUSTER_0 ALB_ENDPOINT_0 NLB_GRPC_ENDPOINT_0 NLB_RAFT_ENDPOINT_0
 
 # Region 1
-CLUSTER_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1_ecs_cluster_name.value')
+CLUSTER_1=$(echo "${TF_OUTPUT}" | jq -r '.ecs_cluster_region_1_id.value | split("/") | last')
 ALB_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1_alb_endpoint.value')
 NLB_GRPC_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1_nlb_grpc_endpoint.value')
-NLB_RAFT_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1_nlb_raft_endpoint.value')
+NLB_RAFT_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.nlb_raft_region_1_dns_name.value')
 export CLUSTER_1 ALB_ENDPOINT_1 NLB_GRPC_ENDPOINT_1 NLB_RAFT_ENDPOINT_1
 
 # Aurora Global Database
