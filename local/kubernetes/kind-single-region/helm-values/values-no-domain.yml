@@ -32,12 +32,6 @@ global:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-optimize-client-token
 
-            console:
-                redirectUrl: http://localhost:8087
-                secret:
-                    existingSecret: camunda-credentials
-                    existingSecretKey: identity-console-client-token
-
             webModeler:
                 redirectUrl: http://localhost:8070
 
@@ -120,15 +114,10 @@ orchestration:
                         - admin
 camundaHub:
     enabled: true
-    console:
-        resources:
-            requests:
-                cpu: 50m
-                memory: 64Mi
-            limits:
-                cpu: 500m
-                memory: 256Mi
 
+    # TODO(#2863 / camunda-platform-helm#6539): once the upstream hoist of
+    # `camundaHub.webModeler.*` to `camundaHub.*` ships, flatten these keys.
+    # Do not pre-empt: the nested namespace is valid in 15.0.0-alpha3 today.
     webModeler:
         # Chart 15.x defaults webModeler.image.tag to "8.10.0-alpha1-rc1",
         # which is not published to Docker Hub. Use the rolling SNAPSHOT tag

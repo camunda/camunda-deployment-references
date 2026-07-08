@@ -9,8 +9,6 @@ global:
         auth:
             identity:
                 redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
-            console:
-                redirectUrl: https://${CAMUNDA_DOMAIN}/console
             webModeler:
                 redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
             optimize:
@@ -43,8 +41,6 @@ optimize:
 orchestration:
     contextPath: /
 
-console:
-    contextPath: /console
 
 connectors:
     contextPath: /connectors

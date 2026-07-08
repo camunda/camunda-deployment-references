@@ -182,8 +182,6 @@ orchestration:
 identity:
     enabled: false
 
-console:
-    enabled: false # by default, console is not enabled
 
 optimize:
     enabled: false

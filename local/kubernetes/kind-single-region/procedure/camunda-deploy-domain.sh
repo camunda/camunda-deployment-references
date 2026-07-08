@@ -33,11 +33,14 @@ if [[ "$SECONDARY_STORAGE" != "elasticsearch" && "$SECONDARY_STORAGE" != "postgr
     exit 1
 fi
 
+# Pre-release only: build the chart from source so no registry login is needed.
+# TODO: [release-duty] drop this and build-camunda-chart.sh; use the standard Helm install below.
+LOCAL_CHART="$("$SCRIPT_DIR/build-camunda-chart.sh")"
+
 if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
     echo "Installing Camunda Platform (domain mode, Elasticsearch)..."
 
-    helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
-        --version "$CAMUNDA_HELM_CHART_VERSION" \
+    helm upgrade --install "camunda" "$LOCAL_CHART" \
         --namespace "camunda" \
         --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \
         --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
@@ -48,8 +51,7 @@ if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
 else
     echo "Installing Camunda Platform (domain mode, PostgreSQL RDBMS)..."
 
-    helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
-        --version "$CAMUNDA_HELM_CHART_VERSION" \
+    helm upgrade --install "camunda" "$LOCAL_CHART" \
         --namespace "camunda" \
         --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
@@ -71,8 +73,7 @@ if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
 fi
 "$SCRIPT_DIR/../../../../generic/kubernetes/single-region/procedure/wait-for-keycloak.sh"
 
-# TODO: [release-duty] before the release, update this by removing the oci pull above
-# and uncomment the installation instruction below
+# TODO: [release-duty] remove the source-build above and uncomment the standard Helm install below.
 
 # if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
 #     helm upgrade --install "camunda" camunda-platform \

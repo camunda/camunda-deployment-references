@@ -60,9 +60,6 @@ optimize:
                 # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
                 port: 443
 
-console:
-    enabled: false # by default, console is not enabled
-
 
 webModeler:
     enabled: false # by default, webModeler is not enabled

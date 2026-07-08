@@ -13,7 +13,11 @@ generate_initial_contact() {
   local release=$5
   local port_number=${6:-26502}
 
-  echo "${cluster_0}.${release}-zeebe.${namespace_0}.svc.clusterset.local:${port_number},${cluster_1}.${release}-zeebe.${namespace_1}.svc.clusterset.local:${port_number}"
+  # Trailing dot marks each name as a fully-qualified domain name so the resolver
+  # queries it directly instead of walking the pod's ndots search domains. Guards
+  # against the search-domain startup hang (camunda/camunda#55038): it forces FQDN
+  # resolution regardless of the contact-point label count vs the pod's ndots.
+  echo "${cluster_0}.${release}-zeebe.${namespace_0}.svc.clusterset.local.:${port_number},${cluster_1}.${release}-zeebe.${namespace_1}.svc.clusterset.local.:${port_number}"
 }
 
 # Function to generate Elasticsearch URL

@@ -94,22 +94,3 @@ resource "aws_kms_alias" "s3_region_0" {
   name          = "alias/${local.prefix_region_0}-s3-key"
   target_key_id = aws_kms_key.s3_region_0.key_id
 }
-
-resource "aws_kms_key" "s3_region_1" {
-  provider = aws.accepter
-
-  description             = "KMS key for ${local.prefix_region_1} S3 bucket encryption"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
-
-  tags = {
-    Name = "${local.prefix_region_1}-s3-kms-key"
-  }
-}
-
-resource "aws_kms_alias" "s3_region_1" {
-  provider = aws.accepter
-
-  name          = "alias/${local.prefix_region_1}-s3-key"
-  target_key_id = aws_kms_key.s3_region_1.key_id
-}

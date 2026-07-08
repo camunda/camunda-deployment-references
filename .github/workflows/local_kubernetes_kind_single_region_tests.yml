@@ -90,6 +90,9 @@ jobs:
             CAMUNDA_NAMESPACE: camunda
             CAMUNDA_RELEASE_NAME: camunda
             TEST_CLUSTER_TYPE: kubernetes
+            # Non-interactive acknowledgement of the pre-release chart build.
+            # TODO: [release-duty] remove this together with the source-build (procedure/build-camunda-chart.sh).
+            CAMUNDA_PRERELEASE_ACK: 'true'
         steps:
             - name: Checkout repository
               uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -185,22 +188,6 @@ jobs:
             - name: Create identity secrets
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/create-identity-secrets.sh
-
-            - name: Extract Helm chart version
-              id: chart-version
-              working-directory: ${{ env.REF_ARCH_PATH }}
-              run: |
-                  SCRIPT=${{ matrix.declination.use_tls && 'procedure/camunda-deploy-domain.sh' || 'procedure/camunda-deploy-no-domain.sh' }}
-                  VERSION=$(grep -oP 'CAMUNDA_HELM_CHART_VERSION="\K[^"]+' "$SCRIPT")
-                  echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ steps.chart-version.outputs.version }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             # Deploy Camunda
             - name: Deploy Camunda (domain mode)
@@ -344,10 +331,9 @@ jobs:
                           -o jsonpath="{.data.$1}" 2>/dev/null | base64 -d || true
                   }
                   M2M_JSON='{}'
-                  # NOTE: 'console' is a Keycloak public client (no
-                  # service account) — client_credentials grant is not allowed
-                  # for it, so it must NOT be added here. Venom only covered
-                  # connectors / optimize / orchestration anyway.
+                  # Only components with a Keycloak service account support the
+                  # client_credentials (M2M) grant; Venom covered
+                  # connectors / optimize / orchestration.
                   ENTRIES=(
                       "orchestration:identity-orchestration-client-token"
                       "connectors:identity-connectors-client-token"
@@ -397,8 +383,7 @@ jobs:
                   oidc-m2m-clients: ${{ steps.local-credentials.outputs.LOCAL_M2M_CLIENTS }}
                   keycloak-url: http://keycloak-service:18080/auth
                   elasticsearch-enabled: 'false'
-                  webmodeler-enabled: 'true'
-                  console-enabled: 'true'
+                  hub-enabled: 'true'
                   # Optimize requires Elasticsearch; disabled in pg-only mode
                   # (matches the helm install flag set in deploy step).
                   optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
@@ -415,8 +400,7 @@ jobs:
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
-                  webmodeler-enabled: 'true'
-                  console-enabled: 'true'
+                  hub-enabled: 'true'
                   # Optimize requires Elasticsearch, so it's disabled in RDBMS-only mode
                   optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
                   elasticsearch-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
