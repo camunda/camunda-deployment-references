@@ -135,6 +135,9 @@ debug/**
 debug
 camunda-platform-helm
 camunda-platform-helm/**
+# Local chart checkout created by the shared build-camunda-chart.sh helper.
+.camunda-platform-helm
+.camunda-platform-helm/**
 
 # Exclude actionlint binary
 actionlint
