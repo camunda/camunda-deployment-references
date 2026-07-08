@@ -47,6 +47,19 @@ on:
                 type: boolean
                 default: true
 
+
+            keep_alive:
+                description: |
+                    Spawn a long-lived on-demand DEMO instead of an ephemeral test run.
+                    When true the clusters deploy to the AWS weekly-work region(s)
+                    (us-east-1, plus us-east-2 for dual-region) instead of the
+                    nightly-wiped CI regions, their Terraform state uses a dedicated
+                    "-keep-alive" prefix that the daily-cleanup workflow never scans,
+                    and the in-run teardown is skipped. The demo therefore lives the
+                    whole work week and is removed by the InfraEx weekly cleanup on
+                    Saturday ~05:00 UTC. Re-run with the SAME cluster_name to rebuild it.
+                type: boolean
+                default: false
             ref-arch:
                 description: |
                     Reference architecture to use, can only deploy one at a time.
@@ -71,14 +84,13 @@ env:
 
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-    S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region/ # keep it synced with the name of the module for simplicity
+    # keep it synced with the name of the module for simplicity
+    S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region${{ github.event.inputs.keep_alive == 'true' && '-keep-alive/' || '/' }}
     TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
 
-    CLUSTER_0_AWS_REGION: eu-west-2
-    CLUSTER_1_AWS_REGION: eu-west-3
-
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-
+    CLUSTER_0_AWS_REGION: ${{ github.event.inputs.keep_alive == 'true' && 'us-east-1' || 'eu-west-2' }}
+    CLUSTER_1_AWS_REGION: ${{ github.event.inputs.keep_alive == 'true' && 'us-east-2' || 'eu-west-3' }}
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.keep_alive == 'true' && 'false' || github.event.inputs.delete_clusters || 'true' }}
     # TEST VARIABLES
 
     # Vars with "CI_" prefix are used in the CI workflow only.

@@ -46,6 +46,18 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
+
+            keep_alive:
+                description: |
+                    Spawn a long-lived on-demand DEMO instead of an ephemeral test run.
+                    When true the Terraform state uses a dedicated "-keep-alive" prefix
+                    that the daily-cleanup workflow never scans and the in-run teardown is
+                    skipped, so the AKS cluster survives the run. NOTE: Azure has no
+                    weekly-work region, so this demo does NOT auto-expire - destroy it
+                    manually when you are done (dispatch the daily-cleanup workflow or
+                    `az group delete`). Re-run with the SAME resource group to rebuild it.
+                type: boolean
+                default: false
             cluster_name:
                 description: Name of the cluster to deploy.
                 type: string
@@ -96,8 +108,8 @@ env:
     # Test environment for cloud provider, please keep it synced between the workflows
     AZURE_REGION: swedencentral
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-
+    KEEP_ALIVE_STATE_SUFFIX: ${{ github.event.inputs.keep_alive == 'true' && '-keep-alive' || '' }}
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.keep_alive == 'true' && 'false' || github.event.inputs.delete_clusters || 'true' }}
     # TEST VARIABLES
 
     CI_MATRIX_FILE: .github/workflows-config/azure-kubernetes-aks-single-region/test_matrix.yml
@@ -204,7 +216,7 @@ jobs:
               id: s3_prefix
               run: |
                   set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
+                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/${{ matrix.scenario.name }}${KEEP_ALIVE_STATE_SUFFIX}/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Create terraform.tfvars file
               id: create-tfvars
@@ -914,7 +926,7 @@ jobs:
               id: s3_prefix
               run: |
                   set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
+                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/${{ matrix.scenario.name }}${KEEP_ALIVE_STATE_SUFFIX}/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete on-demand AKS Cluster
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
