@@ -134,6 +134,9 @@ orchestration:
 camundaHub:
     enabled: true
 
+    # TODO(#2863 / camunda-platform-helm#6539): once the upstream hoist of
+    # `camundaHub.webModeler.*` to `camundaHub.*` ships, flatten these keys.
+    # Do not pre-empt: the nested namespace is valid in 15.0.0-alpha3 today.
     webModeler:
         contextPath: /modeler
         # Chart 15.x defaults webModeler.image.tag to "8.10.0-alpha1-rc1",
