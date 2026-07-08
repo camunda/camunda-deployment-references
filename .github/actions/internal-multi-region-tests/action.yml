@@ -133,8 +133,23 @@ runs:
               set -euo pipefail
 
               if [[ "${{ inputs.helm-version }}" =~ dev-latest ]]; then
+                # The pre-release dev chart is not published to the public Helm repo,
+                # so build it from source instead of pulling the private OCI registry:
+                # clone the pinned tag, resolve its in-repo (file://) dependency, and
+                # point the test at the local chart directory. InstallUpgradeC8Helm
+                # skips `helm repo add` and `--version` for a local chart path.
+                # TODO: [release-duty] at GA, drop this source-build and pull the
+                # published chart from the public Helm repo (camunda/camunda-platform).
+                # Keep CHART_GIT_REF in sync with the renovate-tracked pin in the
+                # generic/kind build-camunda-chart.sh helpers as the 15.x line advances.
+                CHART_GIT_REF="camunda-platform-8.10-15.0.0-alpha2"
+                CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
+                CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"
+                git clone --depth 1 --branch "$CHART_GIT_REF" \
+                  https://github.com/camunda/camunda-platform-helm.git "$CHART_CHECKOUT"
+                helm dependency update "$CHART_CHECKOUT/charts/camunda-platform-$CAMUNDA_VERSION"
                 {
-                  echo "HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform"
+                  echo "HELM_CHART_NAME=$CHART_CHECKOUT/charts/camunda-platform-$CAMUNDA_VERSION"
                 } >> "$GITHUB_ENV"
               else
                 {

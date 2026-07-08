@@ -684,13 +684,27 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		SetStrValues:   setStringValues,
 	}
 
-	if !strings.HasPrefix(remoteChartName, "oci://") {
+	// A source-built (pre-release) chart is passed as a local filesystem path; a
+	// released chart is a "camunda/camunda-platform" repo ref; a dev chart may be an
+	// oci:// ref. Only add the Helm repo for the repo-ref case, and never pass
+	// --version for a local path (Helm resolves the version from the chart's
+	// Chart.yaml and errors if --version is given alongside a local chart).
+	isOCIChart := strings.HasPrefix(remoteChartName, "oci://")
+	isLocalChart := strings.HasPrefix(remoteChartName, "/") ||
+		strings.HasPrefix(remoteChartName, "./") ||
+		strings.HasPrefix(remoteChartName, "../")
+
+	if !isOCIChart && !isLocalChart {
 		helm.AddRepo(t, helmOptions, "camunda", remoteChartSource)
 	}
 
 	// Terratest is actively ignoring the version in an upgrade
+	upgradeArgs := []string{"--install"}
+	if !isLocalChart {
+		upgradeArgs = append([]string{"--version", remoteChartVersion}, upgradeArgs...)
+	}
 	helmOptions.ExtraArgs = map[string][]string{
-		"upgrade": {"--version", remoteChartVersion, "--install"},
+		"upgrade": upgradeArgs,
 	}
 
 	// Write the final merged values to a debug file for troubleshooting
