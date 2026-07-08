@@ -140,8 +140,7 @@ runs:
                 # skips `helm repo add` and `--version` for a local chart path.
                 # TODO: [release-duty] at GA, drop this source-build and pull the
                 # published chart from the public Helm repo (camunda/camunda-platform).
-                # Keep CHART_GIT_REF in sync with the renovate-tracked pin in the
-                # generic/kind build-camunda-chart.sh helpers as the 15.x line advances.
+                # renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$
                 CHART_GIT_REF="camunda-platform-8.10-15.0.0-alpha2"
                 CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
                 CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"
