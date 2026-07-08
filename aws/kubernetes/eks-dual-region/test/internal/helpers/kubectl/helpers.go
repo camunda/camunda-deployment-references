@@ -689,10 +689,23 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	// oci:// ref. Only add the Helm repo for the repo-ref case, and never pass
 	// --version for a local path (Helm resolves the version from the chart's
 	// Chart.yaml and errors if --version is given alongside a local chart).
+	// A source-built (pre-release) chart is passed as a local filesystem path; a
+	// released chart is a "camunda/camunda-platform" repo ref; a dev chart may be an
+	// oci:// ref. Only add the Helm repo for the repo-ref case, and never pass
+	// --version for a local path (Helm resolves the version from the chart's
+	// Chart.yaml and errors if --version is given alongside a local chart).
 	isOCIChart := strings.HasPrefix(remoteChartName, "oci://")
+	// Detect an explicit path prefix, then fall back to an on-disk check so a plain
+	// relative path (e.g. "charts/camunda-platform-8.10") is also treated as local and
+	// not confused with a "repo/chart" Helm repo reference (e.g. "camunda/camunda-platform").
 	isLocalChart := strings.HasPrefix(remoteChartName, "/") ||
 		strings.HasPrefix(remoteChartName, "./") ||
 		strings.HasPrefix(remoteChartName, "../")
+	if !isOCIChart && !isLocalChart {
+		if info, statErr := os.Stat(remoteChartName); statErr == nil && info.IsDir() {
+			isLocalChart = true
+		}
+	}
 
 	if !isOCIChart && !isLocalChart {
 		helm.AddRepo(t, helmOptions, "camunda", remoteChartSource)
