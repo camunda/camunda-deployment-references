@@ -889,7 +889,7 @@
             "public_network_access_enabled": false,
             "replication_role": null,
             "resource_group_name": "camunda-rg",
-            "sku_name": "GP_Standard_D2s_v3",
+            "sku_name": "GP_Standard_D2ds_v5",
             "source_server_id": null,
             "storage_mb": 32768,
             "tags": {
