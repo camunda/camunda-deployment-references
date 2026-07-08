@@ -27,12 +27,6 @@ global:
             webModeler:
                 redirectUrl: http://localhost:8070/login-callback
 
-orchestration:
-    security:
-        authentication:
-            oidc:
-                redirectUrl: http://localhost:8080
-
 identity:
     fullURL: http://localhost:8085
 

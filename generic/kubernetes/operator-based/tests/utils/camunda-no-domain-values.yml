@@ -42,11 +42,6 @@ orchestration:
             annotations:
                 kubernetes.io/tls-acme: 'true'
 
-    security:
-        authentication:
-            oidc:
-                redirectUrl: http://localhost:8080
-
 optimize:
     contextPath: /optimize
 

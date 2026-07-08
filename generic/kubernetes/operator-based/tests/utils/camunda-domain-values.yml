@@ -49,11 +49,6 @@ orchestration:
     service:
         annotations:
             projectcontour.io/upstream-protocol.h2c: '26500'
-    security:
-        authentication:
-            oidc:
-                redirectUrl: https://${CAMUNDA_DOMAIN}
-
 
 optimize:
     contextPath: /optimize

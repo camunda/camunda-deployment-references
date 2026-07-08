@@ -1,7 +1,21 @@
 ---
 orchestration:
-    multitenancy:
-        checks:
-            enabled: true
-        api:
-            enabled: true
+    extraConfiguration:
+        - file: orchestration-multitenancy.yaml
+          content: |
+              camunda:
+                security:
+                  multiTenancy:
+                    checksEnabled: true
+                    apiEnabled: true
+                operate:
+                  multiTenancy:
+                    enabled: true
+                tasklist:
+                  multiTenancy:
+                    enabled: true
+              zeebe:
+                broker:
+                  gateway:
+                    multitenancy:
+                      enabled: true

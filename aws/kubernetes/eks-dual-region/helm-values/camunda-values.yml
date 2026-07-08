@@ -46,8 +46,6 @@ connectors:
 
 orchestration:
     clusterSize: '8'
-    partitionCount: '8'
-    replicationFactor: '4'
     data:
         secondaryStorage:
             type: elasticsearch
@@ -58,6 +56,12 @@ orchestration:
         zeebe:
             enabled: false
     env:
+        - name: CAMUNDA_CLUSTER_PARTITIONCOUNT
+          value: '8'
+        - name: CAMUNDA_CLUSTER_REPLICATIONFACTOR
+          value: '4'
+        - name: ZEEBE_LOG_LEVEL
+          value: ERROR
         # Config
         - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
           value: camunda_backup
@@ -108,7 +112,6 @@ orchestration:
         - name: CAMUNDA_CLUSTER_COMPRESSIONALGORITHM
           value: GZIP
     pvcSize: 32Gi
-    logLevel: ERROR
 
     resources:
         requests:
