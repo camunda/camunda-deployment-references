@@ -31,8 +31,7 @@ type Config struct {
 
 	// Component toggles
 	ElasticsearchEnabled bool
-	WebModelerEnabled    bool
-	ConsoleEnabled       bool
+	HubEnabled           bool
 	OptimizeEnabled      bool
 
 	// Service addresses (populated from env or derived)
@@ -46,7 +45,6 @@ type Config struct {
 	OrchestrationURL      string // internal orchestration URL
 	ConnectorsURL         string
 	IdentityURL           string
-	ConsoleURL            string
 	OptimizeURL           string
 	WebModelerURL         string
 
@@ -74,8 +72,7 @@ func FromEnv() (*Config, error) {
 		OIDCSecret:   envOr("TEST_OIDC_CLIENT_SECRET", ""),
 
 		ElasticsearchEnabled: envBool("ELASTICSEARCH_ENABLED", true),
-		WebModelerEnabled:    envBool("WEBMODELER_ENABLED", false),
-		ConsoleEnabled:       envBool("CONSOLE_ENABLED", false),
+		HubEnabled:           envBool("HUB_ENABLED", false),
 		OptimizeEnabled:      envBool("OPTIMIZE_ENABLED", true),
 
 		ElasticsearchUser:     envOr("TEST_ELASTICSEARCH_USER", ""),
@@ -102,7 +99,6 @@ func (c *Config) setServiceURLs() {
 		c.OrchestrationURL = envOr("TEST_ORCHESTRATION_URL", base)
 		c.ConnectorsURL = envOr("TEST_CONNECTORS_URL", base+"/connectors")
 		c.IdentityURL = envOr("TEST_IDENTITY_URL", base+"/identity")
-		c.ConsoleURL = envOr("TEST_CONSOLE_URL", base+"/console")
 		c.OptimizeURL = envOr("TEST_OPTIMIZE_URL", base+"/optimize")
 		c.WebModelerURL = envOr("TEST_WEBMODELER_URL", base+"/modeler")
 		// Elasticsearch is never exposed via the public ingress, so always
@@ -119,7 +115,6 @@ func (c *Config) setServiceURLs() {
 		c.OrchestrationURL = envOr("TEST_ORCHESTRATION_URL", fmt.Sprintf("http://localhost:9600"))
 		c.ConnectorsURL = envOr("TEST_CONNECTORS_URL", fmt.Sprintf("http://%s-connectors:8080", rel))
 		c.IdentityURL = envOr("TEST_IDENTITY_URL", fmt.Sprintf("http://%s-identity:8080", rel))
-		c.ConsoleURL = envOr("TEST_CONSOLE_URL", fmt.Sprintf("http://%s-console:8080", rel))
 		c.OptimizeURL = envOr("TEST_OPTIMIZE_URL", fmt.Sprintf("http://%s-optimize:8083", rel))
 		c.WebModelerURL = envOr("TEST_WEBMODELER_URL", fmt.Sprintf("http://%s-web-modeler-webapp:8070", rel))
 	}

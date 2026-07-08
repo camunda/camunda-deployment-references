@@ -7,9 +7,8 @@ optimize:
 connectors:
     enabled: true
 
-# Chart 15.x consolidates Console + WebModeler under Camunda Hub.
-# `console.enabled` / `webModeler.enabled` are deprecated; sub-component
-# overrides still pass through via the chart's `or` fallback.
+# Chart 15.x consolidates WebModeler (and the Console feature) under Camunda
+# Hub. `webModeler.enabled` is deprecated in favour of `camundaHub.enabled`.
 camundaHub:
     enabled: true
 
