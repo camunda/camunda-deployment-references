@@ -44,8 +44,10 @@ inputs:
         default: ''
     exclude-patterns:
         description: |
-            Newline-separated list of fixed strings to exclude from warnings and errors.
-            Messages containing any of these strings will be ignored.
+            Newline-separated list of fixed strings (one pattern per line) to
+            exclude from warnings and errors. Messages containing any of these
+            strings are ignored. Patterns are matched per line, so a
+            space-separated value is treated as a single pattern, not several.
         required: false
         # TODO(camunda-platform-helm#6507): these excludes are a workaround for an
         # upstream chart bug — the keys are deprecated toward `extraConfiguration`
