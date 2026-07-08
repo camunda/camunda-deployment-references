@@ -14,7 +14,7 @@ This module is designed for:
 - ✅ Cognito User Pool with email-based authentication
 - ✅ Pre-configured OIDC clients for all Camunda components
 - ✅ Optional test user creation for automated testing
-- ✅ Support for WebModeler and Console components
+- ✅ Support for WebModeler component
 - ✅ M2M (machine-to-machine) client for Connectors
 - ✅ Auto-cleanup tracking via tags
 
@@ -27,7 +27,6 @@ module "cognito_test" {
   resource_prefix    = "my-test-cluster"
   domain_name        = "camunda.example.com"
   enable_webmodeler  = true
-  enable_console     = true
   create_test_user   = true
   test_user_name     = "test@example.com"
   test_user_password = "SecureP@ssw0rd123!"
@@ -42,7 +41,6 @@ module "cognito_test" {
 | `resource_prefix` | Prefix for Cognito resources | `string` | `"camunda-test"` | no |
 | `domain_name` | Domain name for Camunda deployment | `string` | `""` | no |
 | `enable_webmodeler` | Enable Web Modeler component | `bool` | `false` | no |
-| `enable_console` | Enable Console component | `bool` | `false` | no |
 | `create_test_user` | Create a test user | `bool` | `false` | no |
 | `test_user_name` | Email for the test user | `string` | `"camunda-test@example.com"` | no |
 | `test_user_password` | Password for the test user | `string` | `"CamundaTest123!"` | no |
@@ -70,7 +68,6 @@ Each Camunda component has its own client:
 - `orchestration_client_id` / `orchestration_client_secret`
 - `connectors_client_id` / `connectors_client_secret`
 - `webmodeler_api_client_id` / `webmodeler_api_client_secret`
-- `console_client_id` (public client, no secret)
 - `webmodeler_ui_client_id` (public client, no secret)
 
 ## Comparison with EntraID Module
