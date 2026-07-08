@@ -43,6 +43,22 @@ on:
                 type: boolean
                 default: true
 
+            keep_alive:
+                description: |
+                    Spawn a long-lived DEMO instead of an ephemeral test run.
+                    When enabled:
+                      * the two clusters are deployed to the AWS "weekly-work" regions
+                        (us-east-1 + us-east-2) instead of the CI regions (eu-west-2/3),
+                        so they are NOT wiped by the nightly InfraEx cleanup;
+                      * their Terraform state is stored under a dedicated prefix that the
+                        daily-cleanup workflow never scans, so it is NOT destroyed after 12h;
+                      * the in-run teardown is skipped (implies delete_clusters=false).
+                    The clusters therefore live for the whole work week and are removed by
+                    the InfraEx weekly cleanup on Saturday ~05:00 UTC. To rebuild them after
+                    that, just re-run this workflow with the SAME cluster_name.
+                type: boolean
+                default: false
+
             ref-arch:
                 description: |
                     Reference architecture to use, can only deploy one at a time.
@@ -67,13 +83,20 @@ env:
 
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-    S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region/ # keep it synced with the name of the module for simplicity
+    # keep it synced with the name of the module for simplicity.
+    # keep_alive demos use a dedicated prefix so the daily-cleanup workflow (which only
+    # scans aws/openshift/rosa-hcp-dual-region/) never destroys them.
+    S3_BACKEND_BUCKET_PREFIX: ${{ github.event.inputs.keep_alive == 'true' && 'aws/openshift/rosa-hcp-dual-region-keep-alive/' || 'aws/openshift/rosa-hcp-dual-region/'
+        }}
     TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
 
-    CLUSTER_1_AWS_REGION: eu-west-2
-    CLUSTER_2_AWS_REGION: eu-west-3
+    # CI runs in eu-west-2/eu-west-3 (wiped nightly). keep_alive demos run in the
+    # weekly-work regions us-east-1/us-east-2 (kept until the Saturday ~05:00 UTC weekly cleanup).
+    CLUSTER_1_AWS_REGION: ${{ github.event.inputs.keep_alive == 'true' && 'us-east-1' || 'eu-west-2' }}
+    CLUSTER_2_AWS_REGION: ${{ github.event.inputs.keep_alive == 'true' && 'us-east-2' || 'eu-west-3' }}
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # keep_alive forces the teardown off so the demo survives the run.
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.keep_alive == 'true' && 'false' || github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
