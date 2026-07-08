@@ -13,6 +13,44 @@ set -euo pipefail
 #   CAMUNDA_HELM_CHART_GIT_URL       source repo URL
 #   CAMUNDA_HELM_CHART_GIT_REF       branch or tag to build (passed to git clone --branch)
 #   CAMUNDA_HELM_CHART_CHECKOUT_DIR  clone location; must be an absolute path
+#   CAMUNDA_PRERELEASE_ACK           set to 'true' (or pass --yes) to skip the prompt
+
+# Loudly warn that this deploys an unreleased, in-development build (to stderr so
+# it never pollutes the chart path printed on stdout).
+cat >&2 <<'PRERELEASE_WARNING'
+
+  ############################################################################
+  #  ⚠  PRE-RELEASE — NOT A STABLE CAMUNDA RELEASE                           #
+  #                                                                          #
+  #  This builds and deploys an unreleased, in-development Camunda 8 chart.  #
+  #  It may be unstable or fail to start — that is expected here.            #
+  #                                                                          #
+  #  Need a stable, supported setup? Follow the Administrator quickstart:    #
+  #  https://docs.camunda.io/docs/self-managed/quickstart/administrator-quickstart/
+  ############################################################################
+
+PRERELEASE_WARNING
+
+# Require acknowledging the pre-release warning above. Bypass with
+# CAMUNDA_PRERELEASE_ACK=true or the --yes/-y flag; run interactively without
+# either and it prompts for confirmation.
+_prerelease_ack="${CAMUNDA_PRERELEASE_ACK:-}"
+for _arg in "$@"; do
+    case "$_arg" in --yes | -y) _prerelease_ack="true" ;; esac
+done
+if [[ "$_prerelease_ack" != "true" ]]; then
+    if [[ -t 0 ]]; then
+        printf 'Continue with this pre-release build? [y/N] ' >&2
+        read -r _reply || _reply=""
+        case "$_reply" in
+            [yY] | [yY][eE][sS]) ;;
+            *) echo "Aborted: pre-release build not acknowledged." >&2; exit 1 ;;
+        esac
+    else
+        echo "Non-interactive: set CAMUNDA_PRERELEASE_ACK=true (or pass --yes) to acknowledge the pre-release build." >&2
+        exit 1
+    fi
+fi
 
 _chart_src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _repo_root="$_chart_src_dir/../../../.."

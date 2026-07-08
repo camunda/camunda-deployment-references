@@ -90,6 +90,9 @@ jobs:
             CAMUNDA_NAMESPACE: camunda
             CAMUNDA_RELEASE_NAME: camunda
             TEST_CLUSTER_TYPE: kubernetes
+            # Non-interactive acknowledgement of the pre-release chart build.
+            # TODO: [release-duty] remove this together with the source-build (procedure/build-camunda-chart.sh).
+            CAMUNDA_PRERELEASE_ACK: 'true'
         steps:
             - name: Checkout repository
               uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -185,22 +188,6 @@ jobs:
             - name: Create identity secrets
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/create-identity-secrets.sh
-
-            - name: Extract Helm chart version
-              id: chart-version
-              working-directory: ${{ env.REF_ARCH_PATH }}
-              run: |
-                  SCRIPT=${{ matrix.declination.use_tls && 'procedure/camunda-deploy-domain.sh' || 'procedure/camunda-deploy-no-domain.sh' }}
-                  VERSION=$(grep -oP 'CAMUNDA_HELM_CHART_VERSION="\K[^"]+' "$SCRIPT")
-                  echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ steps.chart-version.outputs.version }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             # Deploy Camunda
             - name: Deploy Camunda (domain mode)
