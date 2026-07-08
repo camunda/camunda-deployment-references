@@ -23,6 +23,19 @@ set -euo pipefail
 : "${ALB_ENDPOINT_1:?ALB_ENDPOINT_1 must be set}"
 : "${AURORA_GLOBAL_CLUSTER_ID:?AURORA_GLOBAL_CLUSTER_ID must be set}"
 
+# Camunda 8.10 requires basic auth on all REST endpoints.
+# Set ADMIN_PASS in the environment to skip the Secrets Manager lookup.
+ADMIN_USER="${ADMIN_USER:-admin}"
+if [ -z "${ADMIN_PASS:-}" ]; then
+    ADMIN_PASS=$(aws secretsmanager get-secret-value \
+        --secret-id "${CLUSTER_0%-cluster}-oc-admin-user-password" \
+        --region "${REGION_0}" \
+        --query 'SecretString' --output text 2>/dev/null || true)
+fi
+if [ -z "${ADMIN_PASS:-}" ]; then
+    echo "WARNING: could not retrieve admin password — topology checks will fail with 401" >&2
+fi
+
 PASS=0
 FAIL=0
 WARN=0
@@ -120,7 +133,7 @@ check_topology() {
     local label=$2
 
     local topology
-    topology=$(curl -sf --max-time 15 "http://${alb}/v2/topology" 2>/dev/null || echo "")
+    topology=$(curl -sf --max-time 15 -u "${ADMIN_USER}:${ADMIN_PASS}" "http://${alb}/v2/topology" 2>/dev/null || echo "")
 
     if [ -z "${topology}" ]; then
         check "Region ${label}: Zeebe topology endpoint reachable" 1
@@ -210,6 +223,7 @@ test_workflow() {
     # Create a simple process instance via REST API
     local response
     response=$(curl -sf --max-time 30 \
+        -u "${ADMIN_USER}:${ADMIN_PASS}" \
         -X POST "http://${alb}/v2/process-instances" \
         -H "Content-Type: application/json" \
         -d '{"bpmnProcessId":"dual-region-health-check","variables":{}}' \
