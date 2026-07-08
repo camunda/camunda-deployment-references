@@ -10,8 +10,6 @@
 # Must be sourced (not executed) to export variables to current shell.        #
 ###############################################################################
 
-set -euo pipefail
-
 ###############################################################################
 # User-configurable defaults                                                  #
 ###############################################################################
@@ -19,11 +17,12 @@ set -euo pipefail
 export REGION_0=${REGION_0:-eu-west-2}
 export REGION_1=${REGION_1:-eu-west-3}
 
-# Path to Terraform root (relative to this script). With the 3-state layout
-# (vpc/, infra/, app/), most outputs needed for environment setup live in
-# infra/. Override TF_DIR if using an alternate state location.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TF_DIR="${TF_DIR:-${SCRIPT_DIR}/../terraform/infra}"
+# Path to Terraform root — anchored to the git repo root so this script works
+# regardless of which directory it is sourced from.
+# Override TF_DIR to point at an alternate state location.
+_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+TF_DIR="${TF_DIR:-${_GIT_ROOT}/aws/containers/ecs-dual-region-fargate/terraform/infra}"
+unset _GIT_ROOT
 
 ###############################################################################
 # Retrieve Terraform outputs                                                  #
