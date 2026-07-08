@@ -855,7 +855,7 @@ jobs:
                   oidc-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   keycloak-url: http://keycloak-service:18080/auth
                   elasticsearch-enabled: 'false'
-                  webmodeler-enabled: 'true'
+                  hub-enabled: 'true'
                   # operator-based always serves connectors under /connectors
                   # (see generic/kubernetes/operator-based/tests/utils/camunda-{domain,no-domain}-values.yml)
                   # at the INGRESS layer (path-based routing). The pod's actuator
@@ -876,7 +876,7 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   camunda-domain: ${{ matrix.declination.name == 'domain' && env.CAMUNDA_DOMAIN || '' }}
                   camunda-domain-grpc: ${{ matrix.declination.name == 'domain' && format('zeebe-{0}:443', env.CAMUNDA_DOMAIN) || '' }}
-                  webmodeler-enabled: 'true'      # Always enabled in operator-based deployment
+                  hub-enabled: 'true'      # Always enabled in operator-based deployment
                   elasticsearch-enabled: 'false'  # Using ECK operator instead
                   zeebe-authenticated: 'true' # we always have an auth provider
                   skip-c8sm-connectivity-ingress-class-check: ${{ matrix.distro.type == 'openshift' && 'true' || 'false' }}

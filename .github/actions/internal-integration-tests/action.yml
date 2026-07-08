@@ -57,8 +57,8 @@ inputs:
     elasticsearch-enabled:
         description: Whether Elasticsearch is enabled
         default: 'true'
-    webmodeler-enabled:
-        description: Whether WebModeler is enabled
+    hub-enabled:
+        description: Whether Camunda Hub (Web Modeler) is enabled
         default: 'false'
     optimize-enabled:
         description: Whether Optimize is enabled
@@ -315,7 +315,7 @@ runs:
               TEST_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
               TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
-              WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
+              HUB_ENABLED: ${{ inputs.hub-enabled }}
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
@@ -442,7 +442,7 @@ runs:
               TEST_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
               TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
-              WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
+              HUB_ENABLED: ${{ inputs.hub-enabled }}
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}

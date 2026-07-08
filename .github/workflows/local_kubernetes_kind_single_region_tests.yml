@@ -383,7 +383,7 @@ jobs:
                   oidc-m2m-clients: ${{ steps.local-credentials.outputs.LOCAL_M2M_CLIENTS }}
                   keycloak-url: http://keycloak-service:18080/auth
                   elasticsearch-enabled: 'false'
-                  webmodeler-enabled: 'true'
+                  hub-enabled: 'true'
                   # Optimize requires Elasticsearch; disabled in pg-only mode
                   # (matches the helm install flag set in deploy step).
                   optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
@@ -400,7 +400,7 @@ jobs:
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
-                  webmodeler-enabled: 'true'
+                  hub-enabled: 'true'
                   # Optimize requires Elasticsearch, so it's disabled in RDBMS-only mode
                   optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
                   elasticsearch-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}

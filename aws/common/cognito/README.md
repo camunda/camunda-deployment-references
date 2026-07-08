@@ -14,7 +14,7 @@ This module is designed for:
 - ✅ Cognito User Pool with email-based authentication
 - ✅ Pre-configured OIDC clients for all Camunda components
 - ✅ Optional test user creation for automated testing
-- ✅ Support for WebModeler component
+- ✅ Support for Camunda Hub (Web Modeler) OIDC clients
 - ✅ M2M (machine-to-machine) client for Connectors
 - ✅ Auto-cleanup tracking via tags
 

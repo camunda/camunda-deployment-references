@@ -106,7 +106,7 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
     # Optional components that are not enabled by default in the doc
-    WEBMODELER_ENABLED: 'true'
+    HUB_ENABLED: 'true'
 
 jobs:
     triage:
@@ -539,7 +539,7 @@ jobs:
                   # Chart 15.x consolidates WebModeler under `camundaHub.enabled:
                   # true`. The legacy `webModeler.enabled` key is deprecated and
                   # emits warnings.
-                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                  if [ "$HUB_ENABLED" == "true" ]; then
                     echo "Enabling Camunda Hub (WebModeler)"
                     yq -i '.camundaHub.enabled = true' values.yml
                   fi
@@ -650,7 +650,7 @@ jobs:
                   # For 'oidc', secrets are created in a separate step
 
                   # Create WebModeler secrets
-                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                  if [ "$HUB_ENABLED" == "true" ]; then
                     ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-webmodeler-secret.sh
                   fi
 
@@ -760,7 +760,7 @@ jobs:
                       || format('http://{0}-keycloak:80/auth',
                       env.CAMUNDA_RELEASE_NAME) }}
                   elasticsearch-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
+                  hub-enabled: ${{ env.HUB_ENABLED }}
                   optimize-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   # AKS domain values set connectors.contextPath: /connectors;
                   # no-domain values keep root, so omit when domain is empty.
@@ -774,7 +774,7 @@ jobs:
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_DOMAIN_GRPC }}
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
+                  hub-enabled: ${{ env.HUB_ENABLED }}
                   optimize-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   elasticsearch-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
