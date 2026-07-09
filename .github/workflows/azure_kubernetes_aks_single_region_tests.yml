@@ -697,19 +697,48 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   insecure: ${{ steps.cert-config.outputs.use-wildcard-cert }}
+                  # Wait only: the workloads are bounced after CoreDNS is refreshed (next steps).
+                  restart-workloads: 'false'
+
+            # CoreDNS is bounced here — after the (fail-open) issuer-reachability wait,
+            # so the ingress DNS record normally exists by now, and BEFORE the health
+            # wait — to flush the stale negative DNS cache. Otherwise the OIDC components
+            # (identity/connectors/zeebe) keep hitting UnknownHostException on the
+            # domain at startup and CrashLoopBackOff until the readiness window expires.
+            - name: 🔄 Restart CoreDNS
+              if: matrix.declination.name == 'domain'
+              uses: ./.github/actions/kubernetes-restart-coredns
+              timeout-minutes: 10
+              with:
+                  cluster-type: kubernetes
+
+            # DNS cache is fresh now — bounce the OIDC workloads so they reconnect
+            # with working in-cluster + domain resolution instead of a stale
+            # (negative) view cached before the CoreDNS refresh. Readiness is then
+            # verified by the health wait below.
+            - name: 🔁 Restart Camunda workloads after DNS refresh
+              if: matrix.declination.name == 'domain'
+              run: |
+                  set -uo pipefail
+                  ns="${{ env.CAMUNDA_NAMESPACE }}"
+                  rel="${{ env.CAMUNDA_RELEASE_NAME }}"
+                  for wl in "statefulset/${rel}-zeebe" "deployment/${rel}-connectors" "deployment/${rel}-identity"; do
+                      # Distinguish a genuine "absent" (empty, exit 0) from a real
+                      # query error (RBAC/kubeconfig) so failures stay visible.
+                      if ! found=$(kubectl -n "$ns" get "$wl" --ignore-not-found -o name 2>&1); then
+                          echo "::warning::Could not query ${wl}: ${found}"
+                      elif [ -n "$found" ]; then
+                          kubectl -n "$ns" rollout restart "$wl" || echo "::warning::rollout restart ${wl} failed"
+                      else
+                          echo "Skipping ${wl}: not present in namespace ${ns}."
+                      fi
+                  done
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
               run: |
                   set -euo pipefail
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
-
-            - name: 🔄 Restart CoreDNS
-              if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
-              uses: ./.github/actions/kubernetes-restart-coredns
-              timeout-minutes: 10
-              with:
-                  cluster-type: kubernetes
 
             - name: 📐 Set current Camunda version
               id: camunda-version
