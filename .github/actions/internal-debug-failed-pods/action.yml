@@ -154,8 +154,9 @@ runs:
               # Stderr of the -o yaml dumps is routed here so the .yaml files stay valid YAML.
               DUMP_ERR="${DUMP_DIR}/_dump-stderr.log"
               # yq redaction: blank out common secret-bearing keys (+ the license key)
-              # so credentials from `helm get values` never reach the artifact.
-              REDACT_KEYS='(.. | select(key | test("(?i)(password|passphrase|secret|token|credential|apikey|accesskey|privatekey|clientsecret)"))) = "***REDACTED***"'
+              # so credentials from `helm get values` never reach the artifact. The key is
+              # filtered to strings first so array indices (int keys) don't break `test`.
+              REDACT_KEYS='(.. | select((key | tag) == "!!str") | select(key | test("(?i)(pass|secret|token|credential|apikey|accesskey|privatekey)"))) = "***REDACTED***"'
               REDACT_LICENSE='(.. | select(tag == "!!map" and has("license")).license | select(tag == "!!map" and has("key")).key) = "***REDACTED***"'
               REDACT="${REDACT_KEYS} | ${REDACT_LICENSE}"
               CTX_ARGS=()
@@ -181,8 +182,8 @@ runs:
               # Rendered chart manifest, with Secret documents stripped so no
               # credential data ends up in the uploaded artifact.
               if command -v yq >/dev/null 2>&1; then
-                helm get manifest camunda -n "$NAMESPACE" "${CTX_ARGS[@]/#--context=/--kube-context=}" 2>/dev/null \
-                  | yq 'select(.kind != "Secret")' > "${DUMP_DIR}/helm-manifest-camunda.yaml" 2>/dev/null || true
+                helm get manifest camunda -n "$NAMESPACE" "${CTX_ARGS[@]/#--context=/--kube-context=}" 2>>"$DUMP_ERR" \
+                  | yq 'select(.kind != "Secret")' > "${DUMP_DIR}/helm-manifest-camunda.yaml" 2>>"$DUMP_ERR" || true
               else
                 echo "yq not found; skipping helm manifest dump to avoid leaking Secret data" \
                   > "${DUMP_DIR}/helm-manifest-camunda.yaml"
