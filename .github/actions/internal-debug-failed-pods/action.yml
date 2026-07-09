@@ -158,10 +158,25 @@ runs:
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get configmaps,secrets > "${DUMP_DIR}/configmaps-secrets.txt" 2>&1 || true
               helm list -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-releases.yaml" 2>&1 || true
               helm get values camunda -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-values-camunda.yaml" 2>&1 || true
+              helm get manifest camunda -n "$NAMESPACE" "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-manifest-camunda.yaml" 2>&1 || true
 
-              # Dump info for all non-Completed pods (per container)
+              # Full workload + networking resources (yaml) for the complete picture
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get deploy,sts,ds,rs,job,cronjob -o yaml > "${DUMP_DIR}/workloads.yaml" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get ingress,httproute,gateway,networkpolicy,sa -o yaml > "${DUMP_DIR}/networking-resources.yaml" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get events -o yaml > "${DUMP_DIR}/namespace-events.yaml" 2>&1 || true
+
+              # Node capacity/conditions (scheduling, OOM, disk/memory pressure)
+              kubectl "${CTX_ARGS[@]}" get nodes -o wide > "${DUMP_DIR}/nodes-overview.txt" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" describe nodes > "${DUMP_DIR}/nodes-describe.txt" 2>&1 || true
+
+              # In-cluster DNS (CoreDNS) config + logs — decisive for OIDC-issuer /
+              # ingress-domain resolution failures (UnknownHostException at startup).
+              kubectl "${CTX_ARGS[@]}" -n kube-system get configmap coredns -o yaml > "${DUMP_DIR}/coredns-configmap.yaml" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" -n kube-system logs -l k8s-app=kube-dns --prefix --tail=-1 > "${DUMP_DIR}/coredns-logs.txt" 2>&1 || true
+
+              # Dump info for ALL pods (incl. Completed init/setup jobs) — per container
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers \
-                | awk '!/Completed/{print $1}' | while read -r pod_name; do
+                | awk '{print $1}' | while read -r pod_name; do
                 echo "Dumping info for pod: ${pod_name}"
                 kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" describe po "$pod_name" > "${DUMP_DIR}/${pod_name}-describe.txt" 2>&1 || true
                 kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" -o yaml > "${DUMP_DIR}/${pod_name}-manifest.yaml" 2>&1 || true
