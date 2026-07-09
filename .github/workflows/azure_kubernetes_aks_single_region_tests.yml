@@ -639,6 +639,8 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   insecure: ${{ steps.cert-config.outputs.use-wildcard-cert }}
+                  # Wait only: the workloads are bounced after CoreDNS is refreshed (next steps).
+                  restart-workloads: 'false'
 
             # CoreDNS must be bounced here — after the issuer is externally reachable
             # (the ingress DNS record now exists) and BEFORE the health wait — to flush
@@ -651,6 +653,22 @@ jobs:
               timeout-minutes: 10
               with:
                   cluster-type: kubernetes
+
+            # DNS cache is fresh now — bounce the OIDC workloads so they reconnect
+            # with working in-cluster + domain resolution instead of a stale
+            # (negative) view cached before the CoreDNS refresh. Readiness is then
+            # verified by the health wait below.
+            - name: 🔁 Restart Camunda workloads after DNS refresh
+              if: matrix.declination.name == 'domain'
+              run: |
+                  set -uo pipefail
+                  ns="${{ env.CAMUNDA_NAMESPACE }}"
+                  rel="${{ env.CAMUNDA_RELEASE_NAME }}"
+                  for wl in "statefulset/${rel}-zeebe" "deployment/${rel}-connectors"; do
+                      if kubectl -n "$ns" get "$wl" >/dev/null 2>&1; then
+                          kubectl -n "$ns" rollout restart "$wl" || true
+                      fi
+                  done
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20

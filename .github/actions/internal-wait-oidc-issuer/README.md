@@ -32,6 +32,7 @@ workaround.
 | `release-name` | <p>Helm release name, used to target the workloads to bounce (<code>statefulset/&lt;release&gt;-zeebe</code>, <code>deployment/&lt;release&gt;-connectors</code>).</p> | `false` | `camunda` |
 | `insecure` | <p>Set to 'true' to skip TLS verification of the issuer (e.g. when the public endpoint uses a CI internal-CA / Vault wildcard certificate).</p> | `false` | `""` |
 | `timeout-seconds` | <p>Total wall-clock budget in seconds. Fail-open: on timeout the action emits a warning and exits 0 so it never blocks the pipeline.</p> | `false` | `600` |
+| `restart-workloads` | <p>Bounce the OIDC workloads (zeebe/connectors) once the issuer is reachable. Set to 'false' to wait only — e.g. when a later step refreshes CoreDNS and restarts the workloads itself (so they are not bounced before in-cluster DNS is fixed).</p> | `false` | `true` |
 
 
 ## Runs
@@ -76,4 +77,13 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 600
+
+    restart-workloads:
+    # Bounce the OIDC workloads (zeebe/connectors) once the issuer is
+    # reachable. Set to 'false' to wait only — e.g. when a later step
+    # refreshes CoreDNS and restarts the workloads itself (so they are not
+    # bounced before in-cluster DNS is fixed).
+    #
+    # Required: false
+    # Default: true
 ```
