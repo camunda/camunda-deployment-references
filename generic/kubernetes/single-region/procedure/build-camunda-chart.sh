@@ -38,7 +38,7 @@ _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda
 # 8.10 chart tag is *published* (not the moving 'main' tip); the default is split out
 # on its own line so the '# renovate:' inline manager can parse it (the ${VAR:-...}
 # override wrapper is not cleanly matchable).
-# renovate: datasource=github-tags depName=camunda/camunda-platform-helm versioning=regex:^camunda-platform-8\.10-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)(?:-(?<prerelease>.+))?$
+# renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$
 _chart_default_git_ref="camunda-platform-8.10-15.0.0-alpha2"
 # TODO: [release-duty] bump the 8.10 pin above as the 15.x line advances (keep in sync with CAMUNDA_HELM_CHART_VERSION and the helm-values).
 _chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-$_chart_default_git_ref}"
