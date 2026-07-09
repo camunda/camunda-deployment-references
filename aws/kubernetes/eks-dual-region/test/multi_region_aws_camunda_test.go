@@ -33,8 +33,10 @@ var (
 	// TODO: [release-duty] adjust renovate comment to bump the major version
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
 	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "14.6.0")
-	// TODO: [release-duty] before the release, switch back to "camunda/camunda-platform" (non-OCI)
-	remoteChartName = helpers.GetEnv("HELM_CHART_NAME", "oci://registry.camunda.cloud/team-distribution/camunda-platform")  // OCI registry
+	// The default targets the public Helm repo (no private registry auth). CI overrides
+	// HELM_CHART_NAME to a local, source-built chart directory for the pre-release
+	// (dev-latest) line, since that chart is not published to the public repo.
+	remoteChartName = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform")
 	globalImageTag  = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                                                // allows overwriting the image tag via GHA of every Camunda image
 	clusterName     = helpers.GetEnv("CLUSTER_NAME", "nightly")                                                             // allows supplying random cluster name via GHA
 	cluster0Name    = helpers.GetEnv("CLUSTER_0_NAME", fmt.Sprintf("%s-london", helpers.GetEnv("CLUSTER_NAME", "nightly"))) // kubectl context name for cluster 0
