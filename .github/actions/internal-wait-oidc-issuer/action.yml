@@ -106,7 +106,7 @@ runs:
                   if [ "${code}" = "200" ]; then
                       echo "✅ OIDC issuer reachable (HTTP 200) after ${attempt} attempt(s)."
                       if [ "${RESTART_WORKLOADS}" = "false" ]; then
-                          echo "restart-workloads=false: issuer reachable; leaving the workload bounce to a later step (after CoreDNS is refreshed)."
+                          echo "restart-workloads=false: issuer reachable; skipping the workload bounce (left to the caller)."
                           exit 0
                       fi
                       # Clear any first-start CrashLoopBackOff so the app pods
