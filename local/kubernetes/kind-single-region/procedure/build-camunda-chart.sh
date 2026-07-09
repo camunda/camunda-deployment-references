@@ -64,8 +64,8 @@ _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda
 # 8.10 chart tag is *published* (not the moving 'main' tip); the default is split out
 # on its own line so the '# renovate:' inline manager can parse it (the ${VAR:-...}
 # override wrapper is not cleanly matchable). A camunda-platform-helm release tag carries
-# the previous version in its Chart.yaml (tag N ships version N-1), so this pin builds
-# chart 15.0.0-alpha1 / images 8.10.0-alpha1 — the known-good set the tests validate.
+# the previous version in its Chart.yaml (tag N ships version N-1), so the built chart is
+# one alpha behind the tag name — intentional; it's the known-good set the tests validate.
 # renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$
 _chart_default_git_ref="camunda-platform-8.10-15.0.0-alpha2"
 # TODO: [release-duty] bump the 8.10 pin above as the 15.x line advances (keep in sync with CAMUNDA_HELM_CHART_VERSION and the helm-values).
