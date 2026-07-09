@@ -196,17 +196,35 @@ runs:
               # Optional CI-only node pool overrides (see issue #109): run tests on
               # cost-efficient SPOT capacity with diversified instance types. Injected via
               # sed because the reference module exposes these knobs as locals, not variables.
-              if [ -n "${{ inputs.np-capacity-type }}" ]; then
-                sed -i -E "s/(np_capacity_type\s*=\s*\")[^\"]*(\")/\1${{ inputs.np-capacity-type }}\2/" cluster.tf
+              _np_capacity_type="${{ inputs.np-capacity-type }}"
+              if [ -n "${_np_capacity_type}" ]; then
+                # Validate early so a typo fails fast with a clear message instead of a
+                # cryptic Terraform error (or a silently wrong capacity type) later on.
+                if [ "${_np_capacity_type}" != "ON_DEMAND" ] && [ "${_np_capacity_type}" != "SPOT" ]; then
+                  echo "::error::Invalid np-capacity-type '${_np_capacity_type}'; allowed values are ON_DEMAND or SPOT."
+                  exit 1
+                fi
+                sed -i -E "s/(np_capacity_type\s*=\s*\")[^\"]*(\")/\1${_np_capacity_type}\2/" cluster.tf
               fi
-              if [ -n "${{ inputs.np-instance-types }}" ]; then
-                # Convert the comma-separated list into an HCL list literal.
-                IFS=',' read -ra _np_types <<< "${{ inputs.np-instance-types }}"
+              _np_instance_types="${{ inputs.np-instance-types }}"
+              if [ -n "${_np_instance_types}" ]; then
+                # Convert the comma-separated list into an HCL list literal, trimming
+                # surrounding whitespace and dropping empty entries so a loosely formatted
+                # input (spaces or a trailing comma) still yields valid HCL.
+                IFS=',' read -ra _np_types <<< "${_np_instance_types}"
                 _np_hcl="["
                 for _np_type in "${_np_types[@]}"; do
+                  # Strip leading and trailing whitespace, then skip empty entries.
+                  _np_type="${_np_type#"${_np_type%%[![:space:]]*}"}"
+                  _np_type="${_np_type%"${_np_type##*[![:space:]]}"}"
+                  [ -z "${_np_type}" ] && continue
                   _np_hcl+="\"${_np_type}\", "
                 done
                 _np_hcl="${_np_hcl%, }]"
+                if [ "${_np_hcl}" = "[]" ]; then
+                  echo "::error::np-instance-types contained no valid entries: '${_np_instance_types}'."
+                  exit 1
+                fi
                 sed -i -E "s|(np_instance_types\s*=\s*).*|\1${_np_hcl}|" cluster.tf
               fi
 

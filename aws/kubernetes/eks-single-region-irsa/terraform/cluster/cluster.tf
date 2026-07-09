@@ -25,9 +25,9 @@ module "eks_cluster" {
 
   # Default node type for the Kubernetes cluster
   np_instance_types = ["m6i.xlarge"]
-  # 6 nodes (2 per AZ across 3 AZs) give enough headroom to host the full Camunda
-  # stack (3 Zeebe brokers + 3 Elasticsearch + all web apps) together with the
-  # ingress add-ons, and keep AZ-pinned EBS volumes schedulable.
+  # 6 nodes spread across 3 AZs (best-effort, roughly 2 per AZ) give enough headroom
+  # to host the full Camunda stack (3 Zeebe brokers + 3 Elasticsearch + all web apps)
+  # together with the ingress add-ons, and keep AZ-pinned EBS volumes schedulable.
   np_desired_node_count = 6
   # Use stable on-demand capacity by default.
   np_capacity_type = "ON_DEMAND"
