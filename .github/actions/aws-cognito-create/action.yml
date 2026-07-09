@@ -15,11 +15,7 @@ inputs:
         required: false
         default: ''
     enable-webmodeler:
-        description: Enable Web Modeler component
-        required: false
-        default: 'false'
-    enable-console:
-        description: Enable Console component
+        description: Enable WebModeler component
         required: false
         default: 'false'
     create-test-user:
@@ -98,9 +94,6 @@ outputs:
     connectors-client-secret:
         description: Connectors component client secret
         value: ${{ steps.outputs.outputs.connectors_client_secret }}
-    console-client-id:
-        description: Console component client ID
-        value: ${{ steps.outputs.outputs.console_client_id }}
     webmodeler-ui-client-id:
         description: WebModeler UI client ID
         value: ${{ steps.outputs.outputs.webmodeler_ui_client_id }}
@@ -142,7 +135,6 @@ runs:
               resource_prefix     = "${{ inputs.resource-prefix }}"
               domain_name         = "${{ inputs.domain-name }}"
               enable_webmodeler   = ${{ inputs.enable-webmodeler }}
-              enable_console      = ${{ inputs.enable-console }}
               create_test_user    = ${{ inputs.create-test-user }}
               test_user_name      = "${{ inputs.test-user-name }}"
               test_user_password  = "${{ inputs.test-user-password }}"

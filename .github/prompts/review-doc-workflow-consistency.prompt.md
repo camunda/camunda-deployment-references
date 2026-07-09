@@ -64,7 +64,7 @@ Also search for `yaml reference` blocks pointing to overlay files — these shou
 
 Search for all `yq` and `cp -f` commands in the workflow's "Assemble deployment values" step. For each one, extract:
 - The overlay file path
-- The condition under which it's applied (e.g., `if domain`, `if WEBMODELER_ENABLED`)
+- The condition under which it's applied (e.g., `if domain`, `if HUB_ENABLED`)
 - Its position in the merge sequence
 
 ### 3. Compare and report

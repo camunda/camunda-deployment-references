@@ -97,8 +97,7 @@ env:
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Optional components that are not enabled by default in the doc
-    WEBMODELER_ENABLED: 'true'
-    CONSOLE_ENABLED: 'true'
+    HUB_ENABLED: 'true'
 
 jobs:
     triage:
@@ -279,8 +278,7 @@ jobs:
               with:
                   resource-prefix: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
                   domain-name: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}
-                  enable-webmodeler: ${{ env.WEBMODELER_ENABLED }}
-                  enable-console: ${{ env.CONSOLE_ENABLED }}
+                  enable-webmodeler: ${{ env.HUB_ENABLED }}
                   create-test-user: 'true'
                   test-user-name: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_EMAIL }}
                   test-user-password: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_PASSWORD }}
@@ -312,7 +310,6 @@ jobs:
                   CONNECTORS_CLIENT_ID=${{ steps.create-cognito.outputs.connectors-client-id }}
                   OIDC_CONNECTORS_CLIENT_SECRET=${{ steps.create-cognito.outputs.connectors-client-secret }}
                   CONNECTORS_TOKEN_SCOPE=${{ steps.create-cognito.outputs.resource-server-identifier }}/orchestration
-                  CONSOLE_CLIENT_ID=${{ steps.create-cognito.outputs.console-client-id }}
                   WEBMODELER_UI_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-ui-client-id }}
                   WEBMODELER_API_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-api-client-id }}
                   OIDC_WEBMODELER_API_CLIENT_SECRET=${{ steps.create-cognito.outputs.webmodeler-api-client-secret }}
@@ -700,11 +697,11 @@ jobs:
                     echo "CAMUNDA_DOMAIN_GRPC=$CAMUNDA_DOMAIN_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
-                  # Chart 15.x consolidates Console + WebModeler under
-                  # `camundaHub.enabled: true`. The legacy `console.enabled` /
-                  # `webModeler.enabled` keys are deprecated and emit warnings.
-                  if [ "$WEBMODELER_ENABLED" == "true" ] || [ "$CONSOLE_ENABLED" == "true" ]; then
-                    echo "Enabling Camunda Hub (Console + WebModeler)"
+                  # Chart 15.x consolidates WebModeler under `camundaHub.enabled:
+                  # true`. The legacy `webModeler.enabled` key is deprecated and
+                  # emits warnings.
+                  if [ "$HUB_ENABLED" == "true" ]; then
+                    echo "Enabling Camunda Hub (WebModeler)"
                     yq -i '.camundaHub.enabled = true' values.yml
                   fi
 
@@ -853,7 +850,7 @@ jobs:
                   # For 'oidc', secrets are created in the OIDC secrets step
 
                   # Create WebModeler secrets
-                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                  if [ "$HUB_ENABLED" == "true" ]; then
                     ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-webmodeler-secret.sh
                   fi
 
@@ -954,8 +951,7 @@ jobs:
                       || format('http://{0}-keycloak:80/auth',
                       env.CAMUNDA_RELEASE_NAME) }}
                   elasticsearch-enabled: 'false'
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  hub-enabled: ${{ env.HUB_ENABLED }}
                   # EKS domain values set connectors.contextPath: /connectors so the
                   # actuator endpoints live under that prefix. The no-domain values
                   # do not set a contextPath, so connectors serve at root there.
@@ -969,8 +965,7 @@ jobs:
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_DOMAIN_GRPC }}
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  hub-enabled: ${{ env.HUB_ENABLED }}
                   elasticsearch-enabled: 'false'
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}

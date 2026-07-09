@@ -45,20 +45,6 @@ func TestComponentAPIs(t *testing.T) {
 		skip        bool
 		skipReason  string
 	}{
-		{
-			name: "Console",
-			url:  cfg.ConsoleURL,
-			path: "/api/clusters",
-			// Console SPA expects session-cookie auth; bearer M2M tokens get
-			// rejected with 401. 401 still proves the endpoint is reachable
-			// & enforcing auth, which mirrors what venom validated.
-			acceptCodes: []int{http.StatusOK, http.StatusUnauthorized},
-			// Console is only exposed via ingress; in port-forward / no-domain
-			// mode the default URL points to the in-cluster service DNS which
-			// is unreachable from the runner.
-			skip:       !cfg.ConsoleEnabled || !cfg.HasDomain(),
-			skipReason: "Console disabled or not reachable without ingress",
-		},
 		// Identity standalone REST API was removed in Camunda 8.10 — admin
 		// surface moved to the orchestration cluster under /v2/*, which is
 		// already covered by core_test.go via OrchestrationURL.
