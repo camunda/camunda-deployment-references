@@ -12,8 +12,10 @@ description: |
     readiness window, so the deployment can look broken for a while.
 
     This action waits (bounded, fail-open) for the issuer's discovery document to
-    answer `200`, then bounces the affected workloads so they restart immediately
-    instead of after the next backoff window.
+    answer `200`, then (by default) bounces the affected workloads so they restart
+    immediately instead of after the next backoff window. The bounce is optional:
+    set `restart-workloads: false` to wait only — e.g. when a later step refreshes
+    CoreDNS and restarts the workloads itself.
 
     It is **IdP-agnostic**: it polls whatever `issuer-url` the caller provides and
     completes quickly (no waiting) when the issuer is already reachable, e.g. an
