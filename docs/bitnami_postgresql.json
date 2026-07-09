@@ -351,6 +351,10 @@
       "newDigest": "sha256:9e5fcb6fcf04dc602f7420448743816ecd8764f14c58ad488d9d13ccf563879f"
     },
     {
+      "version": "15.18.0-debian-12-r13",
+      "newDigest": "sha256:d4617fca0c02efb498961a7b6562d7152ac9fd4e4a2c14b1274a479154d5d038"
+    },
+    {
       "version": "16.11.0-debian-12-r0",
       "newDigest": "sha256:760d6a0a2a490cae41b6fd1b74c8cb3207bbffc5ea7e6725f92a75542a44a1b6"
     },
