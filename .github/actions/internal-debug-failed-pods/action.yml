@@ -14,7 +14,7 @@ inputs:
         required: false
         default: '200'
     artifact-log-tail-lines:
-        description: Max log lines per container kept in the artifact and scanned for the root cause; bounds runaway/noisy logs
+        description: Per-container log line cap for the artifact dump and root-cause scan (bounds noisy logs)
         required: false
         default: '100000'
     artifact-suffix:
@@ -125,7 +125,7 @@ runs:
                     echo "::endgroup::"
                   fi
                 done
-              done
+              done || true
 
               # Show tail logs for healthy running pods (collapsed)
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers \
@@ -139,7 +139,7 @@ runs:
                     --tail="$LOG_TAIL" || true
                   echo "::endgroup::"
                 done
-              done
+              done || true
 
         - name: 📦 Dump pod logs and cluster state for artifact
           shell: bash
@@ -226,7 +226,7 @@ runs:
                   kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous --tail="$ARTIFACT_TAIL" \
                     > "${DUMP_DIR}/${pod_name}-${container}-logs-previous.txt" 2>&1 || true
                 done
-              done
+              done || true
 
               echo "dump-dir=${DUMP_DIR}" >> "$GITHUB_OUTPUT"
           id: dump

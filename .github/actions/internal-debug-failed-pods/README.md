@@ -11,7 +11,7 @@ Collect debug info from failed pods (CrashLoopBackOff, Error, not ready) and upl
 | `namespace` | <p>The Kubernetes namespace to inspect</p> | `true` | `""` |
 | `context` | <p>The kubectl context to use (for multi-cluster setups). If empty, the current context is used.</p> | `false` | `""` |
 | `log-tail-lines` | <p>Number of log tail lines shown inline in the CI output; the artifact keeps up to artifact-log-tail-lines per container</p> | `false` | `200` |
-| `artifact-log-tail-lines` | <p>Max log lines per container kept in the artifact and scanned for the root cause; bounds runaway/noisy logs</p> | `false` | `100000` |
+| `artifact-log-tail-lines` | <p>Per-container log line cap for the artifact dump and root-cause scan (bounds noisy logs)</p> | `false` | `100000` |
 | `artifact-suffix` | <p>Suffix appended to the artifact name (e.g. scenario/declination identifier)</p> | `false` | `""` |
 
 
@@ -43,7 +43,7 @@ This action is a `composite` action.
     # Default: 200
 
     artifact-log-tail-lines:
-    # Max log lines per container kept in the artifact and scanned for the root cause; bounds runaway/noisy logs
+    # Per-container log line cap for the artifact dump and root-cause scan (bounds noisy logs)
     #
     # Required: false
     # Default: 100000
