@@ -59,9 +59,14 @@ go test --count=1 -v -timeout 120m -run TestAWSDNSChaining
 Otherwise defaults to published Helm versions and the latest stable release.
 
 ```bash
-# Overwriting to dev-latest helm chart
-export HELM_CHART_VERSION=14-dev-latest
-export HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform
+# Overwriting to the pre-release (dev) chart. It isn't published to the public Helm
+# repo, so build it from source (no private registry) and point HELM_CHART_NAME at the
+# local chart directory — the test installs from a local path (see InstallUpgradeC8Helm).
+export HELM_CHART_VERSION=15-dev-latest
+git clone --depth 1 --branch camunda-platform-8.10-15.0.0-alpha2 \
+  https://github.com/camunda/camunda-platform-helm.git /tmp/camunda-platform-helm
+helm dependency update /tmp/camunda-platform-helm/charts/camunda-platform-8.10
+export HELM_CHART_NAME=/tmp/camunda-platform-helm/charts/camunda-platform-8.10
 export GLOBAL_IMAGE_TAG=SNAPSHOT
 
 # Otherwise it's sufficient to set the helm chart version or rely on the default.
