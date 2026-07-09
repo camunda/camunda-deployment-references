@@ -62,6 +62,9 @@ Otherwise defaults to published Helm versions and the latest stable release.
 # Overwriting to the pre-release (dev) chart. It isn't published to the public Helm
 # repo, so build it from source (no private registry) and point HELM_CHART_NAME at the
 # local chart directory — the test installs from a local path (see InstallUpgradeC8Helm).
+# Note: a camunda-platform-helm release tag carries the *previous* version in Chart.yaml
+# (tag N ships version N-1), so this builds 15.0.0-alpha1 / images 8.10.0-alpha1 — the
+# known-good set the integration tests validate.
 export HELM_CHART_VERSION=15-dev-latest
 CHART_DIR="$(mktemp -d)/camunda-platform-helm"
 git clone --depth 1 --branch camunda-platform-8.10-15.0.0-alpha2 \
