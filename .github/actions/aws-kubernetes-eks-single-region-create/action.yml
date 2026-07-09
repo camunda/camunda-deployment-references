@@ -194,8 +194,9 @@ runs:
               fi
 
               # Optional CI-only node pool overrides (see issue #109): run tests on
-              # cost-efficient SPOT capacity with diversified instance types. Injected via
-              # sed because the reference module exposes these knobs as locals, not variables.
+              # cost-efficient SPOT capacity with diversified instance types. The reference
+              # cluster.tf passes these as literal module arguments (not wired to root
+              # variables), so there is no -var to override; patch the file in place instead.
               _np_capacity_type="${{ inputs.np-capacity-type }}"
               if [ -n "${_np_capacity_type}" ]; then
                 # Validate early so a typo fails fast with a clear message instead of a
