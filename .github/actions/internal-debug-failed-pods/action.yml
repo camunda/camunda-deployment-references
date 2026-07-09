@@ -1,6 +1,6 @@
 ---
 name: Debug failed Pods
-description: Collect debug info from failed pods (CrashLoopBackOff, Error, not ready) and upload complete logs as artifact
+description: Collect debug info from failed pods (CrashLoopBackOff, Error, not ready) and upload logs and cluster state as an artifact
 inputs:
     namespace:
         description: The Kubernetes namespace to inspect
@@ -10,12 +10,11 @@ inputs:
         required: false
         default: ''
     log-tail-lines:
-        description: Number of log tail lines to display in the CI output (full logs are always uploaded as artifact)
+        description: Number of log tail lines shown inline in the CI output; the artifact keeps up to artifact-log-tail-lines per container
         required: false
         default: '200'
     artifact-log-tail-lines:
-        description: Max log lines per container for the artifact dump and the root-cause log scan; bounds runaway/noisy logs while staying effectively
-            complete
+        description: Max log lines per container kept in the artifact and scanned for the root cause; bounds runaway/noisy logs
         required: false
         default: '100000'
     artifact-suffix:
@@ -143,7 +142,7 @@ runs:
                 done
               done
 
-        - name: 📦 Dump complete Pod logs for artifact
+        - name: 📦 Dump pod logs and cluster state for artifact
           shell: bash
           run: |
               set -euo pipefail
