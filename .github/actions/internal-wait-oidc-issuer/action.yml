@@ -113,8 +113,8 @@ runs:
                       # restart now instead of after the next (long) backoff
                       # window. Bounce each workload only if it exists, so a
                       # disabled/renamed component stays quiet while real errors
-                      # (missing kubeconfig / RBAC) stay visible; '|| true' keeps
-                      # the bounce best-effort (fail-open).
+                      # (missing kubeconfig / RBAC) stay visible; a failed restart
+                      # is downgraded to a warning so the bounce stays best-effort.
                       for workload in "statefulset/${RELEASE_NAME}-zeebe" "deployment/${RELEASE_NAME}-connectors"; do
                           # --ignore-not-found keeps a genuine "absent" quiet
                           # (empty + exit 0) while real failures (no kubeconfig /
