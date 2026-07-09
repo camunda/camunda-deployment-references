@@ -219,10 +219,11 @@ runs:
                   _np_type="${_np_type#"${_np_type%%[![:space:]]*}"}"
                   _np_type="${_np_type%"${_np_type##*[![:space:]]}"}"
                   [ -z "${_np_type}" ] && continue
-                  # Validate the token against an AWS instance-type shape (family.size) so
-                  # stray characters (quotes, newlines, ...) can't inject invalid content
-                  # into the generated HCL list.
-                  if [[ ! "${_np_type}" =~ ^[a-z0-9]+\.[a-z0-9]+$ ]]; then
+                  # Validate the token against an AWS instance-type shape (family.size,
+                  # both of which may contain hyphens, e.g. c7i-flex.large or
+                  # m7i.metal-48xl) so stray characters (quotes, newlines, ...) can't
+                  # inject invalid content into the generated HCL list.
+                  if [[ ! "${_np_type}" =~ ^[a-z0-9-]+\.[a-z0-9-]+$ ]]; then
                     echo "::error::Invalid np-instance-types entry '${_np_type}'; expected an AWS instance type such as m6i.xlarge."
                     exit 1
                   fi
