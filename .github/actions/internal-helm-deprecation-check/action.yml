@@ -412,14 +412,31 @@ runs:
               # public Helm repo for released charts. The private OCI registry is
               # intentionally no longer used here.
               LOCAL_CHART_PATH="${{ inputs.local-chart-path }}"
-              AUTODETECT_CHART="${GITHUB_WORKSPACE}/.camunda-platform-helm/charts/${CHART_NAME}"
               SCHEMA_PATH=""
+              # Autodetect the source-build checkout produced by the shared
+              # build-camunda-chart.sh helper. It clones the whole
+              # camunda-platform-helm repo, which ships one directory per Camunda
+              # minor (charts/camunda-platform-8.x), and every chart's Chart.yaml
+              # name is just "camunda-platform". Match by the deployed chart
+              # version (unique per directory) rather than the release/chart name.
+              CHARTS_DIR="${GITHUB_WORKSPACE}/.camunda-platform-helm/charts"
+              AUTODETECT_SCHEMA=""
+              if [[ -d "${CHARTS_DIR}" ]]; then
+                  for _chart_dir in "${CHARTS_DIR}"/*/; do
+                      [[ -f "${_chart_dir}values.schema.json" && -f "${_chart_dir}Chart.yaml" ]] || continue
+                      _chart_ver=$(grep -E '^version:' "${_chart_dir}Chart.yaml" | head -n1 | awk '{print $2}' | tr -d '"')
+                      if [[ "${_chart_ver}" == "${CHART_VERSION}" ]]; then
+                          AUTODETECT_SCHEMA="${_chart_dir}values.schema.json"
+                          break
+                      fi
+                  done
+              fi
               if [[ -n "${LOCAL_CHART_PATH}" && -f "${LOCAL_CHART_PATH}/values.schema.json" ]]; then
                   echo "Using values.schema.json from the source-built chart at ${LOCAL_CHART_PATH}"
                   SCHEMA_PATH="${LOCAL_CHART_PATH}/values.schema.json"
-              elif [[ -f "${AUTODETECT_CHART}/values.schema.json" ]]; then
-                  echo "Using values.schema.json from the source-built chart at ${AUTODETECT_CHART}"
-                  SCHEMA_PATH="${AUTODETECT_CHART}/values.schema.json"
+              elif [[ -n "${AUTODETECT_SCHEMA}" ]]; then
+                  echo "Using values.schema.json from the source-built chart at ${AUTODETECT_SCHEMA%/values.schema.json}"
+                  SCHEMA_PATH="${AUTODETECT_SCHEMA}"
               elif helm pull "${CHART_NAME}" \
                       --repo "https://helm.camunda.io" \
                       --version "${CHART_VERSION}" \
