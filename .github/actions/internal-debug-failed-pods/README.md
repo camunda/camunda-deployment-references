@@ -11,6 +11,7 @@ Collect debug info from failed pods (CrashLoopBackOff, Error, not ready) and upl
 | `namespace` | <p>The Kubernetes namespace to inspect</p> | `true` | `""` |
 | `context` | <p>The kubectl context to use (for multi-cluster setups). If empty, the current context is used.</p> | `false` | `""` |
 | `log-tail-lines` | <p>Number of log tail lines to display in the CI output (full logs are always uploaded as artifact)</p> | `false` | `200` |
+| `artifact-log-tail-lines` | <p>Max log lines per container for the artifact dump and the root-cause log scan; bounds runaway/noisy logs while staying effectively complete</p> | `false` | `100000` |
 | `artifact-suffix` | <p>Suffix appended to the artifact name (e.g. scenario/declination identifier)</p> | `false` | `""` |
 
 
@@ -40,6 +41,12 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 200
+
+    artifact-log-tail-lines:
+    # Max log lines per container for the artifact dump and the root-cause log scan; bounds runaway/noisy logs while staying effectively complete
+    #
+    # Required: false
+    # Default: 100000
 
     artifact-suffix:
     # Suffix appended to the artifact name (e.g. scenario/declination identifier)
