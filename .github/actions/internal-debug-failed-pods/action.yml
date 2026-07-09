@@ -169,6 +169,9 @@ runs:
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get svc,endpoints > "${DUMP_DIR}/services-endpoints.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get pvc > "${DUMP_DIR}/pvcs.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get configmaps,secrets > "${DUMP_DIR}/configmaps-secrets.txt" 2>&1 || true
+              # Tool + cluster versions (helps diagnose version-specific behaviour, e.g. Helm 3 vs 4)
+              kubectl "${CTX_ARGS[@]}" version > "${DUMP_DIR}/versions-kubectl.txt" 2>&1 || true
+              helm version > "${DUMP_DIR}/versions-helm.txt" 2>&1 || true
               helm list -n "$NAMESPACE" -a -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-releases.yaml" 2>>"$DUMP_ERR" || true
               # Helm values can carry plaintext credentials (CI basic-auth, license) — redact via yq, or skip if unavailable.
               if command -v yq >/dev/null 2>&1; then
