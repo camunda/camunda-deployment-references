@@ -735,9 +735,15 @@ jobs:
                   set -uo pipefail
                   ns="${{ env.CAMUNDA_NAMESPACE }}"
                   rel="${{ env.CAMUNDA_RELEASE_NAME }}"
-                  for wl in "statefulset/${rel}-zeebe" "deployment/${rel}-connectors"; do
-                      if kubectl -n "$ns" get "$wl" >/dev/null 2>&1; then
-                          kubectl -n "$ns" rollout restart "$wl" || true
+                  for wl in "statefulset/${rel}-zeebe" "deployment/${rel}-connectors" "deployment/${rel}-identity"; do
+                      # Distinguish a genuine "absent" (empty, exit 0) from a real
+                      # query error (RBAC/kubeconfig) so failures stay visible.
+                      if ! found=$(kubectl -n "$ns" get "$wl" --ignore-not-found -o name 2>&1); then
+                          echo "::warning::Could not query ${wl}: ${found}"
+                      elif [ -n "$found" ]; then
+                          kubectl -n "$ns" rollout restart "$wl" || echo "::warning::rollout restart ${wl} failed"
+                      else
+                          echo "Skipping ${wl}: not present in namespace ${ns}."
                       fi
                   done
 
