@@ -122,7 +122,7 @@ runs:
                           if ! found=$(kubectl -n "${NAMESPACE}" get "${workload}" --ignore-not-found -o name 2>&1); then
                               echo "::warning::Could not query ${workload}: ${found}"
                           elif [ -n "${found}" ]; then
-                              kubectl -n "${NAMESPACE}" rollout restart "${workload}" || true
+                              kubectl -n "${NAMESPACE}" rollout restart "${workload}" || echo "::warning::rollout restart ${workload} failed"
                           else
                               echo "Skipping ${workload}: not present in namespace ${NAMESPACE}."
                           fi

@@ -533,9 +533,9 @@ jobs:
                   # Wait only: the workloads are bounced after CoreDNS is refreshed (next steps).
                   restart-workloads: 'false'
 
-            # CoreDNS must be bounced here — after the issuer is externally reachable
-            # (the ingress DNS record now exists) and BEFORE the health wait — to flush
-            # the stale negative DNS cache. Otherwise the OIDC components
+            # CoreDNS is bounced here — after the (fail-open) issuer-reachability wait,
+            # so the ingress DNS record normally exists by now, and BEFORE the health
+            # wait — to flush the stale negative DNS cache. Otherwise the OIDC components
             # (identity/connectors/zeebe) keep hitting UnknownHostException on the
             # domain at startup and CrashLoopBackOff until the readiness window expires.
             - name: 🔄 Restart CoreDNS
