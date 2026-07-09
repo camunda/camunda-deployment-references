@@ -192,7 +192,9 @@ runs:
 
               # Full workload + networking resources (yaml) for the complete picture
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get deploy,sts,ds,rs,job,cronjob -o yaml > "${DUMP_DIR}/workloads.yaml" 2>>"$DUMP_ERR" || true
-              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get ingress,httproute,gateway,networkpolicy,sa -o yaml > "${DUMP_DIR}/networking-resources.yaml" 2>>"$DUMP_ERR" || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get ingress,networkpolicy,sa -o yaml > "${DUMP_DIR}/networking-resources.yaml" 2>>"$DUMP_ERR" || true
+              # Gateway API kinds are CRDs — dump separately so a missing CRD can't drop the built-ins above
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get httproute,gateway -o yaml > "${DUMP_DIR}/gateway-api-resources.yaml" 2>>"$DUMP_ERR" || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get events -o yaml > "${DUMP_DIR}/namespace-events.yaml" 2>>"$DUMP_ERR" || true
 
               # Node capacity/conditions (scheduling, OOM, disk/memory pressure)
