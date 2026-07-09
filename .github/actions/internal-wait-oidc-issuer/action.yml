@@ -49,6 +49,14 @@ inputs:
             emits a warning and exits 0 so it never blocks the pipeline.
         required: false
         default: '600'
+    restart-workloads:
+        description: |
+            Bounce the OIDC workloads (zeebe/connectors) once the issuer is
+            reachable. Set to 'false' to wait only — e.g. when a later step
+            refreshes CoreDNS and restarts the workloads itself (so they are not
+            bounced before in-cluster DNS is fixed).
+        required: false
+        default: 'true'
 
 runs:
     using: composite
@@ -61,6 +69,7 @@ runs:
               RELEASE_NAME: ${{ inputs.release-name }}
               INSECURE: ${{ inputs.insecure }}
               TIMEOUT_SECONDS: ${{ inputs.timeout-seconds }}
+              RESTART_WORKLOADS: ${{ inputs.restart-workloads }}
           run: |
               set -uo pipefail
 
@@ -96,6 +105,10 @@ runs:
 
                   if [ "${code}" = "200" ]; then
                       echo "✅ OIDC issuer reachable (HTTP 200) after ${attempt} attempt(s)."
+                      if [ "${RESTART_WORKLOADS}" = "false" ]; then
+                          echo "restart-workloads=false: issuer reachable; leaving the workload bounce to a later step (after CoreDNS is refreshed)."
+                          exit 0
+                      fi
                       # Clear any first-start CrashLoopBackOff so the app pods
                       # restart now instead of after the next (long) backoff
                       # window. Bounce each workload only if it exists, so a
