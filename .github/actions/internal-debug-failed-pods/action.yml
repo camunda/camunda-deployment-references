@@ -1,6 +1,6 @@
 ---
 name: Debug failed Pods
-description: Collect debug info from failed pods (CrashLoopBackOff, Error, not ready) and upload complete logs as artifact
+description: Collect debug info from failed pods (CrashLoopBackOff, Error, not ready) and upload logs and cluster state as an artifact
 inputs:
     namespace:
         description: The Kubernetes namespace to inspect
@@ -10,12 +10,11 @@ inputs:
         required: false
         default: ''
     log-tail-lines:
-        description: Number of log tail lines to display in the CI output (full logs are always uploaded as artifact)
+        description: Number of log tail lines shown inline in the CI output; the artifact keeps up to artifact-log-tail-lines per container
         required: false
         default: '200'
     artifact-log-tail-lines:
-        description: Max log lines per container for the artifact dump and the root-cause log scan; bounds runaway/noisy logs while staying effectively
-            complete
+        description: Per-container log line cap for the artifact dump and root-cause scan (bounds noisy logs)
         required: false
         default: '100000'
     artifact-suffix:
@@ -39,7 +38,7 @@ runs:
               fi
 
               echo "::group::All pods in namespace ${NAMESPACE}"
-              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po -o wide
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po -o wide || true
               echo "::endgroup::"
 
               echo "::group::Helm releases"
@@ -76,7 +75,7 @@ runs:
                 echo "============================================"
 
                 echo "::group::${pod_name} - describe"
-                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" describe po "$pod_name"
+                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" describe po "$pod_name" || true
                 echo "::endgroup::"
 
                 # Show init container logs if any init container failed
@@ -127,7 +126,7 @@ runs:
                     echo "::endgroup::"
                   fi
                 done
-              done
+              done || true
 
               # Show tail logs for healthy running pods (collapsed)
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers \
@@ -141,15 +140,17 @@ runs:
                     --tail="$LOG_TAIL" || true
                   echo "::endgroup::"
                 done
-              done
+              done || true
 
-        - name: 📦 Dump complete Pod logs for artifact
+        - name: 📦 Dump pod logs and cluster state for artifact
           shell: bash
           run: |
               set -euo pipefail
+              # The dump can contain sensitive cluster context — keep every file private.
+              umask 077
 
               NAMESPACE="${{ inputs.namespace }}"
-              DUMP_DIR="/tmp/pod-debug-dump-${NAMESPACE}"
+              DUMP_DIR="${RUNNER_TEMP:-/tmp}/pod-debug-dump-${NAMESPACE}"
               mkdir -p "$DUMP_DIR"
               ARTIFACT_TAIL="${{ inputs.artifact-log-tail-lines }}"
               # Stderr of the -o yaml dumps is routed here so the .yaml files stay valid YAML.
@@ -171,6 +172,9 @@ runs:
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get svc,endpoints > "${DUMP_DIR}/services-endpoints.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get pvc > "${DUMP_DIR}/pvcs.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get configmaps,secrets > "${DUMP_DIR}/configmaps-secrets.txt" 2>&1 || true
+              # Tool + cluster versions (helps diagnose version-specific behaviour, e.g. Helm 3 vs 4)
+              kubectl "${CTX_ARGS[@]}" version > "${DUMP_DIR}/versions-kubectl.txt" 2>&1 || true
+              helm version > "${DUMP_DIR}/versions-helm.txt" 2>&1 || true
               helm list -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-releases.yaml" 2>>"$DUMP_ERR" || true
               # Helm values can carry plaintext credentials (CI basic-auth, license) — redact via yq, or skip if unavailable.
               if command -v yq >/dev/null 2>&1; then
@@ -206,6 +210,8 @@ runs:
               # kube-system on kind/EKS/AKS/GKE; OpenShift/ROSA run it in openshift-dns.
               kubectl "${CTX_ARGS[@]}" -n kube-system get configmap coredns -o yaml > "${DUMP_DIR}/coredns-configmap.yaml" 2>>"$DUMP_ERR" || true
               kubectl "${CTX_ARGS[@]}" -n kube-system logs -l k8s-app=kube-dns --prefix --tail="$ARTIFACT_TAIL" > "${DUMP_DIR}/coredns-logs.txt" 2>&1 || true
+              # Some clusters label CoreDNS app=coredns instead of k8s-app=kube-dns (cf. kubernetes-restart-coredns).
+              kubectl "${CTX_ARGS[@]}" -n kube-system logs -l app=coredns --prefix --tail="$ARTIFACT_TAIL" >> "${DUMP_DIR}/coredns-logs.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n openshift-dns get configmap dns-default -o yaml > "${DUMP_DIR}/openshift-dns-configmap.yaml" 2>>"$DUMP_ERR" || true
               kubectl "${CTX_ARGS[@]}" -n openshift-dns logs -l dns.operator.openshift.io/daemonset-dns=default -c dns \
                 --prefix --tail="$ARTIFACT_TAIL" > "${DUMP_DIR}/openshift-dns-logs.txt" 2>&1 || true
@@ -226,7 +232,7 @@ runs:
                   kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous --tail="$ARTIFACT_TAIL" \
                     > "${DUMP_DIR}/${pod_name}-${container}-logs-previous.txt" 2>&1 || true
                 done
-              done
+              done || true
 
               echo "dump-dir=${DUMP_DIR}" >> "$GITHUB_OUTPUT"
           id: dump
