@@ -38,7 +38,7 @@ runs:
               fi
 
               echo "::group::All pods in namespace ${NAMESPACE}"
-              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po -o wide
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po -o wide || true
               echo "::endgroup::"
 
               echo "::group::Helm releases"
@@ -74,7 +74,7 @@ runs:
                 echo "============================================"
 
                 echo "::group::${pod_name} - describe"
-                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" describe po "$pod_name"
+                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" describe po "$pod_name" || true
                 echo "::endgroup::"
 
                 # Show init container logs if any init container failed
