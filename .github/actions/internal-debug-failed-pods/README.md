@@ -2,7 +2,7 @@
 
 ## Description
 
-Collect debug info from failed pods (CrashLoopBackOff, Error, not ready) and upload complete logs as artifact
+Collect debug info from failed pods (CrashLoopBackOff, Error, not ready) and upload logs and cluster state as an artifact
 
 ## Inputs
 
@@ -10,8 +10,8 @@ Collect debug info from failed pods (CrashLoopBackOff, Error, not ready) and upl
 | --- | --- | --- | --- |
 | `namespace` | <p>The Kubernetes namespace to inspect</p> | `true` | `""` |
 | `context` | <p>The kubectl context to use (for multi-cluster setups). If empty, the current context is used.</p> | `false` | `""` |
-| `log-tail-lines` | <p>Number of log tail lines to display in the CI output (full logs are always uploaded as artifact)</p> | `false` | `200` |
-| `artifact-log-tail-lines` | <p>Max log lines per container for the artifact dump and the root-cause log scan; bounds runaway/noisy logs while staying effectively complete</p> | `false` | `100000` |
+| `log-tail-lines` | <p>Number of log tail lines shown inline in the CI output; the artifact keeps up to artifact-log-tail-lines per container</p> | `false` | `200` |
+| `artifact-log-tail-lines` | <p>Per-container log line cap for the artifact dump and root-cause scan (bounds noisy logs)</p> | `false` | `100000` |
 | `artifact-suffix` | <p>Suffix appended to the artifact name (e.g. scenario/declination identifier)</p> | `false` | `""` |
 
 
@@ -37,13 +37,13 @@ This action is a `composite` action.
     # Default: ""
 
     log-tail-lines:
-    # Number of log tail lines to display in the CI output (full logs are always uploaded as artifact)
+    # Number of log tail lines shown inline in the CI output; the artifact keeps up to artifact-log-tail-lines per container
     #
     # Required: false
     # Default: 200
 
     artifact-log-tail-lines:
-    # Max log lines per container for the artifact dump and the root-cause log scan; bounds runaway/noisy logs while staying effectively complete
+    # Per-container log line cap for the artifact dump and root-cause scan (bounds noisy logs)
     #
     # Required: false
     # Default: 100000

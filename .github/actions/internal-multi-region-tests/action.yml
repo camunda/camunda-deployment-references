@@ -144,6 +144,9 @@ runs:
                 # helm-version flips to a released value and this block is bypassed).
                 # TODO: [release-duty] when the pre-release line moves to the next major,
                 # bump CHART_GIT_REF and the hardcoded 8.10 in the renovate regex below.
+                # A release tag carries the previous version in Chart.yaml (tag N ships
+                # version N-1), so the built chart is one prerelease behind CHART_GIT_REF (this
+                # is intentional — the known-good set the integration tests validate).
                 # renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$
                 CHART_GIT_REF="camunda-platform-8.10-15.0.0-alpha2"
                 CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
