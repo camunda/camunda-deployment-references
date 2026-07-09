@@ -46,12 +46,20 @@ orchestration:
         secondaryStorage:
             type: elasticsearch
     clusterSize: '8'
-    # Disable the Camunda and Zeebe exporters as we use region specific ones below
+    # Disable the Zeebe exporter as we use the region-specific exporters (env) below.
     exporters:
-        camunda:
-            enabled: false
         zeebe:
             enabled: false
+    # Disable the inbuilt Camunda exporter via unified configuration. The values key
+    # orchestration.exporters.camunda.enabled is deprecated in chart 8.10 (removed in
+    # v16); it is a template toggle, so it is migrated to the equivalent app-config key.
+    extraConfiguration:
+        - file: orchestration-camunda-exporter.yaml
+          content: |
+              camunda:
+                data:
+                  secondary-storage:
+                    autoconfigure-camunda-exporter: false
     env:
         - name: CAMUNDA_CLUSTER_PARTITIONCOUNT
           value: '8'

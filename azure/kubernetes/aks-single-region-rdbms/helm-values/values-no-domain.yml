@@ -55,10 +55,18 @@ optimize:
 # RDBMS secondary storage configuration
 orchestration:
     exporters:
-        camunda:
-            enabled: false
         rdbms:
             enabled: true
+    # Disable the inbuilt Camunda exporter via unified configuration. The values key
+    # orchestration.exporters.camunda.enabled is deprecated in chart 8.10 (removed in
+    # v16); it is a template toggle, so it is migrated to the equivalent app-config key.
+    extraConfiguration:
+        - file: orchestration-camunda-exporter.yaml
+          content: |
+              camunda:
+                data:
+                  secondary-storage:
+                    autoconfigure-camunda-exporter: false
 
     data:
         secondaryStorage:
@@ -93,4 +101,12 @@ webModeler:
             secret:
                 existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
-            fromAddress: changeme@example.com
+        # from-address is deprecated as a values key in chart 8.10 (removed in v16),
+        # so the sender address is supplied via unified configuration instead.
+        extraConfiguration:
+            - file: webmodeler-mail.yaml
+              content: |
+                  camunda:
+                    modeler:
+                      mail:
+                        from-address: changeme@example.com

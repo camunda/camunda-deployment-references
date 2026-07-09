@@ -24,7 +24,14 @@ webModeler:
                 existingSecret: pg-webmodeler-secret
                 existingSecretKey: password
 
-        # Mail configuration (required)
-        mail:
-            fromAddress: noreply@camunda.local
-            fromName: Camunda Platform
+        # Mail configuration (required). The from-address/from-name values keys are
+        # deprecated in chart 8.10 (removed in v16), so they are supplied via unified
+        # configuration instead.
+        extraConfiguration:
+            - file: webmodeler-mail.yaml
+              content: |
+                  camunda:
+                    modeler:
+                      mail:
+                        from-address: noreply@camunda.local
+                        from-name: Camunda Platform
