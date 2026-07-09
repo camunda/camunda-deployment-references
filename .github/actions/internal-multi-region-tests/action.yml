@@ -208,6 +208,7 @@ runs:
               kube-context: ${{ inputs.cluster-0-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
               vault-secret-id: ${{ inputs.vault-secret-id }}
@@ -222,6 +223,7 @@ runs:
               kube-context: ${{ inputs.cluster-1-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
               vault-secret-id: ${{ inputs.vault-secret-id }}
