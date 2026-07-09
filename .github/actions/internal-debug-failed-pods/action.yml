@@ -205,6 +205,8 @@ runs:
               # kube-system on kind/EKS/AKS/GKE; OpenShift/ROSA run it in openshift-dns.
               kubectl "${CTX_ARGS[@]}" -n kube-system get configmap coredns -o yaml > "${DUMP_DIR}/coredns-configmap.yaml" 2>>"$DUMP_ERR" || true
               kubectl "${CTX_ARGS[@]}" -n kube-system logs -l k8s-app=kube-dns --prefix --tail="$ARTIFACT_TAIL" > "${DUMP_DIR}/coredns-logs.txt" 2>&1 || true
+              # Some clusters label CoreDNS app=coredns instead of k8s-app=kube-dns (cf. kubernetes-restart-coredns).
+              kubectl "${CTX_ARGS[@]}" -n kube-system logs -l app=coredns --prefix --tail="$ARTIFACT_TAIL" >> "${DUMP_DIR}/coredns-logs.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n openshift-dns get configmap dns-default -o yaml > "${DUMP_DIR}/openshift-dns-configmap.yaml" 2>>"$DUMP_ERR" || true
               kubectl "${CTX_ARGS[@]}" -n openshift-dns logs -l dns.operator.openshift.io/daemonset-dns=default -c dns \
                 --prefix --tail="$ARTIFACT_TAIL" > "${DUMP_DIR}/openshift-dns-logs.txt" 2>&1 || true
