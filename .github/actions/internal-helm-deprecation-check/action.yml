@@ -68,6 +68,14 @@ inputs:
             See: https://github.com/camunda/camunda-platform-helm/issues/4564
         required: false
         default: 'true'
+    local-chart-path:
+        description: |
+            Optional path to a locally source-built chart directory (one that
+            contains values.schema.json). When set, the unknown-keys check reads
+            the schema from there instead of pulling the chart from a registry, so
+            the pre-release (dev) line needs no private OCI registry authentication.
+        required: false
+        default: ''
     comment-section-key:
         description: |
             Optional extra identifier mixed into the PR comment section ID.
@@ -397,37 +405,36 @@ runs:
                   exit 0
               fi
 
-              # Pull the chart to extract its schema.
-              # Try the OCI registry first, then fall back to the Helm repo.
-              # Pre-release versions (e.g. 14.0.0-alpha6) may not have their
-              # own OCI tag when installed via a floating tag like "14-dev-latest".
-              CHART_PULLED=false
-              if helm pull "oci://registry.camunda.cloud/team-distribution/${CHART_NAME}" \
-                  --version "${CHART_VERSION}" \
-                  --destination "${WORK_DIR}" \
-                  --untar 2>/dev/null; then
-                  CHART_PULLED=true
-              else
-                  echo "OCI pull failed, trying Helm repo fallback..."
-                  if helm pull "${CHART_NAME}" \
+              # Locate the chart's values.schema.json. Prefer a locally source-built
+              # chart so the pre-release (dev) line needs no registry auth: an explicit
+              # local-chart-path input (dual-region), else the source-build checkout at
+              # .camunda-platform-helm (single-region/generic/kind). Fall back to the
+              # public Helm repo for released charts. The private OCI registry is
+              # intentionally no longer used here.
+              LOCAL_CHART_PATH="${{ inputs.local-chart-path }}"
+              AUTODETECT_CHART="${GITHUB_WORKSPACE}/.camunda-platform-helm/charts/${CHART_NAME}"
+              SCHEMA_PATH=""
+              if [[ -n "${LOCAL_CHART_PATH}" && -f "${LOCAL_CHART_PATH}/values.schema.json" ]]; then
+                  echo "Using values.schema.json from the source-built chart at ${LOCAL_CHART_PATH}"
+                  SCHEMA_PATH="${LOCAL_CHART_PATH}/values.schema.json"
+              elif [[ -f "${AUTODETECT_CHART}/values.schema.json" ]]; then
+                  echo "Using values.schema.json from the source-built chart at ${AUTODETECT_CHART}"
+                  SCHEMA_PATH="${AUTODETECT_CHART}/values.schema.json"
+              elif helm pull "${CHART_NAME}" \
                       --repo "https://helm.camunda.io" \
                       --version "${CHART_VERSION}" \
                       --destination "${WORK_DIR}" \
                       --untar 2>/dev/null; then
-                      CHART_PULLED=true
-                  fi
-              fi
-
-              if [[ "${CHART_PULLED}" != "true" ]]; then
-                  echo "::warning::Could not pull chart ${CHART_NAME}:${CHART_VERSION}" \
-                      "from OCI registry or Helm repo." \
-                      "The version may not be published yet. Skipping unknown keys check."
+                  SCHEMA_PATH="${WORK_DIR}/${CHART_NAME}/values.schema.json"
+              else
+                  echo "::warning::Could not obtain the schema for chart ${CHART_NAME}:${CHART_VERSION}" \
+                      "(no local source-built chart, and not published to the public Helm repo)." \
+                      "Skipping unknown keys check."
                   exit 0
               fi
 
-              SCHEMA_PATH="${WORK_DIR}/${CHART_NAME}/values.schema.json"
               if [[ ! -f "${SCHEMA_PATH}" ]]; then
-                  echo "::warning::No values.schema.json found in chart ${CHART_NAME}:${CHART_VERSION}, skipping unknown keys check."
+                  echo "::warning::No values.schema.json found for chart ${CHART_NAME}:${CHART_VERSION}, skipping unknown keys check."
                   exit 0
               fi
 
