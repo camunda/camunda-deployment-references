@@ -15,7 +15,6 @@ webModeler:
     # Use external PostgreSQL for WebModeler
     restapi:
         externalDatabase:
-            enabled: true
             host: pg-webmodeler-rw
             port: 5432
             database: webmodeler
