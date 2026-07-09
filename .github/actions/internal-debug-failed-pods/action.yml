@@ -31,6 +31,7 @@ runs:
 
               NAMESPACE="${{ inputs.namespace }}"
               LOG_TAIL="${{ inputs.log-tail-lines }}"
+              ARTIFACT_TAIL="${{ inputs.artifact-log-tail-lines }}"
               CTX_ARGS=()
               if [[ -n "${{ inputs.context }}" ]]; then
                 CTX_ARGS=(--context="${{ inputs.context }}")
@@ -116,8 +117,8 @@ runs:
                   crash_re="${crash_re}|Access denied|Unauthorized|OutOfMemory|BindException"
                   cause=$(
                     {
-                      kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous 2>/dev/null || true
-                      kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" 2>/dev/null || true
+                      kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous --tail="$ARTIFACT_TAIL" 2>/dev/null || true
+                      kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --tail="$ARTIFACT_TAIL" 2>/dev/null || true
                     } | grep -aiE "$crash_re" | head -25 || true)
                   if [[ -n "$cause" ]]; then
                     echo "::group::🚨 ${pod_name}/${container} — likely root cause"
@@ -152,6 +153,11 @@ runs:
               ARTIFACT_TAIL="${{ inputs.artifact-log-tail-lines }}"
               # Stderr of the -o yaml dumps is routed here so the .yaml files stay valid YAML.
               DUMP_ERR="${DUMP_DIR}/_dump-stderr.log"
+              # yq redaction: blank out common secret-bearing keys (+ the license key)
+              # so credentials from `helm get values` never reach the artifact.
+              REDACT_KEYS='(.. | select(key | test("(?i)(password|passphrase|secret|token|credential|apikey|accesskey|privatekey|clientsecret)"))) = "***REDACTED***"'
+              REDACT_LICENSE='(.. | select(tag == "!!map" and has("license")).license | select(tag == "!!map" and has("key")).key) = "***REDACTED***"'
+              REDACT="${REDACT_KEYS} | ${REDACT_LICENSE}"
               CTX_ARGS=()
               if [[ -n "${{ inputs.context }}" ]]; then
                 CTX_ARGS=(--context="${{ inputs.context }}")
@@ -164,7 +170,14 @@ runs:
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get pvc > "${DUMP_DIR}/pvcs.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get configmaps,secrets > "${DUMP_DIR}/configmaps-secrets.txt" 2>&1 || true
               helm list -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-releases.yaml" 2>>"$DUMP_ERR" || true
-              helm get values camunda -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-values-camunda.yaml" 2>>"$DUMP_ERR" || true
+              # Helm values can carry plaintext credentials (CI basic-auth, license) — redact via yq, or skip if unavailable.
+              if command -v yq >/dev/null 2>&1; then
+                helm get values camunda -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" 2>>"$DUMP_ERR" \
+                  | yq "$REDACT" > "${DUMP_DIR}/helm-values-camunda.yaml" 2>>"$DUMP_ERR" || true
+              else
+                echo "yq not found; skipping helm values dump to avoid leaking secret values" \
+                  > "${DUMP_DIR}/helm-values-camunda.yaml"
+              fi
               # Rendered chart manifest, with Secret documents stripped so no
               # credential data ends up in the uploaded artifact.
               if command -v yq >/dev/null 2>&1; then
