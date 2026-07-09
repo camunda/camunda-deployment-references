@@ -148,8 +148,8 @@ runs:
               set -euo pipefail
 
               NAMESPACE="${{ inputs.namespace }}"
-              DUMP_DIR="/tmp/pod-debug-dump-${NAMESPACE}"
-              mkdir -p "$DUMP_DIR"
+              DUMP_DIR="${RUNNER_TEMP:-/tmp}/pod-debug-dump-${NAMESPACE}"
+              ( umask 077; mkdir -p "$DUMP_DIR" )
               ARTIFACT_TAIL="${{ inputs.artifact-log-tail-lines }}"
               # Stderr of the -o yaml dumps is routed here so the .yaml files stay valid YAML.
               DUMP_ERR="${DUMP_DIR}/_dump-stderr.log"
