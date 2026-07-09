@@ -158,7 +158,15 @@ runs:
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get configmaps,secrets > "${DUMP_DIR}/configmaps-secrets.txt" 2>&1 || true
               helm list -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-releases.yaml" 2>&1 || true
               helm get values camunda -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-values-camunda.yaml" 2>&1 || true
-              helm get manifest camunda -n "$NAMESPACE" "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-manifest-camunda.yaml" 2>&1 || true
+              # Rendered chart manifest, with Secret documents stripped so no
+              # credential data ends up in the uploaded artifact.
+              if command -v yq >/dev/null 2>&1; then
+                helm get manifest camunda -n "$NAMESPACE" "${CTX_ARGS[@]/#--context=/--kube-context=}" 2>/dev/null \
+                  | yq 'select(.kind != "Secret")' > "${DUMP_DIR}/helm-manifest-camunda.yaml" 2>/dev/null || true
+              else
+                echo "yq not found; skipping helm manifest dump to avoid leaking Secret data" \
+                  > "${DUMP_DIR}/helm-manifest-camunda.yaml"
+              fi
 
               # Full workload + networking resources (yaml) for the complete picture
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get deploy,sts,ds,rs,job,cronjob -o yaml > "${DUMP_DIR}/workloads.yaml" 2>&1 || true
