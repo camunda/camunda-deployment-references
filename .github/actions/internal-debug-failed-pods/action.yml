@@ -13,6 +13,10 @@ inputs:
         description: Number of log tail lines to display in the CI output (full logs are always uploaded as artifact)
         required: false
         default: '200'
+    artifact-log-tail-lines:
+        description: Max log lines captured per container in the uploaded artifact; bounds runaway/noisy logs while staying effectively complete
+        required: false
+        default: '100000'
     artifact-suffix:
         description: Suffix appended to the artifact name (e.g. scenario/declination identifier)
         required: false
@@ -145,6 +149,9 @@ runs:
               NAMESPACE="${{ inputs.namespace }}"
               DUMP_DIR="/tmp/pod-debug-dump-${NAMESPACE}"
               mkdir -p "$DUMP_DIR"
+              ARTIFACT_TAIL="${{ inputs.artifact-log-tail-lines }}"
+              # Stderr of the -o yaml dumps is routed here so the .yaml files stay valid YAML.
+              DUMP_ERR="${DUMP_DIR}/_dump-stderr.log"
               CTX_ARGS=()
               if [[ -n "${{ inputs.context }}" ]]; then
                 CTX_ARGS=(--context="${{ inputs.context }}")
@@ -156,8 +163,8 @@ runs:
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get svc,endpoints > "${DUMP_DIR}/services-endpoints.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get pvc > "${DUMP_DIR}/pvcs.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get configmaps,secrets > "${DUMP_DIR}/configmaps-secrets.txt" 2>&1 || true
-              helm list -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-releases.yaml" 2>&1 || true
-              helm get values camunda -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-values-camunda.yaml" 2>&1 || true
+              helm list -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-releases.yaml" 2>>"$DUMP_ERR" || true
+              helm get values camunda -n "$NAMESPACE" -o yaml "${CTX_ARGS[@]/#--context=/--kube-context=}" > "${DUMP_DIR}/helm-values-camunda.yaml" 2>>"$DUMP_ERR" || true
               # Rendered chart manifest, with Secret documents stripped so no
               # credential data ends up in the uploaded artifact.
               if command -v yq >/dev/null 2>&1; then
@@ -169,9 +176,9 @@ runs:
               fi
 
               # Full workload + networking resources (yaml) for the complete picture
-              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get deploy,sts,ds,rs,job,cronjob -o yaml > "${DUMP_DIR}/workloads.yaml" 2>&1 || true
-              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get ingress,httproute,gateway,networkpolicy,sa -o yaml > "${DUMP_DIR}/networking-resources.yaml" 2>&1 || true
-              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get events -o yaml > "${DUMP_DIR}/namespace-events.yaml" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get deploy,sts,ds,rs,job,cronjob -o yaml > "${DUMP_DIR}/workloads.yaml" 2>>"$DUMP_ERR" || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get ingress,httproute,gateway,networkpolicy,sa -o yaml > "${DUMP_DIR}/networking-resources.yaml" 2>>"$DUMP_ERR" || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get events -o yaml > "${DUMP_DIR}/namespace-events.yaml" 2>>"$DUMP_ERR" || true
 
               # Node capacity/conditions (scheduling, OOM, disk/memory pressure)
               kubectl "${CTX_ARGS[@]}" get nodes -o wide > "${DUMP_DIR}/nodes-overview.txt" 2>&1 || true
@@ -179,22 +186,24 @@ runs:
 
               # In-cluster DNS (CoreDNS) config + logs — decisive for OIDC-issuer /
               # ingress-domain resolution failures (UnknownHostException at startup).
-              kubectl "${CTX_ARGS[@]}" -n kube-system get configmap coredns -o yaml > "${DUMP_DIR}/coredns-configmap.yaml" 2>&1 || true
-              kubectl "${CTX_ARGS[@]}" -n kube-system logs -l k8s-app=kube-dns --prefix --tail=-1 > "${DUMP_DIR}/coredns-logs.txt" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" -n kube-system get configmap coredns -o yaml > "${DUMP_DIR}/coredns-configmap.yaml" 2>>"$DUMP_ERR" || true
+              kubectl "${CTX_ARGS[@]}" -n kube-system logs -l k8s-app=kube-dns --prefix --tail="$ARTIFACT_TAIL" > "${DUMP_DIR}/coredns-logs.txt" 2>&1 || true
 
               # Dump info for ALL pods (incl. Completed init/setup jobs) — per container
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers \
                 | awk '{print $1}' | while read -r pod_name; do
                 echo "Dumping info for pod: ${pod_name}"
                 kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" describe po "$pod_name" > "${DUMP_DIR}/${pod_name}-describe.txt" 2>&1 || true
-                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" -o yaml > "${DUMP_DIR}/${pod_name}-manifest.yaml" 2>&1 || true
+                kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" -o yaml > "${DUMP_DIR}/${pod_name}-manifest.yaml" 2>>"$DUMP_ERR" || true
 
                 # Dump logs per container (init + main)
                 all_containers=$(kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po "$pod_name" \
                   -o jsonpath='{.spec.initContainers[*].name} {.spec.containers[*].name}' 2>/dev/null || true)
                 for container in $all_containers; do
-                  kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" > "${DUMP_DIR}/${pod_name}-${container}-logs.txt" 2>&1 || true
-                  kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous > "${DUMP_DIR}/${pod_name}-${container}-logs-previous.txt" 2>&1 || true
+                  kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --tail="$ARTIFACT_TAIL" \
+                    > "${DUMP_DIR}/${pod_name}-${container}-logs.txt" 2>&1 || true
+                  kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" logs "$pod_name" -c "$container" --previous --tail="$ARTIFACT_TAIL" \
+                    > "${DUMP_DIR}/${pod_name}-${container}-logs-previous.txt" 2>&1 || true
                 done
               done
 
