@@ -145,10 +145,12 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
+              # The dump can contain sensitive cluster context — keep every file private.
+              umask 077
 
               NAMESPACE="${{ inputs.namespace }}"
               DUMP_DIR="${RUNNER_TEMP:-/tmp}/pod-debug-dump-${NAMESPACE}"
-              ( umask 077; mkdir -p "$DUMP_DIR" )
+              mkdir -p "$DUMP_DIR"
               ARTIFACT_TAIL="${{ inputs.artifact-log-tail-lines }}"
               # Stderr of the -o yaml dumps is routed here so the .yaml files stay valid YAML.
               DUMP_ERR="${DUMP_DIR}/_dump-stderr.log"
