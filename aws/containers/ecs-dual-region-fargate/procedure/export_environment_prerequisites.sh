@@ -10,8 +10,6 @@
 # Must be sourced (not executed) to export variables to current shell.        #
 ###############################################################################
 
-set -euo pipefail
-
 ###############################################################################
 # User-configurable defaults                                                  #
 ###############################################################################
@@ -19,11 +17,12 @@ set -euo pipefail
 export REGION_0=${REGION_0:-eu-west-2}
 export REGION_1=${REGION_1:-eu-west-3}
 
-# Path to Terraform root (relative to this script). With the 3-state layout
-# (vpc/, infra/, app/), most outputs needed for environment setup live in
-# infra/. Override TF_DIR if using an alternate state location.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TF_DIR="${TF_DIR:-${SCRIPT_DIR}/../terraform/infra}"
+# Path to Terraform root — anchored to the git repo root so this script works
+# regardless of which directory it is sourced from.
+# Override TF_DIR to point at an alternate state location.
+_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+TF_DIR="${TF_DIR:-${_GIT_ROOT}/aws/containers/ecs-dual-region-fargate/terraform/infra}"
+unset _GIT_ROOT
 
 ###############################################################################
 # Retrieve Terraform outputs                                                  #
@@ -33,18 +32,24 @@ echo "Fetching Terraform outputs from ${TF_DIR} ..."
 
 TF_OUTPUT=$(terraform -chdir="${TF_DIR}" output -json)
 
+# Override region defaults from Terraform outputs if available
+_TF_REGION_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0.value // empty')
+_TF_REGION_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1.value // empty')
+[ -n "${_TF_REGION_0}" ] && export REGION_0="${_TF_REGION_0}"
+[ -n "${_TF_REGION_1}" ] && export REGION_1="${_TF_REGION_1}"
+
 # Region 0
-CLUSTER_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0_ecs_cluster_name.value')
+CLUSTER_0=$(echo "${TF_OUTPUT}" | jq -r '.ecs_cluster_region_0_id.value | split("/") | last')
 ALB_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0_alb_endpoint.value')
 NLB_GRPC_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0_nlb_grpc_endpoint.value')
-NLB_RAFT_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0_nlb_raft_endpoint.value')
+NLB_RAFT_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.nlb_raft_region_0_dns_name.value')
 export CLUSTER_0 ALB_ENDPOINT_0 NLB_GRPC_ENDPOINT_0 NLB_RAFT_ENDPOINT_0
 
 # Region 1
-CLUSTER_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1_ecs_cluster_name.value')
+CLUSTER_1=$(echo "${TF_OUTPUT}" | jq -r '.ecs_cluster_region_1_id.value | split("/") | last')
 ALB_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1_alb_endpoint.value')
 NLB_GRPC_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1_nlb_grpc_endpoint.value')
-NLB_RAFT_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1_nlb_raft_endpoint.value')
+NLB_RAFT_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.nlb_raft_region_1_dns_name.value')
 export CLUSTER_1 ALB_ENDPOINT_1 NLB_GRPC_ENDPOINT_1 NLB_RAFT_ENDPOINT_1
 
 # Aurora Global Database
