@@ -34,7 +34,7 @@ helm 4.2.2
 
 jq 1.7.1
 
-just 1.55.1
+just 1.56.0
 
 # renovate: datasource=github-tags depName=kubernetes-sigs/kind
 kind 0.32.0
