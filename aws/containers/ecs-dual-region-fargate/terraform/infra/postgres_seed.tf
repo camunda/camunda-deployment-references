@@ -94,9 +94,9 @@ resource "null_resource" "run_db_seed_task" {
 
   provisioner "local-exec" {
     interpreter = ["/bin/bash", "-lc"]
-    environment = {
-      AWS_PROFILE = var.aws_profile != null ? var.aws_profile : ""
-    }
+    environment = merge(
+      var.aws_profile != null ? { AWS_PROFILE = var.aws_profile } : {}
+    )
     command = <<-EOT
       set -euo pipefail
 

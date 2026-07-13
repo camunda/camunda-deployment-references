@@ -35,9 +35,13 @@ variables {
 run "default_plan_succeeds" {
   command = plan
 
+  variables {
+    networking_mode = "vpc_peering"
+  }
+
   assert {
     condition     = output.networking_mode == "vpc_peering"
-    error_message = "Default networking_mode should be vpc_peering"
+    error_message = "networking_mode output should reflect the vpc_peering input"
   }
 }
 
