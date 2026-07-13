@@ -40,16 +40,12 @@ resource "aws_ec2_transit_gateway" "accepter" {
 # TGW Peering (cross-region)  #
 ################################
 
-data "aws_region" "accepter" {
-  provider = aws.accepter
-}
-
 resource "aws_ec2_transit_gateway_peering_attachment" "owner_to_accepter" {
   provider = aws.owner
 
   transit_gateway_id      = aws_ec2_transit_gateway.owner.id
   peer_transit_gateway_id = aws_ec2_transit_gateway.accepter.id
-  peer_region             = data.aws_region.accepter.id
+  peer_region             = var.accepter_region
 
   tags = {
     Name = "${var.prefix}-tgw-peering"
