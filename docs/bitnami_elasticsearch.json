@@ -203,6 +203,10 @@
       "newDigest": "sha256:3c668772a3e4c9bf94b10e97cee04d90dcd993c7a05d170266bea054a6897e85"
     },
     {
+      "version": "8.19.18-debian-12-r1",
+      "newDigest": "sha256:23ba1951eaf1aeacb5ab8c361931a92b93d0276c1b5502921e71e3bdb08cbc90"
+    },
+    {
       "version": "9.0.8-debian-12-r1",
       "newDigest": "sha256:f30618ae8626fec1bd1edaa7a8a6c576b40a498b1e0036fca0f454f47e683385"
     },
@@ -469,6 +473,10 @@
     {
       "version": "9.4.3-debian-12-r0",
       "newDigest": "sha256:c4462dec20ce427d3ddc70c2714226e2baa63839047e4995bc095612f3d79031"
+    },
+    {
+      "version": "9.4.3-debian-12-r1",
+      "newDigest": "sha256:717d5a3ff36123420b115190d7b49a618bf8198fdee9e9fa6e8c7f3c2f5e8eb5"
     }
   ]
 }
