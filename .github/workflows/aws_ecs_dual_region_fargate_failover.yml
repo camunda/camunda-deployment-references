@@ -28,6 +28,8 @@ env:
     AWS_PROFILE: infraex
     AWS_REGION: eu-west-2
     TEST_DIR: ./aws/containers/ecs-dual-region-fargate/test/src
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BACKEND_REGION: eu-central-1
 
 jobs:
     triage:
@@ -75,6 +77,8 @@ jobs:
                   TEST_AWS_PROFILE: ${{ env.AWS_PROFILE }}
                   TEST_REGION_0: eu-west-2
                   TEST_REGION_1: eu-west-3
+                  TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
+                  TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
               run: |
                   set -e
                   TEST_FILTER="${{ inputs.test_name }}"

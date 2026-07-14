@@ -40,6 +40,8 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 	region1 := envOrDefault("TEST_REGION_1", "eu-west-3")
 	clusterPrefix := envOrDefault("TEST_CLUSTER_PREFIX", fmt.Sprintf("e2e-fo-%s-%s", label, strings.ToLower(random.UniqueId())))
 	raftTimeoutMin := envIntOrDefault(t, "TEST_RAFT_TIMEOUT_MIN", 30)
+	backendBucket := envOrDefault("TEST_BACKEND_BUCKET", "tests-ra-aws-rosa-hcp-tf-state-eu-central-1")
+	backendRegion := envOrDefault("TEST_BACKEND_REGION", "eu-central-1")
 
 	_, thisFile, _, _ := runtime.Caller(0)
 	thisDir := filepath.Dir(thisFile)
@@ -76,6 +78,9 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 			"aws_profile":  awsProfile,
 			"default_tags": commonTags,
 		},
+		BackendBucket:    backendBucket,
+		BackendRegion:    backendRegion,
+		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
 	}
 
 	var vpcOpts, infraOpts, appOpts *terraform.Options
