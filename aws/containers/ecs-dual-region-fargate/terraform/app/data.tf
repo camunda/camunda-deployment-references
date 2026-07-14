@@ -3,10 +3,12 @@
 ################################
 
 data "terraform_remote_state" "infra" {
-  backend = "local"
+  backend = "s3"
 
   config = {
-    path = var.infra_state_path
+    bucket = var.terraform_backend_bucket
+    key    = "${var.terraform_backend_key_prefix}infra/terraform.tfstate"
+    region = var.terraform_backend_region
   }
 }
 

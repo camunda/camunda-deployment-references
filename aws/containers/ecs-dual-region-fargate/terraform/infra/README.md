@@ -111,7 +111,9 @@
 | <a name="input_secondary_storage_type"></a> [secondary\_storage\_type](#input\_secondary\_storage\_type) | Camunda secondary storage: 'rdbms' (Aurora Global) or 'opensearch' | `string` | `"rdbms"` | no |
 | <a name="input_secrets_kms_key_arn"></a> [secrets\_kms\_key\_arn](#input\_secrets\_kms\_key\_arn) | Optional existing KMS key ARN for region 0. If empty, a CMK is created. | `string` | `""` | no |
 | <a name="input_secrets_kms_key_arn_accepter"></a> [secrets\_kms\_key\_arn\_accepter](#input\_secrets\_kms\_key\_arn\_accepter) | Optional existing KMS key ARN for region 1. If empty, a CMK is created. | `string` | `""` | no |
-| <a name="input_vpc_state_path"></a> [vpc\_state\_path](#input\_vpc\_state\_path) | Path to the vpc/ terraform state file (local backend) or S3 key. infra/ reads VPC IDs, subnet IDs, CIDRs, etc. from this state. | `string` | `"../vpc/terraform.tfstate"` | no |
+| <a name="input_terraform_backend_bucket"></a> [terraform\_backend\_bucket](#input\_terraform\_backend\_bucket) | S3 bucket name storing Terraform state for all layers | `string` | n/a | yes |
+| <a name="input_terraform_backend_key_prefix"></a> [terraform\_backend\_key\_prefix](#input\_terraform\_backend\_key\_prefix) | S3 key prefix shared by all layers. E.g. 'aws/containers/ecs-dual-region-fargate/my-cluster/' yields 's3://<bucket>/<prefix>vpc/terraform.tfstate' | `string` | n/a | yes |
+| <a name="input_terraform_backend_region"></a> [terraform\_backend\_region](#input\_terraform\_backend\_region) | AWS region of the S3 bucket storing Terraform state (may differ from the deployment regions) | `string` | `"eu-central-1"` | no |
 ## Outputs
 
 | Name | Description |

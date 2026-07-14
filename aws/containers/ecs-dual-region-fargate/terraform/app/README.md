@@ -24,7 +24,11 @@
 | <a name="input_camunda_image"></a> [camunda\_image](#input\_camunda\_image) | Container image for the Camunda orchestration cluster tasks (Zeebe broker + gateway + webapps) | `string` | `"camunda/camunda:8.10-SNAPSHOT"` | no |
 | <a name="input_connectors_image"></a> [connectors\_image](#input\_connectors\_image) | Container image for the Camunda connectors-bundle tasks. Separate from camunda\_image because connectors ship as a distinct artifact from the orchestration cluster. | `string` | `"camunda/connectors-bundle:8.10-SNAPSHOT"` | no |
 | <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
-| <a name="input_infra_state_path"></a> [infra\_state\_path](#input\_infra\_state\_path) | Path to the infra terraform state file (local backend) or S3 key | `string` | `"../infra/terraform.tfstate"` | no |
+| <a name="input_region_0"></a> [region\_0](#input\_region\_0) | AWS region for the primary (owner) cluster (must match infra/ and vpc/ configuration) | `string` | `"eu-west-2"` | no |
+| <a name="input_region_1"></a> [region\_1](#input\_region\_1) | AWS region for the secondary (accepter) cluster (must match infra/ and vpc/ configuration) | `string` | `"eu-west-3"` | no |
+| <a name="input_terraform_backend_bucket"></a> [terraform\_backend\_bucket](#input\_terraform\_backend\_bucket) | S3 bucket name storing Terraform state for all layers | `string` | n/a | yes |
+| <a name="input_terraform_backend_key_prefix"></a> [terraform\_backend\_key\_prefix](#input\_terraform\_backend\_key\_prefix) | S3 key prefix shared by all layers. E.g. 'aws/containers/ecs-dual-region-fargate/my-cluster/' yields 's3://<bucket>/<prefix>infra/terraform.tfstate' | `string` | n/a | yes |
+| <a name="input_terraform_backend_region"></a> [terraform\_backend\_region](#input\_terraform\_backend\_region) | AWS region of the S3 bucket storing Terraform state (may differ from the deployment regions) | `string` | `"eu-central-1"` | no |
 ## Outputs
 
 | Name | Description |

@@ -1,11 +1,37 @@
 ################################
+# Region Configuration        #
+################################
+
+variable "region_0" {
+  type        = string
+  default     = "eu-west-2"
+  description = "AWS region for the primary (owner) cluster (must match infra/ and vpc/ configuration)"
+}
+
+variable "region_1" {
+  type        = string
+  default     = "eu-west-3"
+  description = "AWS region for the secondary (accepter) cluster (must match infra/ and vpc/ configuration)"
+}
+
+################################
 # Infra State Reference       #
 ################################
 
-variable "infra_state_path" {
+variable "terraform_backend_bucket" {
   type        = string
-  default     = "../infra/terraform.tfstate"
-  description = "Path to the infra terraform state file (local backend) or S3 key"
+  description = "S3 bucket name storing Terraform state for all layers"
+}
+
+variable "terraform_backend_region" {
+  type        = string
+  default     = "eu-central-1"
+  description = "AWS region of the S3 bucket storing Terraform state (may differ from the deployment regions)"
+}
+
+variable "terraform_backend_key_prefix" {
+  type        = string
+  description = "S3 key prefix shared by all layers. E.g. 'aws/containers/ecs-dual-region-fargate/my-cluster/' yields 's3://<bucket>/<prefix>infra/terraform.tfstate'"
 }
 
 ################################
