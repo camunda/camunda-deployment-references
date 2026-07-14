@@ -1,16 +1,13 @@
 ---
 name: Tests - Integration - AWS Compute EC2 Single Region
-
 permissions:
-    contents: read # don't allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
-
+    contents: read
+    pull-requests: write
 on:
     schedule:
         - cron: 30 2 * * 3
     workflow_dispatch:
         inputs:
-            # for compliance with other workflows, we use the same naming convention
             cluster_name:
                 description: Prefix for the resource names. Must be unique across all reference architectures.
                 type: string
@@ -29,60 +26,36 @@ on:
                 required: false
                 type: string
                 default: ec2-single-region
-    pull_request:
-        paths:
-            - .github/actions/aws-generic-terraform-cleanup/**
-            - .github/actions/aws-compute-ec2-single-region-create/**
-            - .github/actions/aws-configure-cli/**
-            - .github/actions/internal-generic-terraform-outputs/**
-            - .github/actions/internal-terraform-drift-detect/**
-            - .github/workflows/aws_compute_ec2_single_region_tests.yml
-            - .tool-versions
-            - aws/compute/ec2-single-region/**
-            - '!aws/compute/ec2-single-region/terraform/cluster/test/golden/**'
-            - generic/debian/**
-
-# limit to a single execution per actor of this workflow
+    pull_request: {}
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
     cancel-in-progress: false
-
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
-
     AWS_PROFILE: infraex
     AWS_REGION: eu-west-2
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-    S3_BACKEND_BUCKET_PREFIX: aws/compute/ec2-single-region/ # keep it synced with the name of the module for simplicity
+    S3_BACKEND_BUCKET_PREFIX: aws/compute/ec2-single-region/
     TF_MODULES_PATH: ./.action-tf-modules/aws-compute-ec2-single-region-create
-
     CI_MATRIX_FILE: .github/workflows-config/aws-compute-ec2-single-region/test_matrix.yml
     CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
-
-    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.8?(\.(?<patch>\d+))?$
     TESTS_CAMUNDA_VERSION: 8.8.31
-    TESTS_CAMUNDA_PREVIOUS_VERSION: 8.8.0 # Version to be used for upgrade tests, not updated automatically
-
-    # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.8?(\.(?<patch>\d+))?$
+    TESTS_CAMUNDA_PREVIOUS_VERSION: 8.8.0
     TESTS_CONNECTORS_VERSION: 8.8.15
-    TESTS_CONNECTORS_PREVIOUS_VERSION: 8.8.0 # Version to be used for upgrade tests, not updated automatically
-
+    TESTS_CONNECTORS_PREVIOUS_VERSION: 8.8.0
 jobs:
     triage:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
-
     clusters-info:
         needs:
             - triage
@@ -92,13 +65,11 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
               with:
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
               id: matrix
@@ -109,7 +80,6 @@ jobs:
                   cluster_prefix: ec2-${{ github.event.pull_request.number || '' }}
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
-
     prepare-clusters:
         needs:
             - clusters-info
@@ -121,11 +91,9 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
             - name: Checkout repository
-              uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-
+              uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -156,6 +124,8 @@ jobs:
                   ref-arch: ${{ matrix.scenario.name }}
                   tags: >
                       {
+
+
                         "ci-run-id": "${{ github.run_id }}",
                         "ci-run-number": "${{ github.run_number }}",
                         "ci-workflow": "${{ github.workflow }}",
@@ -166,6 +136,7 @@ jobs:
                         "ci-event": "${{ github.event_name }}",
                         "map-migrated": "migARUADZHVWZ"
                       }
+
     integration-tests:
         name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
         runs-on: ubuntu-latest
@@ -179,11 +150,9 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
         steps:
-            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-
+            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b
             - name: Install zbctl
               run: |
                   set -euo pipefail
@@ -197,10 +166,9 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
             - name: Import Artifactory credentials
               id: artifactory-credentials
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -210,10 +178,9 @@ jobs:
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/artifactory-ro ARTIFACTORY_USR;
                       secret/data/products/infrastructure-experience/ci/artifactory-ro ARTIFACTORY_PSW;
-
             - name: Import Camunda basic auth credentials
               id: camunda-credentials
-              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -223,7 +190,6 @@ jobs:
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID | CAMUNDA_BASIC_AUTH_USER;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_SECRET | CAMUNDA_BASIC_AUTH_PASSWORD;
-
             - name: Export Camunda basic auth credentials
               env:
                   CAMUNDA_BASIC_AUTH_USER: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
@@ -244,7 +210,6 @@ jobs:
                     printf '%s\n' "$CAMUNDA_BASIC_AUTH_PASSWORD"
                     echo "$delim"
                   } >> "$GITHUB_ENV"
-
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
               run: |
@@ -269,7 +234,6 @@ jobs:
                     echo "CAMUNDA_VERSION=$CAMUNDA_VERSION"
                     echo "TESTS_CAMUNDA_VERSION_HYPHENS=$TESTS_CAMUNDA_VERSION_HYPHENS"
                   } >> "$GITHUB_OUTPUT"
-
             - name: Get Terraform outputs
               id: terraform-outputs
               uses: ./.github/actions/internal-generic-terraform-outputs
@@ -279,13 +243,11 @@ jobs:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-
             - name: Terratest - Run all Tests
               id: terratest
               working-directory: aws/compute/ec2-single-region/test/src
               timeout-minutes: 121
               env:
-                  # We just need the outputs from terraform to run the tests, which is initialized in above
                   TERRAFORM_DIR: ${{ github.workspace }}/.github/actions/internal-generic-terraform-outputs
                   CAMUNDA_VERSION: ${{ env.TESTS_CAMUNDA_VERSION }}
                   CAMUNDA_PREVIOUS_VERSION: ${{ env.TESTS_CAMUNDA_PREVIOUS_VERSION }}
@@ -293,13 +255,6 @@ jobs:
                   CAMUNDA_CONNECTORS_PREVIOUS_VERSION: ${{ env.TESTS_CONNECTORS_PREVIOUS_VERSION }}
                   CAMUNDA_DISTRO_USER: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_USR }}
                   CAMUNDA_DISTRO_PASSWORD: ${{ steps.artifactory-credentials.outputs.ARTIFACTORY_PSW }}
-                  # Download the distribution + connectors bundle once and stage them on every node,
-                  # instead of each node (x3) re-downloading from Artifactory on every install. The
-                  # cache dir persists for the whole job, so re-installs (CloudWatch, upgrade) reuse
-                  # it too. This is the main lever to cut our Artifactory egress. The caching logic
-                  # lives in a CI-only helper (test/ci-distro-cache.sh) so the customer-facing
-                  # procedure scripts stay free of it; all-in-one-install.sh sources it only when
-                  # CAMUNDA_DISTRO_CACHE_LIB is set.
                   CAMUNDA_DISTRO_CACHE_DIR: ${{ runner.temp }}/camunda-distro-cache
                   CAMUNDA_DISTRO_CACHE_LIB: ${{ github.workspace }}/aws/compute/ec2-single-region/test/ci-distro-cache.sh
                   CAMUNDA_BASIC_AUTH_USER: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_USER }}
@@ -312,7 +267,6 @@ jobs:
                   go install gotest.tools/gotestsum@latest
                   # Run all tests except TestSetup and TestTeardown
                   go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m --skip 'TestSetup|TestTeardown'
-            # this is a workaround for test report not working as expected due to https://github.com/test-summary/action/issues/5
             - name: Filter logger.go from the test report (too large)
               if: always()
               working-directory: aws/compute/ec2-single-region/test/src
@@ -323,13 +277,12 @@ jobs:
                   sed 's/\n/&#xA;/g' > "./tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-filtered.xml"
             - name: Upload test reports
               if: always()
-              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
               with:
                   name: test-reports-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-${{ matrix.distro.name }}
                   path: ${{ github.workspace }}/aws/compute/ec2-single-region/test/src/tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS
                       }}-filtered.xml
                   retention-days: 7
-
     cleanup-clusters:
         name: Cleanup EC2 cluster
         if: always()
@@ -344,15 +297,13 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         steps:
-            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
-
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b
             - name: Configure AWS CLI
               if: env.CLEANUP_CLUSTERS == 'true'
               uses: ./.github/actions/aws-configure-cli
@@ -362,14 +313,12 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
             - name: Set current target branch
               id: target-branch
               run: |
                   set -euo pipefail
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
             - name: Delete on-demand Infrastructure
               uses: ./.github/actions/aws-generic-terraform-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
@@ -381,7 +330,6 @@ jobs:
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: cluster
-
     test-report:
         runs-on: ubuntu-latest
         if: always() && needs.triage.outputs.should_skip == 'false'
@@ -392,7 +340,7 @@ jobs:
             SNAPSHOT_ERROR: ${{ steps.determine-if-failed-tests-include-snapshot.outputs.SNAPSHOT_ERROR }}
         steps:
             - name: Download artifacts
-              uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+              uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
               with:
                   pattern: test-reports-*
                   path: /tmp/testreports
@@ -411,10 +359,9 @@ jobs:
                     echo "SNAPSHOT_ERROR=false" >> "$GITHUB_OUTPUT"
                   fi
             - name: Run test-summary
-              uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5 # v2
+              uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5
               with:
                   paths: /tmp/testreports/**/*.xml
-
     report-success:
         name: Report success
         if: ${{ !failure() && !cancelled() }}
@@ -424,14 +371,12 @@ jobs:
             - cleanup-clusters
             - test-report
         steps:
-            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-
+            - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
               env:
                   GH_TOKEN: ${{ github.token }}
               uses: ./.github/actions/internal-apply-skip-label
-
     report-failure:
         name: Report failure
         runs-on: ubuntu-latest
@@ -443,7 +388,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
@@ -451,3 +396,5 @@ jobs:
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
                   slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}
+
+# Scheduled trigger: 2026-07-14T22:23:50Z - Tuesday schedules 8.8
