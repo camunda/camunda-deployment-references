@@ -1,16 +1,23 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ###############################################################################
 # Failover: ECS Dual-Region Fargate                                           #
 #                                                                             #
-# Performs a controlled failover from region 0 to region 1:                   #
-#   1. Validates current state                                                #
-#   2. Scales down region 0 ECS services                                      #
-#   3. Promotes Aurora Global DB secondary (planned or unplanned)             #
-#   4. Verifies region 1 quorum and connectivity                              #
+# Performs a controlled failover from one region to the other:                #
+#   1. Scales down ECS services in the failed region (prevents split-brain)   #
+#   2. Waits for Zeebe to auto-reconfigure around the missing brokers         #
+#   3. If Zeebe does not self-heal within the timeout, force-reconfigures     #
+#   4. Verifies the surviving region has quorum                               #
+#                                                                             #
+# Aurora Global Database is NOT touched — the JDBC failover plugin and AWS   #
+# handle writer promotion automatically via the global cluster endpoint.      #
 #                                                                             #
 # Usage:                                                                      #
-#   ./failover.sh [--unplanned]                                               #
+#   ./failover.sh [--failed-region 0|1] [--force-timeout <seconds>]          #
+#                                                                             #
+# Defaults:                                                                   #
+#   --failed-region  0   (region 0 is the one being failed away from)        #
+#   --force-timeout  120 (seconds to wait for auto-reconfigure before force) #
 #                                                                             #
 # Prerequisites:                                                              #
 #   . ./export_environment_prerequisites.sh                                   #
@@ -22,210 +29,255 @@ set -euo pipefail
 : "${REGION_1:?REGION_1 must be set}"
 : "${CLUSTER_0:?CLUSTER_0 must be set}"
 : "${CLUSTER_1:?CLUSTER_1 must be set}"
-: "${AURORA_GLOBAL_CLUSTER_ID:?AURORA_GLOBAL_CLUSTER_ID must be set}"
+: "${ALB_ENDPOINT_0:?ALB_ENDPOINT_0 must be set}"
 : "${ALB_ENDPOINT_1:?ALB_ENDPOINT_1 must be set}"
 : "${ADMIN_USER:?ADMIN_USER must be set (default: admin)}"
 : "${ADMIN_PASS:?ADMIN_PASS must be set}"
 
-UNPLANNED=false
-if [ "${1:-}" = "--unplanned" ]; then
-    UNPLANNED=true
+###############################################################################
+# Argument parsing                                                            #
+###############################################################################
+
+FAILED_REGION="0"
+FORCE_TIMEOUT=120
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --failed-region) FAILED_REGION="$2"; shift 2 ;;
+    --force-timeout) FORCE_TIMEOUT="$2"; shift 2 ;;
+    *) echo "Unknown argument: $1"; exit 1 ;;
+  esac
+done
+
+if [[ "$FAILED_REGION" != "0" && "$FAILED_REGION" != "1" ]]; then
+  echo "ERROR: --failed-region must be 0 or 1"
+  exit 1
 fi
 
+# Derive surviving region and endpoints
+if [[ "$FAILED_REGION" == "0" ]]; then
+  FAILED_CLUSTER="$CLUSTER_0"
+  FAILED_AWS_REGION="$REGION_0"
+  SURVIVING_ALB="$ALB_ENDPOINT_1"
+  # Region 0 = even broker IDs, Region 1 = odd
+  BROKERS_TO_REMOVE="0,2,4,6"
+else
+  FAILED_CLUSTER="$CLUSTER_1"
+  FAILED_AWS_REGION="$REGION_1"
+  SURVIVING_ALB="$ALB_ENDPOINT_0"
+  BROKERS_TO_REMOVE="1,3,5,7"
+fi
+
+MGMT_URL="http://${SURVIVING_ALB}"
+RETRY_INTERVAL=15
+
 ###############################################################################
-# Helper functions                                                            #
+# Helpers                                                                     #
 ###############################################################################
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 err() { echo "[$(date '+%H:%M:%S')] ERROR: $*" >&2; }
 
-wait_aurora_available() {
-    local cluster_id=$1
-    local region=$2
-    local max_wait=${3:-600}
+zeebe_topology() {
+  curl -sf --max-time 15 \
+    -u "${ADMIN_USER}:${ADMIN_PASS}" \
+    "${MGMT_URL}/v2/topology" 2>/dev/null || echo ""
+}
 
-    log "Waiting for Aurora cluster ${cluster_id} in ${region} to become available (timeout: ${max_wait}s)..."
-    local elapsed=0
-    while [ "${elapsed}" -lt "${max_wait}" ]; do
-        local status
-        status=$(aws rds describe-db-clusters \
-            --region "${region}" \
-            --db-cluster-identifier "${cluster_id}" \
-            --query 'DBClusters[0].Status' \
-            --output text 2>/dev/null || echo "unknown")
+zeebe_cluster_state() {
+  curl -sf --max-time 15 \
+    "${MGMT_URL}/actuator/cluster" 2>/dev/null || echo ""
+}
 
-        if [ "${status}" = "available" ]; then
-            log "Aurora cluster ${cluster_id} is available."
-            return 0
-        fi
-
-        log "  Status: ${status} (${elapsed}s elapsed)"
-        sleep 15
-        elapsed=$((elapsed + 15))
-    done
-
-    err "Timed out waiting for Aurora cluster ${cluster_id} to become available."
+# Returns 0 if Zeebe has no pending change and all partitions have a leader
+zeebe_is_stable() {
+  local state
+  state=$(zeebe_cluster_state)
+  [[ -z "$state" ]] && return 1
+  # If pendingChange key is present, redistribution is still in progress
+  if echo "$state" | jq -e '.pendingChange' > /dev/null 2>&1; then
     return 1
-}
-
-get_aurora_writer_region() {
-    # shellcheck disable=SC2016  # JMESPath uses literal backticks, not shell command substitution
-    aws rds describe-global-clusters \
-        --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-        --query 'GlobalClusters[0].GlobalClusterMembers[?IsWriter==`true`].DBClusterArn' \
-        --output text 2>/dev/null | awk -F':' '{print $4}'
-}
-
-get_secondary_cluster_arn() {
-    # shellcheck disable=SC2016  # JMESPath uses literal backticks, not shell command substitution
-    aws rds describe-global-clusters \
-        --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-        --query 'GlobalClusters[0].GlobalClusterMembers[?IsWriter==`false`].DBClusterArn' \
-        --output text 2>/dev/null
+  fi
+  # All partition replicas should have a LEADER role
+  local leaderless
+  leaderless=$(echo "$state" | jq '[
+    .brokers[].partitions[] | select(.role == "leader")
+  ] | length')
+  [[ "$leaderless" -gt 0 ]] && return 0 || return 1
 }
 
 ###############################################################################
-# Step 1: Validate current state                                              #
+# Pre-flight check                                                             #
 ###############################################################################
 
-log "=== Step 1: Validate current state ==="
+log "=== Pre-flight: verify surviving region is reachable ==="
 
-WRITER_REGION=$(get_aurora_writer_region)
-log "Aurora writer is currently in: ${WRITER_REGION}"
-
-if [ "${WRITER_REGION}" != "${REGION_0}" ]; then
-    err "Aurora writer is not in region 0 (${REGION_0}). Current writer: ${WRITER_REGION}."
-    err "Failover script expects writer in region 0. Aborting."
-    exit 1
+if ! zeebe_topology > /dev/null; then
+  err "Cannot reach Zeebe topology at ${MGMT_URL}"
+  err "Is the surviving region (failed-region=${FAILED_REGION}) endpoint correct?"
+  exit 1
 fi
 
-log "Current state validated: writer in ${REGION_0}, ready to failover to ${REGION_1}."
+log "Surviving region is reachable."
+log ""
+log "Failing over region:  ${FAILED_REGION} (${FAILED_AWS_REGION})"
+log "Surviving endpoint:   ${MGMT_URL}"
+log "Brokers to remove:    [${BROKERS_TO_REMOVE}]"
+log "Force timeout:        ${FORCE_TIMEOUT}s"
+log ""
 
 ###############################################################################
-# Step 2: Scale down region 0 ECS services                                    #
+# Step 1: Scale down ECS services in the failed region                        #
+###############################################################################
+
+log "=== Step 1: Scale down ECS services in region ${FAILED_REGION} (${FAILED_AWS_REGION}) ==="
+
+SERVICES=$(aws ecs list-services \
+  --region "${FAILED_AWS_REGION}" \
+  --cluster "${FAILED_CLUSTER}" \
+  --query 'serviceArns[]' \
+  --output text 2>/dev/null || echo "")
+
+if [[ -z "$SERVICES" ]]; then
+  log "No services found in cluster ${FAILED_CLUSTER} — region may already be down."
+else
+  for service_arn in $SERVICES; do
+    service_name=$(echo "${service_arn}" | awk -F'/' '{print $NF}')
+    log "  Scaling down ${service_name} → 0 tasks..."
+    aws ecs update-service \
+      --region "${FAILED_AWS_REGION}" \
+      --cluster "${FAILED_CLUSTER}" \
+      --service "${service_arn}" \
+      --desired-count 0 \
+      --no-cli-pager > /dev/null
+  done
+  log "  Scaled down. Allowing 30s for connections to drain..."
+  sleep 30
+fi
+
+###############################################################################
+# Step 2: Wait for Zeebe to auto-reconfigure                                  #
 ###############################################################################
 
 log ""
-log "=== Step 2: Scale down region 0 ECS services ==="
+log "=== Step 2: Waiting up to ${FORCE_TIMEOUT}s for Zeebe to self-heal ==="
 
-SERVICES_0=$(aws ecs list-services \
-    --region "${REGION_0}" \
-    --cluster "${CLUSTER_0}" \
-    --query 'serviceArns[]' \
-    --output text 2>/dev/null)
+ELAPSED=0
+AUTO_HEALED=false
 
-for service_arn in ${SERVICES_0}; do
-    service_name=$(echo "${service_arn}" | awk -F'/' '{print $NF}')
-    log "Scaling down ${service_name} to 0 tasks..."
-    aws ecs update-service \
-        --region "${REGION_0}" \
-        --cluster "${CLUSTER_0}" \
-        --service "${service_arn}" \
-        --desired-count 0 \
-        --no-cli-pager >/dev/null
+while [[ "$ELAPSED" -lt "$FORCE_TIMEOUT" ]]; do
+  if zeebe_is_stable; then
+    BROKER_COUNT=$(zeebe_topology | jq '.brokers | length' 2>/dev/null || echo "0")
+    log "  Zeebe cluster is stable with ${BROKER_COUNT} brokers after ${ELAPSED}s."
+    AUTO_HEALED=true
+    break
+  fi
+
+  STATE=$(zeebe_cluster_state)
+  if [[ -n "$STATE" ]] && echo "$STATE" | jq -e '.pendingChange' > /dev/null 2>&1; then
+    COMPLETED=$(echo "$STATE" | jq -r '.pendingChange.completedOperations // 0')
+    TOTAL=$(echo "$STATE" | jq -r '.pendingChange.totalOperations // 0')
+    log "  [${ELAPSED}s] Auto-reconfiguration in progress (${COMPLETED}/${TOTAL} operations)..."
+  else
+    log "  [${ELAPSED}s] Waiting for Zeebe to detect broker loss..."
+  fi
+
+  sleep "$RETRY_INTERVAL"
+  ELAPSED=$((ELAPSED + RETRY_INTERVAL))
 done
 
-log "Waiting for region 0 tasks to drain (30s grace)..."
-sleep 30
-
 ###############################################################################
-# Step 3: Aurora Global DB failover                                           #
+# Step 3: Force-reconfigure if Zeebe did not self-heal                        #
 ###############################################################################
 
-log ""
-log "=== Step 3: Aurora Global DB failover ==="
+if [[ "$AUTO_HEALED" == "false" ]]; then
+  log ""
+  log "=== Step 3: Zeebe did not self-heal — forcing reconfiguration ==="
+  log "  Removing brokers [${BROKERS_TO_REMOVE}] via PATCH /actuator/cluster?force=true..."
 
-SECONDARY_ARN=$(get_secondary_cluster_arn)
-SECONDARY_CLUSTER_ID=$(echo "${SECONDARY_ARN}" | awk -F':' '{print $7}')
+  RESPONSE=$(curl -s -w "\n%{http_code}" -X PATCH \
+    "${MGMT_URL}/actuator/cluster?force=true" \
+    -H "Content-Type: application/json" \
+    -d "{\"brokers\":{\"remove\":[${BROKERS_TO_REMOVE}]}}")
 
-if [ "${UNPLANNED}" = "true" ]; then
-    log "UNPLANNED failover: detaching secondary cluster ${SECONDARY_CLUSTER_ID} and promoting..."
+  HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+  BODY=$(echo "$RESPONSE" | sed '$d')
 
-    aws rds remove-from-global-cluster \
-        --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-        --db-cluster-identifier "${SECONDARY_ARN}" \
-        --no-cli-pager
+  if [[ "$HTTP_CODE" != "202" ]]; then
+    err "Force reconfiguration failed (HTTP ${HTTP_CODE}):"
+    echo "$BODY" | jq . 2>/dev/null || echo "$BODY"
+    exit 1
+  fi
 
-    log "Secondary cluster detached. Waiting for promotion..."
-    wait_aurora_available "${SECONDARY_CLUSTER_ID}" "${REGION_1}"
-else
-    log "PLANNED failover: switching writer to ${REGION_1}..."
+  PLANNED=$(echo "$BODY" | jq -r '.plannedChanges | length' 2>/dev/null || echo "unknown")
+  log "  Accepted (HTTP 202), ${PLANNED} planned changes."
+  log ""
+  log "  Waiting for forced redistribution to complete..."
 
-    aws rds failover-global-cluster \
-        --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-        --target-db-cluster-identifier "${SECONDARY_ARN}" \
-        --no-cli-pager
+  ELAPSED=0
+  MAX_WAIT=300
+  while [[ "$ELAPSED" -lt "$MAX_WAIT" ]]; do
+    sleep "$RETRY_INTERVAL"
+    ELAPSED=$((ELAPSED + RETRY_INTERVAL))
 
-    log "Planned failover initiated. Waiting for Global Cluster to finish switching over..."
-
-    # Wait for the global cluster to exit the 'switching-over' state before
-    # querying for the new writer. During switchover, IsWriter flags are stale.
-    elapsed=0
-    max_switchover_wait=300
-    while [ "${elapsed}" -lt "${max_switchover_wait}" ]; do
-        global_status=""
-        global_status=$(aws rds describe-global-clusters \
-            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-            --query 'GlobalClusters[0].Status' \
-            --output text 2>/dev/null || echo "unknown")
-
-        if [ "${global_status}" = "available" ]; then
-            log "Global cluster switchover complete."
-            break
-        fi
-
-        log "  Global cluster status: ${global_status} (${elapsed}s elapsed)"
-        sleep 15
-        elapsed=$((elapsed + 15))
-    done
-
-    if [ "${elapsed}" -ge "${max_switchover_wait}" ]; then
-        err "Timed out waiting for global cluster switchover to complete."
-        exit 1
+    STATE=$(zeebe_cluster_state)
+    if [[ -z "$STATE" ]]; then
+      log "  [${ELAPSED}s] Cluster API not yet available (coordinator relocating)..."
+      continue
     fi
 
-    # Now query the new writer — the secondary (in REGION_1) should be the writer
-    wait_aurora_available "${SECONDARY_CLUSTER_ID}" "${REGION_1}"
-fi
+    if echo "$STATE" | jq -e '.pendingChange' > /dev/null 2>&1; then
+      COMPLETED=$(echo "$STATE" | jq -r '.pendingChange.completedOperations // 0')
+      TOTAL=$(echo "$STATE" | jq -r '.pendingChange.totalOperations // 0')
+      log "  [${ELAPSED}s] Redistribution in progress (${COMPLETED}/${TOTAL})..."
+    else
+      log "  Redistribution complete."
+      break
+    fi
 
-# Verify writer moved
-NEW_WRITER_REGION=$(get_aurora_writer_region)
-if [ "${NEW_WRITER_REGION}" = "${REGION_1}" ]; then
-    log "Aurora writer successfully moved to ${REGION_1}."
-elif [ "${UNPLANNED}" = "true" ]; then
-    log "Unplanned failover: secondary promoted independently (Global DB relationship removed)."
+    if [[ "$ELAPSED" -ge "$MAX_WAIT" ]]; then
+      err "Timed out waiting for redistribution. Check CloudWatch logs."
+      exit 1
+    fi
+  done
 else
-    err "Aurora writer did not move to ${REGION_1}. Current writer: ${NEW_WRITER_REGION}"
-    exit 1
+  log ""
+  log "=== Step 3: Skipped — Zeebe self-healed, no force needed ==="
 fi
 
 ###############################################################################
-# Step 4: Verify region 1                                                     #
+# Step 4: Verify surviving region                                             #
 ###############################################################################
 
 log ""
-log "=== Step 4: Verify region 1 health ==="
+log "=== Step 4: Verify cluster health ==="
 
-log "Waiting 60s for Zeebe brokers to detect topology change..."
-sleep 60
-
-TOPOLOGY=$(curl -sf --max-time 15 -u "${ADMIN_USER}:${ADMIN_PASS}" "http://${ALB_ENDPOINT_1}/v2/topology" 2>/dev/null || echo "")
-
-if [ -z "${TOPOLOGY}" ]; then
-    err "Cannot reach Zeebe topology endpoint at ${ALB_ENDPOINT_1}"
-    err "Brokers may still be stabilizing. Run verify_dual_region.sh to check later."
-    exit 1
+TOPOLOGY=$(zeebe_topology)
+if [[ -z "$TOPOLOGY" ]]; then
+  err "Cannot reach topology endpoint at ${MGMT_URL}"
+  err "Run verify_dual_region.sh to check status once the cluster stabilises."
+  exit 1
 fi
 
-BROKER_COUNT=$(echo "${TOPOLOGY}" | jq '.brokers | length')
-log "Zeebe cluster reports ${BROKER_COUNT} broker(s) via region 1."
+BROKER_COUNT=$(echo "$TOPOLOGY" | jq '.brokers | length')
+CLUSTER_SIZE=$(echo "$TOPOLOGY" | jq '.clusterSize')
+REPLICATION_FACTOR=$(echo "$TOPOLOGY" | jq '.replicationFactor')
 
-if [ "${BROKER_COUNT}" -ge 4 ]; then
-    log "Region 1 has sufficient brokers for quorum."
+log "Broker count:      ${BROKER_COUNT}"
+log "Cluster size:      ${CLUSTER_SIZE}"
+log "Replication factor: ${REPLICATION_FACTOR}"
+
+echo "$TOPOLOGY" | jq -r '
+  .brokers[] |
+  "  Broker \(.nodeId) — partitions: \([.partitions[] | "\(.partitionId)(\(.role))"] | join(", "))"
+'
+
+if [[ "$BROKER_COUNT" -ge 4 ]]; then
+  log ""
+  log "✓ Sufficient brokers for quorum (>= 4)."
 else
-    err "Region 1 has only ${BROKER_COUNT} brokers — quorum may be lost."
-    err "Check ECS tasks and CloudWatch logs."
-    exit 1
+  err "Only ${BROKER_COUNT} brokers visible — quorum may be lost. Check CloudWatch logs."
+  exit 1
 fi
 
 ###############################################################################
@@ -233,20 +285,19 @@ fi
 ###############################################################################
 
 log ""
-log "=== Failover Complete ==="
-log ""
-log "Aurora writer:  ${REGION_1}"
-log "Region 0:       scaled down (0 tasks)"
-log "Region 1:       active (${BROKER_COUNT} brokers)"
-if [ "${UNPLANNED}" = "true" ]; then
-    log "Mode:           UNPLANNED (Global DB relationship removed)"
-    log ""
-    log "⚠️  To failback, you must re-add region 0 as a secondary cluster."
+log "════════════════════════════════════════════════════════════════"
+if [[ "$AUTO_HEALED" == "true" ]]; then
+  log "Failover complete — Zeebe self-healed without force reconfiguration."
 else
-    log "Mode:           PLANNED (Global DB intact)"
+  log "Failover complete — Zeebe reconfigured via force (brokers [${BROKERS_TO_REMOVE}] removed)."
 fi
 log ""
+log "Failed region ${FAILED_REGION}:  scaled down (0 ECS tasks)"
+log "Surviving region:       ${BROKER_COUNT} brokers active"
+log "Aurora:                 handled automatically by AWS / JDBC failover plugin"
+log ""
 log "Next steps:"
-log "  1. Verify workflow execution: curl -u ${ADMIN_USER}:<pass> http://${ALB_ENDPOINT_1}/v2/topology"
-log "  2. Run verification: ./verify_dual_region.sh"
-log "  3. To restore: ./failback.sh"
+log "  1. Verify workflows:   curl -u ${ADMIN_USER}:<pass> ${MGMT_URL}/v2/topology"
+log "  2. Full health check:  ./verify_dual_region.sh"
+log "  3. To restore:         ./failback.sh --failed-region ${FAILED_REGION}"
+log "════════════════════════════════════════════════════════════════"
