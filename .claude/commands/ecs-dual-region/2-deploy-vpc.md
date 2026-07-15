@@ -48,10 +48,12 @@ Expected resource count:
 Show the user the count and ask them to confirm.
 
 3. **Apply:**
+
+Run in the background — the Bash tool has a 10-minute hard limit and NAT gateway provisioning can be slow:
 ```bash
-terraform apply -auto-approve
+terraform apply -auto-approve > debug/vpc-apply.log 2>&1
 ```
-Greenfield takes 3-5 minutes (NAT gateway provisioning). BYO mode is fast (< 1 minute).
+Use `run_in_background: true` on the Bash tool call. You will be notified when it completes. To check interim progress: `tail -20 debug/vpc-apply.log`.
 
 4. **Show key outputs:**
 ```bash

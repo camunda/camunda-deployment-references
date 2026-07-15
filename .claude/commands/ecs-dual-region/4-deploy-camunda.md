@@ -39,10 +39,12 @@ terraform init
 ```
 
 2. **Apply:**
+
+Run in the background to avoid the 10-minute Bash tool limit (service stabilization can exceed it):
 ```bash
-terraform apply -auto-approve
+terraform apply -auto-approve > debug/app-apply.log 2>&1
 ```
-This is fast (~30 seconds) because it only creates ECS task definitions, services, EFS, and Service Connect resources. The slow part is waiting for tasks to start.
+Use `run_in_background: true` on the Bash tool call. You will be notified when it completes. To check interim progress: `tail -20 debug/app-apply.log`.
 
    App reads infra outputs via `terraform_remote_state` (default path: `../infra/terraform.tfstate`).
 

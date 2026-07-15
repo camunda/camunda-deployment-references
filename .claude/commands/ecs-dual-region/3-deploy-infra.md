@@ -46,10 +46,18 @@ terraform plan
 Show the user a summary of resources to be created. Ask them to confirm before proceeding.
 
 3. **Apply:**
+
+Always run in the background — Aurora Global DB creation takes 15-25 minutes, well beyond the 10-minute Bash tool limit:
 ```bash
-terraform apply -auto-approve
+terraform apply -auto-approve > debug/infra-apply.log 2>&1
 ```
-This takes 15-25 minutes (Aurora Global DB creation is the bottleneck).
+Use `run_in_background: true` on the Bash tool call. You will be notified when it completes. To check interim progress: `tail -20 debug/infra-apply.log`.
+
+If the apply fails mid-run with `DBClusterAlreadyExistsFault`, import the orphaned cluster and re-apply:
+```bash
+terraform import -var-file=terraform.tfvars 'module.aurora_global[0].aws_rds_cluster.secondary' <cluster-id>
+terraform apply -auto-approve > debug/infra-apply.log 2>&1
+```
 
 4. **Show key outputs:**
 ```bash
