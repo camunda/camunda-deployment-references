@@ -82,9 +82,11 @@ locals {
     },
   ]
 
-  # Aurora Global instance host patterns for AWS JDBC Wrapper
+  # Aurora Global instance host patterns for AWS JDBC Wrapper.
+  # Must be derived from the regional cluster endpoints (not the global endpoint),
+  # since instance DNS names share the regional cluster's hostname suffix.
   aurora_primary_instance_pattern = local.infra.secondary_storage_type == "rdbms" ? "?.${
-    replace(local.infra.aurora_global_writer_endpoint, "${local.infra.aurora_primary_cluster_identifier}.cluster-", "")
+    replace(local.infra.aurora_primary_cluster_endpoint, "${local.infra.aurora_primary_cluster_identifier}.cluster-", "")
   }" : ""
   aurora_secondary_instance_pattern = local.infra.secondary_storage_type == "rdbms" ? "?.${
     replace(local.infra.aurora_secondary_endpoint, "${local.infra.aurora_secondary_cluster_identifier}.cluster-", "")

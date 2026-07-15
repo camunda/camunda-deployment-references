@@ -126,7 +126,8 @@
 | <a name="output_alb_listener_http_webapp_region_0_arn"></a> [alb\_listener\_http\_webapp\_region\_0\_arn](#output\_alb\_listener\_http\_webapp\_region\_0\_arn) | n/a |
 | <a name="output_alb_listener_http_webapp_region_1_arn"></a> [alb\_listener\_http\_webapp\_region\_1\_arn](#output\_alb\_listener\_http\_webapp\_region\_1\_arn) | n/a |
 | <a name="output_aurora_global_cluster_id"></a> [aurora\_global\_cluster\_id](#output\_aurora\_global\_cluster\_id) | The ID of the Aurora Global Database cluster |
-| <a name="output_aurora_global_writer_endpoint"></a> [aurora\_global\_writer\_endpoint](#output\_aurora\_global\_writer\_endpoint) | The writer endpoint of the Aurora Global DB primary cluster |
+| <a name="output_aurora_global_writer_endpoint"></a> [aurora\_global\_writer\_endpoint](#output\_aurora\_global\_writer\_endpoint) | The global writer endpoint of the Aurora Global DB. Always routes to the current writer across regions after failover. |
+| <a name="output_aurora_primary_cluster_endpoint"></a> [aurora\_primary\_cluster\_endpoint](#output\_aurora\_primary\_cluster\_endpoint) | The regional writer endpoint of the primary Aurora cluster (region 0). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper. |
 | <a name="output_aurora_primary_cluster_identifier"></a> [aurora\_primary\_cluster\_identifier](#output\_aurora\_primary\_cluster\_identifier) | n/a |
 | <a name="output_aurora_secondary_cluster_identifier"></a> [aurora\_secondary\_cluster\_identifier](#output\_aurora\_secondary\_cluster\_identifier) | n/a |
 | <a name="output_aurora_secondary_endpoint"></a> [aurora\_secondary\_endpoint](#output\_aurora\_secondary\_endpoint) | n/a |

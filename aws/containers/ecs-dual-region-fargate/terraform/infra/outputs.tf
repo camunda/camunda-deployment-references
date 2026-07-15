@@ -219,8 +219,13 @@ output "aurora_global_cluster_id" {
 }
 
 output "aurora_global_writer_endpoint" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].global_cluster_endpoint : null
+  description = "The global writer endpoint of the Aurora Global DB. Always routes to the current writer across regions after failover."
+}
+
+output "aurora_primary_cluster_endpoint" {
   value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].primary_cluster_endpoint : null
-  description = "The writer endpoint of the Aurora Global DB primary cluster"
+  description = "The regional writer endpoint of the primary Aurora cluster (region 0). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper."
 }
 
 output "aurora_primary_cluster_identifier" {
