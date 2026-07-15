@@ -218,7 +218,7 @@ output "aurora_global_cluster_id" {
   description = "The ID of the Aurora Global Database cluster"
 }
 
-output "aurora_primary_endpoint" {
+output "aurora_global_writer_endpoint" {
   value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].primary_cluster_endpoint : null
   description = "The writer endpoint of the Aurora Global DB primary cluster"
 }

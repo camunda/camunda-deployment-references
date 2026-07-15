@@ -24,6 +24,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_apply_immediately"></a> [apply\_immediately](#input\_apply\_immediately) | Whether to apply cluster and instance changes immediately or during the next maintenance window. | `bool` | `true` | no |
 | <a name="input_auto_minor_version_upgrade"></a> [auto\_minor\_version\_upgrade](#input\_auto\_minor\_version\_upgrade) | If true, minor engine upgrades are applied automatically | `bool` | `true` | no |
 | <a name="input_backup_retention_period"></a> [backup\_retention\_period](#input\_backup\_retention\_period) | Number of days to retain automated Aurora backups. Minimum 1; set higher for production. Defaults to 7 to give a reasonable recovery window for dual-region failover scenarios. | `number` | `7` | no |
 | <a name="input_ca_cert_identifier"></a> [ca\_cert\_identifier](#input\_ca\_cert\_identifier) | CA certificate identifier for DB instances | `string` | `"rds-ca-rsa2048-g1"` | no |
@@ -46,12 +47,16 @@ No modules.
 | <a name="input_secondary_num_instances"></a> [secondary\_num\_instances](#input\_secondary\_num\_instances) | Number of instances in the secondary cluster | `number` | `1` | no |
 | <a name="input_secondary_subnet_ids"></a> [secondary\_subnet\_ids](#input\_secondary\_subnet\_ids) | Subnet IDs for the secondary cluster | `list(string)` | n/a | yes |
 | <a name="input_secondary_vpc_id"></a> [secondary\_vpc\_id](#input\_secondary\_vpc\_id) | VPC ID for the secondary cluster | `string` | n/a | yes |
+| <a name="input_skip_final_snapshot"></a> [skip\_final\_snapshot](#input\_skip\_final\_snapshot) | Whether to skip the final DB snapshot when the cluster is deleted. Set to false in production to retain a recovery point. | `bool` | `true` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to add to resources | `map(string)` | `{}` | no |
 ## Outputs
 
 | Name | Description |
 | ---- | ----------- |
+| <a name="output_global_cluster_arn"></a> [global\_cluster\_arn](#output\_global\_cluster\_arn) | The ARN of the Aurora Global Database cluster |
+| <a name="output_global_cluster_endpoint"></a> [global\_cluster\_endpoint](#output\_global\_cluster\_endpoint) | The writer endpoint for the Aurora Global Database cluster. This endpoint always points to the writer DB instance in the current primary cluster. |
 | <a name="output_global_cluster_id"></a> [global\_cluster\_id](#output\_global\_cluster\_id) | The ID of the Aurora Global Database cluster |
+| <a name="output_global_cluster_resource_id"></a> [global\_cluster\_resource\_id](#output\_global\_cluster\_resource\_id) | The resource ID of the Aurora Global Database cluster (used for IAM auth) |
 | <a name="output_primary_cluster_endpoint"></a> [primary\_cluster\_endpoint](#output\_primary\_cluster\_endpoint) | The writer endpoint of the primary Aurora cluster |
 | <a name="output_primary_cluster_identifier"></a> [primary\_cluster\_identifier](#output\_primary\_cluster\_identifier) | The identifier of the primary Aurora cluster |
 | <a name="output_primary_cluster_reader_endpoint"></a> [primary\_cluster\_reader\_endpoint](#output\_primary\_cluster\_reader\_endpoint) | The reader endpoint of the primary Aurora cluster |

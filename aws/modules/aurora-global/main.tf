@@ -82,8 +82,8 @@ resource "aws_rds_cluster" "primary" {
   vpc_security_group_ids    = [aws_security_group.primary.id]
   db_subnet_group_name      = aws_db_subnet_group.primary.name
   backup_retention_period   = var.backup_retention_period
-  skip_final_snapshot       = true
-  apply_immediately         = true
+  skip_final_snapshot       = var.skip_final_snapshot
+  apply_immediately         = var.apply_immediately
   copy_tags_to_snapshot     = true
 
   iam_database_authentication_enabled = var.iam_auth_enabled
@@ -108,7 +108,7 @@ resource "aws_rds_cluster_instance" "primary" {
   instance_class             = var.instance_class
   ca_cert_identifier         = var.ca_cert_identifier
   db_subnet_group_name       = aws_db_subnet_group.primary.name
-  apply_immediately          = true
+  apply_immediately          = var.apply_immediately
   copy_tags_to_snapshot      = true
 
   tags = var.tags
@@ -192,8 +192,8 @@ resource "aws_rds_cluster" "secondary" {
   kms_key_id                = aws_kms_key.secondary.arn
   vpc_security_group_ids    = [aws_security_group.secondary.id]
   db_subnet_group_name      = aws_db_subnet_group.secondary.name
-  skip_final_snapshot       = true
-  apply_immediately         = true
+  skip_final_snapshot       = var.skip_final_snapshot
+  apply_immediately         = var.apply_immediately
   copy_tags_to_snapshot     = true
 
   iam_database_authentication_enabled = var.iam_auth_enabled
@@ -239,7 +239,7 @@ resource "aws_rds_cluster_instance" "secondary" {
   instance_class             = var.instance_class
   ca_cert_identifier         = var.ca_cert_identifier
   db_subnet_group_name       = aws_db_subnet_group.secondary.name
-  apply_immediately          = true
+  apply_immediately          = var.apply_immediately
   copy_tags_to_snapshot      = true
 
   tags = var.tags
