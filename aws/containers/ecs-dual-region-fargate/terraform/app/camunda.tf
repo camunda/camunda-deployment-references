@@ -87,6 +87,8 @@ module "orchestration_cluster_region_0" {
   # Cross-region Raft formation can take 15-20 min the first time the global
   # cluster comes up; bump above the 15m module default to avoid spurious
   # circuit-breaker rollbacks during initial deploy.
+  service_circuit_breaker_enabled = false
+
   service_timeouts = {
     create = "30m"
     update = "30m"
@@ -181,7 +183,8 @@ module "orchestration_cluster_region_1" {
   )
 
   # See region 0 comments above.
-  task_enable_execute_command = true
+  task_enable_execute_command     = true
+  service_circuit_breaker_enabled = false
 
   service_timeouts = {
     create = "30m"

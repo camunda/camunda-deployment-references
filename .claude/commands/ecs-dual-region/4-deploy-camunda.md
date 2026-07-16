@@ -110,6 +110,7 @@ Should return `8` (one leader per partition).
 - **Aurora connection fails:** Verify the DB seed task succeeded during infra apply. Check CloudWatch log group `/ecs/<cluster_name>-r0-db-seed`.
 - **Only some brokers register:** Some brokers may take longer. Wait up to 25 minutes before investigating.
 - **App apply fails reading infra outputs:** Verify `infra_state_path` (default `../infra/terraform.tfstate`) points to a valid state file.
+- **ECS circuit breaker fires during apply:** The orchestration cluster service has `service_circuit_breaker_enabled = false` for exactly this reason. The ECS circuit breaker threshold is `ceil(0.5 × desiredCount)` failures (10 minimum). On first deploy, Zeebe tasks fail health checks transiently while Aurora IAM auth warms up and cross-region Raft forms — this can exceed the threshold before the cluster self-heals. With the circuit breaker disabled, ECS keeps retrying until the `service_timeouts.create` deadline (30 min). If you see this error on an older deployment without the fix, simply re-run `terraform apply` — the service will have self-healed and Terraform will succeed.
 
 ## Success
 

@@ -263,6 +263,7 @@ terraform -chdir=terraform/infra destroy -auto-approve
 - **No WebModeler / Console** — not included
 - **Node ID assignment** — even/odd broker ID assignment per region is pending (Spike 0.1)
 - **Manual failover only** — no automated health-check-driven failover
+- **ECS circuit breaker disabled for orchestration clusters** — the deployment circuit breaker is set to `false` on both orchestration cluster services. On a first deploy, Zeebe brokers fail ECS health checks transiently while Aurora IAM auth warms up and cross-region Raft quorum forms (~20 min). The ECS threshold (`ceil(0.5 × desiredCount)`, min 10) would fire before the cluster self-heals. With the breaker disabled, ECS keeps retrying until the `service_timeouts.create` deadline (30 min). Once the cluster is stable, re-enabling the breaker is safe for subsequent deploys.
 
 ## Related references
 
