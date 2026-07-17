@@ -101,12 +101,14 @@ output "nlb_raft_region_1_arn" {
   value = aws_lb.nlb_raft_region_1.arn
 }
 
-output "nlb_raft_region_0_dns_name" {
-  value = aws_lb.nlb_raft_region_0.dns_name
+output "region_0_nlb_raft_endpoint" {
+  value       = aws_lb.nlb_raft_region_0.dns_name
+  description = "The DNS name of the internal NLB in region 0 (cross-region Raft port 26502)"
 }
 
-output "nlb_raft_region_1_dns_name" {
-  value = aws_lb.nlb_raft_region_1.dns_name
+output "region_1_nlb_raft_endpoint" {
+  value       = aws_lb.nlb_raft_region_1.dns_name
+  description = "The DNS name of the internal NLB in region 1 (cross-region Raft port 26502)"
 }
 
 output "region_0_nlb_grpc_endpoint" {
@@ -236,8 +238,9 @@ output "aurora_secondary_cluster_identifier" {
   value = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].secondary_cluster_identifier : null
 }
 
-output "aurora_secondary_endpoint" {
-  value = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].secondary_cluster_endpoint : null
+output "aurora_secondary_cluster_endpoint" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].secondary_cluster_endpoint : null
+  description = "The regional endpoint of the secondary Aurora cluster (region 1). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper."
 }
 
 ################################################################

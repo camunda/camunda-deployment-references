@@ -35,14 +35,14 @@ export REGION_0 REGION_1
 CLUSTER_0=$(echo "${TF_OUTPUT}" | jq -r '.ecs_cluster_region_0_id.value // "" | split("/") | last')
 ALB_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0_alb_endpoint.value // empty')
 NLB_GRPC_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0_nlb_grpc_endpoint.value // empty')
-NLB_RAFT_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.nlb_raft_region_0_dns_name.value // empty')
+NLB_RAFT_ENDPOINT_0=$(echo "${TF_OUTPUT}" | jq -r '.region_0_nlb_raft_endpoint.value // empty')
 export CLUSTER_0 ALB_ENDPOINT_0 NLB_GRPC_ENDPOINT_0 NLB_RAFT_ENDPOINT_0
 
 # Region 1
 CLUSTER_1=$(echo "${TF_OUTPUT}" | jq -r '.ecs_cluster_region_1_id.value // "" | split("/") | last')
 ALB_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1_alb_endpoint.value // empty')
 NLB_GRPC_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1_nlb_grpc_endpoint.value // empty')
-NLB_RAFT_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.nlb_raft_region_1_dns_name.value // empty')
+NLB_RAFT_ENDPOINT_1=$(echo "${TF_OUTPUT}" | jq -r '.region_1_nlb_raft_endpoint.value // empty')
 export CLUSTER_1 ALB_ENDPOINT_1 NLB_GRPC_ENDPOINT_1 NLB_RAFT_ENDPOINT_1
 
 # Aurora Global Database
