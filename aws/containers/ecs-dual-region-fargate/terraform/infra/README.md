@@ -21,7 +21,6 @@
 | [aws_iam_policy.rds_db_connect_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.rds_db_connect_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.s3_backup_access_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
-| [aws_iam_policy.s3_backup_access_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_role.ecs_task_execution_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.ecs_task_execution_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.ecs_task_execution_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
@@ -29,11 +28,9 @@
 | [aws_iam_role_policy_attachment.ecs_task_secrets_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.ecs_task_secrets_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_kms_alias.s3_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
-| [aws_kms_alias.s3_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
 | [aws_kms_alias.secrets_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
 | [aws_kms_alias.secrets_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_alias) | resource |
 | [aws_kms_key.s3_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
-| [aws_kms_key.s3_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
 | [aws_kms_key.secrets_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
 | [aws_kms_key.secrets_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/kms_key) | resource |
 | [aws_lb.alb_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb) | resource |
@@ -47,13 +44,9 @@
 | [aws_lb_listener.http_webapp_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
 | [aws_lb_listener.http_webapp_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lb_listener) | resource |
 | [aws_s3_bucket.backup_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
-| [aws_s3_bucket.backup_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) | resource |
 | [aws_s3_bucket_public_access_block.backup_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_public_access_block) | resource |
-| [aws_s3_bucket_public_access_block.backup_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_public_access_block) | resource |
 | [aws_s3_bucket_server_side_encryption_configuration.backup_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
-| [aws_s3_bucket_server_side_encryption_configuration.backup_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
 | [aws_s3_bucket_versioning.backup_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_versioning) | resource |
-| [aws_s3_bucket_versioning.backup_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_versioning) | resource |
 | [aws_secretsmanager_secret.admin_user_password_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.admin_user_password_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.connectors_password_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
@@ -132,7 +125,6 @@
 | <a name="output_aurora_secondary_cluster_endpoint"></a> [aurora\_secondary\_cluster\_endpoint](#output\_aurora\_secondary\_cluster\_endpoint) | The regional endpoint of the secondary Aurora cluster (region 1). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper. |
 | <a name="output_aurora_secondary_cluster_identifier"></a> [aurora\_secondary\_cluster\_identifier](#output\_aurora\_secondary\_cluster\_identifier) | n/a |
 | <a name="output_backup_bucket_region_0_name"></a> [backup\_bucket\_region\_0\_name](#output\_backup\_bucket\_region\_0\_name) | n/a |
-| <a name="output_backup_bucket_region_1_name"></a> [backup\_bucket\_region\_1\_name](#output\_backup\_bucket\_region\_1\_name) | n/a |
 | <a name="output_cluster_name"></a> [cluster\_name](#output\_cluster\_name) | n/a |
 | <a name="output_connectors_password_secret_region_0_arn"></a> [connectors\_password\_secret\_region\_0\_arn](#output\_connectors\_password\_secret\_region\_0\_arn) | n/a |
 | <a name="output_connectors_password_secret_region_1_arn"></a> [connectors\_password\_secret\_region\_1\_arn](#output\_connectors\_password\_secret\_region\_1\_arn) | n/a |
@@ -161,7 +153,6 @@
 | <a name="output_registry_credentials_region_0_arn"></a> [registry\_credentials\_region\_0\_arn](#output\_registry\_credentials\_region\_0\_arn) | n/a |
 | <a name="output_registry_credentials_region_1_arn"></a> [registry\_credentials\_region\_1\_arn](#output\_registry\_credentials\_region\_1\_arn) | n/a |
 | <a name="output_s3_backup_access_policy_region_0_arn"></a> [s3\_backup\_access\_policy\_region\_0\_arn](#output\_s3\_backup\_access\_policy\_region\_0\_arn) | n/a |
-| <a name="output_s3_backup_access_policy_region_1_arn"></a> [s3\_backup\_access\_policy\_region\_1\_arn](#output\_s3\_backup\_access\_policy\_region\_1\_arn) | n/a |
 | <a name="output_s3_force_destroy"></a> [s3\_force\_destroy](#output\_s3\_force\_destroy) | n/a |
 | <a name="output_secondary_storage_type"></a> [secondary\_storage\_type](#output\_secondary\_storage\_type) | n/a |
 | <a name="output_sg_camunda_ports_region_0_id"></a> [sg\_camunda\_ports\_region\_0\_id](#output\_sg\_camunda\_ports\_region\_0\_id) | n/a |

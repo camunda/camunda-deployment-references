@@ -150,11 +150,11 @@ module "orchestration_cluster_region_1" {
     [
       {
         name  = "CAMUNDA_DATA_BACKUP_S3_BUCKETNAME"
-        value = local.infra.backup_bucket_region_1_name
+        value = local.infra.backup_bucket_region_0_name
       },
       {
         name  = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME"
-        value = local.infra.backup_bucket_region_1_name
+        value = local.infra.backup_bucket_region_0_name
       },
     ]
   )
@@ -179,7 +179,7 @@ module "orchestration_cluster_region_1" {
 
   extra_task_role_attachments = concat(
     local.infra.rds_db_connect_policy_region_1_arn != null ? [local.infra.rds_db_connect_policy_region_1_arn] : [],
-    [local.infra.s3_backup_access_policy_region_1_arn],
+    [local.infra.s3_backup_access_policy_region_0_arn],
   )
 
   # See region 0 comments above.
