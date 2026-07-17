@@ -64,6 +64,18 @@ variable "backup_retention_period" {
   description = "Number of days to retain automated Aurora backups. Minimum 1; set higher for production. Defaults to 7 to give a reasonable recovery window for dual-region failover scenarios."
 }
 
+variable "skip_final_snapshot" {
+  type        = bool
+  default     = true
+  description = "Whether to skip the final DB snapshot when the cluster is deleted. Set to false in production to retain a recovery point."
+}
+
+variable "apply_immediately" {
+  type        = bool
+  default     = true
+  description = "Whether to apply cluster and instance changes immediately or during the next maintenance window."
+}
+
 ################################################################
 #                    Primary Cluster (Region 0)                #
 ################################################################

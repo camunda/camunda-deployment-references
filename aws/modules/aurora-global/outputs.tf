@@ -3,6 +3,21 @@ output "global_cluster_id" {
   description = "The ID of the Aurora Global Database cluster"
 }
 
+output "global_cluster_resource_id" {
+  value       = aws_rds_global_cluster.this.global_cluster_resource_id
+  description = "The resource ID of the Aurora Global Database cluster (used for IAM auth)"
+}
+
+output "global_cluster_arn" {
+  value       = aws_rds_global_cluster.this.arn
+  description = "The ARN of the Aurora Global Database cluster"
+}
+
+output "global_cluster_endpoint" {
+  value       = aws_rds_global_cluster.this.endpoint
+  description = "The writer endpoint for the Aurora Global Database cluster. This endpoint always points to the writer DB instance in the current primary cluster."
+}
+
 output "primary_cluster_endpoint" {
   value       = aws_rds_cluster.primary.endpoint
   description = "The writer endpoint of the primary Aurora cluster"

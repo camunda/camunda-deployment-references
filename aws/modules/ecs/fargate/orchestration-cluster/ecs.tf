@@ -222,8 +222,10 @@ resource "aws_ecs_service" "orchestration_cluster" {
   # retrying for the full create timeout. AWS thresholds at ceil(0.5*desired)
   # bounded to [10, 200] failures. rollback=false: on first create there is no
   # prior deployment to roll back to.
+  # Disable for initial Zeebe cluster deployments: cross-region Raft formation
+  # causes transient task failures that exceed the threshold before self-healing.
   deployment_circuit_breaker {
-    enable   = true
+    enable   = var.service_circuit_breaker_enabled
     rollback = false
   }
 

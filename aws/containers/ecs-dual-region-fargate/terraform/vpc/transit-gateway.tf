@@ -11,7 +11,8 @@ module "transit_gateway" {
     aws.accepter = aws.accepter
   }
 
-  prefix = local.prefix
+  prefix          = local.prefix
+  accepter_region = var.region_1
 }
 
 ################################

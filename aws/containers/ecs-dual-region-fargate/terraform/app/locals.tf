@@ -82,9 +82,11 @@ locals {
     },
   ]
 
-  # Aurora Global instance host patterns for AWS JDBC Wrapper
+  # Aurora Global instance host patterns for AWS JDBC Wrapper.
+  # Must be derived from the regional cluster endpoints (not the global endpoint),
+  # since instance DNS names share the regional cluster's hostname suffix.
   aurora_primary_instance_pattern = local.infra.secondary_storage_type == "rdbms" ? "?.${
-    replace(local.infra.aurora_primary_endpoint, "${local.infra.aurora_primary_cluster_identifier}.cluster-", "")
+    replace(local.infra.aurora_primary_cluster_endpoint, "${local.infra.aurora_primary_cluster_identifier}.cluster-", "")
   }" : ""
   aurora_secondary_instance_pattern = local.infra.secondary_storage_type == "rdbms" ? "?.${
     replace(local.infra.aurora_secondary_endpoint, "${local.infra.aurora_secondary_cluster_identifier}.cluster-", "")
@@ -102,7 +104,7 @@ locals {
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL"
-      value = "jdbc:aws-wrapper:postgresql://${local.infra.aurora_primary_endpoint}:5432/${local.infra.db_name}?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=${local.aurora_primary_instance_pattern},${local.aurora_secondary_instance_pattern}"
+      value = "jdbc:aws-wrapper:postgresql://${local.infra.aurora_global_writer_endpoint}:5432/${local.infra.db_name}?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=${local.aurora_primary_instance_pattern},${local.aurora_secondary_instance_pattern}"
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_USERNAME"

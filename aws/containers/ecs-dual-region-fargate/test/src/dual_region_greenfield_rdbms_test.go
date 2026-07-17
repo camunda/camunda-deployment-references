@@ -36,6 +36,8 @@ func TestEndToEnd_Greenfield_TGW_RDBMS(t *testing.T) {
 	region0 := envOrDefault("TEST_REGION_0", "eu-west-2")
 	region1 := envOrDefault("TEST_REGION_1", "eu-west-3")
 	clusterPrefix := envOrDefault("TEST_CLUSTER_PREFIX", fmt.Sprintf("e2e-tgw-rdbms-%s", strings.ToLower(random.UniqueId())))
+	backendBucket := envOrDefault("TEST_BACKEND_BUCKET", "tests-ra-aws-rosa-hcp-tf-state-eu-central-1")
+	backendRegion := envOrDefault("TEST_BACKEND_REGION", "eu-central-1")
 	raftTimeoutMin := envIntOrDefault(t, "TEST_RAFT_TIMEOUT_MIN", 30)
 
 	// Resolve state paths relative to THIS test file's directory.
@@ -72,6 +74,9 @@ func TestEndToEnd_Greenfield_TGW_RDBMS(t *testing.T) {
 			"aws_profile":  awsProfile,
 			"default_tags": commonTags,
 		},
+		BackendBucket:    backendBucket,
+		BackendRegion:    backendRegion,
+		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
 	}
 
 	var vpcOpts, infraOpts, appOpts *terraform.Options

@@ -9,19 +9,33 @@
 #   - Aurora Global Database replication status                               #
 #   - Workflow execution from each region                                     #
 #                                                                             #
-# Prerequisites:                                                              #
-#   . ./export_environment_prerequisites.sh                                   #
+# Usage:                                                                      #
+#   ./verify_dual_region.sh                                                   #
+#   Environment variables are sourced automatically from                      #
+#   export_environment_prerequisites.sh unless already set in the shell.      #
 ###############################################################################
 
 set -euo pipefail
 
-: "${REGION_0:?REGION_0 must be set — source export_environment_prerequisites.sh first}"
-: "${REGION_1:?REGION_1 must be set}"
-: "${CLUSTER_0:?CLUSTER_0 must be set}"
-: "${CLUSTER_1:?CLUSTER_1 must be set}"
-: "${ALB_ENDPOINT_0:?ALB_ENDPOINT_0 must be set}"
-: "${ALB_ENDPOINT_1:?ALB_ENDPOINT_1 must be set}"
-: "${AURORA_GLOBAL_CLUSTER_ID:?AURORA_GLOBAL_CLUSTER_ID must be set}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+
+# Declare expected exports so shellcheck can track them across the source boundary.
+# shellcheck disable=SC2034
+REGION_0="${REGION_0:-}" REGION_1="${REGION_1:-}"
+# shellcheck disable=SC2034
+CLUSTER_0="${CLUSTER_0:-}" CLUSTER_1="${CLUSTER_1:-}"
+# shellcheck disable=SC2034
+ALB_ENDPOINT_0="${ALB_ENDPOINT_0:-}" ALB_ENDPOINT_1="${ALB_ENDPOINT_1:-}"
+# shellcheck disable=SC2034
+AURORA_GLOBAL_CLUSTER_ID="${AURORA_GLOBAL_CLUSTER_ID:-}"
+ADMIN_USER="${ADMIN_USER:-admin}"
+ADMIN_PASS="${ADMIN_PASS:-}"
+
+# Auto-source prerequisites if the key variables are not already in the environment.
+if [[ -z "${REGION_0}" || -z "${CLUSTER_0}" || -z "${ADMIN_PASS}" ]]; then
+    # shellcheck disable=SC1091
+    . "${SCRIPT_DIR}/export_environment_prerequisites.sh"
+fi
 
 PASS=0
 FAIL=0
@@ -120,7 +134,7 @@ check_topology() {
     local label=$2
 
     local topology
-    topology=$(curl -sf --max-time 15 "http://${alb}/v2/topology" 2>/dev/null || echo "")
+    topology=$(curl -sf --max-time 15 -u "${ADMIN_USER}:${ADMIN_PASS}" "http://${alb}/v2/topology" 2>/dev/null || echo "")
 
     if [ -z "${topology}" ]; then
         check "Region ${label}: Zeebe topology endpoint reachable" 1
@@ -210,6 +224,7 @@ test_workflow() {
     # Create a simple process instance via REST API
     local response
     response=$(curl -sf --max-time 30 \
+        -u "${ADMIN_USER}:${ADMIN_PASS}" \
         -X POST "http://${alb}/v2/process-instances" \
         -H "Content-Type: application/json" \
         -d '{"bpmnProcessId":"dual-region-health-check","variables":{}}' \

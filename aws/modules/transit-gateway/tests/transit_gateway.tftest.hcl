@@ -11,7 +11,8 @@ mock_provider "aws" {
 }
 
 variables {
-  prefix = "test-tgw"
+  prefix          = "test-tgw"
+  accepter_region = "eu-west-3"
 }
 
 run "default_plan_succeeds" {

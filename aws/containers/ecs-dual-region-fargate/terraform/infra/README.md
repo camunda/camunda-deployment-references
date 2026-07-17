@@ -104,7 +104,9 @@
 | <a name="input_secondary_storage_type"></a> [secondary\_storage\_type](#input\_secondary\_storage\_type) | Camunda secondary storage: 'rdbms' (Aurora Global) or 'opensearch' | `string` | `"rdbms"` | no |
 | <a name="input_secrets_kms_key_arn"></a> [secrets\_kms\_key\_arn](#input\_secrets\_kms\_key\_arn) | Optional existing KMS key ARN for region 0. If empty, a CMK is created. | `string` | `""` | no |
 | <a name="input_secrets_kms_key_arn_accepter"></a> [secrets\_kms\_key\_arn\_accepter](#input\_secrets\_kms\_key\_arn\_accepter) | Optional existing KMS key ARN for region 1. If empty, a CMK is created. | `string` | `""` | no |
-| <a name="input_vpc_state_path"></a> [vpc\_state\_path](#input\_vpc\_state\_path) | Path to the vpc/ terraform state file (local backend) or S3 key. infra/ reads VPC IDs, subnet IDs, CIDRs, etc. from this state. | `string` | `"../vpc/terraform.tfstate"` | no |
+| <a name="input_terraform_backend_bucket"></a> [terraform\_backend\_bucket](#input\_terraform\_backend\_bucket) | S3 bucket name storing Terraform state for all layers | `string` | n/a | yes |
+| <a name="input_terraform_backend_key_prefix"></a> [terraform\_backend\_key\_prefix](#input\_terraform\_backend\_key\_prefix) | S3 key prefix shared by all layers. E.g. 'aws/containers/ecs-dual-region-fargate/my-cluster/' yields 's3://<bucket>/<prefix>vpc/terraform.tfstate' | `string` | n/a | yes |
+| <a name="input_terraform_backend_region"></a> [terraform\_backend\_region](#input\_terraform\_backend\_region) | AWS region of the S3 bucket storing Terraform state (may differ from the deployment regions) | `string` | `"eu-central-1"` | no |
 ## Outputs
 
 | Name | Description |
@@ -117,10 +119,11 @@
 | <a name="output_alb_listener_http_webapp_region_0_arn"></a> [alb\_listener\_http\_webapp\_region\_0\_arn](#output\_alb\_listener\_http\_webapp\_region\_0\_arn) | n/a |
 | <a name="output_alb_listener_http_webapp_region_1_arn"></a> [alb\_listener\_http\_webapp\_region\_1\_arn](#output\_alb\_listener\_http\_webapp\_region\_1\_arn) | n/a |
 | <a name="output_aurora_global_cluster_id"></a> [aurora\_global\_cluster\_id](#output\_aurora\_global\_cluster\_id) | The ID of the Aurora Global Database cluster |
+| <a name="output_aurora_global_writer_endpoint"></a> [aurora\_global\_writer\_endpoint](#output\_aurora\_global\_writer\_endpoint) | The global writer endpoint of the Aurora Global DB. Always routes to the current writer across regions after failover. |
+| <a name="output_aurora_primary_cluster_endpoint"></a> [aurora\_primary\_cluster\_endpoint](#output\_aurora\_primary\_cluster\_endpoint) | The regional writer endpoint of the primary Aurora cluster (region 0). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper. |
 | <a name="output_aurora_primary_cluster_identifier"></a> [aurora\_primary\_cluster\_identifier](#output\_aurora\_primary\_cluster\_identifier) | n/a |
-| <a name="output_aurora_primary_endpoint"></a> [aurora\_primary\_endpoint](#output\_aurora\_primary\_endpoint) | The writer endpoint of the Aurora Global DB primary cluster |
+| <a name="output_aurora_secondary_cluster_endpoint"></a> [aurora\_secondary\_cluster\_endpoint](#output\_aurora\_secondary\_cluster\_endpoint) | The regional endpoint of the secondary Aurora cluster (region 1). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper. |
 | <a name="output_aurora_secondary_cluster_identifier"></a> [aurora\_secondary\_cluster\_identifier](#output\_aurora\_secondary\_cluster\_identifier) | n/a |
-| <a name="output_aurora_secondary_endpoint"></a> [aurora\_secondary\_endpoint](#output\_aurora\_secondary\_endpoint) | n/a |
 | <a name="output_backup_bucket_region_0_name"></a> [backup\_bucket\_region\_0\_name](#output\_backup\_bucket\_region\_0\_name) | n/a |
 | <a name="output_cluster_name"></a> [cluster\_name](#output\_cluster\_name) | n/a |
 | <a name="output_connectors_password_secret_region_0_arn"></a> [connectors\_password\_secret\_region\_0\_arn](#output\_connectors\_password\_secret\_region\_0\_arn) | n/a |
@@ -134,9 +137,7 @@
 | <a name="output_nlb_grpc_region_0_arn"></a> [nlb\_grpc\_region\_0\_arn](#output\_nlb\_grpc\_region\_0\_arn) | n/a |
 | <a name="output_nlb_grpc_region_1_arn"></a> [nlb\_grpc\_region\_1\_arn](#output\_nlb\_grpc\_region\_1\_arn) | n/a |
 | <a name="output_nlb_raft_region_0_arn"></a> [nlb\_raft\_region\_0\_arn](#output\_nlb\_raft\_region\_0\_arn) | n/a |
-| <a name="output_nlb_raft_region_0_dns_name"></a> [nlb\_raft\_region\_0\_dns\_name](#output\_nlb\_raft\_region\_0\_dns\_name) | n/a |
 | <a name="output_nlb_raft_region_1_arn"></a> [nlb\_raft\_region\_1\_arn](#output\_nlb\_raft\_region\_1\_arn) | n/a |
-| <a name="output_nlb_raft_region_1_dns_name"></a> [nlb\_raft\_region\_1\_dns\_name](#output\_nlb\_raft\_region\_1\_dns\_name) | n/a |
 | <a name="output_opensearch_region_0_endpoint"></a> [opensearch\_region\_0\_endpoint](#output\_opensearch\_region\_0\_endpoint) | The endpoint of the OpenSearch domain in region 0 |
 | <a name="output_opensearch_region_1_endpoint"></a> [opensearch\_region\_1\_endpoint](#output\_opensearch\_region\_1\_endpoint) | The endpoint of the OpenSearch domain in region 1 |
 | <a name="output_rds_db_connect_policy_region_0_arn"></a> [rds\_db\_connect\_policy\_region\_0\_arn](#output\_rds\_db\_connect\_policy\_region\_0\_arn) | n/a |
@@ -144,9 +145,11 @@
 | <a name="output_region_0"></a> [region\_0](#output\_region\_0) | n/a |
 | <a name="output_region_0_alb_endpoint"></a> [region\_0\_alb\_endpoint](#output\_region\_0\_alb\_endpoint) | The DNS name of the ALB in region 0 (HTTP/REST access) |
 | <a name="output_region_0_nlb_grpc_endpoint"></a> [region\_0\_nlb\_grpc\_endpoint](#output\_region\_0\_nlb\_grpc\_endpoint) | The DNS name of the external NLB in region 0 (gRPC access) |
+| <a name="output_region_0_nlb_raft_endpoint"></a> [region\_0\_nlb\_raft\_endpoint](#output\_region\_0\_nlb\_raft\_endpoint) | The DNS name of the internal NLB in region 0 (cross-region Raft port 26502) |
 | <a name="output_region_1"></a> [region\_1](#output\_region\_1) | n/a |
 | <a name="output_region_1_alb_endpoint"></a> [region\_1\_alb\_endpoint](#output\_region\_1\_alb\_endpoint) | The DNS name of the ALB in region 1 (HTTP/REST access) |
 | <a name="output_region_1_nlb_grpc_endpoint"></a> [region\_1\_nlb\_grpc\_endpoint](#output\_region\_1\_nlb\_grpc\_endpoint) | The DNS name of the external NLB in region 1 (gRPC access) |
+| <a name="output_region_1_nlb_raft_endpoint"></a> [region\_1\_nlb\_raft\_endpoint](#output\_region\_1\_nlb\_raft\_endpoint) | The DNS name of the internal NLB in region 1 (cross-region Raft port 26502) |
 | <a name="output_registry_credentials_region_0_arn"></a> [registry\_credentials\_region\_0\_arn](#output\_registry\_credentials\_region\_0\_arn) | n/a |
 | <a name="output_registry_credentials_region_1_arn"></a> [registry\_credentials\_region\_1\_arn](#output\_registry\_credentials\_region\_1\_arn) | n/a |
 | <a name="output_s3_backup_access_policy_region_0_arn"></a> [s3\_backup\_access\_policy\_region\_0\_arn](#output\_s3\_backup\_access\_policy\_region\_0\_arn) | n/a |

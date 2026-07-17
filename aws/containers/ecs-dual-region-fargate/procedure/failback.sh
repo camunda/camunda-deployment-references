@@ -26,6 +26,8 @@ set -euo pipefail
 : "${AURORA_GLOBAL_CLUSTER_ID:?AURORA_GLOBAL_CLUSTER_ID must be set}"
 : "${ALB_ENDPOINT_0:?ALB_ENDPOINT_0 must be set}"
 : "${ALB_ENDPOINT_1:?ALB_ENDPOINT_1 must be set}"
+: "${ADMIN_USER:?ADMIN_USER must be set (default: admin)}"
+: "${ADMIN_PASS:?ADMIN_PASS must be set — retrieve via: terraform -chdir=terraform/app output -raw admin_user_password}"
 
 SWITCH_WRITER=false
 if [ "${1:-}" = "--switch-writer" ]; then
@@ -200,7 +202,7 @@ log "=== Step 4: Wait for 8-broker Raft quorum ==="
 MAX_WAIT=600
 ELAPSED=0
 while [ "${ELAPSED}" -lt "${MAX_WAIT}" ]; do
-    TOPOLOGY=$(curl -sf --max-time 15 "http://${ALB_ENDPOINT_1}/v2/topology" 2>/dev/null || echo "")
+    TOPOLOGY=$(curl -sf --max-time 15 -u "${ADMIN_USER}:${ADMIN_PASS}" "http://${ALB_ENDPOINT_1}/v2/topology" 2>/dev/null || echo "")
 
     if [ -n "${TOPOLOGY}" ]; then
         BROKER_COUNT=$(echo "${TOPOLOGY}" | jq '.brokers | length')

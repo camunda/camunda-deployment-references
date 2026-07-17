@@ -32,7 +32,7 @@ module "orchestration_cluster_region_0" {
   replication_factor                = local.replication_factor
   partition_count                   = local.partition_count
   region_id                         = 0
-  initial_contact_points            = "orchestration-cluster-sc:26502,${local.infra.nlb_raft_region_1_dns_name}:26502"
+  initial_contact_points            = "orchestration-cluster-sc:26502,${local.infra.region_1_nlb_raft_endpoint}:26502"
   internal_nlb_arn                  = local.infra.nlb_raft_region_0_arn
   enable_internal_nlb_raft_listener = true
 
@@ -91,6 +91,8 @@ module "orchestration_cluster_region_0" {
   # Cross-region Raft formation can take 15-20 min the first time the global
   # cluster comes up; bump above the 15m module default to avoid spurious
   # circuit-breaker rollbacks during initial deploy.
+  service_circuit_breaker_enabled = false
+
   service_timeouts = {
     create = "30m"
     update = "30m"
@@ -136,7 +138,7 @@ module "orchestration_cluster_region_1" {
   replication_factor                = local.replication_factor
   partition_count                   = local.partition_count
   region_id                         = 1
-  initial_contact_points            = "orchestration-cluster-sc:26502,${local.infra.nlb_raft_region_0_dns_name}:26502"
+  initial_contact_points            = "orchestration-cluster-sc:26502,${local.infra.region_0_nlb_raft_endpoint}:26502"
   internal_nlb_arn                  = local.infra.nlb_raft_region_1_arn
   enable_internal_nlb_raft_listener = true
 
@@ -192,7 +194,8 @@ module "orchestration_cluster_region_1" {
   )
 
   # See region 0 comments above.
-  task_enable_execute_command = true
+  task_enable_execute_command     = true
+  service_circuit_breaker_enabled = false
 
   service_timeouts = {
     create = "30m"

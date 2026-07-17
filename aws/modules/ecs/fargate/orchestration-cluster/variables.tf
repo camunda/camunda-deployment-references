@@ -370,3 +370,9 @@ variable "s3_force_destroy" {
   type        = bool
   default     = false
 }
+
+variable "service_circuit_breaker_enabled" {
+  description = "Whether to enable the ECS deployment circuit breaker. Disable for initial deployments of Zeebe-based clusters where cross-region Raft formation causes transient task failures that would prematurely trigger the breaker before the cluster self-heals."
+  type        = bool
+  default     = true
+}

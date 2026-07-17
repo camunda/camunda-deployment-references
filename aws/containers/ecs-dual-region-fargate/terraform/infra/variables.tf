@@ -18,10 +18,20 @@ variable "region_1" {
 #                       VPC State Reference                     #
 ################################################################
 
-variable "vpc_state_path" {
+variable "terraform_backend_bucket" {
   type        = string
-  default     = "../vpc/terraform.tfstate"
-  description = "Path to the vpc/ terraform state file (local backend) or S3 key. infra/ reads VPC IDs, subnet IDs, CIDRs, etc. from this state."
+  description = "S3 bucket name storing Terraform state for all layers"
+}
+
+variable "terraform_backend_region" {
+  type        = string
+  default     = "eu-central-1"
+  description = "AWS region of the S3 bucket storing Terraform state (may differ from the deployment regions)"
+}
+
+variable "terraform_backend_key_prefix" {
+  type        = string
+  description = "S3 key prefix shared by all layers. E.g. 'aws/containers/ecs-dual-region-fargate/my-cluster/' yields 's3://<bucket>/<prefix>vpc/terraform.tfstate'"
 }
 
 ################################################################

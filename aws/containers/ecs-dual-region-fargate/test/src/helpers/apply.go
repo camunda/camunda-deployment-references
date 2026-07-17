@@ -36,16 +36,29 @@ func DefaultStatePaths(packageDir string) StatePaths {
 	}
 }
 
-// ApplyOptions bundles per-state variables. All states share aws_profile and
-// region pair; per-state vars cover the toggles each layer needs.
+// ApplyOptions bundles per-state variables and S3 backend configuration.
 type ApplyOptions struct {
 	VPCVars   map[string]interface{}
 	InfraVars map[string]interface{}
 	AppVars   map[string]interface{}
 
-	// BackendConfig is applied to every state's terraform init -backend-config=
-	// flags. Use this for S3 backend or the local-backend override path.
-	BackendConfig map[string]interface{}
+	// S3 backend — required. All three layers share the same bucket and region;
+	// per-layer keys are derived as <BackendKeyPrefix>{vpc,infra,app}/terraform.tfstate.
+	// BackendKeyPrefix must end with "/".
+	BackendBucket    string
+	BackendRegion    string
+	BackendKeyPrefix string
+}
+
+func mergeMap(base, extra map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(base)+len(extra))
+	for k, v := range base {
+		out[k] = v
+	}
+	for k, v := range extra {
+		out[k] = v
+	}
+	return out
 }
 
 // ApplyAllThreeStates applies vpc/ then infra/ then app/ in sequence. Returns
@@ -54,10 +67,32 @@ type ApplyOptions struct {
 func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpcOpts, infraOpts, appOpts *terraform.Options) {
 	t.Helper()
 
+	backendVars := map[string]interface{}{
+		"terraform_backend_bucket":     opts.BackendBucket,
+		"terraform_backend_region":     opts.BackendRegion,
+		"terraform_backend_key_prefix": opts.BackendKeyPrefix,
+	}
+
+	vpcBackend := map[string]interface{}{
+		"bucket": opts.BackendBucket,
+		"region": opts.BackendRegion,
+		"key":    opts.BackendKeyPrefix + "vpc/terraform.tfstate",
+	}
+	infraBackend := map[string]interface{}{
+		"bucket": opts.BackendBucket,
+		"region": opts.BackendRegion,
+		"key":    opts.BackendKeyPrefix + "infra/terraform.tfstate",
+	}
+	appBackend := map[string]interface{}{
+		"bucket": opts.BackendBucket,
+		"region": opts.BackendRegion,
+		"key":    opts.BackendKeyPrefix + "app/terraform.tfstate",
+	}
+
 	vpcOpts = &terraform.Options{
 		TerraformDir:       paths.VPC,
 		Vars:               opts.VPCVars,
-		BackendConfig:      opts.BackendConfig,
+		BackendConfig:      vpcBackend,
 		NoColor:            true,
 		MaxRetries:         2,
 		TimeBetweenRetries: 5,
@@ -67,8 +102,8 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 
 	infraOpts = &terraform.Options{
 		TerraformDir:       paths.Infra,
-		Vars:               opts.InfraVars,
-		BackendConfig:      opts.BackendConfig,
+		Vars:               mergeMap(opts.InfraVars, backendVars),
+		BackendConfig:      infraBackend,
 		NoColor:            true,
 		MaxRetries:         2,
 		TimeBetweenRetries: 5,
@@ -78,8 +113,8 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 
 	appOpts = &terraform.Options{
 		TerraformDir:       paths.App,
-		Vars:               opts.AppVars,
-		BackendConfig:      opts.BackendConfig,
+		Vars:               mergeMap(opts.AppVars, backendVars),
+		BackendConfig:      appBackend,
 		NoColor:            true,
 		MaxRetries:         2,
 		TimeBetweenRetries: 5,

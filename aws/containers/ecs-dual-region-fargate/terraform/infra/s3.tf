@@ -6,7 +6,7 @@
 # one place, regardless of which region is active.             #
 ################################################################
 
-# Region 0 backup bucket
+# Single shared backup bucket in region 0; both clusters write to it.
 #trivy:ignore:AVD-AWS-0089 Bucket logging disabled to simplify setup
 resource "aws_s3_bucket" "backup_region_0" {
   bucket        = "${local.prefix_region_0}-backup-${local.bucket_suffix}"
