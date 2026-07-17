@@ -128,7 +128,7 @@
                 "node_public_ip_enabled": null,
                 "node_public_ip_prefix_id": null,
                 "only_critical_addons_enabled": true,
-                "orchestrator_version": "1.35",
+                "orchestrator_version": "1.36",
                 "os_disk_size_gb": 30,
                 "os_disk_type": "Managed",
                 "pod_subnet_id": null,
@@ -147,7 +147,7 @@
                     "undrainable_node_behavior": null
                   }
                 ],
-                "vm_size": "Standard_D2s_v3",
+                "vm_size": "Standard_D2s_v6",
                 "zones": [
                   "1",
                   "2",
@@ -175,7 +175,7 @@
               }
             ],
             "key_vault_secrets_provider": [],
-            "kubernetes_version": "1.35",
+            "kubernetes_version": "1.36",
             "linux_profile": [],
             "local_account_disabled": null,
             "location": "swedencentral",
@@ -269,7 +269,7 @@
             "node_public_ip_enabled": null,
             "node_public_ip_prefix_id": null,
             "node_taints": null,
-            "orchestrator_version": "1.35",
+            "orchestrator_version": "1.36",
             "os_disk_size_gb": 30,
             "os_disk_type": "Managed",
             "os_type": "Linux",
@@ -295,7 +295,7 @@
                 "undrainable_node_behavior": null
               }
             ],
-            "vm_size": "Standard_D4s_v3",
+            "vm_size": "Standard_D4s_v6",
             "windows_profile": [],
             "workload_runtime": null,
             "zones": [
@@ -919,7 +919,7 @@
             "public_network_access_enabled": false,
             "replication_role": null,
             "resource_group_name": "camunda-rg",
-            "sku_name": "GP_Standard_D2s_v3",
+            "sku_name": "GP_Standard_D2ds_v5",
             "source_server_id": null,
             "storage_mb": 32768,
             "tags": {

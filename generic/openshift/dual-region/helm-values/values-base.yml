@@ -46,8 +46,6 @@ orchestration:
         secondaryStorage:
             type: elasticsearch
     clusterSize: '8'
-    partitionCount: '8'
-    replicationFactor: '4'
     # Disable the Camunda and Zeebe exporters as we use region specific ones below
     exporters:
         camunda:
@@ -55,6 +53,12 @@ orchestration:
         zeebe:
             enabled: false
     env:
+        - name: CAMUNDA_CLUSTER_PARTITIONCOUNT
+          value: '8'
+        - name: CAMUNDA_CLUSTER_REPLICATIONFACTOR
+          value: '4'
+        - name: ZEEBE_LOG_LEVEL
+          value: ERROR
         - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
           value: camunda_backup
         - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
@@ -166,7 +170,6 @@ orchestration:
                 done
                 echo "Cross-region DNS gate complete; starting broker."
     pvcSize: 32Gi
-    logLevel: ERROR
 
     resources:
         requests:
@@ -179,8 +182,6 @@ orchestration:
 identity:
     enabled: false
 
-console:
-    enabled: false # by default, console is not enabled
 
 optimize:
     enabled: false

@@ -1,5 +1,9 @@
 ################################################################
-#                    Backup S3 Bucket                          #
+#            Backup S3 Bucket (single, shared by both regions) #
+#                                                              #
+# Both regions write backups to this bucket and restore from   #
+# it. A single shared bucket ensures all backup data is in     #
+# one place, regardless of which region is active.             #
 ################################################################
 
 # Single shared backup bucket in region 0; both clusters write to it.

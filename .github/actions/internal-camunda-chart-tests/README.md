@@ -22,8 +22,7 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `camunda-version` | <p>The version of the Camunda to test</p> | `true` | `""` |
 | `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `""` |
 | `camunda-domain-grpc` | <p>The domain to use for the gRPC tests</p> | `false` | `""` |
-| `webmodeler-enabled` | <p>Whether the Webmodeler is enabled in the chart</p> | `false` | `false` |
-| `console-enabled` | <p>Whether the Console is enabled in the chart</p> | `false` | `false` |
+| `hub-enabled` | <p>Whether Camunda Hub (Web Modeler) is enabled in the chart</p> | `false` | `false` |
 | `optimize-enabled` | <p>Whether Optimize is enabled in the chart</p> | `false` | `true` |
 | `elasticsearch-enabled` | <p>Whether the Elasticsearch is enabled in the chart</p> | `false` | `true` |
 | `test-namespace` | <p>The namespace to use for the helm tests</p> | `false` | `camunda` |
@@ -89,14 +88,8 @@ This action is a `composite` action.
     # Required: false
     # Default: ""
 
-    webmodeler-enabled:
-    # Whether the Webmodeler is enabled in the chart
-    #
-    # Required: false
-    # Default: false
-
-    console-enabled:
-    # Whether the Console is enabled in the chart
+    hub-enabled:
+    # Whether Camunda Hub (Web Modeler) is enabled in the chart
     #
     # Required: false
     # Default: false

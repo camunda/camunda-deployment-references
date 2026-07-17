@@ -5,7 +5,7 @@ set -euo pipefail
 # The binary was removed from asdf/.tool-versions after corruption concerns (see #1960).
 
 # renovate: datasource=docker depName=ghcr.io/aquasecurity/trivy versioning=semver
-TRIVY_VERSION="0.71.2"
+TRIVY_VERSION="0.72.0"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 

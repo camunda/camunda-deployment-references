@@ -133,8 +133,29 @@ runs:
               set -euo pipefail
 
               if [[ "${{ inputs.helm-version }}" =~ dev-latest ]]; then
+                # The pre-release dev chart is not published to the public Helm repo,
+                # so build it from source instead of pulling the private OCI registry:
+                # clone the pinned tag, resolve its in-repo (file://) dependency, and
+                # point the test at the local chart directory. InstallUpgradeC8Helm
+                # skips `helm repo add` and `--version` for a local chart path.
+                # The pre-release (dev-latest) chart isn't on the public Helm repo, so
+                # build it from source; released versions use the public repo via the
+                # `else` branch, so GA needs no manual switch here (the workflow's
+                # helm-version flips to a released value and this block is bypassed).
+                # TODO: [release-duty] when the pre-release line moves to the next major,
+                # bump CHART_GIT_REF and the hardcoded 8.10 in the renovate regex below.
+                # A release tag carries the previous version in Chart.yaml (tag N ships
+                # version N-1), so the built chart is one prerelease behind CHART_GIT_REF (this
+                # is intentional — the known-good set the integration tests validate).
+                # renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$
+                CHART_GIT_REF="camunda-platform-8.10-15.0.0-alpha2"
+                CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
+                CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"
+                git clone --depth 1 --branch "$CHART_GIT_REF" \
+                  https://github.com/camunda/camunda-platform-helm.git "$CHART_CHECKOUT"
+                helm dependency update "$CHART_CHECKOUT/charts/camunda-platform-$CAMUNDA_VERSION"
                 {
-                  echo "HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform"
+                  echo "HELM_CHART_NAME=$CHART_CHECKOUT/charts/camunda-platform-$CAMUNDA_VERSION"
                 } >> "$GITHUB_ENV"
               else
                 {
@@ -187,6 +208,7 @@ runs:
               kube-context: ${{ inputs.cluster-0-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
               vault-secret-id: ${{ inputs.vault-secret-id }}
@@ -201,6 +223,7 @@ runs:
               kube-context: ${{ inputs.cluster-1-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
               vault-secret-id: ${{ inputs.vault-secret-id }}

@@ -54,6 +54,10 @@ module "orchestration_cluster_region_0" {
         name  = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME"
         value = local.infra.backup_bucket_region_0_name
       },
+      {
+        name  = "CAMUNDA_DATA_BACKUP_S3_REGION"
+        value = data.aws_region.region_0.id
+      },
     ]
   )
 
@@ -155,6 +159,13 @@ module "orchestration_cluster_region_1" {
       {
         name  = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME"
         value = local.infra.backup_bucket_region_0_name
+      },
+      {
+        # Explicit bucket region: region 1 brokers write cross-region to the
+        # shared bucket in region 0; the S3 client must know where the bucket
+        # lives for correct endpoint resolution.
+        name  = "CAMUNDA_DATA_BACKUP_S3_REGION"
+        value = data.aws_region.region_0.id
       },
     ]
   )

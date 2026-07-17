@@ -30,7 +30,7 @@ No modules.
 | <a name="input_ca_cert_identifier"></a> [ca\_cert\_identifier](#input\_ca\_cert\_identifier) | CA certificate identifier for DB instances | `string` | `"rds-ca-rsa2048-g1"` | no |
 | <a name="input_database_name"></a> [database\_name](#input\_database\_name) | The name for the automatically created database | `string` | `"camunda"` | no |
 | <a name="input_engine"></a> [engine](#input\_engine) | The engine type e.g. aurora-postgresql | `string` | `"aurora-postgresql"` | no |
-| <a name="input_engine_version"></a> [engine\_version](#input\_engine\_version) | The DB engine version for Postgres to use | `string` | `"17.9"` | no |
+| <a name="input_engine_version"></a> [engine\_version](#input\_engine\_version) | The DB engine version for Postgres to use | `string` | `"18.3"` | no |
 | <a name="input_global_cluster_identifier"></a> [global\_cluster\_identifier](#input\_global\_cluster\_identifier) | Identifier for the Aurora Global Database cluster | `string` | n/a | yes |
 | <a name="input_iam_auth_enabled"></a> [iam\_auth\_enabled](#input\_iam\_auth\_enabled) | Enable IAM database authentication | `bool` | `true` | no |
 | <a name="input_instance_class"></a> [instance\_class](#input\_instance\_class) | The instance type of the Aurora instances | `string` | `"db.r6g.large"` | no |

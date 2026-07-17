@@ -234,6 +234,11 @@ jobs:
                   ref-arch: eks-single-region
                   deploy-aurora: 'false'      # Disabled - using CloudNativePG operator instead
                   deploy-opensearch: 'false'  # Disabled - using ECK operator instead
+                  # Cost-efficient SPOT capacity for tests, with diversified same-size
+                  # instance types to improve availability (see issue #109). Spot
+                  # interruptions are tolerated via job re-runs.
+                  np-capacity-type: SPOT
+                  np-instance-types: m6i.xlarge,m6a.xlarge,m5.xlarge,m5a.xlarge,m5d.xlarge
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -699,6 +704,19 @@ jobs:
 
                   echo "All operator-based infrastructure deployed successfully."
 
+            # Regression guard for the Keycloak quay-optimized H2C crash (issue #2809): on an
+            # affected image an HTTP/2 cleartext (h2c) upgrade throws NoSuchMethodError and
+            # terminates the process. The fix ships in the pinned image (the conflicting Netty is
+            # removed from /opt/keycloak/providers, camunda/keycloak#596); this probe sends an h2c
+            # request and fails if that regresses. Scoped to no-domain, where Keycloak is reached
+            # directly over cleartext (the domain declination sits behind ingress speaking HTTP/1.1
+            # upstream, so it never exercises the h2c path).
+            - name: 🧪 Keycloak H2C regression probe
+              if: matrix.declination.name == 'no-domain'
+              timeout-minutes: 8
+              working-directory: ./generic/kubernetes/operator-based/
+              run: ./tests/check-keycloak-h2c.sh
+
             - name: 🔑 Create Camunda credentials and export test tokens
               timeout-minutes: 5
               run: |
@@ -727,14 +745,6 @@ jobs:
                         --from-literal=identity-admin-client-id="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_ID }}" \
                         --from-literal=identity-admin-client-secret="${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}" \
                         --namespace="$CAMUNDA_NAMESPACE" ||true
-
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 🏗️ Deploy Camunda Platform
               timeout-minutes: 15
@@ -842,8 +852,7 @@ jobs:
                   oidc-client-secret: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                   keycloak-url: http://keycloak-service:18080/auth
                   elasticsearch-enabled: 'false'
-                  webmodeler-enabled: 'true'
-                  console-enabled: 'true'
+                  hub-enabled: 'true'
                   # operator-based always serves connectors under /connectors
                   # (see generic/kubernetes/operator-based/tests/utils/camunda-{domain,no-domain}-values.yml)
                   # at the INGRESS layer (path-based routing). The pod's actuator
@@ -864,8 +873,7 @@ jobs:
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   camunda-domain: ${{ matrix.declination.name == 'domain' && env.CAMUNDA_DOMAIN || '' }}
                   camunda-domain-grpc: ${{ matrix.declination.name == 'domain' && format('zeebe-{0}:443', env.CAMUNDA_DOMAIN) || '' }}
-                  webmodeler-enabled: 'true'      # Always enabled in operator-based deployment
-                  console-enabled: 'true'         # Always enabled in operator-based deployment
+                  hub-enabled: 'true'      # Always enabled in operator-based deployment
                   elasticsearch-enabled: 'false'  # Using ECK operator instead
                   zeebe-authenticated: 'true' # we always have an auth provider
                   skip-c8sm-connectivity-ingress-class-check: ${{ matrix.distro.type == 'openshift' && 'true' || 'false' }}

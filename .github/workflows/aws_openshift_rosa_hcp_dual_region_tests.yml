@@ -638,14 +638,6 @@ jobs:
 
                   ./generic/openshift/dual-region/procedure/assemble-envsubst-values.sh
 
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ env.HELM_CHART_VERSION }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
             # Fetches CAMUNDA_BASIC_AUTH_USER/PASSWORD from Vault and writes a
             # Helm overlay values file so the CI cluster is not protected by
             # the chart default demo:demo admin (see incident INC-5340).
@@ -788,14 +780,6 @@ jobs:
                   enable-c8sm-zeebe-token-check: 'false'
                   enable-c8sm-zeebe-connectivity-check: 'false'
 
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ env.HELM_CHART_VERSION }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
             - name: Run Multi-region tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
@@ -887,7 +871,7 @@ jobs:
             - integration-tests
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@e6bf8b7ee0c9ce3e851c0be09fef57c4f4d647db # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@4700be2d48ff2952fdae7a3baa481781f6999b72 # main
               with:
                   error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
                   run-id: ${{ github.run_id }}

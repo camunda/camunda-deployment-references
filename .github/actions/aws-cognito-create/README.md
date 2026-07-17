@@ -11,8 +11,7 @@ Creates a temporary AWS Cognito User Pool for Camunda OIDC testing
 | `resource-prefix` | <p>Prefix for Cognito resources</p> | `true` | `""` |
 | `domain-name` | <p>Bare hostname for Camunda deployment (e.g., my-cluster.camunda.example.com). No protocol, no trailing slash. Does not need to exist in DNS.</p> | `true` | `""` |
 | `aws-region` | <p>AWS region for Cognito (uses current region if not specified)</p> | `false` | `""` |
-| `enable-webmodeler` | <p>Enable Web Modeler component</p> | `false` | `false` |
-| `enable-console` | <p>Enable Console component</p> | `false` | `false` |
+| `enable-webmodeler` | <p>Enable WebModeler component</p> | `false` | `false` |
 | `create-test-user` | <p>Create a test user for simulating human login</p> | `false` | `false` |
 | `test-user-name` | <p>Email for the test user</p> | `false` | `camunda-test@example.com` |
 | `test-user-password` | <p>Password for the test user</p> | `false` | `CamundaTest123!` |
@@ -42,7 +41,6 @@ Creates a temporary AWS Cognito User Pool for Camunda OIDC testing
 | `orchestration-client-secret` | <p>Orchestration component client secret</p> |
 | `connectors-client-id` | <p>Connectors component client ID</p> |
 | `connectors-client-secret` | <p>Connectors component client secret</p> |
-| `console-client-id` | <p>Console component client ID</p> |
 | `webmodeler-ui-client-id` | <p>WebModeler UI client ID</p> |
 | `webmodeler-api-client-id` | <p>WebModeler API client ID</p> |
 | `webmodeler-api-client-secret` | <p>WebModeler API client secret</p> |
@@ -78,13 +76,7 @@ This action is a `composite` action.
     # Default: ""
 
     enable-webmodeler:
-    # Enable Web Modeler component
-    #
-    # Required: false
-    # Default: false
-
-    enable-console:
-    # Enable Console component
+    # Enable WebModeler component
     #
     # Required: false
     # Default: false

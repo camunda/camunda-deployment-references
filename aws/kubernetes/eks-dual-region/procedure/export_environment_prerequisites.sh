@@ -8,6 +8,22 @@
 # . ./export_environment_prerequisites.sh
 # to export the environment variables to the current shell
 
+# Warn that this targets an unreleased, in-development chart (to stderr).
+# TODO: [release-duty] remove this pre-release warning at release.
+cat >&2 <<'PRERELEASE_WARNING'
+
+  ############################################################################
+  #  ⚠  PRE-RELEASE — NOT A STABLE CAMUNDA RELEASE                           #
+  #                                                                          #
+  #  This targets an unreleased, in-development Camunda 8 chart.             #
+  #  It may be unstable or fail to start — that is expected here.            #
+  #                                                                          #
+  #  Need a stable, supported setup? Follow the Administrator quickstart:    #
+  #  https://docs.camunda.io/docs/self-managed/quickstart/administrator-quickstart/
+  ############################################################################
+
+PRERELEASE_WARNING
+
 # The AWS regions of your Kubernetes cluster 0 and 1
 export REGION_0=${REGION_0:-eu-west-2}
 export REGION_1=${REGION_1:-eu-west-3}
@@ -26,7 +42,5 @@ export CAMUNDA_NAMESPACE_1=${CAMUNDA_NAMESPACE_1:-camunda-paris}
 export CAMUNDA_RELEASE_NAME=${CAMUNDA_RELEASE_NAME:-camunda}
 
 # TODO: [release-duty] before the release, update the below versions to the stable release!
-# renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+# renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
 export HELM_CHART_VERSION=${HELM_CHART_VERSION:-"15-dev-latest"}
-export HELM_CHART_REF=${HELM_CHART_REF:-"oci://registry.camunda.cloud/team-distribution/camunda-platform"}
-# TODO: [release-duty] before the release, update this!
