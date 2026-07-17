@@ -14,7 +14,7 @@ module "aurora_global" {
   global_cluster_identifier = "${local.prefix}-global-db"
 
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
-  engine_version             = "17.9"
+  engine_version             = "18.3"
   auto_minor_version_upgrade = false
   database_name              = var.db_name
 

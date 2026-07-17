@@ -104,7 +104,7 @@ jobs:
               uses: teleport-actions/setup@b638ff596557cc3959eb6b5287d5e58e0c8ac6a6 # v1
               with:
                   # renovate: datasource=custom.teleport-camunda depName=teleport
-                  version: 18.8.3
+                  version: 18.9.1
             - name: Authenticate with Teleport
               uses: teleport-actions/auth-k8s@0f46164469ae4fcd4d359d40e06bab17d4be17c9 # v2
               with:
@@ -278,14 +278,6 @@ jobs:
                   for namespace in "${ALL_NAMESPACES[@]}"; do
                     apply_labels_and_annotations "$namespace"
                   done
-
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: Run Multi-region tests
               if: env.TESTS_ENABLED == 'true'

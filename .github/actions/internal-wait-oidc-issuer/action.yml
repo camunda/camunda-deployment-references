@@ -12,8 +12,10 @@ description: |
     readiness window, so the deployment can look broken for a while.
 
     This action waits (bounded, fail-open) for the issuer's discovery document to
-    answer `200`, then bounces the affected workloads so they restart immediately
-    instead of after the next backoff window.
+    answer `200`, then (by default) bounces the affected workloads so they restart
+    immediately instead of after the next backoff window. The bounce is optional:
+    set `restart-workloads: false` to wait only — e.g. when a later step refreshes
+    CoreDNS and restarts the workloads itself.
 
     It is **IdP-agnostic**: it polls whatever `issuer-url` the caller provides and
     completes quickly (no waiting) when the issuer is already reachable, e.g. an
@@ -49,6 +51,14 @@ inputs:
             emits a warning and exits 0 so it never blocks the pipeline.
         required: false
         default: '600'
+    restart-workloads:
+        description: |
+            Bounce the OIDC workloads (zeebe/connectors) once the issuer is
+            reachable. Set to 'false' to wait only — e.g. when a later step
+            refreshes CoreDNS and restarts the workloads itself (so they are not
+            bounced before in-cluster DNS is fixed).
+        required: false
+        default: 'true'
 
 runs:
     using: composite
@@ -61,6 +71,7 @@ runs:
               RELEASE_NAME: ${{ inputs.release-name }}
               INSECURE: ${{ inputs.insecure }}
               TIMEOUT_SECONDS: ${{ inputs.timeout-seconds }}
+              RESTART_WORKLOADS: ${{ inputs.restart-workloads }}
           run: |
               set -uo pipefail
 
@@ -96,12 +107,16 @@ runs:
 
                   if [ "${code}" = "200" ]; then
                       echo "✅ OIDC issuer reachable (HTTP 200) after ${attempt} attempt(s)."
+                      if [ "${RESTART_WORKLOADS}" = "false" ]; then
+                          echo "restart-workloads=false: issuer reachable; skipping the workload bounce (left to the caller)."
+                          exit 0
+                      fi
                       # Clear any first-start CrashLoopBackOff so the app pods
                       # restart now instead of after the next (long) backoff
                       # window. Bounce each workload only if it exists, so a
                       # disabled/renamed component stays quiet while real errors
-                      # (missing kubeconfig / RBAC) stay visible; '|| true' keeps
-                      # the bounce best-effort (fail-open).
+                      # (missing kubeconfig / RBAC) stay visible; a failed restart
+                      # is downgraded to a warning so the bounce stays best-effort.
                       for workload in "statefulset/${RELEASE_NAME}-zeebe" "deployment/${RELEASE_NAME}-connectors"; do
                           # --ignore-not-found keeps a genuine "absent" quiet
                           # (empty + exit 0) while real failures (no kubeconfig /
@@ -109,7 +124,7 @@ runs:
                           if ! found=$(kubectl -n "${NAMESPACE}" get "${workload}" --ignore-not-found -o name 2>&1); then
                               echo "::warning::Could not query ${workload}: ${found}"
                           elif [ -n "${found}" ]; then
-                              kubectl -n "${NAMESPACE}" rollout restart "${workload}" || true
+                              kubectl -n "${NAMESPACE}" rollout restart "${workload}" || echo "::warning::rollout restart ${workload} failed"
                           else
                               echo "Skipping ${workload}: not present in namespace ${NAMESPACE}."
                           fi

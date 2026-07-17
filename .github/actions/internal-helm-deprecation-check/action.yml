@@ -44,10 +44,21 @@ inputs:
         default: ''
     exclude-patterns:
         description: |
-            Newline-separated list of fixed strings to exclude from warnings and errors.
-            Messages containing any of these strings will be ignored.
+            Newline-separated list of fixed strings (one pattern per line) to
+            exclude from warnings and errors. Messages containing any of these
+            strings are ignored. Patterns are matched per line, so a
+            space-separated value is treated as a single pattern, not several.
         required: false
-        default: ''
+        # TODO(camunda-platform-helm#6507): these excludes are a workaround for an
+        # upstream chart bug — the keys are deprecated toward `extraConfiguration`
+        # but can't be migrated there (one is still `required`, the other is a
+        # template-time toggle). Remove the matching line(s) below once that is
+        # fixed upstream (or chart v16 / Camunda 8.11 removes the keys).
+        # https://github.com/camunda/camunda-platform-helm/issues/6507
+        default: |-
+            webModeler.restapi.mail.fromAddress
+            webModeler.restapi.mail.fromName
+            orchestration.exporters.camunda.enabled
     check-unknown-keys:
         description: |
             When set to 'true', deployed values are validated against a strict
@@ -57,6 +68,14 @@ inputs:
             See: https://github.com/camunda/camunda-platform-helm/issues/4564
         required: false
         default: 'true'
+    local-chart-path:
+        description: |
+            Optional path to a locally source-built chart directory (one that
+            contains values.schema.json). When set, the unknown-keys check reads
+            the schema from there instead of pulling the chart from a registry, so
+            the pre-release (dev) line needs no private OCI registry authentication.
+        required: false
+        default: ''
     comment-section-key:
         description: |
             Optional extra identifier mixed into the PR comment section ID.
@@ -130,7 +149,7 @@ runs:
           shell: bash
           env:
               # renovate: datasource=github-tags depName=cli/cli
-              GH_CLI_VERSION: v2.95.0
+              GH_CLI_VERSION: v2.96.0
           run: |
               set -euo pipefail
 
@@ -386,37 +405,53 @@ runs:
                   exit 0
               fi
 
-              # Pull the chart to extract its schema.
-              # Try the OCI registry first, then fall back to the Helm repo.
-              # Pre-release versions (e.g. 14.0.0-alpha6) may not have their
-              # own OCI tag when installed via a floating tag like "14-dev-latest".
-              CHART_PULLED=false
-              if helm pull "oci://registry.camunda.cloud/team-distribution/${CHART_NAME}" \
-                  --version "${CHART_VERSION}" \
-                  --destination "${WORK_DIR}" \
-                  --untar 2>/dev/null; then
-                  CHART_PULLED=true
-              else
-                  echo "OCI pull failed, trying Helm repo fallback..."
-                  if helm pull "${CHART_NAME}" \
+              # Locate the chart's values.schema.json. Prefer a locally source-built
+              # chart so the pre-release (dev) line needs no registry auth: an explicit
+              # local-chart-path input (dual-region), else the source-build checkout at
+              # .camunda-platform-helm (single-region/generic/kind). Fall back to the
+              # public Helm repo for released charts. The private OCI registry is
+              # intentionally no longer used here.
+              LOCAL_CHART_PATH="${{ inputs.local-chart-path }}"
+              SCHEMA_PATH=""
+              # Autodetect the source-build checkout produced by the shared
+              # build-camunda-chart.sh helper. It clones the whole
+              # camunda-platform-helm repo, which ships one directory per Camunda
+              # minor (charts/camunda-platform-8.x), and every chart's Chart.yaml
+              # name is just "camunda-platform". Match by the deployed chart
+              # version (unique per directory) rather than the release/chart name.
+              CHARTS_DIR="${GITHUB_WORKSPACE}/.camunda-platform-helm/charts"
+              AUTODETECT_SCHEMA=""
+              if [[ -d "${CHARTS_DIR}" ]]; then
+                  for _chart_dir in "${CHARTS_DIR}"/*/; do
+                      [[ -f "${_chart_dir}values.schema.json" && -f "${_chart_dir}Chart.yaml" ]] || continue
+                      _chart_ver=$(grep -E '^version:' "${_chart_dir}Chart.yaml" | head -n1 | awk '{print $2}' | tr -d '"')
+                      if [[ "${_chart_ver}" == "${CHART_VERSION}" ]]; then
+                          AUTODETECT_SCHEMA="${_chart_dir}values.schema.json"
+                          break
+                      fi
+                  done
+              fi
+              if [[ -n "${LOCAL_CHART_PATH}" && -f "${LOCAL_CHART_PATH}/values.schema.json" ]]; then
+                  echo "Using values.schema.json from the source-built chart at ${LOCAL_CHART_PATH}"
+                  SCHEMA_PATH="${LOCAL_CHART_PATH}/values.schema.json"
+              elif [[ -n "${AUTODETECT_SCHEMA}" ]]; then
+                  echo "Using values.schema.json from the source-built chart at ${AUTODETECT_SCHEMA%/values.schema.json}"
+                  SCHEMA_PATH="${AUTODETECT_SCHEMA}"
+              elif helm pull "${CHART_NAME}" \
                       --repo "https://helm.camunda.io" \
                       --version "${CHART_VERSION}" \
                       --destination "${WORK_DIR}" \
                       --untar 2>/dev/null; then
-                      CHART_PULLED=true
-                  fi
-              fi
-
-              if [[ "${CHART_PULLED}" != "true" ]]; then
-                  echo "::warning::Could not pull chart ${CHART_NAME}:${CHART_VERSION}" \
-                      "from OCI registry or Helm repo." \
-                      "The version may not be published yet. Skipping unknown keys check."
+                  SCHEMA_PATH="${WORK_DIR}/${CHART_NAME}/values.schema.json"
+              else
+                  echo "::warning::Could not obtain the schema for chart ${CHART_NAME}:${CHART_VERSION}" \
+                      "(no local source-built chart, and not published to the public Helm repo)." \
+                      "Skipping unknown keys check."
                   exit 0
               fi
 
-              SCHEMA_PATH="${WORK_DIR}/${CHART_NAME}/values.schema.json"
               if [[ ! -f "${SCHEMA_PATH}" ]]; then
-                  echo "::warning::No values.schema.json found in chart ${CHART_NAME}:${CHART_VERSION}, skipping unknown keys check."
+                  echo "::warning::No values.schema.json found for chart ${CHART_NAME}:${CHART_VERSION}, skipping unknown keys check."
                   exit 0
               fi
 

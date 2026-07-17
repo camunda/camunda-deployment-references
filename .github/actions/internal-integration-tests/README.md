@@ -24,8 +24,7 @@ Tests run from the GHA runner using port-forward (no-domain) or ingress URLs (do
 | `basic-auth-user` | <p>Username for basic auth</p> | `false` | `demo` |
 | `basic-auth-password` | <p>Password for basic auth</p> | `false` | `demo` |
 | `elasticsearch-enabled` | <p>Whether Elasticsearch is enabled</p> | `false` | `true` |
-| `webmodeler-enabled` | <p>Whether WebModeler is enabled</p> | `false` | `false` |
-| `console-enabled` | <p>Whether Console is enabled</p> | `false` | `false` |
+| `hub-enabled` | <p>Whether Camunda Hub (Web Modeler) is enabled</p> | `false` | `false` |
 | `optimize-enabled` | <p>Whether Optimize is enabled</p> | `false` | `true` |
 | `zeebe-gateway-url` | <p>Zeebe gateway URL (for port-forward mode)</p> | `false` | `http://localhost:8080` |
 | `keycloak-url` | <p>Keycloak URL (for port-forward mode)</p> | `false` | `http://localhost:18080/auth` |
@@ -137,14 +136,8 @@ This action is a `composite` action.
     # Required: false
     # Default: true
 
-    webmodeler-enabled:
-    # Whether WebModeler is enabled
-    #
-    # Required: false
-    # Default: false
-
-    console-enabled:
-    # Whether Console is enabled
+    hub-enabled:
+    # Whether Camunda Hub (Web Modeler) is enabled
     #
     # Required: false
     # Default: false

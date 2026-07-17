@@ -11,7 +11,12 @@ generate_initial_contact() {
     local ns_1=$2
     local release=$3
     local port_number=26502
-    echo "${release}-zeebe.${ns_0}.svc.cluster.local:${port_number},${release}-zeebe.${ns_1}.svc.cluster.local:${port_number}"
+    # Trailing dot marks each name as a fully-qualified domain name so the resolver
+    # queries it directly instead of walking the pod's ndots:5 search domains first.
+    # This 4-dot name is otherwise < ndots, so it is search-expanded first; if any
+    # search domain is slow/unresolvable the broker can hang at startup
+    # (camunda/camunda#55038).
+    echo "${release}-zeebe.${ns_0}.svc.cluster.local.:${port_number},${release}-zeebe.${ns_1}.svc.cluster.local.:${port_number}"
 }
 
 generate_exporter_elasticsearch_url() {

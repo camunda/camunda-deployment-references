@@ -111,8 +111,6 @@ orchestration:
                     users:
                         - admin
 
-console:
-    enabled: false # by default, console is not enabled
 
 webModeler:
     enabled: false # by default, webModeler is not enabled

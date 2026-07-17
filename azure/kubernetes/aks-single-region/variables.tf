@@ -77,9 +77,10 @@ variable "system_node_pool_count" {
 }
 
 variable "system_node_pool_vm_size" {
+  # Dsv6 is a recent VM generation (as of 2026-07).
   description = "VM size for the system node pool"
   type        = string
-  default     = "Standard_D2s_v3"
+  default     = "Standard_D2s_v6"
 }
 
 variable "user_node_pool_count" {
@@ -89,9 +90,10 @@ variable "user_node_pool_count" {
 }
 
 variable "user_node_pool_vm_size" {
+  # Dsv6 is a recent VM generation (as of 2026-07).
   description = "VM size for the user node pool"
   type        = string
-  default     = "Standard_D4s_v3"
+  default     = "Standard_D4s_v6"
 }
 
 variable "system_node_pool_zones" {
@@ -116,9 +118,12 @@ variable "postgres_version" {
 }
 
 variable "postgres_sku_tier" {
+  # GP_Standard_D2ds_v5 is the newest General Purpose tier offered for Flexible
+  # Server in swedencentral (v6 is not available for Flexible Server, unlike the
+  # AKS node pools).
   description = "SKU tier for PostgreSQL Flexible Server"
   type        = string
-  default     = "GP_Standard_D2s_v3"
+  default     = "GP_Standard_D2ds_v5"
 }
 
 variable "postgres_storage_mb" {

@@ -97,8 +97,7 @@ env:
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Optional components that are not enabled by default in the doc
-    WEBMODELER_ENABLED: 'true'
-    CONSOLE_ENABLED: 'true'
+    HUB_ENABLED: 'true'
 
 jobs:
     triage:
@@ -279,8 +278,7 @@ jobs:
               with:
                   resource-prefix: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
                   domain-name: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}.${{ env.TLD }}
-                  enable-webmodeler: ${{ env.WEBMODELER_ENABLED }}
-                  enable-console: ${{ env.CONSOLE_ENABLED }}
+                  enable-webmodeler: ${{ env.HUB_ENABLED }}
                   create-test-user: 'true'
                   test-user-name: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_EMAIL }}
                   test-user-password: ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_PASSWORD }}
@@ -312,7 +310,6 @@ jobs:
                   CONNECTORS_CLIENT_ID=${{ steps.create-cognito.outputs.connectors-client-id }}
                   OIDC_CONNECTORS_CLIENT_SECRET=${{ steps.create-cognito.outputs.connectors-client-secret }}
                   CONNECTORS_TOKEN_SCOPE=${{ steps.create-cognito.outputs.resource-server-identifier }}/orchestration
-                  CONSOLE_CLIENT_ID=${{ steps.create-cognito.outputs.console-client-id }}
                   WEBMODELER_UI_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-ui-client-id }}
                   WEBMODELER_API_CLIENT_ID=${{ steps.create-cognito.outputs.webmodeler-api-client-id }}
                   OIDC_WEBMODELER_API_CLIENT_SECRET=${{ steps.create-cognito.outputs.webmodeler-api-client-secret }}
@@ -700,11 +697,11 @@ jobs:
                     echo "CAMUNDA_DOMAIN_GRPC=$CAMUNDA_DOMAIN_GRPC" | tee -a "$GITHUB_ENV"
                   fi
 
-                  # Chart 15.x consolidates Console + WebModeler under
-                  # `camundaHub.enabled: true`. The legacy `console.enabled` /
-                  # `webModeler.enabled` keys are deprecated and emit warnings.
-                  if [ "$WEBMODELER_ENABLED" == "true" ] || [ "$CONSOLE_ENABLED" == "true" ]; then
-                    echo "Enabling Camunda Hub (Console + WebModeler)"
+                  # Chart 15.x consolidates WebModeler under `camundaHub.enabled:
+                  # true`. The legacy `webModeler.enabled` key is deprecated and
+                  # emits warnings.
+                  if [ "$HUB_ENABLED" == "true" ]; then
+                    echo "Enabling Camunda Hub (WebModeler)"
                     yq -i '.camundaHub.enabled = true' values.yml
                   fi
 
@@ -833,14 +830,6 @@ jobs:
                   kubectl delete job setup-opensearch-fgac --namespace "$CAMUNDA_NAMESPACE"
                   kubectl delete secret setup-os-secret --namespace "$CAMUNDA_NAMESPACE"
 
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
             - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
               timeout-minutes: 10
               run: |
@@ -853,7 +842,7 @@ jobs:
                   # For 'oidc', secrets are created in the OIDC secrets step
 
                   # Create WebModeler secrets
-                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                  if [ "$HUB_ENABLED" == "true" ]; then
                     ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-webmodeler-secret.sh
                   fi
 
@@ -899,19 +888,48 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   insecure: ${{ steps.cert-config.outputs.use-wildcard-cert }}
+                  # Wait only: the workloads are bounced after CoreDNS is refreshed (next steps).
+                  restart-workloads: 'false'
+
+            # CoreDNS is bounced here — after the (fail-open) issuer-reachability wait,
+            # so the ingress DNS record normally exists by now, and BEFORE the health
+            # wait — to flush the stale negative DNS cache. Otherwise the OIDC components
+            # (identity/connectors/zeebe) keep hitting UnknownHostException on the
+            # domain at startup and CrashLoopBackOff until the readiness window expires.
+            - name: 🔄 Restart CoreDNS
+              if: matrix.declination.name == 'domain'
+              uses: ./.github/actions/kubernetes-restart-coredns
+              timeout-minutes: 10
+              with:
+                  cluster-type: kubernetes
+
+            # DNS cache is fresh now — bounce the OIDC workloads so they reconnect
+            # with working in-cluster + domain resolution instead of a stale
+            # (negative) view cached before the CoreDNS refresh. Readiness is then
+            # verified by the health wait below.
+            - name: 🔁 Restart Camunda workloads after DNS refresh
+              if: matrix.declination.name == 'domain'
+              run: |
+                  set -uo pipefail
+                  ns="${{ env.CAMUNDA_NAMESPACE }}"
+                  rel="${{ env.CAMUNDA_RELEASE_NAME }}"
+                  for wl in "statefulset/${rel}-zeebe" "deployment/${rel}-connectors" "deployment/${rel}-identity"; do
+                      # Distinguish a genuine "absent" (empty, exit 0) from a real
+                      # query error (RBAC/kubeconfig) so failures stay visible.
+                      if ! found=$(kubectl -n "$ns" get "$wl" --ignore-not-found -o name 2>&1); then
+                          echo "::warning::Could not query ${wl}: ${found}"
+                      elif [ -n "$found" ]; then
+                          kubectl -n "$ns" rollout restart "$wl" || echo "::warning::rollout restart ${wl} failed"
+                      else
+                          echo "Skipping ${wl}: not present in namespace ${ns}."
+                      fi
+                  done
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
               run: |
                   set -euo pipefail
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
-
-            - name: 🔄 Restart CoreDNS
-              if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
-              uses: ./.github/actions/kubernetes-restart-coredns
-              timeout-minutes: 10
-              with:
-                  cluster-type: kubernetes
 
             - name: 📐 Set current Camunda version
               id: camunda-version
@@ -954,8 +972,7 @@ jobs:
                       || format('http://{0}-keycloak:80/auth',
                       env.CAMUNDA_RELEASE_NAME) }}
                   elasticsearch-enabled: 'false'
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  hub-enabled: ${{ env.HUB_ENABLED }}
                   # EKS domain values set connectors.contextPath: /connectors so the
                   # actuator endpoints live under that prefix. The no-domain values
                   # do not set a contextPath, so connectors serve at root there.
@@ -969,8 +986,7 @@ jobs:
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_DOMAIN_GRPC }}
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  hub-enabled: ${{ env.HUB_ENABLED }}
                   elasticsearch-enabled: 'false'
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
