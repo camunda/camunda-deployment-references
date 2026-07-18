@@ -55,6 +55,8 @@ variable "ports" {
     zeebe_gateway_cluster_port            = 26502
     zeebe_gateway_network_port            = 26500
     zeebe_broker_network_command_api_port = 26501
+    management_identity_app               = 8084
+    management_identity_management        = 8082
   }
   description = "The ports to open for the security groups within the VPC"
 }
