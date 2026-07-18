@@ -205,3 +205,81 @@ module "connectors" {
   extra_task_role_attachments = []
 
 }
+
+module "management_identity" {
+  source = "../../../../modules/ecs/fargate/management-identity"
+
+  depends_on = [null_resource.run_db_seed_task]
+
+  prefix                      = "${var.prefix}-oc1"
+  ecs_cluster_id              = aws_ecs_cluster.ecs.id
+  vpc_id                      = module.vpc.vpc_id
+  vpc_private_subnets         = module.vpc.private_subnets
+  aws_region                  = data.aws_region.current.region
+  s2s_cloudmap_namespace      = module.orchestration_cluster.s2s_cloudmap_namespace
+  log_group_name              = module.orchestration_cluster.log_group_name
+  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
+  registry_credentials_arn    = join("", aws_secretsmanager_secret.registry_credentials[*].arn)
+
+  # ALB exposure is opt-in. Flip to true (and confirm the context path) once
+  # Identity should be reachable through the shared ALB.
+  alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp.arn
+  enable_alb_http_webapp_listener_rule = false
+
+  service_security_group_ids = [
+    aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
+    aws_security_group.allow_package_80_443.id,
+  ]
+
+  environment_variables = [
+    # --- Database (password auth to a dedicated Aurora database) ---
+    {
+      name  = "IDENTITY_DATABASE_HOST"
+      value = module.postgresql.aurora_endpoint
+    },
+    {
+      name  = "IDENTITY_DATABASE_PORT"
+      value = "5432"
+    },
+    {
+      name  = "IDENTITY_DATABASE_NAME"
+      value = var.identity_db_name
+    },
+    {
+      name  = "IDENTITY_DATABASE_USERNAME"
+      value = var.identity_db_username
+    },
+    # --- Server / management ports ---
+    {
+      name  = "SERVER_PORT"
+      value = "8084"
+    },
+    {
+      name  = "MANAGEMENT_SERVER_PORT"
+      value = "8082"
+    },
+    # --- Actuator probes (so /actuator/health/liveness is exposed) ---
+    {
+      name  = "MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE"
+      value = "health"
+    },
+    {
+      name  = "MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED"
+      value = "true"
+    },
+    # NOTE (review item #1): the identity provider profile (SPRING_PROFILES_ACTIVE
+    # + issuer/Keycloak vars) is intentionally omitted for this MVP. Full readiness
+    # requires the IdP follow-up. Confirm boot-to-liveness behavior on first deploy
+    # and set the profile here when the IdP lands.
+  ]
+
+  secrets = [
+    {
+      name      = "IDENTITY_DATABASE_PASSWORD"
+      valueFrom = aws_secretsmanager_secret.identity_db_password.arn
+    }
+  ]
+
+  task_desired_count          = 1
+  extra_task_role_attachments = []
+}
