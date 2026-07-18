@@ -57,7 +57,7 @@ resource "aws_ecs_task_definition" "db_seed" {
             # Create the dedicated database if it does not exist (owned by the identity role)
             psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
               -v ON_ERROR_STOP=1 \
-              -tc "SELECT 'CREATE DATABASE \"$${IDENTITY_DB_NAME}\" OWNER \"$${IDENTITY_DB_USERNAME}\"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$${IDENTITY_DB_NAME}')" | psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" -v ON_ERROR_STOP=1
+              -tc "SELECT 'CREATE DATABASE \"$${IDENTITY_DB_NAME}\"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$${IDENTITY_DB_NAME}')" | psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" -v ON_ERROR_STOP=1
 
             # Grant privileges on the identity database + public schema
             psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${IDENTITY_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
