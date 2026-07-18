@@ -101,6 +101,18 @@ variable "db_seed_iam_usernames" {
   default     = ["camunda"]
 }
 
+variable "identity_db_name" {
+  type        = string
+  description = "Dedicated database name for Management Identity on the shared Aurora cluster"
+  default     = "identity"
+}
+
+variable "identity_db_username" {
+  type        = string
+  description = "Password-authenticated database role for Management Identity (Identity does not support IAM DB auth)"
+  default     = "identity"
+}
+
 ################################################################
 #                         KMS Options                          #
 ################################################################
