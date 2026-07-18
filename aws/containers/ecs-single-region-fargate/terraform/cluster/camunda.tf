@@ -282,4 +282,9 @@ module "management_identity" {
 
   task_desired_count          = 1
   extra_task_role_attachments = []
+
+  # MVP: do not block the whole apply on Identity reaching steady state while the
+  # identity provider is still deferred (see review item #1). Validate task health
+  # out-of-band; flip back to true once the IdP is wired and Identity boots healthy.
+  wait_for_steady_state = false
 }
