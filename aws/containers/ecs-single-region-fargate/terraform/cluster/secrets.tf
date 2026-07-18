@@ -64,3 +64,21 @@ resource "aws_secretsmanager_secret_version" "connectors_client_auth_password" {
   secret_id     = aws_secretsmanager_secret.connectors_client_auth_password.id
   secret_string = random_password.connectors_user_password.result
 }
+
+resource "random_password" "identity_db_password" {
+  length           = 32
+  special          = true
+  override_special = "!#$%^()-_=+[]{}:?"
+}
+
+resource "aws_secretsmanager_secret" "identity_db_password" {
+  name                    = "${var.prefix}-oc1-identity-db-password"
+  description             = "Password for the Management Identity Aurora PostgreSQL role (IDENTITY_DATABASE_PASSWORD)"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+
+resource "aws_secretsmanager_secret_version" "identity_db_password" {
+  secret_id     = aws_secretsmanager_secret.identity_db_password.id
+  secret_string = random_password.identity_db_password.result
+}

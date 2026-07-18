@@ -165,6 +165,7 @@ locals {
     aws_secretsmanager_secret.connectors_client_auth_password.arn,
     aws_secretsmanager_secret.orchestration_admin_user_password.arn,
     aws_secretsmanager_secret.db_admin_password.arn,
+    aws_secretsmanager_secret.identity_db_password.arn,
   ]
 }
 
