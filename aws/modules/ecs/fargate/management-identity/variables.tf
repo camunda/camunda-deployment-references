@@ -143,9 +143,11 @@ variable "service_timeouts" {
 variable "image" {
   description = "The container image to use for Camunda Management Identity"
   type        = string
-  # TODO: [release-duty] before the release, update the below version to the stable 8.10 release once a verified camunda/identity 8.10 tag exists.
-  # renovate: datasource=docker depName=camunda/identity
-  default = "camunda/identity:8.9.6"
+  # TODO: [release-duty] before the release, update the below versions to the stable release!
+  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
+  # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
+  # renovate: datasource=docker depName=camunda/identity versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
+  default = "camunda/identity:8.10.0-alpha3"
 }
 
 variable "environment_variables" {
