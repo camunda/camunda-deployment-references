@@ -965,6 +965,7 @@
           "type": "azurerm_private_endpoint",
           "values": {
             "custom_network_interface_name": null,
+            "edge_zone": null,
             "ip_configuration": [],
             "location": "swedencentral",
             "name": "camunda-pg-server-endpoint",
