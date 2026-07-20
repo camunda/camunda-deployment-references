@@ -67,19 +67,19 @@ resource "aws_security_group" "primary" {
   vpc_id      = var.primary_vpc_id
 
   ingress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
     cidr_blocks = var.primary_cidr_blocks
-    description = "Allow PostgreSQL from allowed CIDRs"
+    description = "Allow ${local.family_label} from allowed CIDRs"
   }
 
   egress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
     cidr_blocks = var.primary_cidr_blocks
-    description = "Allow PostgreSQL to allowed CIDRs"
+    description = "Allow ${local.family_label} to allowed CIDRs"
   }
 
   tags = merge(var.tags, {
@@ -171,19 +171,19 @@ resource "aws_security_group" "secondary" {
   vpc_id      = var.secondary_vpc_id
 
   ingress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
     cidr_blocks = var.secondary_cidr_blocks
-    description = "Allow PostgreSQL from allowed CIDRs"
+    description = "Allow ${local.family_label} from allowed CIDRs"
   }
 
   egress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
     cidr_blocks = var.secondary_cidr_blocks
-    description = "Allow PostgreSQL to allowed CIDRs"
+    description = "Allow ${local.family_label} to allowed CIDRs"
   }
 
   tags = merge(var.tags, {
