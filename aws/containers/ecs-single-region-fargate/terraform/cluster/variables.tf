@@ -115,6 +115,24 @@ variable "identity_db_username" {
   default     = "identity"
 }
 
+variable "keycloak_db_name" {
+  type        = string
+  description = "Dedicated database name for Keycloak on the shared Aurora cluster"
+  default     = "keycloak"
+}
+
+variable "keycloak_db_username" {
+  type        = string
+  description = "Password-authenticated database role for Keycloak"
+  default     = "keycloak"
+}
+
+variable "keycloak_admin_username" {
+  type        = string
+  description = "Keycloak bootstrap admin username"
+  default     = "admin"
+}
+
 ################################################################
 #                         KMS Options                          #
 ################################################################

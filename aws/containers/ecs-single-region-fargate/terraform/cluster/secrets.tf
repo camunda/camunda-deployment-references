@@ -82,3 +82,39 @@ resource "aws_secretsmanager_secret_version" "identity_db_password" {
   secret_id     = aws_secretsmanager_secret.identity_db_password.id
   secret_string = random_password.identity_db_password.result
 }
+
+resource "random_password" "keycloak_db_password" {
+  length           = 32
+  special          = true
+  override_special = "!#$%^()-_=+[]{}:?"
+}
+
+resource "aws_secretsmanager_secret" "keycloak_db_password" {
+  name                    = "${var.prefix}-oc1-keycloak-db-password"
+  description             = "Password for the Keycloak Aurora PostgreSQL role (KC_DB_PASSWORD)"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+
+resource "aws_secretsmanager_secret_version" "keycloak_db_password" {
+  secret_id     = aws_secretsmanager_secret.keycloak_db_password.id
+  secret_string = random_password.keycloak_db_password.result
+}
+
+resource "random_password" "keycloak_admin_password" {
+  length           = 32
+  special          = true
+  override_special = "!#$%^()-_=+[]{}:?"
+}
+
+resource "aws_secretsmanager_secret" "keycloak_admin_password" {
+  name                    = "${var.prefix}-oc1-keycloak-admin-password"
+  description             = "Keycloak bootstrap admin password (KC_BOOTSTRAP_ADMIN_PASSWORD / Identity KEYCLOAK_SETUP_PASSWORD)"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+
+resource "aws_secretsmanager_secret_version" "keycloak_admin_password" {
+  secret_id     = aws_secretsmanager_secret.keycloak_admin_password.id
+  secret_string = random_password.keycloak_admin_password.result
+}
