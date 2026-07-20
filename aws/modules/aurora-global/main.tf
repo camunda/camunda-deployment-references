@@ -269,3 +269,23 @@ resource "aws_rds_cluster_instance" "secondary" {
     prevent_destroy = false
   }
 }
+
+locals {
+  jdbc_subprotocols = {
+    "aurora-postgresql" = "postgresql"
+    "aurora-mysql"      = "mysql"
+  }
+  jdbc_subprotocol = local.jdbc_subprotocols[var.engine]
+
+  # AWS Advanced JDBC Wrapper global-cluster instance host patterns (failover
+  # plugin). "?." matches any instance in a regional cluster; derived by
+  # stripping the cluster id + ".cluster-" from each regional endpoint.
+  jdbc_primary_host_pattern   = "?.${replace(aws_rds_cluster.primary.endpoint, "${aws_rds_cluster.primary.cluster_identifier}.cluster-", "")}"
+  jdbc_secondary_host_pattern = "?.${replace(aws_rds_cluster.secondary.endpoint, "${aws_rds_cluster.secondary.cluster_identifier}.cluster-", "")}"
+  jdbc_instance_host_patterns = "${local.jdbc_primary_host_pattern},${local.jdbc_secondary_host_pattern}"
+
+  # iam plugin only when IAM auth is enabled; failover always (global cluster).
+  jdbc_wrapper_plugins = var.iam_auth_enabled ? "iam,failover" : "failover"
+
+  jdbc_url = "jdbc:aws-wrapper:${local.jdbc_subprotocol}://${aws_rds_global_cluster.this.endpoint}:${local.db_port}/${var.database_name}?wrapperPlugins=${local.jdbc_wrapper_plugins}&globalClusterInstanceHostPatterns=${local.jdbc_instance_host_patterns}"
+}
