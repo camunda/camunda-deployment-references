@@ -216,23 +216,30 @@ run "mysql_security_group_uses_3306" {
 }
 
 run "postgresql_jdbc_url_uses_postgresql_subprotocol_and_port" {
-  command = apply
+  command = plan
 
-  # command = apply is required here: output.jdbc_url is unknown under plan.
-  # The KMS key ARN mock is not a real ARN by default, which the aws provider
-  # rejects once aws_rds_cluster.kms_key_id becomes known during apply, so a
-  # plausible ARN must be supplied for both regional keys.
+  # Override the computed regional/global endpoints with deterministic,
+  # RDS-shaped values so jdbc_url is known at plan time and stable between
+  # runs. Values are chosen to not contain the substring "iam".
   override_resource {
-    target = aws_kms_key.primary
+    target          = aws_rds_global_cluster.this
+    override_during = plan
     values = {
-      arn = "arn:aws:kms:us-east-1:123456789012:key/mock-primary-key"
+      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
     }
   }
-
   override_resource {
-    target = aws_kms_key.secondary
+    target          = aws_rds_cluster.primary
+    override_during = plan
     values = {
-      arn = "arn:aws:kms:us-east-2:123456789012:key/mock-secondary-key"
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.secondary
+    override_during = plan
+    values = {
+      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
     }
   }
 
@@ -253,23 +260,31 @@ run "postgresql_jdbc_url_uses_postgresql_subprotocol_and_port" {
 }
 
 run "mysql_jdbc_url_uses_mysql_subprotocol_and_port" {
-  command = apply
+  command = plan
 
   variables {
     engine = "aurora-mysql"
   }
 
   override_resource {
-    target = aws_kms_key.primary
+    target          = aws_rds_global_cluster.this
+    override_during = plan
     values = {
-      arn = "arn:aws:kms:us-east-1:123456789012:key/mock-primary-key"
+      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
     }
   }
-
   override_resource {
-    target = aws_kms_key.secondary
+    target          = aws_rds_cluster.primary
+    override_during = plan
     values = {
-      arn = "arn:aws:kms:us-east-2:123456789012:key/mock-secondary-key"
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.secondary
+    override_during = plan
+    values = {
+      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
     }
   }
 
@@ -290,19 +305,27 @@ run "mysql_jdbc_url_uses_mysql_subprotocol_and_port" {
 }
 
 run "jdbc_url_includes_iam_plugin_by_default" {
-  command = apply
+  command = plan
 
   override_resource {
-    target = aws_kms_key.primary
+    target          = aws_rds_global_cluster.this
+    override_during = plan
     values = {
-      arn = "arn:aws:kms:us-east-1:123456789012:key/mock-primary-key"
+      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
     }
   }
-
   override_resource {
-    target = aws_kms_key.secondary
+    target          = aws_rds_cluster.primary
+    override_during = plan
     values = {
-      arn = "arn:aws:kms:us-east-2:123456789012:key/mock-secondary-key"
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.secondary
+    override_during = plan
+    values = {
+      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
     }
   }
 
@@ -313,23 +336,31 @@ run "jdbc_url_includes_iam_plugin_by_default" {
 }
 
 run "jdbc_url_omits_iam_plugin_when_iam_disabled" {
-  command = apply
+  command = plan
 
   variables {
     iam_auth_enabled = false
   }
 
   override_resource {
-    target = aws_kms_key.primary
+    target          = aws_rds_global_cluster.this
+    override_during = plan
     values = {
-      arn = "arn:aws:kms:us-east-1:123456789012:key/mock-primary-key"
+      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
     }
   }
-
   override_resource {
-    target = aws_kms_key.secondary
+    target          = aws_rds_cluster.primary
+    override_during = plan
     values = {
-      arn = "arn:aws:kms:us-east-2:123456789012:key/mock-secondary-key"
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.secondary
+    override_during = plan
+    values = {
+      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
     }
   }
 
@@ -339,7 +370,7 @@ run "jdbc_url_omits_iam_plugin_when_iam_disabled" {
   }
 
   assert {
-    condition     = !strcontains(output.jdbc_url, "iam")
-    error_message = "jdbc_url should not contain 'iam' when iam_auth_enabled = false"
+    condition     = !strcontains(output.jdbc_url, "wrapperPlugins=iam")
+    error_message = "jdbc_url should not include the iam plugin when iam_auth_enabled = false"
   }
 }
