@@ -124,3 +124,62 @@ run "mysql_cross_region_sg_uses_3306" {
     error_message = "Region 1 cross-region Aurora egress should use 3306 for MySQL"
   }
 }
+
+run "postgresql_seed_uses_postgres_image" {
+  command = plan
+
+  override_resource {
+    target          = module.aurora_global[0].aws_rds_cluster.primary
+    override_during = plan
+    values = {
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+
+  override_resource {
+    target          = aws_secretsmanager_secret.db_admin_password_region_0
+    override_during = plan
+    values = {
+      arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:test-db-admin-password"
+    }
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.db_seed[0].container_definitions, "postgres:17-alpine")
+    error_message = "PostgreSQL DB seed should use the postgres client image"
+  }
+}
+
+run "mysql_seed_uses_mysql_image_and_iam_plugin" {
+  command = plan
+
+  variables {
+    db_engine = "mysql"
+  }
+
+  override_resource {
+    target          = module.aurora_global[0].aws_rds_cluster.primary
+    override_during = plan
+    values = {
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+
+  override_resource {
+    target          = aws_secretsmanager_secret.db_admin_password_region_0
+    override_during = plan
+    values = {
+      arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:test-db-admin-password"
+    }
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.db_seed[0].container_definitions, "mysql:8.4")
+    error_message = "MySQL DB seed should use the mysql client image"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.db_seed[0].container_definitions, "AWSAuthenticationPlugin")
+    error_message = "MySQL DB seed should create IAM users via AWSAuthenticationPlugin"
+  }
+}
