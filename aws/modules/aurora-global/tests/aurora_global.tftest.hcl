@@ -257,6 +257,16 @@ run "postgresql_jdbc_url_uses_postgresql_subprotocol_and_port" {
     condition     = output.db_port == 5432
     error_message = "PostgreSQL db_port output should be 5432"
   }
+
+  assert {
+    condition     = strcontains(output.jdbc_instance_host_patterns, "?.abc123def.us-east-1.rds.amazonaws.com")
+    error_message = "jdbc_instance_host_patterns should strip the primary cluster id + .cluster- prefix"
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_instance_host_patterns, "?.xyz789ghi.us-east-2.rds.amazonaws.com")
+    error_message = "jdbc_instance_host_patterns should strip the secondary cluster id + .cluster- prefix"
+  }
 }
 
 run "mysql_jdbc_url_uses_mysql_subprotocol_and_port" {
