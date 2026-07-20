@@ -3596,6 +3596,12 @@
           }
         },
         "module.postgresql.aws_rds_cluster.aurora_cluster": {
+          "identity": {
+            "account_id": null,
+            "cluster_identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "aurora_cluster",
           "provider_name": "registry.terraform.io/hashicorp/aws",
