@@ -1,0 +1,3449 @@
+{
+  "resources": {
+    "aws_cloudwatch_log_group.db_seed[0]": {
+      "identity": {
+        "account_id": null,
+        "name": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "db_seed",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_cloudwatch_log_group",
+      "values": {
+        "kms_key_id": null,
+        "name": "/ecs/camunda-r0-db-seed",
+        "region": "eu-west-2",
+        "retention_in_days": 7,
+        "skip_destroy": false,
+        "tags": null
+      }
+    },
+    "aws_ecs_cluster.region_0": {
+      "mode": "managed",
+      "name": "region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "configuration": [],
+        "service_connect_defaults": [],
+        "setting": [
+          {}
+        ],
+        "tags_all": {}
+      },
+      "type": "aws_ecs_cluster",
+      "values": {
+        "configuration": [],
+        "name": "camunda-r0-cluster",
+        "region": "eu-west-2",
+        "service_connect_defaults": [],
+        "setting": [
+          {
+            "name": "containerInsights",
+            "value": "enabled"
+          }
+        ],
+        "tags": null
+      }
+    },
+    "aws_ecs_cluster.region_1": {
+      "mode": "managed",
+      "name": "region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "configuration": [],
+        "service_connect_defaults": [],
+        "setting": [
+          {}
+        ],
+        "tags_all": {}
+      },
+      "type": "aws_ecs_cluster",
+      "values": {
+        "configuration": [],
+        "name": "camunda-r1-cluster",
+        "region": "eu-west-3",
+        "service_connect_defaults": [],
+        "setting": [
+          {
+            "name": "containerInsights",
+            "value": "enabled"
+          }
+        ],
+        "tags": null
+      }
+    },
+    "aws_ecs_task_definition.db_seed[0]": {
+      "identity": {
+        "account_id": null,
+        "family": null,
+        "region": null,
+        "revision": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "db_seed",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "container_definitions": true,
+        "ephemeral_storage": [],
+        "placement_constraints": [],
+        "proxy_configuration": [],
+        "requires_compatibilities": [
+          false
+        ],
+        "runtime_platform": [],
+        "tags_all": {},
+        "volume": []
+      },
+      "type": "aws_ecs_task_definition",
+      "values": {
+        "cpu": "256",
+        "ephemeral_storage": [],
+        "family": "camunda-r0-db-seed",
+        "ipc_mode": null,
+        "memory": "512",
+        "network_mode": "awsvpc",
+        "pid_mode": null,
+        "placement_constraints": [],
+        "proxy_configuration": [],
+        "region": "eu-west-2",
+        "requires_compatibilities": [
+          "FARGATE"
+        ],
+        "runtime_platform": [],
+        "skip_destroy": false,
+        "tags": null,
+        "task_role_arn": null,
+        "track_latest": false,
+        "volume": []
+      }
+    },
+    "aws_iam_policy.ecs_task_secrets_region_0": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "ecs_task_secrets_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_iam_policy",
+      "values": {
+        "delay_after_policy_creation_in_ms": null,
+        "description": "Allow ECS task execution role to read Secrets Manager values",
+        "name": "camunda-r0-ecs-task-secrets",
+        "path": "/",
+        "tags": null
+      }
+    },
+    "aws_iam_policy.ecs_task_secrets_region_1": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "ecs_task_secrets_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_iam_policy",
+      "values": {
+        "delay_after_policy_creation_in_ms": null,
+        "description": "Allow ECS task execution role to read Secrets Manager values",
+        "name": "camunda-r1-ecs-task-secrets",
+        "path": "/",
+        "tags": null
+      }
+    },
+    "aws_iam_policy.rds_db_connect_region_0[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "rds_db_connect_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_iam_policy",
+      "values": {
+        "delay_after_policy_creation_in_ms": null,
+        "description": "Allow ECS tasks to connect to Aurora PostgreSQL as IAM DB user 'camunda'",
+        "name": "camunda-r0-rds-db-connect-camunda",
+        "path": "/",
+        "tags": null
+      }
+    },
+    "aws_iam_policy.rds_db_connect_region_1[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "rds_db_connect_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_iam_policy",
+      "values": {
+        "delay_after_policy_creation_in_ms": null,
+        "description": "Allow ECS tasks to connect to Aurora PostgreSQL as IAM DB user 'camunda'",
+        "name": "camunda-r1-rds-db-connect-camunda",
+        "path": "/",
+        "tags": null
+      }
+    },
+    "aws_iam_policy.s3_backup_access_region_0": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "s3_backup_access_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_iam_policy",
+      "values": {
+        "delay_after_policy_creation_in_ms": null,
+        "description": "S3 backup bucket access for region 0",
+        "name": "camunda-r0-s3-backup-access",
+        "path": "/",
+        "tags": null
+      }
+    },
+    "aws_iam_role.ecs_task_execution_region_0": {
+      "identity": {
+        "account_id": null,
+        "name": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "ecs_task_execution_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "inline_policy": [],
+        "managed_policy_arns": [],
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_iam_role",
+      "values": {
+        "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+        "description": null,
+        "force_detach_policies": false,
+        "max_session_duration": 3600,
+        "name": "camunda-r0-ecs-task-execution-role",
+        "path": "/",
+        "permissions_boundary": null,
+        "tags": {
+          "Name": "camunda-r0-ecs-task-execution-role"
+        },
+        "tags_all": {
+          "Name": "camunda-r0-ecs-task-execution-role"
+        }
+      }
+    },
+    "aws_iam_role.ecs_task_execution_region_1": {
+      "identity": {
+        "account_id": null,
+        "name": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "ecs_task_execution_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "inline_policy": [],
+        "managed_policy_arns": [],
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_iam_role",
+      "values": {
+        "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+        "description": null,
+        "force_detach_policies": false,
+        "max_session_duration": 3600,
+        "name": "camunda-r1-ecs-task-execution-role",
+        "path": "/",
+        "permissions_boundary": null,
+        "tags": {
+          "Name": "camunda-r1-ecs-task-execution-role"
+        },
+        "tags_all": {
+          "Name": "camunda-r1-ecs-task-execution-role"
+        }
+      }
+    },
+    "aws_iam_role_policy_attachment.ecs_task_execution_region_0": {
+      "identity": {
+        "account_id": null,
+        "policy_arn": null,
+        "role": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "ecs_task_execution_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_iam_role_policy_attachment",
+      "values": {
+        "policy_arn": "ARN_REDACTED",
+        "role": "camunda-r0-ecs-task-execution-role"
+      }
+    },
+    "aws_iam_role_policy_attachment.ecs_task_execution_region_1": {
+      "identity": {
+        "account_id": null,
+        "policy_arn": null,
+        "role": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "ecs_task_execution_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_iam_role_policy_attachment",
+      "values": {
+        "policy_arn": "ARN_REDACTED",
+        "role": "camunda-r1-ecs-task-execution-role"
+      }
+    },
+    "aws_iam_role_policy_attachment.ecs_task_secrets_region_0": {
+      "identity": {
+        "account_id": null,
+        "policy_arn": null,
+        "role": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "ecs_task_secrets_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_iam_role_policy_attachment",
+      "values": {
+        "role": "camunda-r0-ecs-task-execution-role"
+      }
+    },
+    "aws_iam_role_policy_attachment.ecs_task_secrets_region_1": {
+      "identity": {
+        "account_id": null,
+        "policy_arn": null,
+        "role": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "ecs_task_secrets_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_iam_role_policy_attachment",
+      "values": {
+        "role": "camunda-r1-ecs-task-execution-role"
+      }
+    },
+    "aws_kms_alias.s3_region_0": {
+      "identity": {
+        "account_id": null,
+        "name": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "s3_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_kms_alias",
+      "values": {
+        "name": "alias/camunda-r0-s3-key",
+        "region": "eu-west-2"
+      }
+    },
+    "aws_kms_alias.secrets_region_0[0]": {
+      "identity": {
+        "account_id": null,
+        "name": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "secrets_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_kms_alias",
+      "values": {
+        "name": "alias/camunda-r0-secrets",
+        "region": "eu-west-2"
+      }
+    },
+    "aws_kms_alias.secrets_region_1[0]": {
+      "identity": {
+        "account_id": null,
+        "name": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "secrets_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_kms_alias",
+      "values": {
+        "name": "alias/camunda-r1-secrets",
+        "region": "eu-west-3"
+      }
+    },
+    "aws_kms_key.s3_region_0": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "s3_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_kms_key",
+      "values": {
+        "bypass_policy_lockout_safety_check": false,
+        "custom_key_store_id": null,
+        "customer_master_key_spec": "SYMMETRIC_DEFAULT",
+        "deletion_window_in_days": 7,
+        "description": "KMS key for camunda-r0 S3 bucket encryption",
+        "enable_key_rotation": true,
+        "is_enabled": true,
+        "key_usage": "ENCRYPT_DECRYPT",
+        "region": "eu-west-2",
+        "tags": {
+          "Name": "camunda-r0-s3-kms-key"
+        },
+        "tags_all": {
+          "Name": "camunda-r0-s3-kms-key"
+        },
+        "timeouts": null,
+        "xks_key_id": null
+      }
+    },
+    "aws_kms_key.secrets_region_0[0]": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "secrets_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_kms_key",
+      "values": {
+        "bypass_policy_lockout_safety_check": false,
+        "custom_key_store_id": null,
+        "customer_master_key_spec": "SYMMETRIC_DEFAULT",
+        "deletion_window_in_days": 7,
+        "description": "CMK for Secrets Manager secrets (camunda-r0)",
+        "enable_key_rotation": true,
+        "is_enabled": true,
+        "key_usage": "ENCRYPT_DECRYPT",
+        "policy": "{\"Statement\":[{\"Action\":\"kms:*\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"ARN_REDACTED",
+        "region": "eu-west-2",
+        "tags": null,
+        "timeouts": null,
+        "xks_key_id": null
+      }
+    },
+    "aws_kms_key.secrets_region_1[0]": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "secrets_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_kms_key",
+      "values": {
+        "bypass_policy_lockout_safety_check": false,
+        "custom_key_store_id": null,
+        "customer_master_key_spec": "SYMMETRIC_DEFAULT",
+        "deletion_window_in_days": 7,
+        "description": "CMK for Secrets Manager secrets (camunda-r1)",
+        "enable_key_rotation": true,
+        "is_enabled": true,
+        "key_usage": "ENCRYPT_DECRYPT",
+        "policy": "{\"Statement\":[{\"Action\":\"kms:*\",\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"ARN_REDACTED",
+        "region": "eu-west-3",
+        "tags": null,
+        "timeouts": null,
+        "xks_key_id": null
+      }
+    },
+    "aws_lb.alb_region_0": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "alb_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "access_logs": [],
+        "connection_logs": [],
+        "health_check_logs": [],
+        "minimum_load_balancer_capacity": [],
+        "security_groups": [],
+        "subnet_mapping": [],
+        "subnets": [
+          false,
+          false,
+          false
+        ],
+        "tags_all": {}
+      },
+      "type": "aws_lb",
+      "values": {
+        "access_logs": [],
+        "client_keep_alive": 3600,
+        "connection_logs": [],
+        "customer_owned_ipv4_pool": null,
+        "desync_mitigation_mode": "defensive",
+        "dns_record_client_routing_policy": null,
+        "drop_invalid_header_fields": false,
+        "enable_cross_zone_load_balancing": null,
+        "enable_deletion_protection": false,
+        "enable_http2": true,
+        "enable_tls_version_and_cipher_suite_headers": false,
+        "enable_waf_fail_open": false,
+        "enable_xff_client_port": false,
+        "enable_zonal_shift": false,
+        "health_check_logs": [],
+        "idle_timeout": 60,
+        "internal": false,
+        "load_balancer_type": "application",
+        "minimum_load_balancer_capacity": [],
+        "name": "camunda-r0-alb",
+        "preserve_host_header": false,
+        "region": "eu-west-2",
+        "subnets": [
+          "subnet-000000000000000d0",
+          "subnet-000000000000000e0",
+          "subnet-000000000000000f0"
+        ],
+        "tags": null,
+        "timeouts": null,
+        "xff_header_processing_mode": "append"
+      }
+    },
+    "aws_lb.alb_region_1": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "alb_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "access_logs": [],
+        "connection_logs": [],
+        "health_check_logs": [],
+        "minimum_load_balancer_capacity": [],
+        "security_groups": [],
+        "subnet_mapping": [],
+        "subnets": [
+          false,
+          false,
+          false
+        ],
+        "tags_all": {}
+      },
+      "type": "aws_lb",
+      "values": {
+        "access_logs": [],
+        "client_keep_alive": 3600,
+        "connection_logs": [],
+        "customer_owned_ipv4_pool": null,
+        "desync_mitigation_mode": "defensive",
+        "dns_record_client_routing_policy": null,
+        "drop_invalid_header_fields": false,
+        "enable_cross_zone_load_balancing": null,
+        "enable_deletion_protection": false,
+        "enable_http2": true,
+        "enable_tls_version_and_cipher_suite_headers": false,
+        "enable_waf_fail_open": false,
+        "enable_xff_client_port": false,
+        "enable_zonal_shift": false,
+        "health_check_logs": [],
+        "idle_timeout": 60,
+        "internal": false,
+        "load_balancer_type": "application",
+        "minimum_load_balancer_capacity": [],
+        "name": "camunda-r1-alb",
+        "preserve_host_header": false,
+        "region": "eu-west-3",
+        "subnets": [
+          "subnet-000000000000000d1",
+          "subnet-000000000000000e1",
+          "subnet-000000000000000f1"
+        ],
+        "tags": null,
+        "timeouts": null,
+        "xff_header_processing_mode": "append"
+      }
+    },
+    "aws_lb.nlb_grpc_region_0": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "nlb_grpc_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "access_logs": [],
+        "connection_logs": [],
+        "health_check_logs": [],
+        "minimum_load_balancer_capacity": [],
+        "security_groups": [],
+        "subnet_mapping": [],
+        "subnets": [
+          false,
+          false,
+          false
+        ],
+        "tags_all": {}
+      },
+      "type": "aws_lb",
+      "values": {
+        "access_logs": [],
+        "client_keep_alive": null,
+        "connection_logs": [],
+        "customer_owned_ipv4_pool": null,
+        "desync_mitigation_mode": null,
+        "dns_record_client_routing_policy": "any_availability_zone",
+        "drop_invalid_header_fields": null,
+        "enable_cross_zone_load_balancing": false,
+        "enable_deletion_protection": false,
+        "enable_http2": null,
+        "enable_tls_version_and_cipher_suite_headers": null,
+        "enable_waf_fail_open": null,
+        "enable_xff_client_port": null,
+        "enable_zonal_shift": false,
+        "health_check_logs": [],
+        "idle_timeout": null,
+        "internal": false,
+        "load_balancer_type": "network",
+        "minimum_load_balancer_capacity": [],
+        "name": "camunda-r0-nlb-grpc",
+        "preserve_host_header": null,
+        "region": "eu-west-2",
+        "subnets": [
+          "subnet-000000000000000d0",
+          "subnet-000000000000000e0",
+          "subnet-000000000000000f0"
+        ],
+        "tags": null,
+        "timeouts": null,
+        "xff_header_processing_mode": null
+      }
+    },
+    "aws_lb.nlb_grpc_region_1": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "nlb_grpc_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "access_logs": [],
+        "connection_logs": [],
+        "health_check_logs": [],
+        "minimum_load_balancer_capacity": [],
+        "security_groups": [],
+        "subnet_mapping": [],
+        "subnets": [
+          false,
+          false,
+          false
+        ],
+        "tags_all": {}
+      },
+      "type": "aws_lb",
+      "values": {
+        "access_logs": [],
+        "client_keep_alive": null,
+        "connection_logs": [],
+        "customer_owned_ipv4_pool": null,
+        "desync_mitigation_mode": null,
+        "dns_record_client_routing_policy": "any_availability_zone",
+        "drop_invalid_header_fields": null,
+        "enable_cross_zone_load_balancing": false,
+        "enable_deletion_protection": false,
+        "enable_http2": null,
+        "enable_tls_version_and_cipher_suite_headers": null,
+        "enable_waf_fail_open": null,
+        "enable_xff_client_port": null,
+        "enable_zonal_shift": false,
+        "health_check_logs": [],
+        "idle_timeout": null,
+        "internal": false,
+        "load_balancer_type": "network",
+        "minimum_load_balancer_capacity": [],
+        "name": "camunda-r1-nlb-grpc",
+        "preserve_host_header": null,
+        "region": "eu-west-3",
+        "subnets": [
+          "subnet-000000000000000d1",
+          "subnet-000000000000000e1",
+          "subnet-000000000000000f1"
+        ],
+        "tags": null,
+        "timeouts": null,
+        "xff_header_processing_mode": null
+      }
+    },
+    "aws_lb.nlb_raft_region_0": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "nlb_raft_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "access_logs": [],
+        "connection_logs": [],
+        "health_check_logs": [],
+        "minimum_load_balancer_capacity": [],
+        "security_groups": [],
+        "subnet_mapping": [],
+        "subnets": [
+          false,
+          false,
+          false
+        ],
+        "tags_all": {}
+      },
+      "type": "aws_lb",
+      "values": {
+        "access_logs": [],
+        "client_keep_alive": null,
+        "connection_logs": [],
+        "customer_owned_ipv4_pool": null,
+        "desync_mitigation_mode": null,
+        "dns_record_client_routing_policy": "any_availability_zone",
+        "drop_invalid_header_fields": null,
+        "enable_cross_zone_load_balancing": false,
+        "enable_deletion_protection": false,
+        "enable_http2": null,
+        "enable_tls_version_and_cipher_suite_headers": null,
+        "enable_waf_fail_open": null,
+        "enable_xff_client_port": null,
+        "enable_zonal_shift": false,
+        "health_check_logs": [],
+        "idle_timeout": null,
+        "internal": true,
+        "load_balancer_type": "network",
+        "minimum_load_balancer_capacity": [],
+        "name": "camunda-r0-nlb-raft",
+        "preserve_host_header": null,
+        "region": "eu-west-2",
+        "subnets": [
+          "subnet-000000000000000a0",
+          "subnet-000000000000000b0",
+          "subnet-000000000000000c0"
+        ],
+        "tags": null,
+        "timeouts": null,
+        "xff_header_processing_mode": null
+      }
+    },
+    "aws_lb.nlb_raft_region_1": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "nlb_raft_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "access_logs": [],
+        "connection_logs": [],
+        "health_check_logs": [],
+        "minimum_load_balancer_capacity": [],
+        "security_groups": [],
+        "subnet_mapping": [],
+        "subnets": [
+          false,
+          false,
+          false
+        ],
+        "tags_all": {}
+      },
+      "type": "aws_lb",
+      "values": {
+        "access_logs": [],
+        "client_keep_alive": null,
+        "connection_logs": [],
+        "customer_owned_ipv4_pool": null,
+        "desync_mitigation_mode": null,
+        "dns_record_client_routing_policy": "any_availability_zone",
+        "drop_invalid_header_fields": null,
+        "enable_cross_zone_load_balancing": false,
+        "enable_deletion_protection": false,
+        "enable_http2": null,
+        "enable_tls_version_and_cipher_suite_headers": null,
+        "enable_waf_fail_open": null,
+        "enable_xff_client_port": null,
+        "enable_zonal_shift": false,
+        "health_check_logs": [],
+        "idle_timeout": null,
+        "internal": true,
+        "load_balancer_type": "network",
+        "minimum_load_balancer_capacity": [],
+        "name": "camunda-r1-nlb-raft",
+        "preserve_host_header": null,
+        "region": "eu-west-3",
+        "subnets": [
+          "subnet-000000000000000a1",
+          "subnet-000000000000000b1",
+          "subnet-000000000000000c1"
+        ],
+        "tags": null,
+        "timeouts": null,
+        "xff_header_processing_mode": null
+      }
+    },
+    "aws_lb_listener.http_management_region_0": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "http_management_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "default_action": [
+          {
+            "authenticate_cognito": [],
+            "authenticate_oidc": [],
+            "fixed_response": [
+              {}
+            ],
+            "forward": [],
+            "jwt_validation": [],
+            "redirect": []
+          }
+        ],
+        "mutual_authentication": [],
+        "tags_all": {}
+      },
+      "type": "aws_lb_listener",
+      "values": {
+        "alpn_policy": null,
+        "certificate_arn": null,
+        "default_action": [
+          {
+            "authenticate_cognito": [],
+            "authenticate_oidc": [],
+            "fixed_response": [
+              {
+                "content_type": "text/plain",
+                "message_body": "",
+                "status_code": "200"
+              }
+            ],
+            "forward": [],
+            "jwt_validation": [],
+            "redirect": [],
+            "target_group_arn": null,
+            "type": "fixed-response"
+          }
+        ],
+        "port": 9600,
+        "protocol": "HTTP",
+        "region": "eu-west-2",
+        "tags": null,
+        "timeouts": null
+      }
+    },
+    "aws_lb_listener.http_management_region_1": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "http_management_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "default_action": [
+          {
+            "authenticate_cognito": [],
+            "authenticate_oidc": [],
+            "fixed_response": [
+              {}
+            ],
+            "forward": [],
+            "jwt_validation": [],
+            "redirect": []
+          }
+        ],
+        "mutual_authentication": [],
+        "tags_all": {}
+      },
+      "type": "aws_lb_listener",
+      "values": {
+        "alpn_policy": null,
+        "certificate_arn": null,
+        "default_action": [
+          {
+            "authenticate_cognito": [],
+            "authenticate_oidc": [],
+            "fixed_response": [
+              {
+                "content_type": "text/plain",
+                "message_body": "",
+                "status_code": "200"
+              }
+            ],
+            "forward": [],
+            "jwt_validation": [],
+            "redirect": [],
+            "target_group_arn": null,
+            "type": "fixed-response"
+          }
+        ],
+        "port": 9600,
+        "protocol": "HTTP",
+        "region": "eu-west-3",
+        "tags": null,
+        "timeouts": null
+      }
+    },
+    "aws_lb_listener.http_webapp_region_0": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "http_webapp_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "default_action": [
+          {
+            "authenticate_cognito": [],
+            "authenticate_oidc": [],
+            "fixed_response": [
+              {}
+            ],
+            "forward": [],
+            "jwt_validation": [],
+            "redirect": []
+          }
+        ],
+        "mutual_authentication": [],
+        "tags_all": {}
+      },
+      "type": "aws_lb_listener",
+      "values": {
+        "alpn_policy": null,
+        "certificate_arn": null,
+        "default_action": [
+          {
+            "authenticate_cognito": [],
+            "authenticate_oidc": [],
+            "fixed_response": [
+              {
+                "content_type": "text/plain",
+                "message_body": "",
+                "status_code": "200"
+              }
+            ],
+            "forward": [],
+            "jwt_validation": [],
+            "redirect": [],
+            "target_group_arn": null,
+            "type": "fixed-response"
+          }
+        ],
+        "port": 80,
+        "protocol": "HTTP",
+        "region": "eu-west-2",
+        "tags": null,
+        "timeouts": null
+      }
+    },
+    "aws_lb_listener.http_webapp_region_1": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "http_webapp_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "default_action": [
+          {
+            "authenticate_cognito": [],
+            "authenticate_oidc": [],
+            "fixed_response": [
+              {}
+            ],
+            "forward": [],
+            "jwt_validation": [],
+            "redirect": []
+          }
+        ],
+        "mutual_authentication": [],
+        "tags_all": {}
+      },
+      "type": "aws_lb_listener",
+      "values": {
+        "alpn_policy": null,
+        "certificate_arn": null,
+        "default_action": [
+          {
+            "authenticate_cognito": [],
+            "authenticate_oidc": [],
+            "fixed_response": [
+              {
+                "content_type": "text/plain",
+                "message_body": "",
+                "status_code": "200"
+              }
+            ],
+            "forward": [],
+            "jwt_validation": [],
+            "redirect": [],
+            "target_group_arn": null,
+            "type": "fixed-response"
+          }
+        ],
+        "port": 80,
+        "protocol": "HTTP",
+        "region": "eu-west-3",
+        "tags": null,
+        "timeouts": null
+      }
+    },
+    "aws_s3_bucket.backup_region_0": {
+      "identity": {
+        "account_id": null,
+        "bucket": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "backup_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "cors_rule": [],
+        "grant": [],
+        "lifecycle_rule": [],
+        "logging": [],
+        "object_lock_configuration": [],
+        "replication_configuration": [],
+        "server_side_encryption_configuration": [],
+        "tags_all": {},
+        "versioning": [],
+        "website": []
+      },
+      "type": "aws_s3_bucket",
+      "values": {
+        "force_destroy": true,
+        "region": "eu-west-2",
+        "tags": null,
+        "timeouts": null
+      }
+    },
+    "aws_s3_bucket_public_access_block.backup_region_0": {
+      "identity": {
+        "account_id": null,
+        "bucket": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "backup_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "aws_s3_bucket_public_access_block",
+      "values": {
+        "block_public_acls": true,
+        "block_public_policy": true,
+        "ignore_public_acls": true,
+        "region": "eu-west-2",
+        "restrict_public_buckets": true,
+        "skip_destroy": null
+      }
+    },
+    "aws_s3_bucket_server_side_encryption_configuration.backup_region_0": {
+      "identity": {
+        "account_id": null,
+        "bucket": null,
+        "region": null
+      },
+      "identity_schema_version": 1,
+      "mode": "managed",
+      "name": "backup_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "rule": [
+          {
+            "apply_server_side_encryption_by_default": [
+              {}
+            ],
+            "blocked_encryption_types": []
+          }
+        ]
+      },
+      "type": "aws_s3_bucket_server_side_encryption_configuration",
+      "values": {
+        "expected_bucket_owner": null,
+        "region": "eu-west-2",
+        "rule": [
+          {
+            "apply_server_side_encryption_by_default": [
+              {
+                "sse_algorithm": "aws:kms"
+              }
+            ],
+            "bucket_key_enabled": true
+          }
+        ]
+      }
+    },
+    "aws_s3_bucket_versioning.backup_region_0": {
+      "identity": {
+        "account_id": null,
+        "bucket": null,
+        "region": null
+      },
+      "identity_schema_version": 1,
+      "mode": "managed",
+      "name": "backup_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "versioning_configuration": [
+          {}
+        ]
+      },
+      "type": "aws_s3_bucket_versioning",
+      "values": {
+        "expected_bucket_owner": null,
+        "mfa": null,
+        "region": "eu-west-2",
+        "versioning_configuration": [
+          {
+            "status": "Enabled"
+          }
+        ]
+      }
+    },
+    "aws_secretsmanager_secret.admin_user_password_region_0": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "admin_user_password_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Password for Camunda admin user (camunda-r0)",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-r0-oc-admin-user-password",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-2",
+        "tags": null
+      }
+    },
+    "aws_secretsmanager_secret.admin_user_password_region_1": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "admin_user_password_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Password for Camunda admin user (camunda-r1)",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-r1-oc-admin-user-password",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-3",
+        "tags": null
+      }
+    },
+    "aws_secretsmanager_secret.connectors_password_region_0": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "connectors_password_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Password for Connectors basic auth (camunda-r0)",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-r0-oc-connectors-password",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-2",
+        "tags": null
+      }
+    },
+    "aws_secretsmanager_secret.connectors_password_region_1": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "connectors_password_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Password for Connectors basic auth (camunda-r1)",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-r1-oc-connectors-password",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-3",
+        "tags": null
+      }
+    },
+    "aws_secretsmanager_secret.db_admin_password_region_0": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "db_admin_password_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Admin password for Aurora PostgreSQL (camunda-r0)",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-r0-db-admin-password",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-2",
+        "tags": null
+      }
+    },
+    "aws_secretsmanager_secret_version.admin_user_password_region_0": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "admin_user_password_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-2",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_secretsmanager_secret_version.admin_user_password_region_1": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "admin_user_password_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-3",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_secretsmanager_secret_version.connectors_password_region_0": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "connectors_password_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-2",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_secretsmanager_secret_version.connectors_password_region_1": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "connectors_password_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-3",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_secretsmanager_secret_version.db_admin_password_region_0": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "db_admin_password_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-2",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_security_group.camunda_ports_region_0": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "camunda_ports_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "egress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_security_group",
+      "values": {
+        "description": "Allow necessary Camunda ports within VPC and cross-region",
+        "egress": [
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow outbound on port 26500 to local VPC",
+            "from_port": 26500,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26500
+          },
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow outbound on port 26501 to local VPC",
+            "from_port": 26501,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26501
+          },
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow outbound on port 26502 to local VPC",
+            "from_port": 26502,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26502
+          },
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow outbound on port 5432 to local VPC",
+            "from_port": 5432,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 5432
+          },
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow outbound on port 8080 to local VPC",
+            "from_port": 8080,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8080
+          },
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow outbound on port 9600 to local VPC",
+            "from_port": 9600,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 9600
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow Aurora traffic to region 1",
+            "from_port": 5432,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 5432
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow cross-region Zeebe cluster traffic to region 1",
+            "from_port": 26500,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26502
+          },
+          {
+            "cidr_blocks": [],
+            "description": "Allow NFS traffic to EFS",
+            "from_port": 2049,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "self": false,
+            "to_port": 2049
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow inbound on port 26500 from local VPC",
+            "from_port": 26500,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26500
+          },
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow inbound on port 26501 from local VPC",
+            "from_port": 26501,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26501
+          },
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow inbound on port 26502 from local VPC",
+            "from_port": 26502,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26502
+          },
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow inbound on port 5432 from local VPC",
+            "from_port": 5432,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 5432
+          },
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow inbound on port 8080 from local VPC",
+            "from_port": 8080,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8080
+          },
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow inbound on port 9600 from local VPC",
+            "from_port": 9600,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 9600
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow cross-region Zeebe cluster traffic from region 1",
+            "from_port": 26500,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26502
+          }
+        ],
+        "name": "camunda-r0-camunda-ports",
+        "region": "eu-west-2",
+        "revoke_rules_on_delete": false,
+        "tags": {
+          "Name": "camunda-r0-camunda-ports"
+        },
+        "tags_all": {
+          "Name": "camunda-r0-camunda-ports"
+        },
+        "timeouts": null,
+        "vpc_id": "vpc-00000000000000000"
+      }
+    },
+    "aws_security_group.camunda_ports_region_1": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "camunda_ports_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "egress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_security_group",
+      "values": {
+        "description": "Allow necessary Camunda ports within VPC and cross-region",
+        "egress": [
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow Aurora traffic to region 0 (Global DB writer)",
+            "from_port": 5432,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 5432
+          },
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow cross-region Zeebe cluster traffic to region 0",
+            "from_port": 26500,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26502
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow outbound on port 26500 to local VPC",
+            "from_port": 26500,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26500
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow outbound on port 26501 to local VPC",
+            "from_port": 26501,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26501
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow outbound on port 26502 to local VPC",
+            "from_port": 26502,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26502
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow outbound on port 5432 to local VPC",
+            "from_port": 5432,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 5432
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow outbound on port 8080 to local VPC",
+            "from_port": 8080,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8080
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow outbound on port 9600 to local VPC",
+            "from_port": 9600,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 9600
+          },
+          {
+            "cidr_blocks": [],
+            "description": "Allow NFS traffic to EFS",
+            "from_port": 2049,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "self": false,
+            "to_port": 2049
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "Allow cross-region Zeebe cluster traffic from region 0",
+            "from_port": 26500,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26502
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow inbound on port 26500 from local VPC",
+            "from_port": 26500,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26500
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow inbound on port 26501 from local VPC",
+            "from_port": 26501,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26501
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow inbound on port 26502 from local VPC",
+            "from_port": 26502,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26502
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow inbound on port 5432 from local VPC",
+            "from_port": 5432,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 5432
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow inbound on port 8080 from local VPC",
+            "from_port": 8080,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8080
+          },
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "Allow inbound on port 9600 from local VPC",
+            "from_port": 9600,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 9600
+          }
+        ],
+        "name": "camunda-r1-camunda-ports",
+        "region": "eu-west-3",
+        "revoke_rules_on_delete": false,
+        "tags": {
+          "Name": "camunda-r1-camunda-ports"
+        },
+        "tags_all": {
+          "Name": "camunda-r1-camunda-ports"
+        },
+        "timeouts": null,
+        "vpc_id": "vpc-11111111111111111"
+      }
+    },
+    "aws_security_group.efs_region_0": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "efs_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "egress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_security_group",
+      "values": {
+        "description": "Security group for EFS",
+        "egress": [
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "NFS outbound",
+            "from_port": 2049,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 2049
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16"
+            ],
+            "description": "NFS from ECS tasks",
+            "from_port": 2049,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 2049
+          }
+        ],
+        "name": "camunda-r0-efs",
+        "region": "eu-west-2",
+        "revoke_rules_on_delete": false,
+        "tags": {
+          "Name": "camunda-r0-efs"
+        },
+        "tags_all": {
+          "Name": "camunda-r0-efs"
+        },
+        "timeouts": null,
+        "vpc_id": "vpc-00000000000000000"
+      }
+    },
+    "aws_security_group.efs_region_1": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "efs_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "egress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_security_group",
+      "values": {
+        "description": "Security group for EFS",
+        "egress": [
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "NFS outbound",
+            "from_port": 2049,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 2049
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              "10.202.0.0/16"
+            ],
+            "description": "NFS from ECS tasks",
+            "from_port": 2049,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 2049
+          }
+        ],
+        "name": "camunda-r1-efs",
+        "region": "eu-west-3",
+        "revoke_rules_on_delete": false,
+        "tags": {
+          "Name": "camunda-r1-efs"
+        },
+        "tags_all": {
+          "Name": "camunda-r1-efs"
+        },
+        "timeouts": null,
+        "vpc_id": "vpc-11111111111111111"
+      }
+    },
+    "aws_security_group.package_80_443_region_0": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "package_80_443_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "egress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "ingress": [],
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_security_group",
+      "values": {
+        "description": "Allow remote HTTP/HTTPS for package updates",
+        "egress": [
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow outbound HTTP",
+            "from_port": 80,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 80
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow outbound HTTPS",
+            "from_port": 443,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 443
+          }
+        ],
+        "name": "camunda-r0-package-80-443",
+        "region": "eu-west-2",
+        "revoke_rules_on_delete": false,
+        "tags": {
+          "Name": "camunda-r0-package-80-443"
+        },
+        "tags_all": {
+          "Name": "camunda-r0-package-80-443"
+        },
+        "timeouts": null,
+        "vpc_id": "vpc-00000000000000000"
+      }
+    },
+    "aws_security_group.package_80_443_region_1": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "package_80_443_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "egress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "ingress": [],
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_security_group",
+      "values": {
+        "description": "Allow remote HTTP/HTTPS for package updates",
+        "egress": [
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow outbound HTTP",
+            "from_port": 80,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 80
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow outbound HTTPS",
+            "from_port": 443,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 443
+          }
+        ],
+        "name": "camunda-r1-package-80-443",
+        "region": "eu-west-3",
+        "revoke_rules_on_delete": false,
+        "tags": {
+          "Name": "camunda-r1-package-80-443"
+        },
+        "tags_all": {
+          "Name": "camunda-r1-package-80-443"
+        },
+        "timeouts": null,
+        "vpc_id": "vpc-11111111111111111"
+      }
+    },
+    "aws_security_group.remote_access_region_0": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "remote_access_region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "egress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_security_group",
+      "values": {
+        "description": "Allow remote access to LoadBalancers",
+        "egress": [
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow outbound to remote CIDRs",
+            "from_port": 0,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "-1",
+            "security_groups": [],
+            "self": false,
+            "to_port": 0
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow inbound HTTP",
+            "from_port": 80,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 80
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow inbound HTTPS",
+            "from_port": 443,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 443
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow inbound gRPC",
+            "from_port": 26500,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26500
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow inbound management",
+            "from_port": 9600,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 9600
+          }
+        ],
+        "name": "camunda-r0-remote-access",
+        "region": "eu-west-2",
+        "revoke_rules_on_delete": false,
+        "tags": {
+          "Name": "camunda-r0-remote-access"
+        },
+        "tags_all": {
+          "Name": "camunda-r0-remote-access"
+        },
+        "timeouts": null,
+        "vpc_id": "vpc-00000000000000000"
+      }
+    },
+    "aws_security_group.remote_access_region_1": {
+      "identity": {
+        "account_id": null,
+        "id": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "remote_access_region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 1,
+      "sensitive_values": {
+        "egress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          }
+        ],
+        "tags": {},
+        "tags_all": {}
+      },
+      "type": "aws_security_group",
+      "values": {
+        "description": "Allow remote access to LoadBalancers",
+        "egress": [
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow outbound to remote CIDRs",
+            "from_port": 0,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "-1",
+            "security_groups": [],
+            "self": false,
+            "to_port": 0
+          }
+        ],
+        "ingress": [
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow inbound HTTP",
+            "from_port": 80,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 80
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow inbound HTTPS",
+            "from_port": 443,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 443
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow inbound gRPC",
+            "from_port": 26500,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 26500
+          },
+          {
+            "cidr_blocks": [
+              "0.0.0.0/0"
+            ],
+            "description": "Allow inbound management",
+            "from_port": 9600,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 9600
+          }
+        ],
+        "name": "camunda-r1-remote-access",
+        "region": "eu-west-3",
+        "revoke_rules_on_delete": false,
+        "tags": {
+          "Name": "camunda-r1-remote-access"
+        },
+        "tags_all": {
+          "Name": "camunda-r1-remote-access"
+        },
+        "timeouts": null,
+        "vpc_id": "vpc-11111111111111111"
+      }
+    },
+    "module.aurora_global[0]": {
+      "resources": {
+        "module.aurora_global[0].aws_db_subnet_group.primary": {
+          "identity": {
+            "account_id": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "primary",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "subnet_ids": [
+              false,
+              false,
+              false
+            ],
+            "supported_network_types": [],
+            "tags_all": {}
+          },
+          "type": "aws_db_subnet_group",
+          "values": {
+            "description": "Subnet group for Aurora primary cluster camunda-r0-camunda-db",
+            "name": "camunda-r0-camunda-db",
+            "region": "eu-west-2",
+            "subnet_ids": [
+              "subnet-000000000000000a0",
+              "subnet-000000000000000b0",
+              "subnet-000000000000000c0"
+            ],
+            "tags": null
+          }
+        },
+        "module.aurora_global[0].aws_db_subnet_group.secondary": {
+          "identity": {
+            "account_id": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "secondary",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "subnet_ids": [
+              false,
+              false,
+              false
+            ],
+            "supported_network_types": [],
+            "tags_all": {}
+          },
+          "type": "aws_db_subnet_group",
+          "values": {
+            "description": "Subnet group for Aurora secondary cluster camunda-r1-camunda-db",
+            "name": "camunda-r1-camunda-db",
+            "region": "eu-west-3",
+            "subnet_ids": [
+              "subnet-000000000000000a1",
+              "subnet-000000000000000b1",
+              "subnet-000000000000000c1"
+            ],
+            "tags": null
+          }
+        },
+        "module.aurora_global[0].aws_kms_key.primary": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "primary",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_kms_key",
+          "values": {
+            "bypass_policy_lockout_safety_check": false,
+            "custom_key_store_id": null,
+            "customer_master_key_spec": "SYMMETRIC_DEFAULT",
+            "deletion_window_in_days": 7,
+            "description": "camunda-r0-camunda-db-key",
+            "enable_key_rotation": true,
+            "is_enabled": true,
+            "key_usage": "ENCRYPT_DECRYPT",
+            "region": "eu-west-2",
+            "tags": null,
+            "timeouts": null,
+            "xks_key_id": null
+          }
+        },
+        "module.aurora_global[0].aws_kms_key.secondary": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "secondary",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_kms_key",
+          "values": {
+            "bypass_policy_lockout_safety_check": false,
+            "custom_key_store_id": null,
+            "customer_master_key_spec": "SYMMETRIC_DEFAULT",
+            "deletion_window_in_days": 7,
+            "description": "camunda-r1-camunda-db-key",
+            "enable_key_rotation": true,
+            "is_enabled": true,
+            "key_usage": "ENCRYPT_DECRYPT",
+            "region": "eu-west-3",
+            "tags": null,
+            "timeouts": null,
+            "xks_key_id": null
+          }
+        },
+        "module.aurora_global[0].aws_rds_cluster.primary": {
+          "identity": {
+            "account_id": null,
+            "cluster_identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "primary",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "availability_zones": [
+              false,
+              false,
+              false
+            ],
+            "cluster_members": [],
+            "iam_roles": [],
+            "master_password": true,
+            "master_password_wo": true,
+            "master_user_secret": [],
+            "master_username": true,
+            "restore_to_point_in_time": [],
+            "s3_import": [],
+            "scaling_configuration": [],
+            "serverlessv2_scaling_configuration": [],
+            "tags_all": {},
+            "vpc_security_group_ids": []
+          },
+          "type": "aws_rds_cluster",
+          "values": {
+            "allow_major_version_upgrade": null,
+            "apply_immediately": true,
+            "availability_zones": [
+              "eu-west-2a",
+              "eu-west-2b",
+              "eu-west-2c"
+            ],
+            "backtrack_window": null,
+            "backup_retention_period": 7,
+            "cluster_identifier": "camunda-r0-camunda-db",
+            "copy_tags_to_snapshot": true,
+            "database_name": "camunda",
+            "db_cluster_instance_class": null,
+            "db_instance_parameter_group_name": null,
+            "db_subnet_group_name": "camunda-r0-camunda-db",
+            "delete_automated_backups": true,
+            "deletion_protection": null,
+            "domain": null,
+            "domain_iam_role_name": null,
+            "enable_global_write_forwarding": false,
+            "enable_http_endpoint": false,
+            "enable_local_write_forwarding": false,
+            "enabled_cloudwatch_logs_exports": null,
+            "engine": "aurora-postgresql",
+            "engine_mode": "provisioned",
+            "engine_version": "18.3",
+            "final_snapshot_identifier": null,
+            "iam_database_authentication_enabled": true,
+            "iops": null,
+            "manage_master_user_password": null,
+            "master_password_wo": null,
+            "master_password_wo_version": null,
+            "master_username": "camunda_admin",
+            "performance_insights_enabled": null,
+            "region": "eu-west-2",
+            "replication_source_identifier": null,
+            "restore_to_point_in_time": [],
+            "s3_import": [],
+            "scaling_configuration": [],
+            "serverlessv2_scaling_configuration": [],
+            "skip_final_snapshot": true,
+            "snapshot_identifier": null,
+            "source_region": null,
+            "storage_encrypted": true,
+            "tags": null,
+            "timeouts": null
+          }
+        },
+        "module.aurora_global[0].aws_rds_cluster.secondary": {
+          "identity": {
+            "account_id": null,
+            "cluster_identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "secondary",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "availability_zones": [],
+            "cluster_members": [],
+            "iam_roles": [],
+            "master_password": true,
+            "master_password_wo": true,
+            "master_user_secret": [],
+            "restore_to_point_in_time": [],
+            "s3_import": [],
+            "scaling_configuration": [],
+            "serverlessv2_scaling_configuration": [],
+            "tags_all": {},
+            "vpc_security_group_ids": []
+          },
+          "type": "aws_rds_cluster",
+          "values": {
+            "allow_major_version_upgrade": null,
+            "apply_immediately": true,
+            "backtrack_window": null,
+            "cluster_identifier": "camunda-r1-camunda-db",
+            "copy_tags_to_snapshot": true,
+            "db_cluster_instance_class": null,
+            "db_instance_parameter_group_name": null,
+            "db_subnet_group_name": "camunda-r1-camunda-db",
+            "delete_automated_backups": true,
+            "deletion_protection": null,
+            "domain": null,
+            "domain_iam_role_name": null,
+            "enable_global_write_forwarding": false,
+            "enable_http_endpoint": false,
+            "enable_local_write_forwarding": false,
+            "enabled_cloudwatch_logs_exports": null,
+            "engine": "aurora-postgresql",
+            "engine_mode": "provisioned",
+            "engine_version": "18.3",
+            "final_snapshot_identifier": null,
+            "iam_database_authentication_enabled": true,
+            "iops": null,
+            "manage_master_user_password": null,
+            "master_password": null,
+            "master_password_wo": null,
+            "master_password_wo_version": null,
+            "performance_insights_enabled": null,
+            "region": "eu-west-3",
+            "replication_source_identifier": null,
+            "restore_to_point_in_time": [],
+            "s3_import": [],
+            "scaling_configuration": [],
+            "serverlessv2_scaling_configuration": [],
+            "skip_final_snapshot": true,
+            "snapshot_identifier": null,
+            "source_region": null,
+            "storage_encrypted": true,
+            "tags": null,
+            "timeouts": null
+          }
+        },
+        "module.aurora_global[0].aws_rds_cluster_instance.primary[0]": {
+          "index": 0,
+          "mode": "managed",
+          "name": "primary",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_rds_cluster_instance",
+          "values": {
+            "apply_immediately": true,
+            "auto_minor_version_upgrade": false,
+            "ca_cert_identifier": "rds-ca-rsa2048-g1",
+            "copy_tags_to_snapshot": true,
+            "custom_iam_instance_profile": null,
+            "db_subnet_group_name": "camunda-r0-camunda-db",
+            "engine": "aurora-postgresql",
+            "engine_version": "18.3",
+            "force_destroy": false,
+            "identifier": "camunda-r0-camunda-db-0",
+            "instance_class": "db.r6g.large",
+            "monitoring_interval": 0,
+            "promotion_tier": 0,
+            "region": "eu-west-2",
+            "tags": null,
+            "timeouts": null
+          }
+        },
+        "module.aurora_global[0].aws_rds_cluster_instance.secondary[0]": {
+          "index": 0,
+          "mode": "managed",
+          "name": "secondary",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags_all": {}
+          },
+          "type": "aws_rds_cluster_instance",
+          "values": {
+            "apply_immediately": true,
+            "auto_minor_version_upgrade": false,
+            "ca_cert_identifier": "rds-ca-rsa2048-g1",
+            "copy_tags_to_snapshot": true,
+            "custom_iam_instance_profile": null,
+            "db_subnet_group_name": "camunda-r1-camunda-db",
+            "engine": "aurora-postgresql",
+            "engine_version": "18.3",
+            "force_destroy": false,
+            "identifier": "camunda-r1-camunda-db-0",
+            "instance_class": "db.r6g.large",
+            "monitoring_interval": 0,
+            "promotion_tier": 0,
+            "region": "eu-west-3",
+            "tags": null,
+            "timeouts": null
+          }
+        },
+        "module.aurora_global[0].aws_rds_global_cluster.this": {
+          "mode": "managed",
+          "name": "this",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "global_cluster_members": [],
+            "tags_all": {}
+          },
+          "type": "aws_rds_global_cluster",
+          "values": {
+            "database_name": "camunda",
+            "deletion_protection": false,
+            "engine": "aurora-postgresql",
+            "engine_version": "18.3",
+            "force_destroy": null,
+            "global_cluster_identifier": "camunda-global-db",
+            "region": "eu-west-2",
+            "storage_encrypted": true,
+            "tags": null,
+            "timeouts": null
+          }
+        },
+        "module.aurora_global[0].aws_security_group.primary": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "primary",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "egress": [
+              {
+                "cidr_blocks": [
+                  false,
+                  false
+                ],
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "security_groups": []
+              }
+            ],
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  false,
+                  false
+                ],
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "security_groups": []
+              }
+            ],
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_security_group",
+          "values": {
+            "description": "Security group for Aurora primary cluster",
+            "egress": [
+              {
+                "cidr_blocks": [
+                  "10.192.0.0/16",
+                  "10.202.0.0/16"
+                ],
+                "description": "Allow PostgreSQL to allowed CIDRs",
+                "from_port": 5432,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 5432
+              }
+            ],
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  "10.192.0.0/16",
+                  "10.202.0.0/16"
+                ],
+                "description": "Allow PostgreSQL from allowed CIDRs",
+                "from_port": 5432,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 5432
+              }
+            ],
+            "name": "camunda-r0-camunda-db-aurora",
+            "region": "eu-west-2",
+            "revoke_rules_on_delete": false,
+            "tags": {
+              "Name": "camunda-r0-camunda-db-aurora"
+            },
+            "tags_all": {
+              "Name": "camunda-r0-camunda-db-aurora"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-00000000000000000"
+          }
+        },
+        "module.aurora_global[0].aws_security_group.secondary": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "secondary",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "egress": [
+              {
+                "cidr_blocks": [
+                  false,
+                  false
+                ],
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "security_groups": []
+              }
+            ],
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  false,
+                  false
+                ],
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "security_groups": []
+              }
+            ],
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_security_group",
+          "values": {
+            "description": "Security group for Aurora secondary cluster",
+            "egress": [
+              {
+                "cidr_blocks": [
+                  "10.192.0.0/16",
+                  "10.202.0.0/16"
+                ],
+                "description": "Allow PostgreSQL to allowed CIDRs",
+                "from_port": 5432,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 5432
+              }
+            ],
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  "10.192.0.0/16",
+                  "10.202.0.0/16"
+                ],
+                "description": "Allow PostgreSQL from allowed CIDRs",
+                "from_port": 5432,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 5432
+              }
+            ],
+            "name": "camunda-r1-camunda-db-aurora",
+            "region": "eu-west-3",
+            "revoke_rules_on_delete": false,
+            "tags": {
+              "Name": "camunda-r1-camunda-db-aurora"
+            },
+            "tags_all": {
+              "Name": "camunda-r1-camunda-db-aurora"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-11111111111111111"
+          }
+        },
+        "module.aurora_global[0].time_sleep.wait_for_primary": {
+          "mode": "managed",
+          "name": "wait_for_primary",
+          "provider_name": "registry.terraform.io/hashicorp/time",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "time_sleep",
+          "values": {
+            "create_duration": "30s",
+            "destroy_duration": null,
+            "triggers": null
+          }
+        }
+      }
+    },
+    "null_resource.run_db_seed_task[0]": {
+      "index": 0,
+      "mode": "managed",
+      "name": "run_db_seed_task",
+      "provider_name": "registry.terraform.io/hashicorp/null",
+      "schema_version": 0,
+      "sensitive_values": {
+        "triggers": {}
+      },
+      "type": "null_resource",
+      "values": {
+        "triggers": {
+          "db_name": "camunda",
+          "iam_auth": "true",
+          "iam_users": "camunda",
+          "run_id": "1"
+        }
+      }
+    },
+    "random_id.bucket_suffix": {
+      "mode": "managed",
+      "name": "bucket_suffix",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "random_id",
+      "values": {
+        "byte_length": 3,
+        "keepers": null,
+        "prefix": null
+      }
+    },
+    "random_password.admin_user_password": {
+      "mode": "managed",
+      "name": "admin_user_password",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 32,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#$%^()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.connectors_user_password": {
+      "mode": "managed",
+      "name": "connectors_user_password",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 32,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#$%^()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.db_admin_password[0]": {
+      "index": 0,
+      "mode": "managed",
+      "name": "db_admin_password",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 32,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#$%^()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    }
+  }
+}

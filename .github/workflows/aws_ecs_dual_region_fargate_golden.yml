@@ -6,10 +6,16 @@ on:
     pull_request:
         paths:
             - .github/workflows/aws_ecs_dual_region_fargate_golden.yml
-            - .github/actions/aws-configure-cli/**
             - .github/actions/internal-terraform-golden-plan/**
             - .tool-versions
             - aws/containers/ecs-dual-region-fargate/terraform/**
+            # Shared modules rendered into the golden plans: vpc/ uses
+            # transit-gateway; infra/ uses aurora-global and opensearch; app/
+            # uses ecs. A change to any of these alters a committed golden file,
+            # so the comparison must re-run when they do.
+            - aws/modules/ecs/**
+            - aws/modules/aurora-global/**
+            - aws/modules/opensearch/**
             - aws/modules/transit-gateway/**
 
 # limit to a single execution per actor of this workflow
@@ -63,43 +69,38 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            # infra/ and app/ are intentionally excluded from golden plan
-            # coverage. Both read a sibling state via data.terraform_remote_state
-            # (infra reads vpc, app reads infra) and infra additionally reads
-            # live data.aws_subnet resources from the vpc outputs, so neither can
-            # be planned standalone against an empty backend. This mirrors the
-            # rosa-hcp-dual-region/terraform/peering exclusion. They also opt out
-            # of `just regenerate-golden-file-all` by not providing a
-            # test/golden/golden.tfvars marker (see camunda/camunda-deployment-references#2761).
-            #
-            # - name: Run Terraform Golden Plan Comparison - Infra
-            #   uses: ./.github/actions/internal-terraform-golden-plan
-            #   env:
-            #       GH_TOKEN: ${{ github.token }}
-            #   with:
-            #       module-dir: ${{ env.MODULE_DIR_BASE }}infra/
-            #       s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-            #       s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
-            #       s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
-            #
-            # - name: Run Terraform Golden Plan Comparison - App
-            #   uses: ./.github/actions/internal-terraform-golden-plan
-            #   env:
-            #       GH_TOKEN: ${{ github.token }}
-            #   with:
-            #       module-dir: ${{ env.MODULE_DIR_BASE }}app/
-            #       s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-            #       s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
-            #       s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
-
-            # Only the vpc/ state is plannable standalone: it relies solely on
-            # data.aws_availability_zones and creates its resources from scratch.
+            # The three states are planned independently. vpc/ is plannable as-is;
+            # infra/ and app/ read a sibling state via terraform_remote_state (and
+            # infra/ does live subnet lookups), which the golden fixtures under each
+            # state's test/fixtures/golden/ neutralise with a static snapshot so the
+            # plan is deterministic and offline. app/ is the most valuable of the
+            # three — it captures the Camunda ECS task/service configuration.
             - name: Run Terraform Golden Plan Comparison - VPC
               uses: ./.github/actions/internal-terraform-golden-plan
               env:
                   GH_TOKEN: ${{ github.token }}
               with:
                   module-dir: ${{ env.MODULE_DIR_BASE }}vpc/
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
+
+            - name: Run Terraform Golden Plan Comparison - Infra
+              uses: ./.github/actions/internal-terraform-golden-plan
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              with:
+                  module-dir: ${{ env.MODULE_DIR_BASE }}infra/
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
+
+            - name: Run Terraform Golden Plan Comparison - App
+              uses: ./.github/actions/internal-terraform-golden-plan
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              with:
+                  module-dir: ${{ env.MODULE_DIR_BASE }}app/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
