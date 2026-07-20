@@ -162,3 +162,35 @@ run "invalid_engine_rejected" {
     var.engine,
   ]
 }
+
+run "postgresql_security_group_uses_5432" {
+  command = plan
+
+  assert {
+    condition     = contains([for r in aws_security_group.primary.ingress : r.from_port], 5432)
+    error_message = "PostgreSQL primary SG ingress should use port 5432"
+  }
+
+  assert {
+    condition     = contains([for r in aws_security_group.primary.egress : r.from_port], 5432)
+    error_message = "PostgreSQL primary SG egress should use port 5432"
+  }
+}
+
+run "mysql_security_group_uses_3306" {
+  command = plan
+
+  variables {
+    engine = "aurora-mysql"
+  }
+
+  assert {
+    condition     = contains([for r in aws_security_group.primary.ingress : r.from_port], 3306)
+    error_message = "MySQL primary SG ingress should use port 3306"
+  }
+
+  assert {
+    condition     = contains([for r in aws_security_group.secondary.ingress : r.from_port], 3306)
+    error_message = "MySQL secondary SG ingress should use port 3306"
+  }
+}
