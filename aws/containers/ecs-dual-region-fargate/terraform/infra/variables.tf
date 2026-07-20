@@ -49,6 +49,17 @@ variable "secondary_storage_type" {
   }
 }
 
+variable "db_engine" {
+  type        = string
+  default     = "postgresql"
+  description = "Aurora RDBMS engine for secondary storage: 'postgresql' or 'mysql'. NOTE: MySQL requires a Camunda image that bundles the MySQL JDBC driver; the default image does not include it."
+
+  validation {
+    condition     = contains(["postgresql", "mysql"], var.db_engine)
+    error_message = "db_engine must be either 'postgresql' or 'mysql'."
+  }
+}
+
 ################################
 # Variables                    #
 ################################
@@ -105,14 +116,14 @@ variable "db_name" {
 
 variable "db_admin_username" {
   type        = string
-  description = "Admin username for the Aurora PostgreSQL cluster"
+  description = "Admin username for the Aurora cluster"
   default     = "camunda_admin"
   sensitive   = true
 }
 
 variable "db_admin_password" {
   type        = string
-  description = "Optional override for the Aurora PostgreSQL admin password. If empty, a random password is generated."
+  description = "Optional override for the Aurora admin password. If empty, a random password is generated."
   default     = ""
   sensitive   = true
 }

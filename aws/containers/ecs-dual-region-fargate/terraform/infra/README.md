@@ -86,8 +86,9 @@
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_aws_profile"></a> [aws\_profile](#input\_aws\_profile) | AWS Profile to use (null = use default credential chain) | `string` | `null` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the cluster to prefix resources | `string` | n/a | yes |
-| <a name="input_db_admin_password"></a> [db\_admin\_password](#input\_db\_admin\_password) | Optional override for the Aurora PostgreSQL admin password. If empty, a random password is generated. | `string` | `""` | no |
-| <a name="input_db_admin_username"></a> [db\_admin\_username](#input\_db\_admin\_username) | Admin username for the Aurora PostgreSQL cluster | `string` | `"camunda_admin"` | no |
+| <a name="input_db_admin_password"></a> [db\_admin\_password](#input\_db\_admin\_password) | Optional override for the Aurora admin password. If empty, a random password is generated. | `string` | `""` | no |
+| <a name="input_db_admin_username"></a> [db\_admin\_username](#input\_db\_admin\_username) | Admin username for the Aurora cluster | `string` | `"camunda_admin"` | no |
+| <a name="input_db_engine"></a> [db\_engine](#input\_db\_engine) | Aurora RDBMS engine for secondary storage: 'postgresql' or 'mysql'. NOTE: MySQL requires a Camunda image that bundles the MySQL JDBC driver; the default image does not include it. | `string` | `"postgresql"` | no |
 | <a name="input_db_iam_auth_enabled"></a> [db\_iam\_auth\_enabled](#input\_db\_iam\_auth\_enabled) | Enable IAM database authentication on the Aurora cluster | `bool` | `true` | no |
 | <a name="input_db_name"></a> [db\_name](#input\_db\_name) | Database name used by Camunda components | `string` | `"camunda"` | no |
 | <a name="input_db_seed_enabled"></a> [db\_seed\_enabled](#input\_db\_seed\_enabled) | Run a one-time ECS task to create/grant IAM DB users | `bool` | `true` | no |
