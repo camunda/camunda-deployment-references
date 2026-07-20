@@ -81,12 +81,20 @@ run "postgresql_cross_region_sg_uses_5432" {
   command = plan
 
   assert {
-    condition     = anytrue([for r in aws_security_group.camunda_ports_region_0.egress : r.from_port == 5432 && r.to_port == 5432])
+    condition = anytrue([
+      for r in aws_security_group.camunda_ports_region_0.egress :
+      r.from_port == 5432 && r.to_port == 5432
+      if r.description == "Allow Aurora traffic to region 1"
+    ])
     error_message = "Region 0 cross-region Aurora egress should use 5432 for PostgreSQL"
   }
 
   assert {
-    condition     = anytrue([for r in aws_security_group.camunda_ports_region_1.egress : r.from_port == 5432 && r.to_port == 5432])
+    condition = anytrue([
+      for r in aws_security_group.camunda_ports_region_1.egress :
+      r.from_port == 5432 && r.to_port == 5432
+      if r.description == "Allow Aurora traffic to region 0 (Global DB writer)"
+    ])
     error_message = "Region 1 cross-region Aurora egress should use 5432 for PostgreSQL"
   }
 }
@@ -99,12 +107,20 @@ run "mysql_cross_region_sg_uses_3306" {
   }
 
   assert {
-    condition     = anytrue([for r in aws_security_group.camunda_ports_region_0.egress : r.from_port == 3306 && r.to_port == 3306])
+    condition = anytrue([
+      for r in aws_security_group.camunda_ports_region_0.egress :
+      r.from_port == 3306 && r.to_port == 3306
+      if r.description == "Allow Aurora traffic to region 1"
+    ])
     error_message = "Region 0 cross-region Aurora egress should use 3306 for MySQL"
   }
 
   assert {
-    condition     = anytrue([for r in aws_security_group.camunda_ports_region_1.egress : r.from_port == 3306 && r.to_port == 3306])
+    condition = anytrue([
+      for r in aws_security_group.camunda_ports_region_1.egress :
+      r.from_port == 3306 && r.to_port == 3306
+      if r.description == "Allow Aurora traffic to region 0 (Global DB writer)"
+    ])
     error_message = "Region 1 cross-region Aurora egress should use 3306 for MySQL"
   }
 }
