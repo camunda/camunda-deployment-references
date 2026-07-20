@@ -167,13 +167,23 @@ run "postgresql_security_group_uses_5432" {
   command = plan
 
   assert {
-    condition     = contains([for r in aws_security_group.primary.ingress : r.from_port], 5432)
+    condition     = alltrue([for r in aws_security_group.primary.ingress : r.from_port == 5432 && r.to_port == 5432])
     error_message = "PostgreSQL primary SG ingress should use port 5432"
   }
 
   assert {
-    condition     = contains([for r in aws_security_group.primary.egress : r.from_port], 5432)
+    condition     = alltrue([for r in aws_security_group.primary.egress : r.from_port == 5432 && r.to_port == 5432])
     error_message = "PostgreSQL primary SG egress should use port 5432"
+  }
+
+  assert {
+    condition     = alltrue([for r in aws_security_group.secondary.ingress : r.from_port == 5432 && r.to_port == 5432])
+    error_message = "PostgreSQL secondary SG ingress should use port 5432"
+  }
+
+  assert {
+    condition     = alltrue([for r in aws_security_group.secondary.egress : r.from_port == 5432 && r.to_port == 5432])
+    error_message = "PostgreSQL secondary SG egress should use port 5432"
   }
 }
 
@@ -185,12 +195,22 @@ run "mysql_security_group_uses_3306" {
   }
 
   assert {
-    condition     = contains([for r in aws_security_group.primary.ingress : r.from_port], 3306)
+    condition     = alltrue([for r in aws_security_group.primary.ingress : r.from_port == 3306 && r.to_port == 3306])
     error_message = "MySQL primary SG ingress should use port 3306"
   }
 
   assert {
-    condition     = contains([for r in aws_security_group.secondary.ingress : r.from_port], 3306)
+    condition     = alltrue([for r in aws_security_group.primary.egress : r.from_port == 3306 && r.to_port == 3306])
+    error_message = "MySQL primary SG egress should use port 3306"
+  }
+
+  assert {
+    condition     = alltrue([for r in aws_security_group.secondary.ingress : r.from_port == 3306 && r.to_port == 3306])
     error_message = "MySQL secondary SG ingress should use port 3306"
+  }
+
+  assert {
+    condition     = alltrue([for r in aws_security_group.secondary.egress : r.from_port == 3306 && r.to_port == 3306])
+    error_message = "MySQL secondary SG egress should use port 3306"
   }
 }
