@@ -29,7 +29,9 @@ override_data {
 }
 
 variables {
-  cluster_name = "test-iam"
+  cluster_name                 = "test-iam"
+  terraform_backend_bucket     = "test-tf-state-bucket"
+  terraform_backend_key_prefix = "aws/containers/ecs-dual-region-fargate/test-iam/"
 }
 
 run "registry_credentials_secret_created_when_username_supplied" {

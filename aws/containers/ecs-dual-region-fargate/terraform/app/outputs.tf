@@ -60,7 +60,7 @@ output "next_steps" {
       # orchestration cluster):
       aws secretsmanager get-secret-value \
         --secret-id ${local.infra.connectors_password_secret_region_0_arn} \
-        --region ${data.aws_region.region_0.id} \
+        --region ${data.aws_region.region_0.region} \
         --query SecretString --output text
 
     ── 2. Health-check (basic auth required on 8.10) ──────────────────
@@ -85,8 +85,8 @@ output "next_steps" {
 
     ── 4. CloudWatch logs ─────────────────────────────────────────────
 
-      aws logs tail ${module.orchestration_cluster_region_0.log_group_name} --region ${data.aws_region.region_0.id} --follow
-      aws logs tail ${module.orchestration_cluster_region_1.log_group_name} --region ${data.aws_region.region_1.id} --follow
+      aws logs tail ${module.orchestration_cluster_region_0.log_group_name} --region ${data.aws_region.region_0.region} --follow
+      aws logs tail ${module.orchestration_cluster_region_1.log_group_name} --region ${data.aws_region.region_1.region} --follow
 
     ── 5. Region 1 endpoints (active-active, same credentials) ────────
 

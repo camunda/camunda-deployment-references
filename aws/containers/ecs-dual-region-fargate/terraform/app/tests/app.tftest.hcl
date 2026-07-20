@@ -14,6 +14,11 @@ mock_provider "aws" {
   alias = "accepter"
 }
 
+variables {
+  terraform_backend_bucket     = "test-tf-state-bucket"
+  terraform_backend_key_prefix = "aws/containers/ecs-dual-region-fargate/test-app/"
+}
+
 # Baseline fixture used by most runs. The opensearch run overrides this.
 override_data {
   target = data.terraform_remote_state.infra
@@ -66,7 +71,7 @@ override_data {
       db_admin_username                         = "camunda_admin"
       aurora_global_writer_endpoint             = "aurora-global.example.com"
       aurora_primary_cluster_endpoint           = "aurora-primary.example.com"
-      aurora_secondary_endpoint                 = "aurora-secondary.example.com"
+      aurora_secondary_cluster_endpoint         = "aurora-secondary.example.com"
       aurora_primary_cluster_identifier         = "test-app-r0-aurora"
       aurora_secondary_cluster_identifier       = "test-app-r1-aurora"
       opensearch_region_0_endpoint              = "opensearch-r0.example.com"
@@ -148,7 +153,7 @@ run "opensearch_env_vars_local_populated_when_opensearch" {
         db_admin_username                         = "camunda_admin"
         aurora_global_writer_endpoint             = ""
         aurora_primary_cluster_endpoint           = ""
-        aurora_secondary_endpoint                 = ""
+        aurora_secondary_cluster_endpoint         = ""
         aurora_primary_cluster_identifier         = ""
         aurora_secondary_cluster_identifier       = ""
         opensearch_region_0_endpoint              = "opensearch-r0.example.com"
