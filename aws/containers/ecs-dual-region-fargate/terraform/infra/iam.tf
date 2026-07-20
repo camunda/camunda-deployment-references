@@ -82,8 +82,8 @@ resource "aws_iam_policy" "rds_db_connect_region_0" {
         Effect = "Allow"
         Action = ["rds-db:connect"]
         Resource = [
-          "arn:aws:rds-db:${data.aws_region.region_0.id}:${data.aws_caller_identity.current.account_id}:dbuser:${module.aurora_global[0].primary_cluster_resource_id}/camunda",
-          "arn:aws:rds-db:${data.aws_region.region_1.id}:${data.aws_caller_identity.current.account_id}:dbuser:${module.aurora_global[0].secondary_cluster_resource_id}/camunda",
+          "arn:aws:rds-db:${data.aws_region.region_0.region}:${data.aws_caller_identity.current.account_id}:dbuser:${module.aurora_global[0].primary_cluster_resource_id}/camunda",
+          "arn:aws:rds-db:${data.aws_region.region_1.region}:${data.aws_caller_identity.current.account_id}:dbuser:${module.aurora_global[0].secondary_cluster_resource_id}/camunda",
         ]
       },
       {
@@ -182,8 +182,8 @@ resource "aws_iam_policy" "rds_db_connect_region_1" {
         Effect = "Allow"
         Action = ["rds-db:connect"]
         Resource = [
-          "arn:aws:rds-db:${data.aws_region.region_0.id}:${data.aws_caller_identity.current.account_id}:dbuser:${module.aurora_global[0].primary_cluster_resource_id}/camunda",
-          "arn:aws:rds-db:${data.aws_region.region_1.id}:${data.aws_caller_identity.current.account_id}:dbuser:${module.aurora_global[0].secondary_cluster_resource_id}/camunda",
+          "arn:aws:rds-db:${data.aws_region.region_0.region}:${data.aws_caller_identity.current.account_id}:dbuser:${module.aurora_global[0].primary_cluster_resource_id}/camunda",
+          "arn:aws:rds-db:${data.aws_region.region_1.region}:${data.aws_caller_identity.current.account_id}:dbuser:${module.aurora_global[0].secondary_cluster_resource_id}/camunda",
         ]
       },
       {

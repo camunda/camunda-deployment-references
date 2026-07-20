@@ -29,7 +29,9 @@ override_data {
 }
 
 variables {
-  cluster_name = "test-infra"
+  cluster_name                 = "test-infra"
+  terraform_backend_bucket     = "test-tf-state-bucket"
+  terraform_backend_key_prefix = "aws/containers/ecs-dual-region-fargate/test-infra/"
 }
 
 run "secondary_storage_type_rejects_invalid" {

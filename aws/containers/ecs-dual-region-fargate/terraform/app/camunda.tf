@@ -9,7 +9,7 @@ module "orchestration_cluster_region_0" {
   ecs_cluster_id           = local.infra.ecs_cluster_region_0_id
   vpc_id                   = local.infra.vpc_region_0_id
   vpc_private_subnets      = local.infra.vpc_region_0_private_subnets
-  aws_region               = data.aws_region.region_0.id
+  aws_region               = data.aws_region.region_0.region
   image                    = var.camunda_image
   registry_credentials_arn = startswith(var.camunda_image, "registry.camunda.cloud/") ? local.infra.registry_credentials_region_0_arn : ""
   s3_force_destroy         = local.infra.s3_force_destroy
@@ -56,7 +56,7 @@ module "orchestration_cluster_region_0" {
       },
       {
         name  = "CAMUNDA_DATA_BACKUP_S3_REGION"
-        value = data.aws_region.region_0.id
+        value = data.aws_region.region_0.region
       },
     ]
   )
@@ -115,7 +115,7 @@ module "orchestration_cluster_region_1" {
   ecs_cluster_id           = local.infra.ecs_cluster_region_1_id
   vpc_id                   = local.infra.vpc_region_1_id
   vpc_private_subnets      = local.infra.vpc_region_1_private_subnets
-  aws_region               = data.aws_region.region_1.id
+  aws_region               = data.aws_region.region_1.region
   image                    = var.camunda_image
   registry_credentials_arn = startswith(var.camunda_image, "registry.camunda.cloud/") ? local.infra.registry_credentials_region_1_arn : ""
   s3_force_destroy         = local.infra.s3_force_destroy
@@ -165,7 +165,7 @@ module "orchestration_cluster_region_1" {
         # shared bucket in region 0; the S3 client must know where the bucket
         # lives for correct endpoint resolution.
         name  = "CAMUNDA_DATA_BACKUP_S3_REGION"
-        value = data.aws_region.region_0.id
+        value = data.aws_region.region_0.region
       },
     ]
   )
@@ -215,7 +215,7 @@ module "connectors_region_0" {
   ecs_cluster_id                       = local.infra.ecs_cluster_region_0_id
   vpc_id                               = local.infra.vpc_region_0_id
   vpc_private_subnets                  = local.infra.vpc_region_0_private_subnets
-  aws_region                           = data.aws_region.region_0.id
+  aws_region                           = data.aws_region.region_0.region
   image                                = var.connectors_image
   registry_credentials_arn             = "" # connectors image is on docker.io (public); no registry creds needed and passing the registry.camunda.cloud creds confuses ECS
   s2s_cloudmap_namespace               = module.orchestration_cluster_region_0.s2s_cloudmap_namespace
@@ -296,7 +296,7 @@ module "connectors_region_1" {
   ecs_cluster_id                       = local.infra.ecs_cluster_region_1_id
   vpc_id                               = local.infra.vpc_region_1_id
   vpc_private_subnets                  = local.infra.vpc_region_1_private_subnets
-  aws_region                           = data.aws_region.region_1.id
+  aws_region                           = data.aws_region.region_1.region
   image                                = var.connectors_image
   registry_credentials_arn             = "" # connectors image is on docker.io (public); no registry creds needed and passing the registry.camunda.cloud creds confuses ECS
   s2s_cloudmap_namespace               = module.orchestration_cluster_region_1.s2s_cloudmap_namespace

@@ -71,7 +71,7 @@ resource "aws_ecs_task_definition" "db_seed" {
         logDriver = "awslogs"
         options = {
           awslogs-group         = aws_cloudwatch_log_group.db_seed[0].name
-          awslogs-region        = data.aws_region.region_0.id
+          awslogs-region        = data.aws_region.region_0.region
           awslogs-stream-prefix = "db-seed"
         }
       }
@@ -113,7 +113,7 @@ resource "null_resource" "run_db_seed_task" {
 
       echo "Running one-time DB seed task..."
       TASK_ARN=$(aws ecs run-task \
-        --region "${data.aws_region.region_0.id}" \
+        --region "${data.aws_region.region_0.region}" \
         --cluster "${aws_ecs_cluster.region_0.arn}" \
         --launch-type FARGATE \
         --task-definition "${aws_ecs_task_definition.db_seed[0].arn}" \
@@ -124,19 +124,19 @@ resource "null_resource" "run_db_seed_task" {
       echo "Task started: $TASK_ARN"
 
       aws ecs wait tasks-stopped \
-        --region "${data.aws_region.region_0.id}" \
+        --region "${data.aws_region.region_0.region}" \
         --cluster "${aws_ecs_cluster.region_0.arn}" \
         --tasks "$TASK_ARN"
 
       EXIT_CODE=$(aws ecs describe-tasks \
-        --region "${data.aws_region.region_0.id}" \
+        --region "${data.aws_region.region_0.region}" \
         --cluster "${aws_ecs_cluster.region_0.arn}" \
         --tasks "$TASK_ARN" \
         --query 'tasks[0].containers[0].exitCode' \
         --output text)
 
       STOP_REASON=$(aws ecs describe-tasks \
-        --region "${data.aws_region.region_0.id}" \
+        --region "${data.aws_region.region_0.region}" \
         --cluster "${aws_ecs_cluster.region_0.arn}" \
         --tasks "$TASK_ARN" \
         --query 'tasks[0].stoppedReason' \

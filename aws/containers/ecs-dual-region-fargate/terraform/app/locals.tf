@@ -89,7 +89,7 @@ locals {
     replace(local.infra.aurora_primary_cluster_endpoint, "${local.infra.aurora_primary_cluster_identifier}.cluster-", "")
   }" : ""
   aurora_secondary_instance_pattern = local.infra.secondary_storage_type == "rdbms" ? "?.${
-    replace(local.infra.aurora_secondary_endpoint, "${local.infra.aurora_secondary_cluster_identifier}.cluster-", "")
+    replace(local.infra.aurora_secondary_cluster_endpoint, "${local.infra.aurora_secondary_cluster_identifier}.cluster-", "")
   }" : ""
 
   # Secondary storage environment variables (conditional on storage type)
