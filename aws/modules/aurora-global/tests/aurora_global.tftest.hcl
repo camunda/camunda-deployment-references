@@ -214,3 +214,132 @@ run "mysql_security_group_uses_3306" {
     error_message = "MySQL secondary SG egress should use port 3306"
   }
 }
+
+run "postgresql_jdbc_url_uses_postgresql_subprotocol_and_port" {
+  command = apply
+
+  # command = apply is required here: output.jdbc_url is unknown under plan.
+  # The KMS key ARN mock is not a real ARN by default, which the aws provider
+  # rejects once aws_rds_cluster.kms_key_id becomes known during apply, so a
+  # plausible ARN must be supplied for both regional keys.
+  override_resource {
+    target = aws_kms_key.primary
+    values = {
+      arn = "arn:aws:kms:us-east-1:123456789012:key/mock-primary-key"
+    }
+  }
+
+  override_resource {
+    target = aws_kms_key.secondary
+    values = {
+      arn = "arn:aws:kms:us-east-2:123456789012:key/mock-secondary-key"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "jdbc:aws-wrapper:postgresql://")
+    error_message = "PostgreSQL jdbc_url should use the aws-wrapper:postgresql:// subprotocol"
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, ":5432/")
+    error_message = "PostgreSQL jdbc_url should use port 5432"
+  }
+
+  assert {
+    condition     = output.db_port == 5432
+    error_message = "PostgreSQL db_port output should be 5432"
+  }
+}
+
+run "mysql_jdbc_url_uses_mysql_subprotocol_and_port" {
+  command = apply
+
+  variables {
+    engine = "aurora-mysql"
+  }
+
+  override_resource {
+    target = aws_kms_key.primary
+    values = {
+      arn = "arn:aws:kms:us-east-1:123456789012:key/mock-primary-key"
+    }
+  }
+
+  override_resource {
+    target = aws_kms_key.secondary
+    values = {
+      arn = "arn:aws:kms:us-east-2:123456789012:key/mock-secondary-key"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "jdbc:aws-wrapper:mysql://")
+    error_message = "MySQL jdbc_url should use the aws-wrapper:mysql:// subprotocol"
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, ":3306/")
+    error_message = "MySQL jdbc_url should use port 3306"
+  }
+
+  assert {
+    condition     = output.db_port == 3306
+    error_message = "MySQL db_port output should be 3306"
+  }
+}
+
+run "jdbc_url_includes_iam_plugin_by_default" {
+  command = apply
+
+  override_resource {
+    target = aws_kms_key.primary
+    values = {
+      arn = "arn:aws:kms:us-east-1:123456789012:key/mock-primary-key"
+    }
+  }
+
+  override_resource {
+    target = aws_kms_key.secondary
+    values = {
+      arn = "arn:aws:kms:us-east-2:123456789012:key/mock-secondary-key"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "wrapperPlugins=iam,failover")
+    error_message = "jdbc_url should include the iam plugin when iam_auth_enabled is true (default)"
+  }
+}
+
+run "jdbc_url_omits_iam_plugin_when_iam_disabled" {
+  command = apply
+
+  variables {
+    iam_auth_enabled = false
+  }
+
+  override_resource {
+    target = aws_kms_key.primary
+    values = {
+      arn = "arn:aws:kms:us-east-1:123456789012:key/mock-primary-key"
+    }
+  }
+
+  override_resource {
+    target = aws_kms_key.secondary
+    values = {
+      arn = "arn:aws:kms:us-east-2:123456789012:key/mock-secondary-key"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "wrapperPlugins=failover")
+    error_message = "jdbc_url should omit the iam plugin when iam_auth_enabled = false"
+  }
+
+  assert {
+    condition     = !strcontains(output.jdbc_url, "iam")
+    error_message = "jdbc_url should not contain 'iam' when iam_auth_enabled = false"
+  }
+}

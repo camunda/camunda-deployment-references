@@ -55,10 +55,13 @@ No modules.
 
 | Name | Description |
 | ---- | ----------- |
+| <a name="output_db_port"></a> [db\_port](#output\_db\_port) | The database port for the selected engine (5432 for PostgreSQL, 3306 for MySQL). |
 | <a name="output_global_cluster_arn"></a> [global\_cluster\_arn](#output\_global\_cluster\_arn) | The ARN of the Aurora Global Database cluster |
 | <a name="output_global_cluster_endpoint"></a> [global\_cluster\_endpoint](#output\_global\_cluster\_endpoint) | The writer endpoint for the Aurora Global Database cluster. This endpoint always points to the writer DB instance in the current primary cluster. |
 | <a name="output_global_cluster_id"></a> [global\_cluster\_id](#output\_global\_cluster\_id) | The ID of the Aurora Global Database cluster |
 | <a name="output_global_cluster_resource_id"></a> [global\_cluster\_resource\_id](#output\_global\_cluster\_resource\_id) | The resource ID of the Aurora Global Database cluster (used for IAM auth) |
+| <a name="output_jdbc_instance_host_patterns"></a> [jdbc\_instance\_host\_patterns](#output\_jdbc\_instance\_host\_patterns) | Comma-separated globalClusterInstanceHostPatterns for the AWS JDBC Wrapper failover plugin (primary,secondary). |
+| <a name="output_jdbc_url"></a> [jdbc\_url](#output\_jdbc\_url) | Ready-to-use AWS Advanced JDBC Wrapper URL for the Aurora Global writer, engine-aware, with iam (when enabled) + failover plugins and globalClusterInstanceHostPatterns. |
 | <a name="output_primary_cluster_endpoint"></a> [primary\_cluster\_endpoint](#output\_primary\_cluster\_endpoint) | The writer endpoint of the primary Aurora cluster |
 | <a name="output_primary_cluster_identifier"></a> [primary\_cluster\_identifier](#output\_primary\_cluster\_identifier) | The identifier of the primary Aurora cluster |
 | <a name="output_primary_cluster_reader_endpoint"></a> [primary\_cluster\_reader\_endpoint](#output\_primary\_cluster\_reader\_endpoint) | The reader endpoint of the primary Aurora cluster |
