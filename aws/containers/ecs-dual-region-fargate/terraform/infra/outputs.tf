@@ -240,6 +240,21 @@ output "aurora_secondary_cluster_endpoint" {
   description = "The regional endpoint of the secondary Aurora cluster (region 1). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper."
 }
 
+output "aurora_jdbc_url" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_url : null
+  description = "Ready-to-use AWS Advanced JDBC Wrapper URL for the Aurora Global writer (engine-aware, iam+failover plugins, globalClusterInstanceHostPatterns embedded). Consumed by the app layer."
+}
+
+output "aurora_db_port" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].db_port : null
+  description = "The Aurora database port for the selected engine (5432 PostgreSQL, 3306 MySQL). Informational."
+}
+
+output "aurora_jdbc_instance_host_patterns" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_instance_host_patterns : null
+  description = "globalClusterInstanceHostPatterns for the AWS JDBC Wrapper failover plugin (primary,secondary). Informational — already embedded in aurora_jdbc_url."
+}
+
 ################################################################
 #                     OpenSearch Outputs                        #
 ################################################################

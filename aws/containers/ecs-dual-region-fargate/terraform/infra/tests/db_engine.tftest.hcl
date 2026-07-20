@@ -183,3 +183,25 @@ run "mysql_seed_uses_mysql_image_and_iam_plugin" {
     error_message = "MySQL DB seed should create IAM users via AWSAuthenticationPlugin"
   }
 }
+
+run "postgresql_db_port_output" {
+  command = plan
+
+  assert {
+    condition     = output.aurora_db_port == 5432
+    error_message = "aurora_db_port output should be 5432 for PostgreSQL"
+  }
+}
+
+run "mysql_db_port_output" {
+  command = plan
+
+  variables {
+    db_engine = "mysql"
+  }
+
+  assert {
+    condition     = output.aurora_db_port == 3306
+    error_message = "aurora_db_port output should be 3306 for MySQL"
+  }
+}
