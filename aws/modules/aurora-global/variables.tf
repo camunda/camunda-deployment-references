@@ -6,14 +6,32 @@ variable "global_cluster_identifier" {
 variable "engine" {
   type        = string
   default     = "aurora-postgresql"
-  description = "The engine type e.g. aurora-postgresql"
+  description = "The Aurora engine type: 'aurora-postgresql' or 'aurora-mysql'"
+
+  validation {
+    condition     = contains(["aurora-postgresql", "aurora-mysql"], var.engine)
+    error_message = "engine must be either 'aurora-postgresql' or 'aurora-mysql'."
+  }
 }
 
 variable "engine_version" {
+  type        = string
+  default     = null
+  description = "Exact engine version override. When null, the module selects the per-engine default (postgresql_engine_version or mysql_engine_version) based on var.engine."
+}
+
+variable "postgresql_engine_version" {
   type = string
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
   default     = "18.3"
-  description = "The DB engine version for Postgres to use"
+  description = "Default Aurora PostgreSQL engine version, used when engine = aurora-postgresql and engine_version is not set."
+}
+
+variable "mysql_engine_version" {
+  type = string
+  # renovate: datasource=custom.aurora-mysql-camunda depName=aurora-mysql versioning=loose
+  default     = "8.4.7"
+  description = "Default Aurora MySQL engine version, used when engine = aurora-mysql and engine_version is not set."
 }
 
 variable "auto_minor_version_upgrade" {
@@ -30,13 +48,13 @@ variable "database_name" {
 
 variable "master_username" {
   type        = string
-  description = "The username for the postgres admin user"
+  description = "The username for the database admin user"
   sensitive   = true
 }
 
 variable "master_password" {
   type        = string
-  description = "The password for the postgres admin user"
+  description = "The password for the database admin user"
   sensitive   = true
 }
 

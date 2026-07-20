@@ -98,3 +98,67 @@ run "global_cluster_identifier_set" {
     error_message = "global_cluster_identifier should match var input"
   }
 }
+
+run "postgresql_engine_selects_default_version" {
+  command = plan
+
+  # engine defaults to aurora-postgresql
+  assert {
+    condition     = aws_rds_cluster.primary.engine == "aurora-postgresql"
+    error_message = "Default engine should be aurora-postgresql"
+  }
+
+  assert {
+    condition     = aws_rds_cluster.primary.engine_version == "18.3"
+    error_message = "PostgreSQL engine_version should default to postgresql_engine_version (18.3)"
+  }
+}
+
+run "mysql_engine_selects_default_version" {
+  command = plan
+
+  variables {
+    engine = "aurora-mysql"
+  }
+
+  assert {
+    condition     = aws_rds_cluster.primary.engine == "aurora-mysql"
+    error_message = "engine should be aurora-mysql on the primary cluster"
+  }
+
+  assert {
+    condition     = aws_rds_cluster.primary.engine_version == "8.4.7"
+    error_message = "MySQL engine_version should default to mysql_engine_version (8.4.7)"
+  }
+
+  assert {
+    condition     = aws_rds_cluster.secondary.engine == "aurora-mysql"
+    error_message = "engine should be aurora-mysql on the secondary cluster"
+  }
+}
+
+run "explicit_engine_version_override_wins" {
+  command = plan
+
+  variables {
+    engine         = "aurora-mysql"
+    engine_version = "8.4.99"
+  }
+
+  assert {
+    condition     = aws_rds_cluster.primary.engine_version == "8.4.99"
+    error_message = "Explicit engine_version should override the per-engine default"
+  }
+}
+
+run "invalid_engine_rejected" {
+  command = plan
+
+  variables {
+    engine = "aurora-invalid"
+  }
+
+  expect_failures = [
+    var.engine,
+  ]
+}
