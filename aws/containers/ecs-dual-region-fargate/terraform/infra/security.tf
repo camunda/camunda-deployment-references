@@ -49,10 +49,10 @@ resource "aws_security_group" "camunda_ports_region_0" {
     description = "Allow cross-region Zeebe cluster traffic to region 1"
   }
 
-  # Cross-region Aurora traffic (port 5432) for Aurora Global DB
+  # Cross-region Aurora traffic for Aurora Global DB (engine-derived port)
   egress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
     cidr_blocks = [local.vpc.region_1_vpc_cidr]
     description = "Allow Aurora traffic to region 1"
@@ -226,10 +226,10 @@ resource "aws_security_group" "camunda_ports_region_1" {
     description = "Allow cross-region Zeebe cluster traffic to region 0"
   }
 
-  # Cross-region Aurora traffic
+  # Cross-region Aurora traffic (engine-derived port)
   egress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
     cidr_blocks = [local.vpc.region_0_vpc_cidr]
     description = "Allow Aurora traffic to region 0 (Global DB writer)"
