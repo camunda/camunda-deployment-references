@@ -20,7 +20,13 @@ locals {
   engine_version = coalesce(var.engine_version, local.default_engine_versions[var.engine])
 
   # Human-readable label for security-group rule descriptions (Task 2).
-  family_label = var.engine == "aurora-mysql" ? "MySQL" : "PostgreSQL"
+  # A map (not a ternary) so an unhandled engine fails fast, matching the
+  # engine_ports / default_engine_versions / jdbc_subprotocols lookups.
+  family_labels = {
+    "aurora-postgresql" = "PostgreSQL"
+    "aurora-mysql"      = "MySQL"
+  }
+  family_label = local.family_labels[var.engine]
 }
 
 ################################
