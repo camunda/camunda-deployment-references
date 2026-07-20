@@ -134,6 +134,40 @@ variable "keycloak_admin_username" {
 }
 
 ################################################################
+#                   Realm OIDC Client Options                  #
+################################################################
+
+variable "enable_orchestration_oidc_client" {
+  type        = bool
+  description = "Create the orchestration OIDC client in the Keycloak realm"
+  default     = true
+}
+
+variable "enable_connectors_oidc_client" {
+  type        = bool
+  description = "Create the connectors OIDC client in the Keycloak realm"
+  default     = true
+}
+
+variable "enable_optimize_oidc_client" {
+  type        = bool
+  description = "Create the optimize OIDC client in the Keycloak realm"
+  default     = false
+}
+
+variable "enable_console_oidc_client" {
+  type        = bool
+  description = "Create the console OIDC client in the Keycloak realm"
+  default     = false
+}
+
+variable "enable_web_modeler_oidc_client" {
+  type        = bool
+  description = "Create the web-modeler OIDC client in the Keycloak realm"
+  default     = false
+}
+
+################################################################
 #                         KMS Options                          #
 ################################################################
 

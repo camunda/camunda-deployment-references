@@ -118,3 +118,94 @@ resource "aws_secretsmanager_secret_version" "keycloak_admin_password" {
   secret_id     = aws_secretsmanager_secret.keycloak_admin_password.id
   secret_string = random_password.keycloak_admin_password.result
 }
+
+resource "random_password" "identity_client_secret" {
+  length  = 32
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "identity_client_secret" {
+  name                    = "${var.prefix}-oc1-identity-oidc-client-secret"
+  description             = "Keycloak OIDC client secret for the camunda-identity client (CAMUNDA_IDENTITY_CLIENT_SECRET)"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+
+resource "aws_secretsmanager_secret_version" "identity_client_secret" {
+  secret_id     = aws_secretsmanager_secret.identity_client_secret.id
+  secret_string = random_password.identity_client_secret.result
+}
+
+# --- flag-gated component client secrets ---
+
+resource "random_password" "orchestration_oidc_client_secret" {
+  count   = var.enable_orchestration_oidc_client ? 1 : 0
+  length  = 32
+  special = false
+}
+resource "aws_secretsmanager_secret" "orchestration_oidc_client_secret" {
+  count                   = var.enable_orchestration_oidc_client ? 1 : 0
+  name                    = "${var.prefix}-oc1-orchestration-oidc-client-secret"
+  description             = "Keycloak OIDC client secret for the orchestration client"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+resource "aws_secretsmanager_secret_version" "orchestration_oidc_client_secret" {
+  count         = var.enable_orchestration_oidc_client ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.orchestration_oidc_client_secret[0].id
+  secret_string = random_password.orchestration_oidc_client_secret[0].result
+}
+
+resource "random_password" "connectors_oidc_client_secret" {
+  count   = var.enable_connectors_oidc_client ? 1 : 0
+  length  = 32
+  special = false
+}
+resource "aws_secretsmanager_secret" "connectors_oidc_client_secret" {
+  count                   = var.enable_connectors_oidc_client ? 1 : 0
+  name                    = "${var.prefix}-oc1-connectors-oidc-client-secret"
+  description             = "Keycloak OIDC client secret for the connectors client"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+resource "aws_secretsmanager_secret_version" "connectors_oidc_client_secret" {
+  count         = var.enable_connectors_oidc_client ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.connectors_oidc_client_secret[0].id
+  secret_string = random_password.connectors_oidc_client_secret[0].result
+}
+
+resource "random_password" "optimize_oidc_client_secret" {
+  count   = var.enable_optimize_oidc_client ? 1 : 0
+  length  = 32
+  special = false
+}
+resource "aws_secretsmanager_secret" "optimize_oidc_client_secret" {
+  count                   = var.enable_optimize_oidc_client ? 1 : 0
+  name                    = "${var.prefix}-oc1-optimize-oidc-client-secret"
+  description             = "Keycloak OIDC client secret for the optimize client"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+resource "aws_secretsmanager_secret_version" "optimize_oidc_client_secret" {
+  count         = var.enable_optimize_oidc_client ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.optimize_oidc_client_secret[0].id
+  secret_string = random_password.optimize_oidc_client_secret[0].result
+}
+
+resource "random_password" "console_oidc_client_secret" {
+  count   = var.enable_console_oidc_client ? 1 : 0
+  length  = 32
+  special = false
+}
+resource "aws_secretsmanager_secret" "console_oidc_client_secret" {
+  count                   = var.enable_console_oidc_client ? 1 : 0
+  name                    = "${var.prefix}-oc1-console-oidc-client-secret"
+  description             = "Keycloak OIDC client secret for the console client"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+resource "aws_secretsmanager_secret_version" "console_oidc_client_secret" {
+  count         = var.enable_console_oidc_client ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.console_oidc_client_secret[0].id
+  secret_string = random_password.console_oidc_client_secret[0].result
+}

@@ -161,14 +161,19 @@ resource "aws_iam_role_policy_attachment" "task_execution_registry" {
 
 locals {
   # Secrets referenced in container definition 'secrets' (valueFrom is typically a Secrets Manager ARN)
-  ecs_task_secret_arns = [
+  ecs_task_secret_arns = compact([
     aws_secretsmanager_secret.connectors_client_auth_password.arn,
     aws_secretsmanager_secret.orchestration_admin_user_password.arn,
     aws_secretsmanager_secret.db_admin_password.arn,
     aws_secretsmanager_secret.identity_db_password.arn,
     aws_secretsmanager_secret.keycloak_db_password.arn,
     aws_secretsmanager_secret.keycloak_admin_password.arn,
-  ]
+    aws_secretsmanager_secret.identity_client_secret.arn,
+    var.enable_orchestration_oidc_client ? aws_secretsmanager_secret.orchestration_oidc_client_secret[0].arn : "",
+    var.enable_connectors_oidc_client ? aws_secretsmanager_secret.connectors_oidc_client_secret[0].arn : "",
+    var.enable_optimize_oidc_client ? aws_secretsmanager_secret.optimize_oidc_client_secret[0].arn : "",
+    var.enable_console_oidc_client ? aws_secretsmanager_secret.console_oidc_client_secret[0].arn : "",
+  ])
 }
 
 resource "aws_iam_policy" "ecs_task_secrets_policy" {
