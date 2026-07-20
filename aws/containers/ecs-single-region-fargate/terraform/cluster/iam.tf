@@ -166,6 +166,8 @@ locals {
     aws_secretsmanager_secret.orchestration_admin_user_password.arn,
     aws_secretsmanager_secret.db_admin_password.arn,
     aws_secretsmanager_secret.identity_db_password.arn,
+    aws_secretsmanager_secret.keycloak_db_password.arn,
+    aws_secretsmanager_secret.keycloak_admin_password.arn,
   ]
 }
 
