@@ -335,6 +335,12 @@ module "keycloak" {
     { name = "KC_HEALTH_ENABLED", value = "true" },
     { name = "KC_HOSTNAME_STRICT", value = "false" },
     { name = "KC_TRANSACTION_XA_ENABLED", value = "false" },
+    # Single-instance deployment (task_desired_count = 1): use the local cache so
+    # Keycloak does not form a JGroups/Infinispan cluster. Otherwise a rolling
+    # redeploy briefly runs two tasks that cannot reach each other on the JGroups
+    # ports (7800/57800, not opened in the intra-VPC SG); the new node's cluster
+    # health check stays DOWN and the ECS circuit breaker fails the deployment.
+    { name = "KC_CACHE", value = "local" },
   ]
 
   secrets = [
