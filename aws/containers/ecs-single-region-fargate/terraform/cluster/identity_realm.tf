@@ -185,13 +185,13 @@ locals {
     var.enable_web_modeler_oidc_client ? { webmodeler = { "root-url" = "http://localhost:8070" } } : {},
   )
 
-  demo_user_roles = concat(
-    ["ManagementIdentity"],
-    var.enable_orchestration_oidc_client ? ["Orchestration"] : [],
-    var.enable_optimize_oidc_client ? ["Optimize"] : [],
-    var.enable_console_oidc_client ? ["Console"] : [],
-    var.enable_web_modeler_oidc_client ? ["Web Modeler", "Web Modeler Admin"] : [],
-  )
+  # Demo user gets every role defined by an enabled component preset. Derived from
+  # identity_component_presets (already flag-gated) so the role names stay a single
+  # source of truth with the presets themselves; presets without a roles block
+  # (e.g. the m2m connectors client) contribute nothing via the try(...).
+  demo_user_roles = distinct(flatten([
+    for _, preset in local.identity_component_presets : try([for r in preset.roles : r.name], [])
+  ]))
 
   identity_realm_config = {
     identity = {
