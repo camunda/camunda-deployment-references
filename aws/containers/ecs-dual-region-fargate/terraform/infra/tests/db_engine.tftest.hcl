@@ -77,29 +77,31 @@ run "invalid_db_engine_rejected" {
   ]
 }
 
-run "postgresql_cross_region_sg_uses_5432" {
+run "postgresql_aurora_egress_uses_5432" {
   command = plan
 
   assert {
     condition = anytrue([
       for r in aws_security_group.camunda_ports_region_0.egress :
-      r.from_port == 5432 && r.to_port == 5432
-      if r.description == "Allow Aurora traffic to region 1"
+      r.from_port == 5432 && r.to_port == 5432 &&
+      contains(r.cidr_blocks, "10.50.0.0/16") && contains(r.cidr_blocks, "10.60.0.0/16")
+      if r.description == "Allow Aurora DB traffic within VPC and cross-region"
     ])
-    error_message = "Region 0 cross-region Aurora egress should use 5432 for PostgreSQL"
+    error_message = "Region 0 Aurora egress should open 5432 to both region CIDRs for PostgreSQL"
   }
 
   assert {
     condition = anytrue([
       for r in aws_security_group.camunda_ports_region_1.egress :
-      r.from_port == 5432 && r.to_port == 5432
-      if r.description == "Allow Aurora traffic to region 0 (Global DB writer)"
+      r.from_port == 5432 && r.to_port == 5432 &&
+      contains(r.cidr_blocks, "10.50.0.0/16") && contains(r.cidr_blocks, "10.60.0.0/16")
+      if r.description == "Allow Aurora DB traffic within VPC and cross-region"
     ])
-    error_message = "Region 1 cross-region Aurora egress should use 5432 for PostgreSQL"
+    error_message = "Region 1 Aurora egress should open 5432 to both region CIDRs for PostgreSQL"
   }
 }
 
-run "mysql_cross_region_sg_uses_3306" {
+run "mysql_aurora_egress_uses_3306" {
   command = plan
 
   variables {
@@ -109,19 +111,21 @@ run "mysql_cross_region_sg_uses_3306" {
   assert {
     condition = anytrue([
       for r in aws_security_group.camunda_ports_region_0.egress :
-      r.from_port == 3306 && r.to_port == 3306
-      if r.description == "Allow Aurora traffic to region 1"
+      r.from_port == 3306 && r.to_port == 3306 &&
+      contains(r.cidr_blocks, "10.50.0.0/16") && contains(r.cidr_blocks, "10.60.0.0/16")
+      if r.description == "Allow Aurora DB traffic within VPC and cross-region"
     ])
-    error_message = "Region 0 cross-region Aurora egress should use 3306 for MySQL"
+    error_message = "Region 0 Aurora egress should open 3306 to both region CIDRs for MySQL"
   }
 
   assert {
     condition = anytrue([
       for r in aws_security_group.camunda_ports_region_1.egress :
-      r.from_port == 3306 && r.to_port == 3306
-      if r.description == "Allow Aurora traffic to region 0 (Global DB writer)"
+      r.from_port == 3306 && r.to_port == 3306 &&
+      contains(r.cidr_blocks, "10.50.0.0/16") && contains(r.cidr_blocks, "10.60.0.0/16")
+      if r.description == "Allow Aurora DB traffic within VPC and cross-region"
     ])
-    error_message = "Region 1 cross-region Aurora egress should use 3306 for MySQL"
+    error_message = "Region 1 Aurora egress should open 3306 to both region CIDRs for MySQL"
   }
 }
 
