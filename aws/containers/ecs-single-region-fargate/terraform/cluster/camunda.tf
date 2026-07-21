@@ -209,7 +209,7 @@ module "connectors" {
 module "management_identity" {
   source = "../../../../modules/ecs/fargate/management-identity"
 
-  depends_on = [null_resource.run_db_seed_task]
+  depends_on = [null_resource.run_db_seed_task, module.keycloak]
 
   prefix                      = "${var.prefix}-oc1"
   ecs_cluster_id              = aws_ecs_cluster.ecs.id
@@ -267,24 +267,82 @@ module "management_identity" {
       name  = "MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED"
       value = "true"
     },
-    # NOTE (review item #1): the identity provider profile (SPRING_PROFILES_ACTIVE
-    # + issuer/Keycloak vars) is intentionally omitted for this MVP. Full readiness
-    # requires the IdP follow-up. Confirm boot-to-liveness behavior on first deploy
-    # and set the profile here when the IdP lands.
+    # --- Identity provider (Keycloak) ---
+    {
+      name  = "SPRING_PROFILES_ACTIVE"
+      value = "keycloak"
+    },
+    {
+      name  = "KEYCLOAK_SETUP_USER"
+      value = var.keycloak_admin_username
+    },
+    {
+      name  = "SPRING_APPLICATION_JSON"
+      value = local.identity_realm_json
+    },
   ]
 
-  secrets = [
-    {
-      name      = "IDENTITY_DATABASE_PASSWORD"
-      valueFrom = aws_secretsmanager_secret.identity_db_password.arn
-    }
-  ]
+  secrets = concat(
+    [
+      { name = "IDENTITY_DATABASE_PASSWORD", valueFrom = aws_secretsmanager_secret.identity_db_password.arn },
+      { name = "CAMUNDA_IDENTITY_CLIENT_SECRET", valueFrom = aws_secretsmanager_secret.identity_client_secret.arn },
+      { name = "KEYCLOAK_SETUP_PASSWORD", valueFrom = aws_secretsmanager_secret.keycloak_admin_password.arn },
+    ],
+    var.enable_orchestration_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_ORCHESTRATION_SECRET", valueFrom = aws_secretsmanager_secret.orchestration_oidc_client_secret[0].arn }] : [],
+    var.enable_connectors_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_CONNECTORS_SECRET", valueFrom = aws_secretsmanager_secret.connectors_oidc_client_secret[0].arn }] : [],
+    var.enable_optimize_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_OPTIMIZE_SECRET", valueFrom = aws_secretsmanager_secret.optimize_oidc_client_secret[0].arn }] : [],
+    var.enable_console_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_CONSOLE_SECRET", valueFrom = aws_secretsmanager_secret.console_oidc_client_secret[0].arn }] : [],
+  )
 
   task_desired_count          = 1
   extra_task_role_attachments = []
 
-  # MVP: do not block the whole apply on Identity reaching steady state while the
-  # identity provider is still deferred (see review item #1). Validate task health
-  # out-of-band; flip back to true once the IdP is wired and Identity boots healthy.
-  wait_for_steady_state = false
+  wait_for_steady_state = true
+}
+
+module "keycloak" {
+  source = "../../../../modules/ecs/fargate/keycloak"
+
+  depends_on = [null_resource.run_db_seed_task]
+
+  prefix                      = "${var.prefix}-oc1"
+  ecs_cluster_id              = aws_ecs_cluster.ecs.id
+  vpc_id                      = module.vpc.vpc_id
+  vpc_private_subnets         = module.vpc.private_subnets
+  aws_region                  = data.aws_region.current.region
+  s2s_cloudmap_namespace      = module.orchestration_cluster.s2s_cloudmap_namespace
+  log_group_name              = module.orchestration_cluster.log_group_name
+  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
+  registry_credentials_arn    = join("", aws_secretsmanager_secret.registry_credentials[*].arn)
+
+  # ALB exposure opt-in; internal Service Connect (keycloak:18080) is enough for Identity.
+  alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp.arn
+  enable_alb_http_webapp_listener_rule = false
+
+  service_security_group_ids = [
+    aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
+    aws_security_group.allow_package_80_443.id,
+  ]
+
+  environment_variables = [
+    { name = "KC_DB", value = "postgres" },
+    { name = "KC_DB_URL", value = "jdbc:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.keycloak_db_name}" },
+    { name = "KC_DB_USERNAME", value = var.keycloak_db_username },
+    { name = "KC_BOOTSTRAP_ADMIN_USERNAME", value = var.keycloak_admin_username },
+    { name = "KC_HTTP_ENABLED", value = "true" },
+    { name = "KC_HTTP_PORT", value = "18080" },
+    { name = "KC_HTTP_RELATIVE_PATH", value = "/auth" },
+    { name = "KC_HEALTH_ENABLED", value = "true" },
+    { name = "KC_HOSTNAME_STRICT", value = "false" },
+    { name = "KC_TRANSACTION_XA_ENABLED", value = "false" },
+  ]
+
+  secrets = [
+    { name = "KC_DB_PASSWORD", valueFrom = aws_secretsmanager_secret.keycloak_db_password.arn },
+    { name = "KC_BOOTSTRAP_ADMIN_PASSWORD", valueFrom = aws_secretsmanager_secret.keycloak_admin_password.arn },
+  ]
+
+  task_desired_count          = 1
+  wait_for_steady_state       = true
+  extra_task_role_attachments = []
 }

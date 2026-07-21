@@ -11,6 +11,7 @@ This directory contains the Terraform implementation for the ECS single-region (
 | Name | Source | Version |
 | ---- | ------ | ------- |
 | <a name="module_connectors"></a> [connectors](#module\_connectors) | ../../../../modules/ecs/fargate/connectors | n/a |
+| <a name="module_keycloak"></a> [keycloak](#module\_keycloak) | ../../../../modules/ecs/fargate/keycloak | n/a |
 | <a name="module_management_identity"></a> [management\_identity](#module\_management\_identity) | ../../../../modules/ecs/fargate/management-identity | n/a |
 | <a name="module_orchestration_cluster"></a> [orchestration\_cluster](#module\_orchestration\_cluster) | ../../../../modules/ecs/fargate/orchestration-cluster | n/a |
 | <a name="module_postgresql"></a> [postgresql](#module\_postgresql) | ../../../../modules/aurora | n/a |
@@ -115,7 +116,7 @@ This directory contains the Terraform implementation for the ECS single-region (
 | <a name="input_keycloak_db_name"></a> [keycloak\_db\_name](#input\_keycloak\_db\_name) | Dedicated database name for Keycloak on the shared Aurora cluster | `string` | `"keycloak"` | no |
 | <a name="input_keycloak_db_username"></a> [keycloak\_db\_username](#input\_keycloak\_db\_username) | Password-authenticated database role for Keycloak | `string` | `"keycloak"` | no |
 | <a name="input_limit_access_to_cidrs"></a> [limit\_access\_to\_cidrs](#input\_limit\_access\_to\_cidrs) | List of CIDR blocks to allow access to ssh of Bastion and LoadBalancer | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
-| <a name="input_ports"></a> [ports](#input\_ports) | The ports to open for the security groups within the VPC | `map(number)` | <pre>{<br/>  "camunda_metrics_endpoint": 9600,<br/>  "camunda_web_ui": 8080,<br/>  "management_identity_app": 8084,<br/>  "management_identity_management": 8082,<br/>  "postgresql": 5432,<br/>  "zeebe_broker_network_command_api_port": 26501,<br/>  "zeebe_gateway_cluster_port": 26502,<br/>  "zeebe_gateway_network_port": 26500<br/>}</pre> | no |
+| <a name="input_ports"></a> [ports](#input\_ports) | The ports to open for the security groups within the VPC | `map(number)` | <pre>{<br/>  "camunda_metrics_endpoint": 9600,<br/>  "camunda_web_ui": 8080,<br/>  "keycloak_http": 18080,<br/>  "keycloak_management": 9000,<br/>  "management_identity_app": 8084,<br/>  "management_identity_management": 8082,<br/>  "postgresql": 5432,<br/>  "zeebe_broker_network_command_api_port": 26501,<br/>  "zeebe_gateway_cluster_port": 26502,<br/>  "zeebe_gateway_network_port": 26500<br/>}</pre> | no |
 | <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for names of resources | `string` | `"camunda"` | no |
 | <a name="input_registry_password"></a> [registry\_password](#input\_registry\_password) | (Optional) The password for the container registry (e.g., Docker Hub) | `string` | `""` | no |
 | <a name="input_registry_username"></a> [registry\_username](#input\_registry\_username) | (Optional) The username for the container registry (e.g., Docker Hub) | `string` | `""` | no |
