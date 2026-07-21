@@ -32,7 +32,7 @@ var (
 	// TODO: [release-duty] before the release, update this!
 	// TODO: [release-duty] adjust renovate comment to bump the major version
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "14.6.0")
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "14.7.0")
 	// The default targets the public Helm repo (no private registry auth). CI overrides
 	// HELM_CHART_NAME to a local, source-built chart directory for the pre-release
 	// (dev-latest) line, since that chart is not published to the public repo.
