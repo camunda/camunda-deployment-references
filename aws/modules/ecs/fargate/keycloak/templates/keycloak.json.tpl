@@ -15,7 +15,7 @@
       ],
       "interval": 15,
       "timeout": 15,
-      "retries": 15,
+      "retries": 10,
       "startPeriod": 90
     },
     "stopTimeout": 30,
