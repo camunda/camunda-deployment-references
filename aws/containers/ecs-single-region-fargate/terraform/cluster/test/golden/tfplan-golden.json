@@ -922,6 +922,29 @@
         "tags": null
       }
     },
+    "aws_secretsmanager_secret.realm_admin_user_password": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "realm_admin_user_password",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Password for the Keycloak camunda-platform realm 'admin' login user (Identity KEYCLOAK_REALM_ADMIN_PASSWORD)",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-oc1-realm-admin-user-password",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-2",
+        "tags": null
+      }
+    },
     "aws_secretsmanager_secret_version.connectors_client_auth_password": {
       "identity": {
         "account_id": null,
@@ -1142,6 +1165,32 @@
       "index": 0,
       "mode": "managed",
       "name": "orchestration_oidc_client_secret",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-2",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_secretsmanager_secret_version.realm_admin_user_password": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "realm_admin_user_password",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -5785,6 +5834,31 @@
         "numeric": true,
         "override_special": null,
         "special": false,
+        "upper": true
+      }
+    },
+    "random_password.realm_admin_user_password": {
+      "mode": "managed",
+      "name": "realm_admin_user_password",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 32,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%^()-_=+[]:?",
+        "special": true,
         "upper": true
       }
     }
