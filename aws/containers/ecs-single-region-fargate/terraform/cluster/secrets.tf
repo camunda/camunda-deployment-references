@@ -119,6 +119,28 @@ resource "aws_secretsmanager_secret_version" "keycloak_admin_password" {
   secret_string = random_password.keycloak_admin_password.result
 }
 
+# Password for the `admin` login user that Identity creates in the camunda-platform
+# realm (the interactive login user in oidc mode). Same 32-char strength as the
+# basic-auth admin, but excludes ${ } because this value is resolved by Spring as a
+# ${...} placeholder inside SPRING_APPLICATION_JSON and those chars could interfere.
+resource "random_password" "realm_admin_user_password" {
+  length           = 32
+  special          = true
+  override_special = "!#%^()-_=+[]:?"
+}
+
+resource "aws_secretsmanager_secret" "realm_admin_user_password" {
+  name                    = "${var.prefix}-oc1-realm-admin-user-password"
+  description             = "Password for the Keycloak camunda-platform realm 'admin' login user (Identity KEYCLOAK_REALM_ADMIN_PASSWORD)"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+
+resource "aws_secretsmanager_secret_version" "realm_admin_user_password" {
+  secret_id     = aws_secretsmanager_secret.realm_admin_user_password.id
+  secret_string = random_password.realm_admin_user_password.result
+}
+
 resource "random_password" "identity_client_secret" {
   length  = 32
   special = false

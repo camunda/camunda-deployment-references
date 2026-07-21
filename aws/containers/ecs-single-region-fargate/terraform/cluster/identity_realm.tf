@@ -29,11 +29,14 @@ locals {
 
   identity_preset_orchestration = {
     applications = [{
-      name            = "Orchestration"
-      id              = "orchestration"
-      type            = "confidential"
-      secret          = "$${VALUES_KEYCLOAK_INIT_ORCHESTRATION_SECRET}"
-      "root-url"      = "http://localhost:8080"
+      name   = "Orchestration"
+      id     = "orchestration"
+      type   = "confidential"
+      secret = "$${VALUES_KEYCLOAK_INIT_ORCHESTRATION_SECRET}"
+      # In oidc mode the orchestration web login redirects the browser back via the
+      # shared ALB, so the client's root URL must be the ALB origin for Keycloak to
+      # accept the redirect_uri. In basic mode the client is provisioned but unused.
+      "root-url"      = local.oidc_enabled ? local.alb_base_url : "http://localhost:8080"
       "redirect-uris" = ["/sso-callback"]
     }]
     apis = [{
@@ -189,7 +192,7 @@ locals {
   # identity_component_presets (already flag-gated) so the role names stay a single
   # source of truth with the presets themselves; presets without a roles block
   # (e.g. the m2m connectors client) contribute nothing via the try(...).
-  demo_user_roles = distinct(flatten([
+  platform_user_roles = distinct(flatten([
     for _, preset in local.identity_component_presets : try([for r in preset.roles : r.name], [])
   ]))
 
@@ -221,12 +224,12 @@ locals {
         }]
       }
       users = [{
-        username  = "demo"
-        password  = "demo"
-        firstName = "Demo"
+        username  = "admin"
+        password  = "$${KEYCLOAK_REALM_ADMIN_PASSWORD}"
+        firstName = "Admin"
         lastName  = "User"
-        email     = "demo@example.org"
-        roles     = local.demo_user_roles
+        email     = "admin@example.com"
+        roles     = local.platform_user_roles
       }]
     }
     server  = { port = 8084 }

@@ -173,6 +173,7 @@ locals {
       aws_secretsmanager_secret.identity_db_password.arn,
       aws_secretsmanager_secret.keycloak_db_password.arn,
       aws_secretsmanager_secret.keycloak_admin_password.arn,
+      aws_secretsmanager_secret.realm_admin_user_password.arn,
       aws_secretsmanager_secret.identity_client_secret.arn,
     ],
     var.enable_orchestration_oidc_client ? [aws_secretsmanager_secret.orchestration_oidc_client_secret[0].arn] : [],
