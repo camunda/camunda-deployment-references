@@ -36,7 +36,7 @@ No modules.
 | <a name="input_instance_class"></a> [instance\_class](#input\_instance\_class) | The instance type of the Aurora instances | `string` | `"db.r6g.large"` | no |
 | <a name="input_master_password"></a> [master\_password](#input\_master\_password) | The password for the database admin user | `string` | n/a | yes |
 | <a name="input_master_username"></a> [master\_username](#input\_master\_username) | The username for the database admin user | `string` | n/a | yes |
-| <a name="input_mysql_engine_version"></a> [mysql\_engine\_version](#input\_mysql\_engine\_version) | Default Aurora MySQL engine version, used when engine = aurora-mysql and engine\_version is not set. | `string` | `"8.4.7"` | no |
+| <a name="input_mysql_engine_version"></a> [mysql\_engine\_version](#input\_mysql\_engine\_version) | Default Aurora MySQL engine version, used when engine = aurora-mysql and engine\_version is not set. | `string` | `"8.4.mysql_aurora.8.4.7"` | no |
 | <a name="input_postgresql_engine_version"></a> [postgresql\_engine\_version](#input\_postgresql\_engine\_version) | Default Aurora PostgreSQL engine version, used when engine = aurora-postgresql and engine\_version is not set. | `string` | `"18.3"` | no |
 | <a name="input_primary_availability_zones"></a> [primary\_availability\_zones](#input\_primary\_availability\_zones) | Availability zones for the primary cluster | `list(string)` | n/a | yes |
 | <a name="input_primary_cidr_blocks"></a> [primary\_cidr\_blocks](#input\_primary\_cidr\_blocks) | CIDR blocks to allow access from/to the primary cluster | `list(string)` | n/a | yes |

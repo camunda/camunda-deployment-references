@@ -30,7 +30,7 @@ variable "postgresql_engine_version" {
 variable "mysql_engine_version" {
   type = string
   # renovate: datasource=custom.aurora-mysql-camunda depName=aurora-mysql versioning=loose
-  default     = "8.4.7"
+  default     = "8.4.mysql_aurora.8.4.7"
   description = "Default Aurora MySQL engine version, used when engine = aurora-mysql and engine_version is not set."
 }
 

@@ -127,8 +127,8 @@ run "mysql_engine_selects_default_version" {
   }
 
   assert {
-    condition     = aws_rds_cluster.primary.engine_version == "8.4.7"
-    error_message = "MySQL engine_version should default to mysql_engine_version (8.4.7)"
+    condition     = aws_rds_cluster.primary.engine_version == "8.4.mysql_aurora.8.4.7"
+    error_message = "MySQL engine_version should default to mysql_engine_version (8.4.mysql_aurora.8.4.7)"
   }
 
   assert {
