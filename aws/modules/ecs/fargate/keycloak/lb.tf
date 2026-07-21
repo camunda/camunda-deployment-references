@@ -34,13 +34,16 @@ resource "aws_lb_target_group" "main" {
   }
 }
 
-// Reuse the shared ALB listener via path-based routing. Priority 160 is unique
-// vs orchestration (100), connectors (50), and management identity (150).
+// Reuse the shared ALB listener via path-based routing. Priority MUST be lower
+// than the orchestration catch-all rule (`/*` at priority 100), which is
+// evaluated first and would otherwise swallow every /auth* request. Uses 40,
+// unique vs connectors (50) and below the catch-all; the /auth* and /connectors*
+// patterns are disjoint so their relative order does not matter.
 resource "aws_lb_listener_rule" "http_webapp" {
   count = var.enable_alb_http_webapp_listener_rule ? 1 : 0
 
   listener_arn = var.alb_listener_http_webapp_arn
-  priority     = 160
+  priority     = 40
 
   action {
     type             = "forward"
