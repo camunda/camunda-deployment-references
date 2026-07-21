@@ -8,7 +8,9 @@
     "command": ["start"],
     "healthCheck": {
       "command": [
-        "CMD-SHELL",
+        "CMD",
+        "bash",
+        "-c",
         "exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e 'GET /auth/health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && timeout 5 cat <&3 | grep -q '200 OK'"
       ],
       "interval": 15,
