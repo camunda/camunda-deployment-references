@@ -57,6 +57,8 @@ variable "ports" {
     zeebe_broker_network_command_api_port = 26501
     management_identity_app               = 8084
     management_identity_management        = 8082
+    keycloak_http                         = 18080
+    keycloak_management                   = 9000
   }
   description = "The ports to open for the security groups within the VPC"
 }
