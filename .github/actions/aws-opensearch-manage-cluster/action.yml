@@ -113,7 +113,7 @@ runs:
     steps:
         - name: Use Utility Actions
           id: utility
-          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@aa215d1597fc422b1bf6e8052d332ba2e4a9bdd6 # main
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@d4bccfaaa2ac2e33ced96a73a4354edee55bf428 # main
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.tf-terraform-version }}
@@ -130,7 +130,7 @@ runs:
               tf-terraform-wrapper: ${{ inputs.tf-terraform-wrapper }}
 
         - name: Checkout Repository OpenSearch modules
-          uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}

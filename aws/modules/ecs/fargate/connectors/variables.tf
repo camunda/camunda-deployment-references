@@ -153,7 +153,7 @@ variable "image" {
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
   # renovate: datasource=docker depName=camunda/connectors-bundle versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
-  default = "camunda/connectors-bundle:8.10.0-alpha2"
+  default = "camunda/connectors-bundle:8.10.0-alpha3"
 }
 
 variable "environment_variables" {
