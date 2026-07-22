@@ -783,11 +783,12 @@
         "tags": null
       }
     },
-    "aws_secretsmanager_secret.identity_client_secret": {
+    "aws_secretsmanager_secret.identity_client_secret[0]": {
       "identity": {
         "arn": null
       },
       "identity_schema_version": 0,
+      "index": 0,
       "mode": "managed",
       "name": "identity_client_secret",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -829,11 +830,12 @@
         "tags": null
       }
     },
-    "aws_secretsmanager_secret.keycloak_admin_password": {
+    "aws_secretsmanager_secret.keycloak_admin_password[0]": {
       "identity": {
         "arn": null
       },
       "identity_schema_version": 0,
+      "index": 0,
       "mode": "managed",
       "name": "keycloak_admin_password",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -852,11 +854,12 @@
         "tags": null
       }
     },
-    "aws_secretsmanager_secret.keycloak_db_password": {
+    "aws_secretsmanager_secret.keycloak_db_password[0]": {
       "identity": {
         "arn": null
       },
       "identity_schema_version": 0,
+      "index": 0,
       "mode": "managed",
       "name": "keycloak_db_password",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -922,11 +925,12 @@
         "tags": null
       }
     },
-    "aws_secretsmanager_secret.realm_admin_user_password": {
+    "aws_secretsmanager_secret.realm_admin_user_password[0]": {
       "identity": {
         "arn": null
       },
       "identity_schema_version": 0,
+      "index": 0,
       "mode": "managed",
       "name": "realm_admin_user_password",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1024,7 +1028,7 @@
         "secret_string_wo_version": null
       }
     },
-    "aws_secretsmanager_secret_version.identity_client_secret": {
+    "aws_secretsmanager_secret_version.identity_client_secret[0]": {
       "identity": {
         "account_id": null,
         "region": null,
@@ -1032,6 +1036,7 @@
         "version_id": null
       },
       "identity_schema_version": 0,
+      "index": 0,
       "mode": "managed",
       "name": "identity_client_secret",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1076,7 +1081,7 @@
         "secret_string_wo_version": null
       }
     },
-    "aws_secretsmanager_secret_version.keycloak_admin_password": {
+    "aws_secretsmanager_secret_version.keycloak_admin_password[0]": {
       "identity": {
         "account_id": null,
         "region": null,
@@ -1084,6 +1089,7 @@
         "version_id": null
       },
       "identity_schema_version": 0,
+      "index": 0,
       "mode": "managed",
       "name": "keycloak_admin_password",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1102,7 +1108,7 @@
         "secret_string_wo_version": null
       }
     },
-    "aws_secretsmanager_secret_version.keycloak_db_password": {
+    "aws_secretsmanager_secret_version.keycloak_db_password[0]": {
       "identity": {
         "account_id": null,
         "region": null,
@@ -1110,6 +1116,7 @@
         "version_id": null
       },
       "identity_schema_version": 0,
+      "index": 0,
       "mode": "managed",
       "name": "keycloak_db_password",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1181,7 +1188,7 @@
         "secret_string_wo_version": null
       }
     },
-    "aws_secretsmanager_secret_version.realm_admin_user_password": {
+    "aws_secretsmanager_secret_version.realm_admin_user_password[0]": {
       "identity": {
         "account_id": null,
         "region": null,
@@ -1189,6 +1196,7 @@
         "version_id": null
       },
       "identity_schema_version": 0,
+      "index": 0,
       "mode": "managed",
       "name": "realm_admin_user_password",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2516,9 +2524,9 @@
         }
       }
     },
-    "module.keycloak": {
+    "module.keycloak[0]": {
       "resources": {
-        "module.keycloak.aws_ecs_service.keycloak": {
+        "module.keycloak[0].aws_ecs_service.keycloak": {
           "identity": {
             "account_id": null,
             "cluster": null,
@@ -2639,7 +2647,7 @@
             "wait_for_steady_state": true
           }
         },
-        "module.keycloak.aws_ecs_task_definition.keycloak": {
+        "module.keycloak[0].aws_ecs_task_definition.keycloak": {
           "identity": {
             "account_id": null,
             "family": null,
@@ -2691,7 +2699,7 @@
             "volume": []
           }
         },
-        "module.keycloak.aws_iam_policy.ecs_exec_policy": {
+        "module.keycloak[0].aws_iam_policy.ecs_exec_policy": {
           "identity": {
             "arn": null
           },
@@ -2719,7 +2727,7 @@
             }
           }
         },
-        "module.keycloak.aws_iam_policy.keycloak_logs_policy": {
+        "module.keycloak[0].aws_iam_policy.keycloak_logs_policy": {
           "identity": {
             "arn": null
           },
@@ -2747,7 +2755,7 @@
             }
           }
         },
-        "module.keycloak.aws_iam_role.ecs_task_role": {
+        "module.keycloak[0].aws_iam_role.ecs_task_role": {
           "identity": {
             "account_id": null,
             "name": null
@@ -2780,7 +2788,7 @@
             }
           }
         },
-        "module.keycloak.aws_iam_role_policy_attachment.ecs_exec_policy_attachment": {
+        "module.keycloak[0].aws_iam_role_policy_attachment.ecs_exec_policy_attachment": {
           "identity": {
             "account_id": null,
             "policy_arn": null,
@@ -2797,7 +2805,7 @@
             "role": "camunda-oc1-keycloak-task-role"
           }
         },
-        "module.keycloak.aws_iam_role_policy_attachment.keycloak_logs_policy_attachment": {
+        "module.keycloak[0].aws_iam_role_policy_attachment.keycloak_logs_policy_attachment": {
           "identity": {
             "account_id": null,
             "policy_arn": null,
@@ -5711,7 +5719,8 @@
         "upper": true
       }
     },
-    "random_password.identity_client_secret": {
+    "random_password.identity_client_secret[0]": {
+      "index": 0,
       "mode": "managed",
       "name": "identity_client_secret",
       "provider_name": "registry.terraform.io/hashicorp/random",
@@ -5761,7 +5770,8 @@
         "upper": true
       }
     },
-    "random_password.keycloak_admin_password": {
+    "random_password.keycloak_admin_password[0]": {
+      "index": 0,
       "mode": "managed",
       "name": "keycloak_admin_password",
       "provider_name": "registry.terraform.io/hashicorp/random",
@@ -5786,7 +5796,8 @@
         "upper": true
       }
     },
-    "random_password.keycloak_db_password": {
+    "random_password.keycloak_db_password[0]": {
+      "index": 0,
       "mode": "managed",
       "name": "keycloak_db_password",
       "provider_name": "registry.terraform.io/hashicorp/random",
@@ -5837,7 +5848,8 @@
         "upper": true
       }
     },
-    "random_password.realm_admin_user_password": {
+    "random_password.realm_admin_user_password[0]": {
+      "index": 0,
       "mode": "managed",
       "name": "realm_admin_user_password",
       "provider_name": "registry.terraform.io/hashicorp/random",
@@ -5860,6 +5872,19 @@
         "override_special": "!#%^()-_=+[]:?",
         "special": true,
         "upper": true
+      }
+    },
+    "terraform_data.validate_authentication_mode": {
+      "mode": "managed",
+      "name": "validate_authentication_mode",
+      "provider_name": "terraform.io/builtin/terraform",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "terraform_data",
+      "values": {
+        "input": null,
+        "output": null,
+        "triggers_replace": null
       }
     }
   }
