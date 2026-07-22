@@ -109,24 +109,46 @@ variable "identity_db_name" {
   type        = string
   description = "Dedicated database name for Management Identity on the shared Aurora cluster"
   default     = "identity"
+
+  validation {
+    # Interpolated into the DB seed SQL (postgres_seed.tf); restrict to a safe
+    # PostgreSQL identifier so quotes/whitespace cannot break SQL or inject.
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.identity_db_name)) && length(var.identity_db_name) <= 63
+    error_message = "identity_db_name must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
 }
 
 variable "identity_db_username" {
   type        = string
   description = "Password-authenticated database role for Management Identity (Identity does not support IAM DB auth)"
   default     = "identity"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.identity_db_username)) && length(var.identity_db_username) <= 63
+    error_message = "identity_db_username must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
 }
 
 variable "keycloak_db_name" {
   type        = string
   description = "Dedicated database name for Keycloak on the shared Aurora cluster"
   default     = "keycloak"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.keycloak_db_name)) && length(var.keycloak_db_name) <= 63
+    error_message = "keycloak_db_name must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
 }
 
 variable "keycloak_db_username" {
   type        = string
   description = "Password-authenticated database role for Keycloak"
   default     = "keycloak"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.keycloak_db_username)) && length(var.keycloak_db_username) <= 63
+    error_message = "keycloak_db_username must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
 }
 
 variable "keycloak_admin_username" {
