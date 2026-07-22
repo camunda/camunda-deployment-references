@@ -477,6 +477,10 @@
     {
       "version": "9.4.3-debian-12-r1",
       "newDigest": "sha256:717d5a3ff36123420b115190d7b49a618bf8198fdee9e9fa6e8c7f3c2f5e8eb5"
+    },
+    {
+      "version": "9.4.4-debian-12-r0",
+      "newDigest": "sha256:f22e671be82c230406a14c3c7002d3564c608c61225db5c26e8d17dcb2452e6f"
     }
   ]
 }
