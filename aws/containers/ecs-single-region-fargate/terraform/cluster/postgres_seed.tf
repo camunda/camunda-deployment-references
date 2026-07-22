@@ -54,7 +54,9 @@ resource "aws_ecs_task_definition" "db_seed" {
               -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${IDENTITY_DB_USERNAME}') THEN CREATE ROLE \"$${IDENTITY_DB_USERNAME}\" WITH LOGIN PASSWORD '$${IDENTITY_DB_PASSWORD}'; END IF; END \$\$;" \
               -c "ALTER ROLE \"$${IDENTITY_DB_USERNAME}\" WITH LOGIN PASSWORD '$${IDENTITY_DB_PASSWORD}';"
 
-            # Create the dedicated database if it does not exist (owned by the identity role)
+            # Create the dedicated database if it does not exist. No OWNER is set
+            # (the RDS master role cannot create a database owned by another role);
+            # the identity role is granted access via the GRANTs below instead.
             psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
               -v ON_ERROR_STOP=1 \
               -tc "SELECT 'CREATE DATABASE \"$${IDENTITY_DB_NAME}\"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$${IDENTITY_DB_NAME}')" | psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" -v ON_ERROR_STOP=1
