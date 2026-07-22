@@ -102,11 +102,12 @@ resource "aws_ecs_task_definition" "db_seed" {
         { name = "IAM_DB_USERS", value = join(" ", var.db_seed_iam_usernames) },
         { name = "IDENTITY_DB_NAME", value = var.identity_db_name },
         { name = "IDENTITY_DB_USERNAME", value = var.identity_db_username },
-        { name = "KEYCLOAK_DB_NAME", value = var.keycloak_db_name },
+        # Empty in external mode so the seed script skips Keycloak DB provisioning.
+        { name = "KEYCLOAK_DB_NAME", value = local.use_keycloak ? var.keycloak_db_name : "" },
         { name = "KEYCLOAK_DB_USERNAME", value = var.keycloak_db_username }
       ]
 
-      secrets = [
+      secrets = concat([
         {
           name      = "AURORA_ADMIN_PASSWORD"
           valueFrom = aws_secretsmanager_secret.db_admin_password.arn
@@ -115,11 +116,12 @@ resource "aws_ecs_task_definition" "db_seed" {
           name      = "IDENTITY_DB_PASSWORD"
           valueFrom = aws_secretsmanager_secret.identity_db_password.arn
         },
+        ], local.use_keycloak ? [
         {
           name      = "KEYCLOAK_DB_PASSWORD"
-          valueFrom = aws_secretsmanager_secret.keycloak_db_password.arn
+          valueFrom = aws_secretsmanager_secret.keycloak_db_password[0].arn
         }
-      ]
+      ] : [])
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -146,9 +148,9 @@ resource "null_resource" "run_db_seed_task" {
     identity_db_name     = var.identity_db_name
     identity_db_username = var.identity_db_username
     identity_db_secret   = aws_secretsmanager_secret_version.identity_db_password.version_id
-    keycloak_db_name     = var.keycloak_db_name
+    keycloak_db_name     = local.use_keycloak ? var.keycloak_db_name : ""
     keycloak_db_username = var.keycloak_db_username
-    keycloak_db_secret   = aws_secretsmanager_secret_version.keycloak_db_password.version_id
+    keycloak_db_secret   = local.use_keycloak ? aws_secretsmanager_secret_version.keycloak_db_password[0].version_id : ""
   }
 
   provisioner "local-exec" {

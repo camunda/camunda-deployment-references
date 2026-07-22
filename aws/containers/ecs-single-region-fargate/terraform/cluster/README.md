@@ -90,6 +90,7 @@ This directory contains the Terraform implementation for the ECS single-region (
 | [random_password.optimize_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.orchestration_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.realm_admin_user_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [terraform_data.validate_authentication_mode](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [aws_availability_zones.available](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/availability_zones) | data source |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_eips.current_usage](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/eips) | data source |
@@ -100,7 +101,7 @@ This directory contains the Terraform implementation for the ECS single-region (
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| <a name="input_authentication_mode"></a> [authentication\_mode](#input\_authentication\_mode) | Platform authentication mode: 'basic' (built-in users) or 'oidc' (Keycloak camunda-platform realm). | `string` | `"basic"` | no |
+| <a name="input_authentication_mode"></a> [authentication\_mode](#input\_authentication\_mode) | Platform authentication: 'basic' (built-in users, bundled Keycloak), 'keycloak' (OIDC via bundled Keycloak), or 'external' (bring-your-own OIDC, Keycloak skipped). | `string` | `"basic"` | no |
 | <a name="input_cidr_blocks"></a> [cidr\_blocks](#input\_cidr\_blocks) | The CIDR block to use for the VPC | `string` | `"10.190.0.0/16"` | no |
 | <a name="input_db_admin_password"></a> [db\_admin\_password](#input\_db\_admin\_password) | Optional override for the Aurora PostgreSQL admin password. If empty, a random password is generated and stored in Secrets Manager. | `string` | `""` | no |
 | <a name="input_db_admin_username"></a> [db\_admin\_username](#input\_db\_admin\_username) | Admin username for the Aurora PostgreSQL cluster (demo default; use Secrets Manager in production) | `string` | `"camunda_admin"` | no |
@@ -114,6 +115,7 @@ This directory contains the Terraform implementation for the ECS single-region (
 | <a name="input_enable_optimize_oidc_client"></a> [enable\_optimize\_oidc\_client](#input\_enable\_optimize\_oidc\_client) | Create the optimize OIDC client in the Keycloak realm | `bool` | `false` | no |
 | <a name="input_enable_orchestration_oidc_client"></a> [enable\_orchestration\_oidc\_client](#input\_enable\_orchestration\_oidc\_client) | Create the orchestration OIDC client in the Keycloak realm | `bool` | `true` | no |
 | <a name="input_enable_web_modeler_oidc_client"></a> [enable\_web\_modeler\_oidc\_client](#input\_enable\_web\_modeler\_oidc\_client) | Create the web-modeler OIDC client in the Keycloak realm | `bool` | `false` | no |
+| <a name="input_external_oidc"></a> [external\_oidc](#input\_external\_oidc) | External OIDC provider config, required only when authentication\_mode = "external". One client per component (identity, orchestration, connectors); client secrets are passed as existing Secrets Manager ARNs (created out-of-band), never as raw values. | <pre>object({<br/>    issuer_uri                      = string<br/>    token_uri                       = string<br/>    audience                        = string<br/>    identity_client_id              = string<br/>    identity_client_secret_arn      = string<br/>    orchestration_client_id         = string<br/>    orchestration_client_secret_arn = string<br/>    connectors_client_id            = string<br/>    connectors_client_secret_arn    = string<br/>  })</pre> | `null` | no |
 | <a name="input_identity_db_name"></a> [identity\_db\_name](#input\_identity\_db\_name) | Dedicated database name for Management Identity on the shared Aurora cluster | `string` | `"identity"` | no |
 | <a name="input_identity_db_username"></a> [identity\_db\_username](#input\_identity\_db\_username) | Password-authenticated database role for Management Identity (Identity does not support IAM DB auth) | `string` | `"identity"` | no |
 | <a name="input_keycloak_admin_username"></a> [keycloak\_admin\_username](#input\_keycloak\_admin\_username) | Keycloak bootstrap admin username | `string` | `"admin"` | no |
