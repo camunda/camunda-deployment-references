@@ -92,14 +92,14 @@ runs:
         - name: Compute diff
           id: diff
           if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
-          uses: int128/diff-action@77a301a80335bebb9abb2d28a3dacfa844105395 # v2
+          uses: int128/diff-action@d568d28eca4411ad141d5cd5f84c7b739a0956ce # v2
           with:
               base: ${{ inputs.module-dir }}test/golden/tfplan-golden.json
               head: ${{ inputs.module-dir }}compare/tfplan-golden.json
 
         - name: Post diff on PR
           if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
-          uses: int128/comment-action@f1b8793eb5b418838c59535a043d8996bd7b5625 # v1
+          uses: int128/comment-action@9448863881c42b4c69f213d9a67c8b37e7c0f105 # v1
           with:
               update-if-exists: replace
               post: |
