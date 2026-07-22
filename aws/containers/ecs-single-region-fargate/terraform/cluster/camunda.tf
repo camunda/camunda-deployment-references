@@ -73,18 +73,19 @@ module "orchestration_cluster" {
       value = aws_s3_bucket.backup.bucket
     },
     ],
-    # --- Authentication: basic (built-in users) or OIDC (Keycloak realm) ---
+    # --- Authentication: basic (built-in users) or OIDC (bundled Keycloak / external) ---
     local.oidc_enabled ? [
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_METHOD", value = "oidc" },
-      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_ISSUERURI", value = local.camunda_realm_issuer_public },
-      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_CLIENTID", value = "orchestration" },
-      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_REDIRECTURI", value = "${local.alb_base_url}/sso-callback" },
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_ISSUERURI", value = local.oidc_issuer_uri },
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_CLIENTID", value = local.oidc_orchestration_client_id },
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_REDIRECTURI", value = local.oidc_redirect_uri },
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_USERNAMECLAIM", value = "preferred_username" },
-      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_AUDIENCE", value = "orchestration-api" },
-      # The realm 'admin' user (created by Identity) becomes platform admin.
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_AUDIENCE", value = local.oidc_audience },
+      # Admin user identifier from the username claim (the bundled realm's 'admin';
+      # for external OIDC set this to your admin's preferred_username).
       { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_USERS_0", value = "admin" },
       # Connectors authenticates as an OIDC client (m2m), mapped to the connectors role.
-      { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_CONNECTORS_CLIENTS_0", value = "connectors" },
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_CONNECTORS_CLIENTS_0", value = local.oidc_connectors_client_id },
       ] : [
       { name = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_USERNAME", value = "admin" },
       { name = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_NAME", value = "Admin User" },
@@ -100,7 +101,7 @@ module "orchestration_cluster" {
   secrets = local.oidc_enabled ? [
     {
       name      = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_CLIENTSECRET"
-      valueFrom = aws_secretsmanager_secret.orchestration_oidc_client_secret[0].arn
+      valueFrom = local.oidc_orchestration_client_secret_arn
     }
     ] : [
     {
@@ -178,9 +179,9 @@ module "connectors" {
     # Connectors fetches tokens via the shared ALB (same host as every other actor)
     # so the token `iss` is the ALB URL and matches what orchestration validates.
     local.oidc_enabled ? [
-      { name = "CAMUNDA_CLIENT_AUTH_CLIENTID", value = "connectors" },
-      { name = "CAMUNDA_CLIENT_AUTH_TOKENURL", value = "${local.camunda_realm_issuer_public}/protocol/openid-connect/token" },
-      { name = "CAMUNDA_CLIENT_AUTH_AUDIENCE", value = "orchestration-api" },
+      { name = "CAMUNDA_CLIENT_AUTH_CLIENTID", value = local.oidc_connectors_client_id },
+      { name = "CAMUNDA_CLIENT_AUTH_TOKENURL", value = local.oidc_token_uri },
+      { name = "CAMUNDA_CLIENT_AUTH_AUDIENCE", value = local.oidc_audience },
       ] : [
       { name = "CAMUNDA_CLIENT_AUTH_METHOD", value = "basic" },
       { name = "CAMUNDA_CLIENT_AUTH_USERNAME", value = "connectors" },
@@ -190,7 +191,7 @@ module "connectors" {
   secrets = local.oidc_enabled ? [
     {
       name      = "CAMUNDA_CLIENT_AUTH_CLIENTSECRET"
-      valueFrom = aws_secretsmanager_secret.connectors_oidc_client_secret[0].arn
+      valueFrom = local.oidc_connectors_client_secret_arn
     }
     ] : [
     {
@@ -231,7 +232,7 @@ module "management_identity" {
     aws_security_group.allow_package_80_443.id,
   ]
 
-  environment_variables = [
+  environment_variables = concat([
     # --- Database (password auth to a dedicated Aurora database) ---
     {
       name  = "IDENTITY_DATABASE_HOST"
@@ -267,32 +268,38 @@ module "management_identity" {
       name  = "MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED"
       value = "true"
     },
-    # --- Identity provider (Keycloak) ---
-    {
-      name  = "SPRING_PROFILES_ACTIVE"
-      value = "keycloak"
-    },
-    {
-      name  = "KEYCLOAK_SETUP_USER"
-      value = var.keycloak_admin_username
-    },
-    {
-      name  = "SPRING_APPLICATION_JSON"
-      value = local.identity_realm_json
-    },
-  ]
+    ],
+    # --- Identity provider: bundled Keycloak realm bootstrap, or external OIDC ---
+    local.use_keycloak ? [
+      { name = "SPRING_PROFILES_ACTIVE", value = "keycloak" },
+      { name = "KEYCLOAK_SETUP_USER", value = var.keycloak_admin_username },
+      { name = "SPRING_APPLICATION_JSON", value = local.identity_realm_json },
+      ] : [
+      # External OIDC (Entra ID / Okta): generic provider, no realm bootstrap (the
+      # external IdP owns clients/users). Validate the exact property keys against
+      # your provider on first deploy.
+      { name = "SPRING_PROFILES_ACTIVE", value = "oidc" },
+      { name = "IDENTITY_AUTH_PROVIDER_ISSUER_URL", value = local.oidc_issuer_uri },
+      { name = "IDENTITY_AUTH_PROVIDER_BACKEND_URL", value = local.oidc_issuer_uri },
+      { name = "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI", value = local.oidc_issuer_uri },
+      { name = "IDENTITY_CLIENT_ID", value = local.oidc_identity_client_id },
+  ])
 
   secrets = concat(
     [
       { name = "IDENTITY_DATABASE_PASSWORD", valueFrom = aws_secretsmanager_secret.identity_db_password.arn },
-      { name = "CAMUNDA_IDENTITY_CLIENT_SECRET", valueFrom = aws_secretsmanager_secret.identity_client_secret.arn },
-      { name = "KEYCLOAK_SETUP_PASSWORD", valueFrom = aws_secretsmanager_secret.keycloak_admin_password.arn },
-      { name = "KEYCLOAK_REALM_ADMIN_PASSWORD", valueFrom = aws_secretsmanager_secret.realm_admin_user_password.arn },
+      { name = "CAMUNDA_IDENTITY_CLIENT_SECRET", valueFrom = local.oidc_identity_client_secret_arn },
     ],
-    var.enable_orchestration_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_ORCHESTRATION_SECRET", valueFrom = aws_secretsmanager_secret.orchestration_oidc_client_secret[0].arn }] : [],
-    var.enable_connectors_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_CONNECTORS_SECRET", valueFrom = aws_secretsmanager_secret.connectors_oidc_client_secret[0].arn }] : [],
-    var.enable_optimize_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_OPTIMIZE_SECRET", valueFrom = aws_secretsmanager_secret.optimize_oidc_client_secret[0].arn }] : [],
-    var.enable_console_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_CONSOLE_SECRET", valueFrom = aws_secretsmanager_secret.console_oidc_client_secret[0].arn }] : [],
+    # Bundled Keycloak realm bootstrap needs the admin + realm-user + client secrets.
+    local.use_keycloak ? concat([
+      { name = "KEYCLOAK_SETUP_PASSWORD", valueFrom = aws_secretsmanager_secret.keycloak_admin_password[0].arn },
+      { name = "KEYCLOAK_REALM_ADMIN_PASSWORD", valueFrom = aws_secretsmanager_secret.realm_admin_user_password[0].arn },
+      ],
+      var.enable_orchestration_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_ORCHESTRATION_SECRET", valueFrom = aws_secretsmanager_secret.orchestration_oidc_client_secret[0].arn }] : [],
+      var.enable_connectors_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_CONNECTORS_SECRET", valueFrom = aws_secretsmanager_secret.connectors_oidc_client_secret[0].arn }] : [],
+      var.enable_optimize_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_OPTIMIZE_SECRET", valueFrom = aws_secretsmanager_secret.optimize_oidc_client_secret[0].arn }] : [],
+      var.enable_console_oidc_client ? [{ name = "VALUES_KEYCLOAK_INIT_CONSOLE_SECRET", valueFrom = aws_secretsmanager_secret.console_oidc_client_secret[0].arn }] : [],
+    ) : [],
   )
 
   task_desired_count          = 1
@@ -303,6 +310,9 @@ module "management_identity" {
 
 module "keycloak" {
   source = "../../../../modules/ecs/fargate/keycloak"
+
+  # Bundled IdP for basic|keycloak modes; skipped entirely for external OIDC.
+  count = local.use_keycloak ? 1 : 0
 
   depends_on = [null_resource.run_db_seed_task]
 
@@ -317,10 +327,10 @@ module "keycloak" {
   registry_credentials_arn    = join("", aws_secretsmanager_secret.registry_credentials[*].arn)
 
   # Internal Service Connect (keycloak:18080) is enough for Identity in basic mode.
-  # In oidc mode the browser must reach Keycloak to complete the login redirect,
-  # so the shared ALB (/auth*) is enabled.
+  # Only "keycloak" mode needs the browser to reach Keycloak for the login redirect,
+  # so the shared ALB (/auth*) rule is enabled there.
   alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp.arn
-  enable_alb_http_webapp_listener_rule = local.oidc_enabled
+  enable_alb_http_webapp_listener_rule = var.authentication_mode == "keycloak"
 
   service_security_group_ids = [
     aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
@@ -352,8 +362,8 @@ module "keycloak" {
   ]
 
   secrets = [
-    { name = "KC_DB_PASSWORD", valueFrom = aws_secretsmanager_secret.keycloak_db_password.arn },
-    { name = "KC_BOOTSTRAP_ADMIN_PASSWORD", valueFrom = aws_secretsmanager_secret.keycloak_admin_password.arn },
+    { name = "KC_DB_PASSWORD", valueFrom = aws_secretsmanager_secret.keycloak_db_password[0].arn },
+    { name = "KC_BOOTSTRAP_ADMIN_PASSWORD", valueFrom = aws_secretsmanager_secret.keycloak_admin_password[0].arn },
   ]
 
   task_desired_count          = 1
