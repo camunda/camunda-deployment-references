@@ -43,6 +43,29 @@ on:
                 type: boolean
                 default: true
 
+            keep_alive:
+                description: |
+                    Spawn a long-lived DEMO instead of an ephemeral test run.
+                    When enabled:
+                      * the two clusters are deployed to the AWS PERMANENT regions
+                        (eu-west-1 + eu-central-1) instead of the CI regions (eu-west-2/3),
+                        so they are out of scope of every region-based InfraEx cloud-nuke
+                        (neither the nightly CI sweep nor the Saturday weekly-work sweep);
+                      * every created AWS resource is tagged `infraex-permanent=true` so the
+                        InfraEx weekly GLOBAL cleanup (infraex-common-config
+                        aws_global_cleanup.sh) skips the account-wide resources it would
+                        otherwise delete on Saturday (OIDC provider, IAM roles, backup S3);
+                      * their Terraform state is stored under a dedicated prefix that the
+                        daily-cleanup workflow never scans, so it is NOT destroyed after 12h;
+                      * the in-run teardown is skipped (implies delete_clusters=false).
+                    The clusters therefore live until torn down manually. To rebuild or
+                    reconcile them, just re-run this workflow with the SAME cluster_name.
+                    NOTE: permanent survival requires the matching infraex-common-config
+                    change that honors the `infraex-permanent` tag; without it the Saturday
+                    global cleanup still deletes the cluster's OIDC provider.
+                type: boolean
+                default: false
+
             ref-arch:
                 description: |
                     Reference architecture to use, can only deploy one at a time.
@@ -67,13 +90,23 @@ env:
 
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
-    S3_BACKEND_BUCKET_PREFIX: aws/openshift/rosa-hcp-dual-region/ # keep it synced with the name of the module for simplicity
+    # keep it synced with the name of the module for simplicity.
+    # keep_alive demos use a dedicated prefix so the daily-cleanup workflow (which only
+    # scans aws/openshift/rosa-hcp-dual-region/) never destroys them.
+    S3_BACKEND_BUCKET_PREFIX: ${{ github.event.inputs.keep_alive == 'true' && 'aws/openshift/rosa-hcp-dual-region-keep-alive/' || 'aws/openshift/rosa-hcp-dual-region/'
+        }}
     TF_MODULES_DIRECTORY: ./.tf-modules-workflow/   # where the tf repo will be clone
 
-    CLUSTER_1_AWS_REGION: eu-west-2
-    CLUSTER_2_AWS_REGION: eu-west-3
+    # CI runs in eu-west-2/eu-west-3 (wiped nightly). keep_alive demos run in the
+    # PERMANENT regions eu-west-1/eu-central-1, which no region-based InfraEx cloud-nuke
+    # touches (see infraex-common-config aws_nightly_cleanup.yml matrix). Surviving the
+    # Saturday account-wide global cleanup additionally relies on the `infraex-permanent`
+    # tag set in the create step below (honored by aws_global_cleanup.sh).
+    CLUSTER_1_AWS_REGION: ${{ github.event.inputs.keep_alive == 'true' && 'eu-west-1' || 'eu-west-2' }}
+    CLUSTER_2_AWS_REGION: ${{ github.event.inputs.keep_alive == 'true' && 'eu-central-1' || 'eu-west-3' }}
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    # keep_alive forces the teardown off so the demo survives the run.
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.keep_alive == 'true' && 'false' || github.event.inputs.delete_clusters || 'true' }}
 
     # TEST VARIABLES
 
@@ -212,7 +245,7 @@ jobs:
                         "ci-commit": "${{ github.sha }}",
                         "ci-repo": "${{ github.repository }}",
                         "ci-event": "${{ github.event_name }}",
-                        "map-migrated": "migARUADZHVWZ"
+                        "map-migrated": "migARUADZHVWZ"${{ github.event.inputs.keep_alive == 'true' && ', "infraex-permanent": "true"' || '' }}
                       }
 
             - name: Dump kubeconfig before encryption
