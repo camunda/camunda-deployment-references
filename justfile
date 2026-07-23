@@ -31,8 +31,13 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
 
   rm -Rf {{ justfile_directory() }}/{{ module_dir }}/.terraform*
 
-  # Copy *.tf files from test/fixtures/golden to the current directory before running the plan
+  # Copy *.tf files from test/fixtures/golden to the current directory before running the plan.
+  # Register the cleanup via trap so the copies are removed even if terraform init/plan fails
+  # under `set -e`: a stray fixture_*_override.tf left in the module root would silently
+  # neutralize the real terraform_remote_state read (count = 0) on the next standalone
+  # plan/apply/test, or get accidentally committed (module roots do not gitignore fixture_*.tf).
   if ls test/fixtures/golden/fixture_*.tf 1> /dev/null 2>&1; then
+    trap 'rm -f fixture_*.tf' EXIT
     cp test/fixtures/golden/fixture_*.tf ./
   fi
 
@@ -44,8 +49,8 @@ regenerate-golden-file module_dir backend_bucket_region backend_bucket_name back
   # we always use the same region and fake rhcs token to have a pre-defined output
   RHCS_TOKEN="" AWS_REGION="eu-west-2" terraform plan -var-file=test/golden/golden.tfvars -out=tfplan
 
-  # Clean up copied .tf files (those prefixed with fixture_)
-  rm -f fixture_*.tf
+  # Copied fixture_*.tf are removed by the EXIT trap registered above (runs on
+  # success or failure), so nothing to clean up explicitly here.
 
   terraform show -json tfplan | jq > tfplan.json
   rm -f tfplan
@@ -161,10 +166,11 @@ regenerate-golden-file-all:
 
     # Skip modules that are not golden-tracked. A module opts in to golden
     # regeneration by providing test/golden/golden.tfvars; modules without it
-    # (e.g. freshly added ones, or cross-state modules that cannot be planned
-    # standalone) are skipped instead of failing the whole run.
-    # ECS dual-region modules currently lack golden coverage, tracked in:
-    # https://github.com/camunda/team-infrastructure-experience/issues/1158
+    # (e.g. freshly added ones) are skipped instead of failing the whole run.
+    # Cross-state modules that read a sibling state via terraform_remote_state
+    # (e.g. the ECS dual-region infra/ and app/ states) opt in too, by shipping
+    # a test/fixtures/golden/fixture_*_override.tf that neutralises the read with
+    # a static snapshot so the plan is deterministic and offline.
     if [[ ! -f "${module_dir_abs}/test/golden/golden.tfvars" ]]; then
       echo "Skipping: ${module_dir_rel} (no test/golden/golden.tfvars)"
       continue

@@ -1,0 +1,94 @@
+---
+name: Tests - Golden - AWS Containers ECS Dual Region Fargate
+
+on:
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/aws_ecs_dual_region_fargate_golden.yml
+            - .github/actions/internal-terraform-golden-plan/**
+            - .tool-versions
+            - aws/containers/ecs-dual-region-fargate/terraform/**
+            # Shared modules rendered into the golden plans: vpc/ uses
+            # transit-gateway; infra/ uses aurora-global and opensearch; app/
+            # uses ecs. A change to any of these alters a committed golden file,
+            # so the comparison must re-run when they do.
+            - aws/modules/ecs/**
+            - aws/modules/aurora-global/**
+            - aws/modules/opensearch/**
+            - aws/modules/transit-gateway/**
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+
+    AWS_PROFILE: infraex
+    AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BUCKET_KEY: golden.tfstate
+
+jobs:
+    triage:
+        runs-on: ubuntu-slim
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    compare:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false # report drift for every state, not just the first that fails
+            matrix:
+                # Each state is planned independently. vpc/ is plannable as-is;
+                # infra/ and app/ read a sibling state via terraform_remote_state
+                # (and infra/ does live subnet lookups), which the golden fixtures
+                # under each state's test/fixtures/golden/ neutralise with a static
+                # snapshot so the plan is deterministic and offline.
+                module:
+                    - ecs-dual-region-fargate/terraform/vpc/
+                    - ecs-dual-region-fargate/terraform/infra/
+                    - ecs-dual-region-fargate/terraform/app/
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Export module_dir depending on scenario
+              id: set-module-dir
+              run: echo "MODULE_DIR=./aws/containers/${{ matrix.module }}" | tee -a "$GITHUB_ENV"
+
+            - name: Run Terraform Golden Plan Comparison
+              uses: ./.github/actions/internal-terraform-golden-plan
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              with:
+                  module-dir: ${{ env.MODULE_DIR }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key: ${{ env.S3_BUCKET_KEY }}
