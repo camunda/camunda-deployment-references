@@ -735,13 +735,58 @@ runs:
               C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh"
 
-              # Skip ingress checks if no domain is configured
+              # Build the connectivity.sh arguments; skip ingress checks when no
+              # domain is configured (or when explicitly requested).
+              connectivity_args=(-n "$NAMESPACE")
               if [[ -z "$CAMUNDA_DOMAIN" ]] || [[ "${{ inputs.skip-c8sm-connectivity-ingress-class-check }}" == "true" ]]; then
                 echo "ℹ️ No domain configured, skipping ingress checks"
-                "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" -n "$NAMESPACE" -i
-              else
-                "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" -n "$NAMESPACE"
+                connectivity_args+=(-i)
               fi
+
+              # The sweep runs `kubectl exec` into every pod to probe every
+              # Service. `kubectl exec` has no client-side deadline, so a pod
+              # that goes momentarily unresponsive mid-sweep (restart, node or
+              # volume hiccup) makes a single exec hang and would otherwise burn
+              # the whole step's timeout budget. Bound each attempt with
+              # `timeout` and retry a few times so a transient hiccup fails fast
+              # and recovers; a genuine connectivity problem still fails once the
+              # retry budget is exhausted.
+              C8SM_CONNECTIVITY_TIMEOUT_SECONDS="${C8SM_CONNECTIVITY_TIMEOUT_SECONDS:-360}"
+              C8SM_CONNECTIVITY_RETRIES="${C8SM_CONNECTIVITY_RETRIES:-3}"
+              C8SM_CONNECTIVITY_RETRY_DELAY="${C8SM_CONNECTIVITY_RETRY_DELAY:-15}"
+
+              # Validate the (overridable) tuning knobs up front so a bad value
+              # fails fast with a clear message instead of a terse mid-loop error.
+              if ! [[ "$C8SM_CONNECTIVITY_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
+                  echo "::error::C8SM_CONNECTIVITY_TIMEOUT_SECONDS must be a positive integer (got '$C8SM_CONNECTIVITY_TIMEOUT_SECONDS')."
+                  exit 1
+              fi
+              if ! [[ "$C8SM_CONNECTIVITY_RETRIES" =~ ^[1-9][0-9]*$ ]]; then
+                  echo "::error::C8SM_CONNECTIVITY_RETRIES must be a positive integer (got '$C8SM_CONNECTIVITY_RETRIES')."
+                  exit 1
+              fi
+              if ! [[ "$C8SM_CONNECTIVITY_RETRY_DELAY" =~ ^[0-9]+$ ]]; then
+                  echo "::error::C8SM_CONNECTIVITY_RETRY_DELAY must be a non-negative integer (got '$C8SM_CONNECTIVITY_RETRY_DELAY')."
+                  exit 1
+              fi
+
+              attempt=1
+              while true; do
+                  # -k gives the sweep a grace period to exit on SIGTERM before
+                  # it is SIGKILLed, so a wedged `kubectl exec` cannot linger.
+                  if timeout -k 30 "$C8SM_CONNECTIVITY_TIMEOUT_SECONDS" \
+                      "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" "${connectivity_args[@]}"; then
+                      echo "✅ Kubernetes connectivity check passed (attempt ${attempt}/${C8SM_CONNECTIVITY_RETRIES})."
+                      break
+                  fi
+                  if [[ "$attempt" -ge "$C8SM_CONNECTIVITY_RETRIES" ]]; then
+                      echo "::error::Connectivity check failed after ${C8SM_CONNECTIVITY_RETRIES} attempt(s) (each bounded to ${C8SM_CONNECTIVITY_TIMEOUT_SECONDS}s)."
+                      exit 1
+                  fi
+                  echo "::warning::Connectivity check failed/timed out (attempt ${attempt}/${C8SM_CONNECTIVITY_RETRIES}); retrying in ${C8SM_CONNECTIVITY_RETRY_DELAY}s..."
+                  attempt=$(( attempt + 1 ))
+                  sleep "$C8SM_CONNECTIVITY_RETRY_DELAY"
+              done
 
         - name: 🧪 C8-SM-CHECKS - Run AWS IRSA Check
           if: ${{ inputs.enable-c8sm-irsa-check == 'true' }}
