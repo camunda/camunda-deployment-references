@@ -64,10 +64,10 @@ connectors:
         mode: disabled
     resources:
         requests:
-            cpu: 0.1
+            cpu: 100m
             memory: 256Mi
         limits:
-            cpu: 1
+            cpu: 1000m
             memory: 1Gi
     security:
         authentication:
@@ -87,10 +87,10 @@ elasticsearch:
         heapSize: 1g
         resources:
             requests:
-                cpu: 0.5
+                cpu: 500m
                 memory: 1536Mi
             limits:
-                cpu: 2
+                cpu: 2000m
                 memory: 3Gi
 
 identity:
@@ -180,10 +180,10 @@ console:
     contextPath: /console
     resources:
         requests:
-            cpu: 0.05
+            cpu: 50m
             memory: 64Mi
         limits:
-            cpu: 0.5
+            cpu: 500m
             memory: 256Mi
 
 webModeler:
