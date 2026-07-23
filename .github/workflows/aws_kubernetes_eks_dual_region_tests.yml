@@ -22,6 +22,19 @@ on:
                 description: Whether to enable the tests.
                 type: boolean
                 default: true
+
+            keep_alive:
+                description: |
+                    Spawn a long-lived on-demand DEMO instead of an ephemeral test run.
+                    When true the clusters deploy to the AWS weekly-work region(s)
+                    (us-east-1, plus us-east-2 for dual-region) instead of the
+                    nightly-wiped CI regions, their Terraform state uses a dedicated
+                    "-keep-alive" prefix that the daily-cleanup workflow never scans,
+                    and the in-run teardown is skipped. The demo therefore lives the
+                    whole work week and is removed by the InfraEx weekly cleanup on
+                    Saturday ~05:00 UTC. Re-run with the SAME cluster_name to rebuild it.
+                type: boolean
+                default: false
             ref-arch:
                 description: |
                     Reference architecture to use, can only deploy one at a time.
@@ -57,15 +70,15 @@ env:
     IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
 
     AWS_PROFILE: infraex
-    AWS_REGION: eu-west-2
-    CLUSTER_0_AWS_REGION: eu-west-2
-    CLUSTER_1_AWS_REGION: eu-west-3
+    AWS_REGION: ${{ github.event.inputs.keep_alive == 'true' && 'us-east-1' || 'eu-west-2' }}
+    CLUSTER_0_AWS_REGION: ${{ github.event.inputs.keep_alive == 'true' && 'us-east-1' || 'eu-west-2' }}
+    CLUSTER_1_AWS_REGION: ${{ github.event.inputs.keep_alive == 'true' && 'us-east-2' || 'eu-west-3' }}
     TESTS_TF_BINARY_NAME: terraform
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
 
-    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
-
+    KEEP_ALIVE_STATE_SUFFIX: ${{ github.event.inputs.keep_alive == 'true' && '-keep-alive' || '' }}
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.keep_alive == 'true' && 'false' || github.event.inputs.delete_clusters || 'true' }}
     # TEST VARIABLES
 
     # Vars with "CI_" prefix are used in the CI workflow only.
@@ -171,7 +184,7 @@ jobs:
               id: s3_prefix
               run: |
                   set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}${KEEP_ALIVE_STATE_SUFFIX}/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Create K8S dual-region clusters and login
               uses: ./.github/actions/aws-kubernetes-eks-dual-region-create
@@ -523,7 +536,7 @@ jobs:
               id: s3_prefix
               run: |
                   set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}${KEEP_ALIVE_STATE_SUFFIX}/" | tee -a "$GITHUB_OUTPUT"
             ########### KubeConfig Generation ############
             - name: Export Cluster Name
               run: |
