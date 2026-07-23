@@ -25,9 +25,6 @@ global:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-admin-client-token
 
-            identity:
-                redirectUrl: https://camunda.example.com/managementidentity
-
             optimize:
                 redirectUrl: https://camunda.example.com/optimize
                 secret:
@@ -47,8 +44,6 @@ global:
 
 connectors:
     enabled: true
-    inbound:
-        mode: disabled
     resources:
         requests:
             cpu: 100m

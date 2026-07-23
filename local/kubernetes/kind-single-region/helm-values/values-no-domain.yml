@@ -23,9 +23,6 @@ global:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-admin-client-token
 
-            identity:
-                redirectUrl: http://localhost:8085
-
             optimize:
                 redirectUrl: http://localhost:8083
                 secret:
@@ -37,8 +34,6 @@ global:
 
 connectors:
     enabled: true
-    inbound:
-        mode: disabled
     resources:
         requests:
             cpu: 100m
