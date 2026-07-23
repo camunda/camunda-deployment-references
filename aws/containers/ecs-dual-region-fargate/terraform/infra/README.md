@@ -86,8 +86,9 @@
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_aws_profile"></a> [aws\_profile](#input\_aws\_profile) | AWS Profile to use (null = use default credential chain) | `string` | `null` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the cluster to prefix resources | `string` | n/a | yes |
-| <a name="input_db_admin_password"></a> [db\_admin\_password](#input\_db\_admin\_password) | Optional override for the Aurora PostgreSQL admin password. If empty, a random password is generated. | `string` | `""` | no |
-| <a name="input_db_admin_username"></a> [db\_admin\_username](#input\_db\_admin\_username) | Admin username for the Aurora PostgreSQL cluster | `string` | `"camunda_admin"` | no |
+| <a name="input_db_admin_password"></a> [db\_admin\_password](#input\_db\_admin\_password) | Optional override for the Aurora admin password. If empty, a random password is generated. | `string` | `""` | no |
+| <a name="input_db_admin_username"></a> [db\_admin\_username](#input\_db\_admin\_username) | Admin username for the Aurora cluster | `string` | `"camunda_admin"` | no |
+| <a name="input_db_engine"></a> [db\_engine](#input\_db\_engine) | Aurora RDBMS engine for secondary storage: 'postgresql' or 'mysql'. NOTE: MySQL requires a Camunda image that bundles the MySQL JDBC driver; the default image does not include it. | `string` | `"postgresql"` | no |
 | <a name="input_db_iam_auth_enabled"></a> [db\_iam\_auth\_enabled](#input\_db\_iam\_auth\_enabled) | Enable IAM database authentication on the Aurora cluster | `bool` | `true` | no |
 | <a name="input_db_name"></a> [db\_name](#input\_db\_name) | Database name used by Camunda components | `string` | `"camunda"` | no |
 | <a name="input_db_seed_enabled"></a> [db\_seed\_enabled](#input\_db\_seed\_enabled) | Run a one-time ECS task to create/grant IAM DB users | `bool` | `true` | no |
@@ -95,7 +96,7 @@
 | <a name="input_db_seed_run_id"></a> [db\_seed\_run\_id](#input\_db\_seed\_run\_id) | Increment this value to force the DB seed task to re-run on the next apply (e.g. '1' → '2'). All SQL is idempotent so re-running is safe. | `string` | `"1"` | no |
 | <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_limit_access_to_cidrs"></a> [limit\_access\_to\_cidrs](#input\_limit\_access\_to\_cidrs) | List of CIDR blocks to allow access to LoadBalancers | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
-| <a name="input_ports"></a> [ports](#input\_ports) | The ports to open for the security groups within the VPC | `map(number)` | <pre>{<br/>  "camunda_metrics_endpoint": 9600,<br/>  "camunda_web_ui": 8080,<br/>  "postgresql": 5432,<br/>  "zeebe_broker_network_command_api_port": 26501,<br/>  "zeebe_gateway_cluster_port": 26502,<br/>  "zeebe_gateway_network_port": 26500<br/>}</pre> | no |
+| <a name="input_ports"></a> [ports](#input\_ports) | The ports to open for the security groups within the VPC | `map(number)` | <pre>{<br/>  "camunda_metrics_endpoint": 9600,<br/>  "camunda_web_ui": 8080,<br/>  "zeebe_broker_network_command_api_port": 26501,<br/>  "zeebe_gateway_cluster_port": 26502,<br/>  "zeebe_gateway_network_port": 26500<br/>}</pre> | no |
 | <a name="input_region_0"></a> [region\_0](#input\_region\_0) | AWS region for the primary (owner) cluster | `string` | `"eu-west-2"` | no |
 | <a name="input_region_1"></a> [region\_1](#input\_region\_1) | AWS region for the secondary (accepter) cluster | `string` | `"eu-west-3"` | no |
 | <a name="input_registry_password"></a> [registry\_password](#input\_registry\_password) | (Optional) The password for the container registry | `string` | `""` | no |
@@ -118,8 +119,11 @@
 | <a name="output_alb_listener_http_management_region_1_arn"></a> [alb\_listener\_http\_management\_region\_1\_arn](#output\_alb\_listener\_http\_management\_region\_1\_arn) | n/a |
 | <a name="output_alb_listener_http_webapp_region_0_arn"></a> [alb\_listener\_http\_webapp\_region\_0\_arn](#output\_alb\_listener\_http\_webapp\_region\_0\_arn) | n/a |
 | <a name="output_alb_listener_http_webapp_region_1_arn"></a> [alb\_listener\_http\_webapp\_region\_1\_arn](#output\_alb\_listener\_http\_webapp\_region\_1\_arn) | n/a |
+| <a name="output_aurora_db_port"></a> [aurora\_db\_port](#output\_aurora\_db\_port) | The Aurora database port for the selected engine (5432 PostgreSQL, 3306 MySQL). Informational. |
 | <a name="output_aurora_global_cluster_id"></a> [aurora\_global\_cluster\_id](#output\_aurora\_global\_cluster\_id) | The ID of the Aurora Global Database cluster |
 | <a name="output_aurora_global_writer_endpoint"></a> [aurora\_global\_writer\_endpoint](#output\_aurora\_global\_writer\_endpoint) | The global writer endpoint of the Aurora Global DB. Always routes to the current writer across regions after failover. |
+| <a name="output_aurora_jdbc_instance_host_patterns"></a> [aurora\_jdbc\_instance\_host\_patterns](#output\_aurora\_jdbc\_instance\_host\_patterns) | globalClusterInstanceHostPatterns for the AWS JDBC Wrapper failover plugin (primary,secondary). Informational — already embedded in aurora\_jdbc\_url. |
+| <a name="output_aurora_jdbc_url"></a> [aurora\_jdbc\_url](#output\_aurora\_jdbc\_url) | Ready-to-use AWS Advanced JDBC Wrapper URL for the Aurora Global writer (engine-aware, iam+failover plugins, globalClusterInstanceHostPatterns embedded). Consumed by the app layer. |
 | <a name="output_aurora_primary_cluster_endpoint"></a> [aurora\_primary\_cluster\_endpoint](#output\_aurora\_primary\_cluster\_endpoint) | The regional writer endpoint of the primary Aurora cluster (region 0). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper. |
 | <a name="output_aurora_primary_cluster_identifier"></a> [aurora\_primary\_cluster\_identifier](#output\_aurora\_primary\_cluster\_identifier) | n/a |
 | <a name="output_aurora_secondary_cluster_endpoint"></a> [aurora\_secondary\_cluster\_endpoint](#output\_aurora\_secondary\_cluster\_endpoint) | The regional endpoint of the secondary Aurora cluster (region 1). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper. |

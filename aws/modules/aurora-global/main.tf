@@ -2,6 +2,33 @@
 # Primary cluster (writer) in region 0, secondary cluster (read replicas) in region 1.
 # On failover, the secondary cluster is promoted to writer.
 
+locals {
+  # Protocol port is fixed per engine (derived, not a variable, to prevent a
+  # port/engine mismatch). Consumed by the security groups (Task 2) and the
+  # jdbc_url output (Task 3).
+  engine_ports = {
+    "aurora-postgresql" = 5432
+    "aurora-mysql"      = 3306
+  }
+  db_port = local.engine_ports[var.engine]
+
+  # Per-engine default version comes from the Renovate-tracked variables.
+  default_engine_versions = {
+    "aurora-postgresql" = var.postgresql_engine_version
+    "aurora-mysql"      = var.mysql_engine_version
+  }
+  engine_version = coalesce(var.engine_version, local.default_engine_versions[var.engine])
+
+  # Human-readable label for security-group rule descriptions (Task 2).
+  # A map (not a ternary) so an unhandled engine fails fast, matching the
+  # engine_ports / default_engine_versions / jdbc_subprotocols lookups.
+  family_labels = {
+    "aurora-postgresql" = "PostgreSQL"
+    "aurora-mysql"      = "MySQL"
+  }
+  family_label = local.family_labels[var.engine]
+}
+
 ################################
 # Global Cluster              #
 ################################
@@ -9,7 +36,7 @@
 resource "aws_rds_global_cluster" "this" {
   global_cluster_identifier = var.global_cluster_identifier
   engine                    = var.engine
-  engine_version            = var.engine_version
+  engine_version            = local.engine_version
   database_name             = var.database_name
   storage_encrypted         = true
 }
@@ -46,19 +73,19 @@ resource "aws_security_group" "primary" {
   vpc_id      = var.primary_vpc_id
 
   ingress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
     cidr_blocks = var.primary_cidr_blocks
-    description = "Allow PostgreSQL from allowed CIDRs"
+    description = "Allow ${local.family_label} from allowed CIDRs"
   }
 
   egress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
     cidr_blocks = var.primary_cidr_blocks
-    description = "Allow PostgreSQL to allowed CIDRs"
+    description = "Allow ${local.family_label} to allowed CIDRs"
   }
 
   tags = merge(var.tags, {
@@ -72,7 +99,7 @@ resource "aws_rds_cluster" "primary" {
   cluster_identifier        = var.primary_cluster_name
   global_cluster_identifier = aws_rds_global_cluster.this.id
   engine                    = var.engine
-  engine_version            = var.engine_version
+  engine_version            = local.engine_version
   availability_zones        = var.primary_availability_zones
   master_username           = var.master_username
   master_password           = var.master_password
@@ -103,7 +130,7 @@ resource "aws_rds_cluster_instance" "primary" {
   cluster_identifier         = aws_rds_cluster.primary.id
   identifier                 = "${var.primary_cluster_name}-${count.index}"
   engine                     = var.engine
-  engine_version             = var.engine_version
+  engine_version             = local.engine_version
   auto_minor_version_upgrade = var.auto_minor_version_upgrade
   instance_class             = var.instance_class
   ca_cert_identifier         = var.ca_cert_identifier
@@ -150,19 +177,19 @@ resource "aws_security_group" "secondary" {
   vpc_id      = var.secondary_vpc_id
 
   ingress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
     cidr_blocks = var.secondary_cidr_blocks
-    description = "Allow PostgreSQL from allowed CIDRs"
+    description = "Allow ${local.family_label} from allowed CIDRs"
   }
 
   egress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
     cidr_blocks = var.secondary_cidr_blocks
-    description = "Allow PostgreSQL to allowed CIDRs"
+    description = "Allow ${local.family_label} to allowed CIDRs"
   }
 
   tags = merge(var.tags, {
@@ -187,7 +214,7 @@ resource "aws_rds_cluster" "secondary" {
   cluster_identifier        = var.secondary_cluster_name
   global_cluster_identifier = aws_rds_global_cluster.this.id
   engine                    = var.engine
-  engine_version            = var.engine_version
+  engine_version            = local.engine_version
   storage_encrypted         = true
   kms_key_id                = aws_kms_key.secondary.arn
   vpc_security_group_ids    = [aws_security_group.secondary.id]
@@ -234,7 +261,7 @@ resource "aws_rds_cluster_instance" "secondary" {
   cluster_identifier         = aws_rds_cluster.secondary.id
   identifier                 = "${var.secondary_cluster_name}-${count.index}"
   engine                     = var.engine
-  engine_version             = var.engine_version
+  engine_version             = local.engine_version
   auto_minor_version_upgrade = var.auto_minor_version_upgrade
   instance_class             = var.instance_class
   ca_cert_identifier         = var.ca_cert_identifier
@@ -247,4 +274,24 @@ resource "aws_rds_cluster_instance" "secondary" {
   lifecycle {
     prevent_destroy = false
   }
+}
+
+locals {
+  jdbc_subprotocols = {
+    "aurora-postgresql" = "postgresql"
+    "aurora-mysql"      = "mysql"
+  }
+  jdbc_subprotocol = local.jdbc_subprotocols[var.engine]
+
+  # AWS Advanced JDBC Wrapper global-cluster instance host patterns (failover
+  # plugin). "?." matches any instance in a regional cluster; derived by
+  # stripping the cluster id + ".cluster-" from each regional endpoint.
+  jdbc_primary_host_pattern   = "?.${replace(aws_rds_cluster.primary.endpoint, "${aws_rds_cluster.primary.cluster_identifier}.cluster-", "")}"
+  jdbc_secondary_host_pattern = "?.${replace(aws_rds_cluster.secondary.endpoint, "${aws_rds_cluster.secondary.cluster_identifier}.cluster-", "")}"
+  jdbc_instance_host_patterns = "${local.jdbc_primary_host_pattern},${local.jdbc_secondary_host_pattern}"
+
+  # iam plugin only when IAM auth is enabled; failover always (global cluster).
+  jdbc_wrapper_plugins = var.iam_auth_enabled ? "iam,failover" : "failover"
+
+  jdbc_url = "jdbc:aws-wrapper:${local.jdbc_subprotocol}://${aws_rds_global_cluster.this.endpoint}:${local.db_port}/${var.database_name}?wrapperPlugins=${local.jdbc_wrapper_plugins}&globalClusterInstanceHostPatterns=${local.jdbc_instance_host_patterns}"
 }

@@ -29,13 +29,15 @@ No modules.
 | <a name="input_backup_retention_period"></a> [backup\_retention\_period](#input\_backup\_retention\_period) | Number of days to retain automated Aurora backups. Minimum 1; set higher for production. Defaults to 7 to give a reasonable recovery window for dual-region failover scenarios. | `number` | `7` | no |
 | <a name="input_ca_cert_identifier"></a> [ca\_cert\_identifier](#input\_ca\_cert\_identifier) | CA certificate identifier for DB instances | `string` | `"rds-ca-rsa2048-g1"` | no |
 | <a name="input_database_name"></a> [database\_name](#input\_database\_name) | The name for the automatically created database | `string` | `"camunda"` | no |
-| <a name="input_engine"></a> [engine](#input\_engine) | The engine type e.g. aurora-postgresql | `string` | `"aurora-postgresql"` | no |
-| <a name="input_engine_version"></a> [engine\_version](#input\_engine\_version) | The DB engine version for Postgres to use | `string` | `"18.3"` | no |
+| <a name="input_engine"></a> [engine](#input\_engine) | The Aurora engine type: 'aurora-postgresql' or 'aurora-mysql' | `string` | `"aurora-postgresql"` | no |
+| <a name="input_engine_version"></a> [engine\_version](#input\_engine\_version) | Exact engine version override. When null, the module selects the per-engine default (postgresql\_engine\_version or mysql\_engine\_version) based on var.engine. | `string` | `null` | no |
 | <a name="input_global_cluster_identifier"></a> [global\_cluster\_identifier](#input\_global\_cluster\_identifier) | Identifier for the Aurora Global Database cluster | `string` | n/a | yes |
 | <a name="input_iam_auth_enabled"></a> [iam\_auth\_enabled](#input\_iam\_auth\_enabled) | Enable IAM database authentication | `bool` | `true` | no |
 | <a name="input_instance_class"></a> [instance\_class](#input\_instance\_class) | The instance type of the Aurora instances | `string` | `"db.r6g.large"` | no |
-| <a name="input_master_password"></a> [master\_password](#input\_master\_password) | The password for the postgres admin user | `string` | n/a | yes |
-| <a name="input_master_username"></a> [master\_username](#input\_master\_username) | The username for the postgres admin user | `string` | n/a | yes |
+| <a name="input_master_password"></a> [master\_password](#input\_master\_password) | The password for the database admin user | `string` | n/a | yes |
+| <a name="input_master_username"></a> [master\_username](#input\_master\_username) | The username for the database admin user | `string` | n/a | yes |
+| <a name="input_mysql_engine_version"></a> [mysql\_engine\_version](#input\_mysql\_engine\_version) | Default Aurora MySQL engine version, used when engine = aurora-mysql and engine\_version is not set. | `string` | `"8.4.mysql_aurora.8.4.7"` | no |
+| <a name="input_postgresql_engine_version"></a> [postgresql\_engine\_version](#input\_postgresql\_engine\_version) | Default Aurora PostgreSQL engine version, used when engine = aurora-postgresql and engine\_version is not set. | `string` | `"18.3"` | no |
 | <a name="input_primary_availability_zones"></a> [primary\_availability\_zones](#input\_primary\_availability\_zones) | Availability zones for the primary cluster | `list(string)` | n/a | yes |
 | <a name="input_primary_cidr_blocks"></a> [primary\_cidr\_blocks](#input\_primary\_cidr\_blocks) | CIDR blocks to allow access from/to the primary cluster | `list(string)` | n/a | yes |
 | <a name="input_primary_cluster_name"></a> [primary\_cluster\_name](#input\_primary\_cluster\_name) | Identifier for the primary Aurora cluster | `string` | n/a | yes |
@@ -53,10 +55,13 @@ No modules.
 
 | Name | Description |
 | ---- | ----------- |
+| <a name="output_db_port"></a> [db\_port](#output\_db\_port) | The database port for the selected engine (5432 for PostgreSQL, 3306 for MySQL). |
 | <a name="output_global_cluster_arn"></a> [global\_cluster\_arn](#output\_global\_cluster\_arn) | The ARN of the Aurora Global Database cluster |
 | <a name="output_global_cluster_endpoint"></a> [global\_cluster\_endpoint](#output\_global\_cluster\_endpoint) | The writer endpoint for the Aurora Global Database cluster. This endpoint always points to the writer DB instance in the current primary cluster. |
 | <a name="output_global_cluster_id"></a> [global\_cluster\_id](#output\_global\_cluster\_id) | The ID of the Aurora Global Database cluster |
 | <a name="output_global_cluster_resource_id"></a> [global\_cluster\_resource\_id](#output\_global\_cluster\_resource\_id) | The resource ID of the Aurora Global Database cluster (used for IAM auth) |
+| <a name="output_jdbc_instance_host_patterns"></a> [jdbc\_instance\_host\_patterns](#output\_jdbc\_instance\_host\_patterns) | Comma-separated globalClusterInstanceHostPatterns for the AWS JDBC Wrapper failover plugin (primary,secondary). |
+| <a name="output_jdbc_url"></a> [jdbc\_url](#output\_jdbc\_url) | Ready-to-use AWS Advanced JDBC Wrapper URL for the Aurora Global writer, engine-aware, with iam (when enabled) + failover plugins and globalClusterInstanceHostPatterns. |
 | <a name="output_primary_cluster_endpoint"></a> [primary\_cluster\_endpoint](#output\_primary\_cluster\_endpoint) | The writer endpoint of the primary Aurora cluster |
 | <a name="output_primary_cluster_identifier"></a> [primary\_cluster\_identifier](#output\_primary\_cluster\_identifier) | The identifier of the primary Aurora cluster |
 | <a name="output_primary_cluster_reader_endpoint"></a> [primary\_cluster\_reader\_endpoint](#output\_primary\_cluster\_reader\_endpoint) | The reader endpoint of the primary Aurora cluster |

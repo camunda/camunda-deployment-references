@@ -13,8 +13,13 @@ module "aurora_global" {
 
   global_cluster_identifier = "${local.prefix}-global-db"
 
+  engine = local.aurora_engine
+
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
-  engine_version             = "18.3"
+  postgresql_engine_version = "18.3"
+  # renovate: datasource=custom.aurora-mysql-camunda depName=aurora-mysql versioning=loose
+  mysql_engine_version = "8.4.mysql_aurora.8.4.7"
+
   auto_minor_version_upgrade = false
   database_name              = var.db_name
 
