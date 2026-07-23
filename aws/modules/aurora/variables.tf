@@ -11,7 +11,7 @@ variable "engine" {
 variable "engine_version" {
   type = string
   # renovate: datasource=endoflife-date depName=amazon-rds-postgresql versioning=loose
-  default     = "15.13"
+  default     = "15.17"
   description = "The DB engine version for Postgres to use."
 }
 

@@ -22,7 +22,7 @@ locals {
 
 module "postgresql" {
   source                     = "../../modules/aurora"
-  engine_version             = "15.8"
+  engine_version             = "15.17"
   auto_minor_version_upgrade = false
   cluster_name               = local.aurora_cluster_name
   default_database_name      = local.camunda_database_keycloak
