@@ -19,6 +19,13 @@ matrix:
           private_vpc: true
           auth_provider: keycloak-operator
 
+        - name: eks-single-region-rdbms
+          private_vpc: false
+          # RDBMS secondary storage variant: uses Aurora PostgreSQL instead of OpenSearch/Elasticsearch
+          # Optimize is disabled as it does not support RDBMS secondary storage
+          auth_provider: keycloak-operator
+          schedule_only: true
+
     declination:
         - name: no-domain
           desc: Setup chart without Ingress and TLS (access via port-forward).

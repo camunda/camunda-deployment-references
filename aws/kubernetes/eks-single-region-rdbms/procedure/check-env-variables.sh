@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# This script is compatible with bash only
+
+# List of required environment variables (OIDC mode - no Keycloak)
+# For Keycloak mode, also check: DB_KEYCLOAK_NAME, DB_KEYCLOAK_USERNAME, DB_KEYCLOAK_PASSWORD
+required_vars=("DB_HOST" "DB_IDENTITY_NAME" "DB_IDENTITY_USERNAME" "DB_IDENTITY_PASSWORD" "DB_WEBMODELER_NAME" "DB_WEBMODELER_USERNAME" "DB_WEBMODELER_PASSWORD" "DB_OPERATE_NAME" "DB_OPERATE_USERNAME" "DB_OPERATE_PASSWORD")
+
+# Loop through each variable and check if it is set and not empty
+for var in "${required_vars[@]}"; do
+  if [[ -z "${!var}" ]]; then
+    echo "Error: $var is not set or is empty"
+  else
+    echo "$var is set to '${!var}'"
+  fi
+done
