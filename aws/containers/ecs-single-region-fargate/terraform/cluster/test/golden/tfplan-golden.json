@@ -736,6 +736,30 @@
         "tags": null
       }
     },
+    "aws_secretsmanager_secret.connectors_oidc_client_secret[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "connectors_oidc_client_secret",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Keycloak OIDC client secret for the connectors client",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-oc1-connectors-oidc-client-secret",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-2",
+        "tags": null
+      }
+    },
     "aws_secretsmanager_secret.db_admin_password": {
       "identity": {
         "arn": null
@@ -754,6 +778,101 @@
         "description": "Admin password for the Aurora PostgreSQL cluster (camunda)",
         "force_overwrite_replica_secret": false,
         "name": "camunda-db-admin-password",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-2",
+        "tags": null
+      }
+    },
+    "aws_secretsmanager_secret.identity_client_secret[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "identity_client_secret",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Keycloak OIDC client secret for the camunda-identity client (CAMUNDA_IDENTITY_CLIENT_SECRET)",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-oc1-identity-oidc-client-secret",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-2",
+        "tags": null
+      }
+    },
+    "aws_secretsmanager_secret.identity_db_password": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "identity_db_password",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Password for the Management Identity Aurora PostgreSQL role (IDENTITY_DATABASE_PASSWORD)",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-oc1-identity-db-password",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-2",
+        "tags": null
+      }
+    },
+    "aws_secretsmanager_secret.keycloak_admin_password[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "keycloak_admin_password",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Keycloak bootstrap admin password (KC_BOOTSTRAP_ADMIN_PASSWORD / Identity KEYCLOAK_SETUP_PASSWORD)",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-oc1-keycloak-admin-password",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-2",
+        "tags": null
+      }
+    },
+    "aws_secretsmanager_secret.keycloak_db_password[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "keycloak_db_password",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Password for the Keycloak Aurora PostgreSQL role (KC_DB_PASSWORD)",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-oc1-keycloak-db-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
         "tags": null
@@ -782,6 +901,54 @@
         "tags": null
       }
     },
+    "aws_secretsmanager_secret.orchestration_oidc_client_secret[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "orchestration_oidc_client_secret",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Keycloak OIDC client secret for the orchestration client",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-oc1-orchestration-oidc-client-secret",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-2",
+        "tags": null
+      }
+    },
+    "aws_secretsmanager_secret.realm_admin_user_password[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "realm_admin_user_password",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "replica": [],
+        "tags_all": {}
+      },
+      "type": "aws_secretsmanager_secret",
+      "values": {
+        "description": "Password for the Keycloak camunda-platform realm 'admin' login user (Identity KEYCLOAK_REALM_ADMIN_PASSWORD)",
+        "force_overwrite_replica_secret": false,
+        "name": "camunda-oc1-realm-admin-user-password",
+        "recovery_window_in_days": 0,
+        "region": "eu-west-2",
+        "tags": null
+      }
+    },
     "aws_secretsmanager_secret_version.connectors_client_auth_password": {
       "identity": {
         "account_id": null,
@@ -792,6 +959,33 @@
       "identity_schema_version": 0,
       "mode": "managed",
       "name": "connectors_client_auth_password",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-2",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_secretsmanager_secret_version.connectors_oidc_client_secret[0]": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "connectors_oidc_client_secret",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -834,6 +1028,113 @@
         "secret_string_wo_version": null
       }
     },
+    "aws_secretsmanager_secret_version.identity_client_secret[0]": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "identity_client_secret",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-2",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_secretsmanager_secret_version.identity_db_password": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "mode": "managed",
+      "name": "identity_db_password",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-2",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_secretsmanager_secret_version.keycloak_admin_password[0]": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "keycloak_admin_password",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-2",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_secretsmanager_secret_version.keycloak_db_password[0]": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "keycloak_db_password",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-2",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
     "aws_secretsmanager_secret_version.orchestration_admin_user_password": {
       "identity": {
         "account_id": null,
@@ -844,6 +1145,60 @@
       "identity_schema_version": 0,
       "mode": "managed",
       "name": "orchestration_admin_user_password",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-2",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_secretsmanager_secret_version.orchestration_oidc_client_secret[0]": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "orchestration_oidc_client_secret",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "secret_binary": true,
+        "secret_string": true,
+        "secret_string_wo": true,
+        "version_stages": []
+      },
+      "type": "aws_secretsmanager_secret_version",
+      "values": {
+        "region": "eu-west-2",
+        "secret_binary": null,
+        "secret_string_wo": null,
+        "secret_string_wo_version": null
+      }
+    },
+    "aws_secretsmanager_secret_version.realm_admin_user_password[0]": {
+      "identity": {
+        "account_id": null,
+        "region": null,
+        "secret_id": null,
+        "version_id": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "realm_admin_user_password",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -922,6 +1277,38 @@
             "security_groups": []
           },
           {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
             "cidr_blocks": [],
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -929,6 +1316,38 @@
           }
         ],
         "ingress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
           {
             "cidr_blocks": [
               false
@@ -985,6 +1404,19 @@
       "values": {
         "description": "Allow necessary Camunda ports within the VPC",
         "egress": [
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow outbound traffic on port 18080",
+            "from_port": 18080,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 18080
+          },
           {
             "cidr_blocks": [
               "10.190.0.0/16"
@@ -1054,6 +1486,45 @@
             "cidr_blocks": [
               "10.190.0.0/16"
             ],
+            "description": "Allow outbound traffic on port 8082",
+            "from_port": 8082,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8082
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow outbound traffic on port 8084",
+            "from_port": 8084,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8084
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow outbound traffic on port 9000",
+            "from_port": 9000,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 9000
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
             "description": "Allow outbound traffic on port 9600",
             "from_port": 9600,
             "ipv6_cidr_blocks": [],
@@ -1075,6 +1546,19 @@
           }
         ],
         "ingress": [
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow inbound traffic on port 18080",
+            "from_port": 18080,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 18080
+          },
           {
             "cidr_blocks": [
               "10.190.0.0/16"
@@ -1139,6 +1623,45 @@
             "security_groups": [],
             "self": false,
             "to_port": 8080
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow inbound traffic on port 8082",
+            "from_port": 8082,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8082
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow inbound traffic on port 8084",
+            "from_port": 8084,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8084
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow inbound traffic on port 9000",
+            "from_port": 9000,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 9000
           },
           {
             "cidr_blocks": [
@@ -1997,6 +2520,606 @@
             "tags": null,
             "target_control_port": null,
             "target_type": "ip"
+          }
+        }
+      }
+    },
+    "module.keycloak[0]": {
+      "resources": {
+        "module.keycloak[0].aws_ecs_service.keycloak": {
+          "identity": {
+            "account_id": null,
+            "cluster": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "keycloak",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "alarms": [],
+            "capacity_provider_strategy": [],
+            "deployment_circuit_breaker": [
+              {}
+            ],
+            "deployment_configuration": [],
+            "deployment_controller": [],
+            "load_balancer": [],
+            "network_configuration": [
+              {
+                "security_groups": [],
+                "subnets": []
+              }
+            ],
+            "ordered_placement_strategy": [],
+            "placement_constraints": [],
+            "service_connect_configuration": [
+              {
+                "access_log_configuration": [],
+                "log_configuration": [],
+                "service": [
+                  {
+                    "client_alias": [
+                      {
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "timeout": [],
+                    "tls": []
+                  }
+                ]
+              }
+            ],
+            "service_registries": [],
+            "tags_all": {},
+            "timeouts": {},
+            "triggers": {},
+            "volume_configuration": [],
+            "vpc_lattice_configurations": []
+          },
+          "type": "aws_ecs_service",
+          "values": {
+            "alarms": [],
+            "capacity_provider_strategy": [],
+            "deployment_circuit_breaker": [
+              {
+                "enable": true,
+                "rollback": false
+              }
+            ],
+            "deployment_controller": [],
+            "deployment_maximum_percent": 200,
+            "deployment_minimum_healthy_percent": 50,
+            "desired_count": 1,
+            "enable_ecs_managed_tags": false,
+            "enable_execute_command": false,
+            "force_delete": null,
+            "force_new_deployment": false,
+            "health_check_grace_period_seconds": null,
+            "launch_type": "FARGATE",
+            "load_balancer": [],
+            "name": "camunda-oc1-keycloak",
+            "network_configuration": [
+              {
+                "assign_public_ip": false
+              }
+            ],
+            "ordered_placement_strategy": [],
+            "placement_constraints": [],
+            "propagate_tags": null,
+            "region": "eu-west-2",
+            "scheduling_strategy": "REPLICA",
+            "service_connect_configuration": [
+              {
+                "access_log_configuration": [],
+                "enabled": true,
+                "log_configuration": [],
+                "service": [
+                  {
+                    "client_alias": [
+                      {
+                        "dns_name": "keycloak",
+                        "port": 18080,
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "discovery_name": "keycloak",
+                    "ingress_port_override": null,
+                    "port_name": "http",
+                    "timeout": [],
+                    "tls": []
+                  }
+                ]
+              }
+            ],
+            "service_registries": [],
+            "sigint_rollback": null,
+            "tags": null,
+            "timeouts": {
+              "create": "15m",
+              "delete": "20m",
+              "update": "30m"
+            },
+            "volume_configuration": [],
+            "vpc_lattice_configurations": [],
+            "wait_for_steady_state": true
+          }
+        },
+        "module.keycloak[0].aws_ecs_task_definition.keycloak": {
+          "identity": {
+            "account_id": null,
+            "family": null,
+            "region": null,
+            "revision": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "keycloak",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "ephemeral_storage": [],
+            "placement_constraints": [],
+            "proxy_configuration": [],
+            "requires_compatibilities": [
+              false
+            ],
+            "runtime_platform": [
+              {}
+            ],
+            "tags_all": {},
+            "volume": []
+          },
+          "type": "aws_ecs_task_definition",
+          "values": {
+            "cpu": "1024",
+            "ephemeral_storage": [],
+            "family": "camunda-oc1-keycloak",
+            "ipc_mode": null,
+            "memory": "2048",
+            "network_mode": "awsvpc",
+            "pid_mode": null,
+            "placement_constraints": [],
+            "proxy_configuration": [],
+            "region": "eu-west-2",
+            "requires_compatibilities": [
+              "FARGATE"
+            ],
+            "runtime_platform": [
+              {
+                "cpu_architecture": "X86_64",
+                "operating_system_family": "LINUX"
+              }
+            ],
+            "skip_destroy": false,
+            "tags": null,
+            "track_latest": false,
+            "volume": []
+          }
+        },
+        "module.keycloak[0].aws_iam_policy.ecs_exec_policy": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "ecs_exec_policy",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_iam_policy",
+          "values": {
+            "delay_after_policy_creation_in_ms": null,
+            "description": null,
+            "name": "camunda-oc1-keycloak-exec-policy",
+            "path": "/",
+            "policy": "{\"Statement\":[{\"Action\":[\"ssmmessages:CreateControlChannel\",\"ssmmessages:CreateDataChannel\",\"ssmmessages:OpenControlChannel\",\"ssmmessages:OpenDataChannel\"],\"Condition\":{\"StringEquals\":{\"aws:RequestedRegion\":\"eu-west-2\"}},\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"AllowSSMMessaging\"}],\"Version\":\"2012-10-17\"}",
+            "tags": {
+              "Name": "camunda-oc1-keycloak-exec-policy"
+            },
+            "tags_all": {
+              "Name": "camunda-oc1-keycloak-exec-policy"
+            }
+          }
+        },
+        "module.keycloak[0].aws_iam_policy.keycloak_logs_policy": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "keycloak_logs_policy",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_iam_policy",
+          "values": {
+            "delay_after_policy_creation_in_ms": null,
+            "description": null,
+            "name": "camunda-oc1-keycloak-logs-policy",
+            "path": "/",
+            "policy": "{\"Statement\":[{\"Action\":[\"logs:CreateLogStream\",\"logs:DescribeLogGroups\",\"logs:DescribeLogStreams\",\"logs:PutLogEvents\"],\"Effect\":\"Allow\",\"Resource\":[\"ARN_REDACTED",
+            "tags": {
+              "Name": "camunda-oc1-keycloak-logs-policy"
+            },
+            "tags_all": {
+              "Name": "camunda-oc1-keycloak-logs-policy"
+            }
+          }
+        },
+        "module.keycloak[0].aws_iam_role.ecs_task_role": {
+          "identity": {
+            "account_id": null,
+            "name": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "ecs_task_role",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "inline_policy": [],
+            "managed_policy_arns": [],
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_iam_role",
+          "values": {
+            "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+            "description": null,
+            "force_detach_policies": false,
+            "max_session_duration": 3600,
+            "name": "camunda-oc1-keycloak-task-role",
+            "path": "/",
+            "permissions_boundary": null,
+            "tags": {
+              "Name": "camunda-oc1-keycloak-task-role"
+            },
+            "tags_all": {
+              "Name": "camunda-oc1-keycloak-task-role"
+            }
+          }
+        },
+        "module.keycloak[0].aws_iam_role_policy_attachment.ecs_exec_policy_attachment": {
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "ecs_exec_policy_attachment",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_iam_role_policy_attachment",
+          "values": {
+            "role": "camunda-oc1-keycloak-task-role"
+          }
+        },
+        "module.keycloak[0].aws_iam_role_policy_attachment.keycloak_logs_policy_attachment": {
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "keycloak_logs_policy_attachment",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_iam_role_policy_attachment",
+          "values": {
+            "role": "camunda-oc1-keycloak-task-role"
+          }
+        }
+      }
+    },
+    "module.management_identity": {
+      "resources": {
+        "module.management_identity.aws_ecs_service.management_identity": {
+          "identity": {
+            "account_id": null,
+            "cluster": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "management_identity",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "alarms": [],
+            "capacity_provider_strategy": [],
+            "deployment_circuit_breaker": [
+              {}
+            ],
+            "deployment_configuration": [],
+            "deployment_controller": [],
+            "load_balancer": [],
+            "network_configuration": [
+              {
+                "security_groups": [],
+                "subnets": []
+              }
+            ],
+            "ordered_placement_strategy": [],
+            "placement_constraints": [],
+            "service_connect_configuration": [
+              {
+                "access_log_configuration": [],
+                "log_configuration": [],
+                "service": [
+                  {
+                    "client_alias": [
+                      {
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "timeout": [],
+                    "tls": []
+                  }
+                ]
+              }
+            ],
+            "service_registries": [],
+            "tags_all": {},
+            "timeouts": {},
+            "triggers": {},
+            "volume_configuration": [],
+            "vpc_lattice_configurations": []
+          },
+          "type": "aws_ecs_service",
+          "values": {
+            "alarms": [],
+            "capacity_provider_strategy": [],
+            "deployment_circuit_breaker": [
+              {
+                "enable": true,
+                "rollback": false
+              }
+            ],
+            "deployment_controller": [],
+            "deployment_maximum_percent": 200,
+            "deployment_minimum_healthy_percent": 50,
+            "desired_count": 1,
+            "enable_ecs_managed_tags": false,
+            "enable_execute_command": false,
+            "force_delete": null,
+            "force_new_deployment": false,
+            "health_check_grace_period_seconds": null,
+            "launch_type": "FARGATE",
+            "load_balancer": [],
+            "name": "camunda-oc1-management-identity",
+            "network_configuration": [
+              {
+                "assign_public_ip": false
+              }
+            ],
+            "ordered_placement_strategy": [],
+            "placement_constraints": [],
+            "propagate_tags": null,
+            "region": "eu-west-2",
+            "scheduling_strategy": "REPLICA",
+            "service_connect_configuration": [
+              {
+                "access_log_configuration": [],
+                "enabled": true,
+                "log_configuration": [],
+                "service": [
+                  {
+                    "client_alias": [
+                      {
+                        "dns_name": "identity",
+                        "port": 8084,
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "discovery_name": "identity",
+                    "ingress_port_override": null,
+                    "port_name": "http",
+                    "timeout": [],
+                    "tls": []
+                  }
+                ]
+              }
+            ],
+            "service_registries": [],
+            "sigint_rollback": null,
+            "tags": null,
+            "timeouts": {
+              "create": "15m",
+              "delete": "20m",
+              "update": "30m"
+            },
+            "volume_configuration": [],
+            "vpc_lattice_configurations": [],
+            "wait_for_steady_state": true
+          }
+        },
+        "module.management_identity.aws_ecs_task_definition.management_identity": {
+          "identity": {
+            "account_id": null,
+            "family": null,
+            "region": null,
+            "revision": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "management_identity",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "sensitive_values": {
+            "ephemeral_storage": [],
+            "placement_constraints": [],
+            "proxy_configuration": [],
+            "requires_compatibilities": [
+              false
+            ],
+            "runtime_platform": [
+              {}
+            ],
+            "tags_all": {},
+            "volume": []
+          },
+          "type": "aws_ecs_task_definition",
+          "values": {
+            "cpu": "1024",
+            "ephemeral_storage": [],
+            "family": "camunda-oc1-management-identity",
+            "ipc_mode": null,
+            "memory": "2048",
+            "network_mode": "awsvpc",
+            "pid_mode": null,
+            "placement_constraints": [],
+            "proxy_configuration": [],
+            "region": "eu-west-2",
+            "requires_compatibilities": [
+              "FARGATE"
+            ],
+            "runtime_platform": [
+              {
+                "cpu_architecture": "X86_64",
+                "operating_system_family": "LINUX"
+              }
+            ],
+            "skip_destroy": false,
+            "tags": null,
+            "track_latest": false,
+            "volume": []
+          }
+        },
+        "module.management_identity.aws_iam_policy.ecs_exec_policy": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "ecs_exec_policy",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_iam_policy",
+          "values": {
+            "delay_after_policy_creation_in_ms": null,
+            "description": null,
+            "name": "camunda-oc1-management-identity-exec-policy",
+            "path": "/",
+            "policy": "{\"Statement\":[{\"Action\":[\"ssmmessages:CreateControlChannel\",\"ssmmessages:CreateDataChannel\",\"ssmmessages:OpenControlChannel\",\"ssmmessages:OpenDataChannel\"],\"Condition\":{\"StringEquals\":{\"aws:RequestedRegion\":\"eu-west-2\"}},\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"AllowSSMMessaging\"}],\"Version\":\"2012-10-17\"}",
+            "tags": {
+              "Name": "camunda-oc1-management-identity-exec-policy"
+            },
+            "tags_all": {
+              "Name": "camunda-oc1-management-identity-exec-policy"
+            }
+          }
+        },
+        "module.management_identity.aws_iam_policy.management_identity_logs_policy": {
+          "identity": {
+            "arn": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "management_identity_logs_policy",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_iam_policy",
+          "values": {
+            "delay_after_policy_creation_in_ms": null,
+            "description": null,
+            "name": "camunda-oc1-management-identity-logs-policy",
+            "path": "/",
+            "policy": "{\"Statement\":[{\"Action\":[\"logs:CreateLogStream\",\"logs:DescribeLogGroups\",\"logs:DescribeLogStreams\",\"logs:PutLogEvents\"],\"Effect\":\"Allow\",\"Resource\":[\"ARN_REDACTED",
+            "tags": {
+              "Name": "camunda-oc1-management-identity-logs-policy"
+            },
+            "tags_all": {
+              "Name": "camunda-oc1-management-identity-logs-policy"
+            }
+          }
+        },
+        "module.management_identity.aws_iam_role.ecs_task_role": {
+          "identity": {
+            "account_id": null,
+            "name": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "ecs_task_role",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {
+            "inline_policy": [],
+            "managed_policy_arns": [],
+            "tags": {},
+            "tags_all": {}
+          },
+          "type": "aws_iam_role",
+          "values": {
+            "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ecs-tasks.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+            "description": null,
+            "force_detach_policies": false,
+            "max_session_duration": 3600,
+            "name": "camunda-oc1-management-identity-task-role",
+            "path": "/",
+            "permissions_boundary": null,
+            "tags": {
+              "Name": "camunda-oc1-management-identity-task-role"
+            },
+            "tags_all": {
+              "Name": "camunda-oc1-management-identity-task-role"
+            }
+          }
+        },
+        "module.management_identity.aws_iam_role_policy_attachment.ecs_exec_policy_attachment": {
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "ecs_exec_policy_attachment",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_iam_role_policy_attachment",
+          "values": {
+            "role": "camunda-oc1-management-identity-task-role"
+          }
+        },
+        "module.management_identity.aws_iam_role_policy_attachment.management_identity_logs_policy_attachment": {
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
+          "mode": "managed",
+          "name": "management_identity_logs_policy_attachment",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_iam_role_policy_attachment",
+          "values": {
+            "role": "camunda-oc1-management-identity-task-role"
           }
         }
       }
@@ -4486,7 +5609,11 @@
         "triggers": {
           "db_name": "camunda",
           "iam_auth": "true",
-          "iam_users": "camunda"
+          "iam_users": "camunda",
+          "identity_db_name": "identity",
+          "identity_db_username": "identity",
+          "keycloak_db_name": "keycloak",
+          "keycloak_db_username": "keycloak"
         }
       }
     },
@@ -4512,6 +5639,32 @@
         "numeric": true,
         "override_special": "!#$%^()-_=+[]{}:?",
         "special": true,
+        "upper": true
+      }
+    },
+    "random_password.connectors_oidc_client_secret[0]": {
+      "index": 0,
+      "mode": "managed",
+      "name": "connectors_oidc_client_secret",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 32,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": null,
+        "special": false,
         "upper": true
       }
     },
@@ -4564,6 +5717,174 @@
         "override_special": "!#$%^()-_=+[]{}:?",
         "special": true,
         "upper": true
+      }
+    },
+    "random_password.identity_client_secret[0]": {
+      "index": 0,
+      "mode": "managed",
+      "name": "identity_client_secret",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 32,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": null,
+        "special": false,
+        "upper": true
+      }
+    },
+    "random_password.identity_db_password": {
+      "mode": "managed",
+      "name": "identity_db_password",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 32,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#$%^()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.keycloak_admin_password[0]": {
+      "index": 0,
+      "mode": "managed",
+      "name": "keycloak_admin_password",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 32,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#$%^()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.keycloak_db_password[0]": {
+      "index": 0,
+      "mode": "managed",
+      "name": "keycloak_db_password",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 32,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#$%^()-_=+[]{}:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "random_password.orchestration_oidc_client_secret[0]": {
+      "index": 0,
+      "mode": "managed",
+      "name": "orchestration_oidc_client_secret",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 32,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": null,
+        "special": false,
+        "upper": true
+      }
+    },
+    "random_password.realm_admin_user_password[0]": {
+      "index": 0,
+      "mode": "managed",
+      "name": "realm_admin_user_password",
+      "provider_name": "registry.terraform.io/hashicorp/random",
+      "schema_version": 3,
+      "sensitive_values": {
+        "bcrypt_hash": true,
+        "result": true
+      },
+      "type": "random_password",
+      "values": {
+        "keepers": null,
+        "length": 32,
+        "lower": true,
+        "min_lower": 0,
+        "min_numeric": 0,
+        "min_special": 0,
+        "min_upper": 0,
+        "number": true,
+        "numeric": true,
+        "override_special": "!#%^()-_=+[]:?",
+        "special": true,
+        "upper": true
+      }
+    },
+    "terraform_data.validate_authentication_mode": {
+      "mode": "managed",
+      "name": "validate_authentication_mode",
+      "provider_name": "terraform.io/builtin/terraform",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "terraform_data",
+      "values": {
+        "input": null,
+        "output": null,
+        "triggers_replace": null
       }
     }
   }

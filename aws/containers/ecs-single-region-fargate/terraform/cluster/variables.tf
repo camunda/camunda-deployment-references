@@ -55,6 +55,10 @@ variable "ports" {
     zeebe_gateway_cluster_port            = 26502
     zeebe_gateway_network_port            = 26500
     zeebe_broker_network_command_api_port = 26501
+    management_identity_app               = 8084
+    management_identity_management        = 8082
+    keycloak_http                         = 18080
+    keycloak_management                   = 9000
   }
   description = "The ports to open for the security groups within the VPC"
 }
@@ -99,6 +103,92 @@ variable "db_seed_iam_usernames" {
   type        = list(string)
   description = "Database users to create and grant rds_iam + privileges for (used for IAM DB auth)"
   default     = ["camunda"]
+}
+
+variable "identity_db_name" {
+  type        = string
+  description = "Dedicated database name for Management Identity on the shared Aurora cluster"
+  default     = "identity"
+
+  validation {
+    # Interpolated into the DB seed SQL (postgres_seed.tf); restrict to a safe
+    # PostgreSQL identifier so quotes/whitespace cannot break SQL or inject.
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.identity_db_name)) && length(var.identity_db_name) <= 63
+    error_message = "identity_db_name must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
+}
+
+variable "identity_db_username" {
+  type        = string
+  description = "Password-authenticated database role for Management Identity (Identity does not support IAM DB auth)"
+  default     = "identity"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.identity_db_username)) && length(var.identity_db_username) <= 63
+    error_message = "identity_db_username must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
+}
+
+variable "keycloak_db_name" {
+  type        = string
+  description = "Dedicated database name for Keycloak on the shared Aurora cluster"
+  default     = "keycloak"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.keycloak_db_name)) && length(var.keycloak_db_name) <= 63
+    error_message = "keycloak_db_name must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
+}
+
+variable "keycloak_db_username" {
+  type        = string
+  description = "Password-authenticated database role for Keycloak"
+  default     = "keycloak"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.keycloak_db_username)) && length(var.keycloak_db_username) <= 63
+    error_message = "keycloak_db_username must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
+}
+
+variable "keycloak_admin_username" {
+  type        = string
+  description = "Keycloak bootstrap admin username"
+  default     = "admin"
+}
+
+################################################################
+#                   Realm OIDC Client Options                  #
+################################################################
+
+variable "enable_orchestration_oidc_client" {
+  type        = bool
+  description = "Create the orchestration OIDC client in the Keycloak realm"
+  default     = true
+}
+
+variable "enable_connectors_oidc_client" {
+  type        = bool
+  description = "Create the connectors OIDC client in the Keycloak realm"
+  default     = true
+}
+
+variable "enable_optimize_oidc_client" {
+  type        = bool
+  description = "Create the optimize OIDC client in the Keycloak realm"
+  default     = false
+}
+
+variable "enable_console_oidc_client" {
+  type        = bool
+  description = "Create the console OIDC client in the Keycloak realm"
+  default     = false
+}
+
+variable "enable_web_modeler_oidc_client" {
+  type        = bool
+  description = "Create the web-modeler OIDC client in the Keycloak realm"
+  default     = false
 }
 
 ################################################################
