@@ -987,7 +987,8 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.36"
+                    "version": "1.36",
+                    "warm_pool_config": []
                   }
                 },
                 "module.eks_cluster_region_0.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]": {
@@ -4004,7 +4005,8 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.36"
+                    "version": "1.36",
+                    "warm_pool_config": []
                   }
                 },
                 "module.eks_cluster_region_1.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]": {
