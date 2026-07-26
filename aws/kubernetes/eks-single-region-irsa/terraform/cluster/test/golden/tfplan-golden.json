@@ -352,7 +352,8 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.35"
+                    "version": "1.35",
+                    "warm_pool_config": []
                   }
                 },
                 "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]": {
