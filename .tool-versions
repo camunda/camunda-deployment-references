@@ -17,7 +17,7 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.12
 
-awscli 2.36.6
+awscli 2.36.8
 
 delta 0.18.2
 
@@ -39,7 +39,7 @@ just 1.57.0
 # renovate: datasource=github-tags depName=kubernetes-sigs/kind
 kind 0.32.0
 
-kubectl 1.36.2
+kubectl 1.36.3
 
 kustomize 5.8.1 # used by the tests
 
