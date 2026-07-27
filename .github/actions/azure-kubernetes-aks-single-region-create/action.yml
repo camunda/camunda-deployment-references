@@ -65,7 +65,7 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+          uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
