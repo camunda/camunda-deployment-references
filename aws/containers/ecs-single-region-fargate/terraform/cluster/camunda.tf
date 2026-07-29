@@ -15,7 +15,7 @@ module "orchestration_cluster" {
   ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
 
   # Load Balancer configuration
-  alb_listener_http_webapp_arn     = aws_lb_listener.http_webapp.arn
+  alb_listener_http_webapp_arn     = local.webapp_listener_arn
   alb_listener_http_management_arn = aws_lb_listener.http_management.arn
   nlb_arn                          = aws_lb.grpc.arn
 
@@ -146,7 +146,7 @@ module "connectors" {
   vpc_private_subnets                  = module.vpc.private_subnets
   aws_region                           = data.aws_region.current.region
   s2s_cloudmap_namespace               = module.orchestration_cluster.s2s_cloudmap_namespace
-  alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp.arn
+  alb_listener_http_webapp_arn         = local.webapp_listener_arn
   enable_alb_http_webapp_listener_rule = true
   log_group_name                       = module.orchestration_cluster.log_group_name
 
@@ -224,7 +224,7 @@ module "management_identity" {
 
   # ALB exposure is opt-in. Flip to true (and confirm the context path) once
   # Identity should be reachable through the shared ALB.
-  alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp.arn
+  alb_listener_http_webapp_arn         = local.webapp_listener_arn
   enable_alb_http_webapp_listener_rule = false
 
   service_security_group_ids = [
@@ -329,7 +329,7 @@ module "keycloak" {
   # Internal Service Connect (keycloak:18080) is enough for Identity in basic mode.
   # Only "keycloak" mode needs the browser to reach Keycloak for the login redirect,
   # so the shared ALB (/auth*) rule is enabled there.
-  alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp.arn
+  alb_listener_http_webapp_arn         = local.webapp_listener_arn
   enable_alb_http_webapp_listener_rule = var.authentication_mode == "keycloak"
 
   service_security_group_ids = [
@@ -337,7 +337,7 @@ module "keycloak" {
     aws_security_group.allow_package_80_443.id,
   ]
 
-  environment_variables = [
+  environment_variables = concat([
     { name = "KC_DB", value = "postgres" },
     { name = "KC_DB_URL", value = "jdbc:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.keycloak_db_name}" },
     { name = "KC_DB_USERNAME", value = var.keycloak_db_username },
@@ -359,7 +359,14 @@ module "keycloak" {
     # ports (7800/57800, not opened in the intra-VPC SG); the new node's cluster
     # health check stays DOWN and the ECS circuit breaker fails the deployment.
     { name = "KC_CACHE", value = "local" },
-  ]
+    ],
+    # When the ALB terminates TLS (var.alb_certificate_arn set), trust its
+    # X-Forwarded-* headers so Keycloak sees the request as HTTPS and the realm's
+    # default sslRequired=external is satisfied without manual relaxation. Off in
+    # the HTTP demo.
+    local.alb_https_enabled ? [
+      { name = "KC_PROXY_HEADERS", value = "xforwarded" },
+  ] : [])
 
   secrets = [
     { name = "KC_DB_PASSWORD", valueFrom = aws_secretsmanager_secret.keycloak_db_password[0].arn },

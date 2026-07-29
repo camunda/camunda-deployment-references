@@ -200,3 +200,19 @@ variable "secrets_kms_key_arn" {
   type        = string
   default     = ""
 }
+
+################################################################
+#                     ALB TLS (HTTPS) — opt-in                 #
+################################################################
+
+variable "alb_certificate_arn" {
+  type        = string
+  description = "ACM certificate ARN for the shared ALB. When set, an HTTPS :443 listener is created, all web-app/OIDC traffic is served over TLS (and HTTP :80 redirects to it), and Keycloak trusts the ALB's X-Forwarded-Proto so the realm needs no sslRequired relaxation. Empty (default) keeps this reference on plain HTTP :80 for the demo."
+  default     = ""
+}
+
+variable "alb_ssl_policy" {
+  type        = string
+  description = "SSL negotiation policy for the HTTPS ALB listener (used only when alb_certificate_arn is set)."
+  default     = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+}
