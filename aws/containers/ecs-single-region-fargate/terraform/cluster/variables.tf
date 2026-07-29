@@ -71,6 +71,14 @@ variable "db_name" {
   type        = string
   description = "Database name used by Camunda components"
   default     = "camunda"
+
+  validation {
+    # Interpolated into the DB seed SQL (postgres_seed.tf) as a quoted identifier
+    # and in the `dbname=` conninfo string; restrict to a safe PostgreSQL
+    # identifier so quotes/whitespace cannot break SQL or inject.
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.db_name)) && length(var.db_name) <= 63
+    error_message = "db_name must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
 }
 
 variable "db_admin_username" {
@@ -155,6 +163,13 @@ variable "keycloak_admin_username" {
   type        = string
   description = "Keycloak bootstrap admin username"
   default     = "admin"
+
+  validation {
+    # Not interpolated into SQL, but kept consistent with the DB-role identifiers
+    # above so the bootstrap admin username stays a predictable, quote-free token.
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.keycloak_admin_username)) && length(var.keycloak_admin_username) <= 63
+    error_message = "keycloak_admin_username must be a valid identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
 }
 
 ################################################################
