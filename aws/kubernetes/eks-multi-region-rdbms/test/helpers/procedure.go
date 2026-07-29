@@ -1,0 +1,151 @@
+// Package helpers provides thin wrappers used by the multi-region RDBMS
+// integration tests.
+//
+// The tests deliberately drive the shell procedures under ../../procedure
+// instead of reimplementing them in Go. That keeps a single source of truth:
+// what CI validates is exactly what a user copy-pastes from the documentation,
+// and a bug in a procedure fails the test instead of hiding behind a Go
+// reimplementation of the same logic.
+package helpers
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+// ProcedureDir returns the absolute path of the procedure directory.
+func ProcedureDir(t *testing.T) string {
+	t.Helper()
+
+	dir, err := filepath.Abs(filepath.Join("..", "procedure"))
+	if err != nil {
+		t.Fatalf("cannot resolve the procedure directory: %v", err)
+	}
+	return dir
+}
+
+// Env is the environment contract shared by every procedure.
+type Env struct {
+	RegionSlots        int
+	ActiveRegions      int
+	BrokersPerRegion   int
+	ClusterContexts    []string
+	AWSRegions         []string
+	SubmarinerClusters []string
+	Namespace          string
+	ReleaseName        string
+	RdbmsURL           string
+	RdbmsUsername      string
+	RdbmsPassword      string
+	AuroraGlobalID     string
+	Extra              map[string]string
+}
+
+// Vars renders the environment as a KEY=VALUE slice suitable for exec.Cmd.
+func (e Env) Vars() []string {
+	clusterSize := e.BrokersPerRegion * e.RegionSlots
+
+	vars := map[string]string{
+		"CAMUNDA_REGION_SLOTS":        fmt.Sprint(e.RegionSlots),
+		"CAMUNDA_ACTIVE_REGIONS":      fmt.Sprint(e.ActiveRegions),
+		"CAMUNDA_BROKERS_PER_REGION":  fmt.Sprint(e.BrokersPerRegion),
+		"CAMUNDA_CLUSTER_SIZE":        fmt.Sprint(clusterSize),
+		"CAMUNDA_PARTITION_COUNT":     fmt.Sprint(clusterSize),
+		"CAMUNDA_REPLICATION_FACTOR":  fmt.Sprint(e.RegionSlots),
+		"CLUSTER_CONTEXTS":            strings.Join(e.ClusterContexts, " "),
+		"AWS_REGIONS":                 strings.Join(e.AWSRegions, " "),
+		"SUBMARINER_CLUSTER_IDS":      strings.Join(e.SubmarinerClusters, " "),
+		"CAMUNDA_NAMESPACE":           e.Namespace,
+		"CAMUNDA_RELEASE_NAME":        e.ReleaseName,
+		"CAMUNDA_RDBMS_URL":           e.RdbmsURL,
+		"CAMUNDA_RDBMS_USERNAME":      e.RdbmsUsername,
+		"CAMUNDA_RDBMS_PASSWORD":      e.RdbmsPassword,
+		"AURORA_GLOBAL_CLUSTER_ID":    e.AuroraGlobalID,
+		"CAMUNDA_BASIC_AUTH_USER":     GetEnv("CAMUNDA_BASIC_AUTH_USER", "demo"),
+		"CAMUNDA_BASIC_AUTH_PASSWORD": GetEnv("CAMUNDA_BASIC_AUTH_PASSWORD", "demo"),
+	}
+	for k, v := range e.Extra {
+		vars[k] = v
+	}
+
+	out := os.Environ()
+	for k, v := range vars {
+		out = append(out, k+"="+v)
+	}
+	return out
+}
+
+// RunProcedure executes a procedure script and fails the test on a non-zero
+// exit status. Output is streamed to the test log so that a CI failure carries
+// the script output rather than only its exit code.
+func RunProcedure(t *testing.T, env Env, timeout time.Duration, script string, args ...string) string {
+	t.Helper()
+
+	dir := ProcedureDir(t)
+	path := filepath.Join(dir, script)
+
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("procedure %s does not exist: %v", script, err)
+	}
+
+	cmd := exec.Command("bash", append([]string{path}, args...)...)
+	cmd.Dir = dir
+	cmd.Env = env.Vars()
+
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+
+	done := make(chan error, 1)
+	start := time.Now()
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("cannot start %s: %v", script, err)
+	}
+	go func() { done <- cmd.Wait() }()
+
+	select {
+	case err := <-done:
+		t.Logf("=== %s (%s) ===\n%s", script, time.Since(start).Round(time.Second), buf.String())
+		if err != nil {
+			t.Fatalf("%s failed: %v", script, err)
+		}
+	case <-time.After(timeout):
+		_ = cmd.Process.Kill()
+		t.Logf("=== %s (timed out) ===\n%s", script, buf.String())
+		t.Fatalf("%s did not finish within %s", script, timeout)
+	}
+
+	return buf.String()
+}
+
+// RunProcedureAllowFailure behaves like RunProcedure but reports the error
+// instead of failing, for diagnostics wired into a cleanup path.
+func RunProcedureAllowFailure(t *testing.T, env Env, timeout time.Duration, script string, args ...string) {
+	t.Helper()
+
+	dir := ProcedureDir(t)
+	cmd := exec.Command("bash", append([]string{filepath.Join(dir, script)}, args...)...)
+	cmd.Dir = dir
+	cmd.Env = env.Vars()
+
+	out, err := cmd.CombinedOutput()
+	t.Logf("=== %s (best effort) ===\n%s", script, string(out))
+	if err != nil {
+		t.Logf("%s returned %v (ignored)", script, err)
+	}
+	_ = timeout
+}
+
+// GetEnv reads an environment variable with a fallback.
+func GetEnv(key, fallback string) string {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		return v
+	}
+	return fallback
+}
