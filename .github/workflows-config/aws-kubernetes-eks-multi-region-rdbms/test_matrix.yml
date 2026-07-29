@@ -1,0 +1,14 @@
+---
+matrix:
+    distro:
+        - name: EKS
+          schedule_only: false
+
+    scenario:
+        - name: eks-multi-region-rdbms
+    declination:
+        - name: no-domain
+          desc: |
+              Three EKS clusters connected by a Transit Gateway mesh and Submariner, with an
+              Aurora Global Database as RDBMS secondary storage. Deployed with one spare
+              region slot so that the growth path is exercised.
