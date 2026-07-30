@@ -56,13 +56,6 @@ locals {
       ip_protocol = "50"
       description = "ESP, the encrypted payload of the Submariner IPsec tunnels"
     },
-    {
-      key         = "submariner-metrics"
-      from_port   = 8080
-      to_port     = 8080
-      ip_protocol = "tcp"
-      description = "Submariner gateway metrics and health endpoint"
-    },
   ]
 
   # Camunda Orchestration Cluster. Zeebe brokers form a single Raft cluster
@@ -90,11 +83,15 @@ locals {
       description = "Zeebe broker internal API, carries Raft replication across regions"
     },
     {
-      key         = "orchestration-rest"
+      # Also carries the Submariner gateway metrics and health endpoint. AWS
+      # deduplicates security group rules by protocol and port range, so the
+      # two uses must share one rule: a second entry on tcp/8080 from the same
+      # CIDR is rejected with InvalidPermission.Duplicate.
+      key         = "tcp-8080"
       from_port   = 8080
       to_port     = 8080
       ip_protocol = "tcp"
-      description = "Orchestration Cluster v2 REST API"
+      description = "Orchestration Cluster v2 REST API and Submariner gateway metrics"
     },
     {
       key         = "orchestration-management"
