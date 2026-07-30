@@ -10,6 +10,7 @@ package helpers
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -126,20 +127,30 @@ func RunProcedure(t *testing.T, env Env, timeout time.Duration, script string, a
 
 // RunProcedureAllowFailure behaves like RunProcedure but reports the error
 // instead of failing, for diagnostics wired into a cleanup path.
+//
+// The timeout is enforced: these are best-effort diagnostic scripts, and a
+// stuck kubectl call inside one would otherwise hang the whole run long after
+// the failure it was meant to explain.
 func RunProcedureAllowFailure(t *testing.T, env Env, timeout time.Duration, script string, args ...string) {
 	t.Helper()
 
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	dir := ProcedureDir(t)
-	cmd := exec.Command("bash", append([]string{filepath.Join(dir, script)}, args...)...)
+	cmd := exec.CommandContext(ctx, "bash", append([]string{filepath.Join(dir, script)}, args...)...)
 	cmd.Dir = dir
 	cmd.Env = env.Vars()
 
 	out, err := cmd.CombinedOutput()
 	t.Logf("=== %s (best effort) ===\n%s", script, string(out))
-	if err != nil {
+
+	switch {
+	case ctx.Err() == context.DeadlineExceeded:
+		t.Logf("%s exceeded its %s budget and was killed (ignored)", script, timeout)
+	case err != nil:
 		t.Logf("%s returned %v (ignored)", script, err)
 	}
-	_ = timeout
 }
 
 // GetEnv reads an environment variable with a fallback.

@@ -29,8 +29,15 @@ variable "database_region_slots" {
   type        = list(number)
   default     = [0, 1]
   description = <<-EOT
-    Region slots that host an Aurora Global Database member. The first entry is
-    the writer. Must be a subset of the active region slots.
+    Region slots that host an Aurora Global Database member. Must be a subset of
+    the active region slots and must contain slot 0.
+
+    Slot 0 is always the writer. That is not a limitation of Aurora, which can
+    promote any member, but of Terraform: the secondary members have to wait for
+    the writer to exist before they can attach to the global cluster, and that
+    ordering has to reference a statically known module. Pinning the writer to
+    slot 0 keeps the dependency correct by construction. A failover still moves
+    the writer wherever you want at runtime; see procedure/failover.sh.
 
     Defaults to two regions: Aurora Global Database is not available in every
     AWS region, and the Zeebe topology does not require a database member in
@@ -46,6 +53,11 @@ variable "database_region_slots" {
   validation {
     condition     = length(distinct(var.database_region_slots)) == length(var.database_region_slots)
     error_message = "database_region_slots must not contain duplicates."
+  }
+
+  validation {
+    condition     = contains(var.database_region_slots, 0)
+    error_message = "database_region_slots must contain slot 0: it hosts the Aurora Global Database writer."
   }
 }
 
@@ -135,7 +147,8 @@ locals {
   # without a local member connect to the writer across the Transit Gateway.
   database_allowed_cidr_blocks = concat(local.active_vpc_cidr_blocks, local.active_svc_cidr_blocks)
 
-  database_writer_slot = try(var.database_region_slots[0], 0)
+  # Always slot 0; see the database_region_slots validation above.
+  database_writer_slot = 0
 
   database_member_enabled = {
     for i in range(4) : i => local.database_enabled && contains(var.database_region_slots, i)
@@ -158,16 +171,16 @@ module "database_region_0" {
 
   cluster_identifier        = "${var.cluster_name}-${var.regions[0].short_name}-db"
   global_cluster_identifier = one(aws_rds_global_cluster.camunda[*].id)
-  is_primary                = local.database_writer_slot == 0
+  is_primary                = true
 
   engine_version = var.database_engine_version
   instance_class = var.database_instance_class
   num_instances  = var.database_instances_per_region
 
   database_name      = var.database_name
-  master_username    = local.database_writer_slot == 0 ? var.database_username : null
-  master_password    = local.database_writer_slot == 0 ? one(random_password.database[*].result) : null
-  availability_zones = local.database_writer_slot == 0 ? local.clusters[0].vpc_azs : null
+  master_username    = var.database_username
+  master_password    = one(random_password.database[*].result)
+  availability_zones = local.clusters[0].vpc_azs
 
   vpc_id              = local.clusters[0].vpc_id
   subnet_ids          = local.clusters[0].private_subnet_ids
@@ -175,7 +188,10 @@ module "database_region_0" {
   iam_auth_enabled    = var.database_iam_auth_enabled
 }
 
-# Secondary members wait for the writer to settle before attaching.
+# Secondary members wait for the writer to settle before attaching: AWS creates
+# them standalone otherwise, and then refuses to attach an existing standalone
+# cluster to a global cluster. The writer is slot 0 by construction, so this
+# dependency is always the right one.
 resource "time_sleep" "wait_for_database_writer" {
   count = local.database_enabled ? 1 : 0
 
@@ -191,16 +207,13 @@ module "database_region_1" {
 
   cluster_identifier        = "${var.cluster_name}-${var.regions[1].short_name}-db"
   global_cluster_identifier = one(aws_rds_global_cluster.camunda[*].id)
-  is_primary                = local.database_writer_slot == 1
+  # Secondary member: master credentials, database name and availability zones
+  # are inherited from the writer through replication and rejected by AWS here.
+  is_primary = false
 
   engine_version = var.database_engine_version
   instance_class = var.database_instance_class
   num_instances  = var.database_instances_per_region
-
-  database_name      = var.database_name
-  master_username    = local.database_writer_slot == 1 ? var.database_username : null
-  master_password    = local.database_writer_slot == 1 ? one(random_password.database[*].result) : null
-  availability_zones = local.database_writer_slot == 1 ? local.clusters[1].vpc_azs : null
 
   vpc_id              = local.clusters[1].vpc_id
   subnet_ids          = local.clusters[1].private_subnet_ids
@@ -222,16 +235,13 @@ module "database_region_2" {
 
   cluster_identifier        = "${var.cluster_name}-${var.regions[2].short_name}-db"
   global_cluster_identifier = one(aws_rds_global_cluster.camunda[*].id)
-  is_primary                = local.database_writer_slot == 2
+  # Secondary member: master credentials, database name and availability zones
+  # are inherited from the writer through replication and rejected by AWS here.
+  is_primary = false
 
   engine_version = var.database_engine_version
   instance_class = var.database_instance_class
   num_instances  = var.database_instances_per_region
-
-  database_name      = var.database_name
-  master_username    = local.database_writer_slot == 2 ? var.database_username : null
-  master_password    = local.database_writer_slot == 2 ? one(random_password.database[*].result) : null
-  availability_zones = local.database_writer_slot == 2 ? local.clusters[2].vpc_azs : null
 
   vpc_id              = local.clusters[2].vpc_id
   subnet_ids          = local.clusters[2].private_subnet_ids
@@ -253,16 +263,13 @@ module "database_region_3" {
 
   cluster_identifier        = "${var.cluster_name}-${var.regions[3].short_name}-db"
   global_cluster_identifier = one(aws_rds_global_cluster.camunda[*].id)
-  is_primary                = local.database_writer_slot == 3
+  # Secondary member: master credentials, database name and availability zones
+  # are inherited from the writer through replication and rejected by AWS here.
+  is_primary = false
 
   engine_version = var.database_engine_version
   instance_class = var.database_instance_class
   num_instances  = var.database_instances_per_region
-
-  database_name      = var.database_name
-  master_username    = local.database_writer_slot == 3 ? var.database_username : null
-  master_password    = local.database_writer_slot == 3 ? one(random_password.database[*].result) : null
-  availability_zones = local.database_writer_slot == 3 ? local.clusters[3].vpc_azs : null
 
   vpc_id              = local.clusters[3].vpc_id
   subnet_ids          = local.clusters[3].private_subnet_ids

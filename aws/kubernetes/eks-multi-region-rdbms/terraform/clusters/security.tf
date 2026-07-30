@@ -46,9 +46,13 @@ locals {
       description = "IPsec IKE negotiation for the Submariner tunnels"
     },
     {
-      key         = "submariner-esp"
-      from_port   = null
-      to_port     = null
+      key = "submariner-esp"
+      # Protocol 50 carries no ports, but the provider still expects the pair to
+      # be set. -1/-1 is the form already applied in production by
+      # aws/openshift/rosa-hcp-dual-region/terraform/peering/peering.tf on the
+      # same resource type; null risks a plan or apply error.
+      from_port   = -1
+      to_port     = -1
       ip_protocol = "50"
       description = "ESP, the encrypted payload of the Submariner IPsec tunnels"
     },
