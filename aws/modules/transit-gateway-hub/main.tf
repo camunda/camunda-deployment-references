@@ -50,13 +50,20 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
 ###############################################################################
 
 locals {
-  # Cartesian product of route tables x remote CIDRs, keyed so that adding a
-  # region only appends new entries instead of renumbering existing ones.
+  # Cartesian product of route tables x remote CIDRs.
+  #
+  # The keys are built from the route table INDEX rather than its ID: the IDs
+  # are only known after apply, and Terraform requires for_each keys to be
+  # known at plan time. The index is known, because the length of the route
+  # table list is fixed by configuration even when the IDs are not.
+  #
+  # Keying by index also means adding a region appends entries instead of
+  # renumbering existing ones, as long as the route table list is stable.
   vpc_routes = {
-    for pair in setproduct(var.vpc_route_table_ids, var.remote_cidr_blocks) :
+    for pair in setproduct(range(length(var.vpc_route_table_ids)), var.remote_cidr_blocks) :
     "${pair[0]}|${pair[1]}" => {
-      route_table_id = pair[0]
-      cidr_block     = pair[1]
+      route_table_index = pair[0]
+      cidr_block        = pair[1]
     }
   }
 }
@@ -64,7 +71,7 @@ locals {
 resource "aws_route" "remote" {
   for_each = local.vpc_routes
 
-  route_table_id         = each.value.route_table_id
+  route_table_id         = var.vpc_route_table_ids[each.value.route_table_index]
   destination_cidr_block = each.value.cidr_block
   transit_gateway_id     = aws_ec2_transit_gateway.this.id
 

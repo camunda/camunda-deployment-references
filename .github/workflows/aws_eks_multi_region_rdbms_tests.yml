@@ -246,6 +246,11 @@ jobs:
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}
                   target: ${{ env.CLUSTER_NAME }}
                   modules-order: clusters
+                  # This teardown runs on every exit path, including a run that
+                  # failed before creating anything. Finding no state to destroy
+                  # is then the expected outcome and must not fail the job a
+                  # second time, masking the original error.
+                  fail-on-not-found: 'false'
 
     report-failure:
         if: failure() && github.event_name == 'schedule'
