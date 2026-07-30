@@ -779,7 +779,10 @@ runs:
               timeout -k 30 "$C8SM_CONNECTIVITY_TIMEOUT_SECONDS" \
                   "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" "${connectivity_args[@]}" || rc=$?
               if [[ "$rc" -ne 0 ]]; then
-                  if [[ "$rc" -eq 124 ]]; then
+                  # GNU timeout exits 124 when it interrupted the command, and
+                  # 137 (128+SIGKILL) when the command ignored SIGTERM and the
+                  # `-k` escalation had to kill it — both mean "timed out".
+                  if [[ "$rc" -eq 124 || "$rc" -eq 137 ]]; then
                       echo "::error::Connectivity check timed out after ${C8SM_CONNECTIVITY_TIMEOUT_SECONDS}s (a pod likely went unresponsive mid-sweep); re-run to retry."
                   else
                       echo "::error::Kubernetes connectivity check failed (exit ${rc})."
