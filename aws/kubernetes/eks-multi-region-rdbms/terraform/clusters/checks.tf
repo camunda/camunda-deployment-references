@@ -28,3 +28,25 @@ check "quorum_preserved_during_growth" {
     EOT
   }
 }
+
+check "cross_region_rules_are_unique" {
+  assert {
+    condition = length(local.cross_region_rules) == length(distinct([
+      for rule in local.cross_region_rules :
+      "${rule.ip_protocol}|${rule.from_port}|${rule.to_port}"
+    ]))
+    error_message = <<-EOT
+      Two entries in local.cross_region_rules share the same protocol and port
+      range.
+
+      Terraform keys these rules by name, so duplicates look like distinct
+      resources, but AWS deduplicates security group rules by protocol, port
+      range and source. The second one is rejected at apply time with
+      InvalidPermission.Duplicate, after the clusters and the database have
+      already been created.
+
+      Merge the entries into one rule and describe both uses in its
+      description.
+    EOT
+  }
+}
