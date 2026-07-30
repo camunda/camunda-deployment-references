@@ -204,7 +204,7 @@ failover.
 > flush. Keep regions within the [100 ms RTT budget][rtt] and size
 > `orchestration.data.secondaryStorage.rdbms.queueSize` accordingly.
 
-[rdbms-multiregion]: https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/configuration/#multi-region-support
+[rdbms-multiregion]: https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
 [jdbc-wrapper]: https://github.com/aws/aws-advanced-jdbc-wrapper
 [rtt]: https://docs.camunda.io/docs/next/self-managed/concepts/multi-region/dual-region/#installation-environment
 
@@ -381,7 +381,7 @@ between. Upgrading several regions simultaneously risks losing quorum.
   continuous primary-storage backups plus a database-native backup; see
   [Backup and restore for RDBMS][rdbms-backup].
 
-[rdbms-backup]: https://docs.camunda.io/docs/next/self-managed/operational-guides/backup-restore/rdbms/backup/
+[rdbms-backup]: https://docs.camunda.io/docs/next/self-managed/operational-guides/backup-restore/rdbms/rdbms-backup/
 
 ---
 

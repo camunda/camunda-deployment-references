@@ -64,7 +64,7 @@ RDBMS secondary storage is available since 8.9 for the Orchestration Cluster (Op
 | `dual-region` | 2 | One Elasticsearch per region, two Camunda exporters | Quorum lost, manual failover then failback with an ES snapshot restore |
 | `multi-region` | N (3 by default) | One RDBMS, replication delegated to the database | Quorum preserved, the engine keeps processing |
 
-The RDBMS exporter has [no multi-region mode](https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/configuration/#multi-region-support): a single JDBC connection exists per Orchestration Cluster. `multi-region` turns that into the design by making replication the database's responsibility (Aurora Global Database in the AWS reference, any single-writer endpoint elsewhere). Reference implementation: `aws/kubernetes/eks-multi-region-rdbms` — **experimental**; the product documents and supports two regions.
+The RDBMS exporter has [no multi-region mode](https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support): a single JDBC connection exists per Orchestration Cluster. `multi-region` turns that into the design by making replication the database's responsibility (Aurora Global Database in the AWS reference, any single-writer endpoint elsewhere). Reference implementation: `aws/kubernetes/eks-multi-region-rdbms` — **experimental**; the product documents and supports two regions.
 
 **Production baseline:** Minimum 3 Zeebe brokers across 3 availability zones.
 
