@@ -93,6 +93,13 @@ inputs:
     skip-c8sm-connectivity-ingress-class-check:
         description: Whether to skip the ingress class check part of the C8 SM Kubernetes connectivity check
         default: 'false'
+    c8sm-connectivity-timeout-seconds:
+        description: >
+            Upper bound, in seconds, for the C8 SM Kubernetes connectivity sweep.
+            Must stay above the duration of a healthy sweep and below the
+            `timeout-minutes` the caller sets on the step, otherwise the guard
+            never fires and the step dies on the opaque GitHub Actions timeout.
+        default: '1200'
     enable-c8sm-irsa-check:
         description: Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)
         default: 'false'
@@ -527,6 +534,7 @@ runs:
           env:
               NAMESPACE: ${{ inputs.test-namespace }}
               CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              C8SM_CONNECTIVITY_TIMEOUT_SECONDS: ${{ inputs.c8sm-connectivity-timeout-seconds }}
           run: |
               set -euo pipefail
 
@@ -556,12 +564,12 @@ runs:
               # wedged exec fails fast with a clear message instead. The budget
               # is deliberately generous: a healthy sweep of a large namespace
               # probes hundreds of Service×pod pairs and legitimately takes
-              # ~10-15 min, so this must stay well above that (and below the
-              # step's own timeout-minutes) to avoid killing a slow-but-healthy
-              # run.
-              C8SM_CONNECTIVITY_TIMEOUT_SECONDS="${C8SM_CONNECTIVITY_TIMEOUT_SECONDS:-1200}"
+              # ~10-15 min, so it must stay well above that to avoid killing a
+              # slow-but-healthy run. It must also stay below the caller's own
+              # step `timeout-minutes`, otherwise the step dies first and the
+              # guard never fires — hence the per-caller override.
               if ! [[ "$C8SM_CONNECTIVITY_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
-                  echo "::error::C8SM_CONNECTIVITY_TIMEOUT_SECONDS must be a positive integer (got '$C8SM_CONNECTIVITY_TIMEOUT_SECONDS')."
+                  echo "::error::c8sm-connectivity-timeout-seconds must be a positive integer (got '$C8SM_CONNECTIVITY_TIMEOUT_SECONDS')."
                   exit 1
               fi
 
