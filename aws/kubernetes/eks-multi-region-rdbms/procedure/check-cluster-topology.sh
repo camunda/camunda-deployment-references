@@ -54,12 +54,14 @@ while true; do
 
     case "$http_code" in
     401 | 403)
-        # Not a convergence problem and retrying will not fix it: the gateway
-        # answered and rejected the credentials.
-        echo "ERROR: the gateway rejected the basic-auth credentials (HTTP $http_code)." >&2
-        echo "       CAMUNDA_BASIC_AUTH_USER must match a user the chart provisions;" >&2
-        echo "       in CI that is the overlay passed through CAMUNDA_EXTRA_VALUES." >&2
-        exit 1
+        # Retryable, despite looking definitive. The gateway starts answering
+        # before the security layer finishes initialising, so it rejects valid
+        # credentials for the first minutes of a cold start. Treating this as a
+        # hard failure reports a starting cluster as a misconfigured one; the
+        # dual-region suite carries an equivalent wait for the same reason.
+        # A genuine credentials mismatch simply never clears, and is reported
+        # against the deadline below.
+        current="auth not ready (HTTP $http_code)"
         ;;
     2*)
         current="$(jq '.brokers | length // 0' "$OUTPUT_FILE" 2>/dev/null || echo 0)"
@@ -76,6 +78,14 @@ while true; do
     if [ "$SECONDS" -ge "$deadline" ]; then
         echo "ERROR: the cluster did not converge within ${TOPOLOGY_TIMEOUT_SECONDS:-1500}s." >&2
         echo "       Last observation: $current, expected $expected_brokers." >&2
+        case "$http_code" in
+        401 | 403)
+            echo "       The gateway never accepted the credentials, so this is a" >&2
+            echo "       configuration problem rather than a slow start:" >&2
+            echo "       CAMUNDA_BASIC_AUTH_USER must match a user the chart provisions." >&2
+            echo "       In CI that is the overlay passed through CAMUNDA_EXTRA_VALUES." >&2
+            ;;
+        esac
         cat "$OUTPUT_FILE" >&2 2>/dev/null || true
         exit 1
     fi
