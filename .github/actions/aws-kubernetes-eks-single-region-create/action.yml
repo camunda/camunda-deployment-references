@@ -207,18 +207,24 @@ runs:
 
               # Both are written into cluster.tf as bare HCL booleans, so validate
               # them here: `TRUE` or `yes` would otherwise only blow up much later
-              # as an opaque Terraform parse error.
-              for _bool_input in single-nat-gateway:'${{ inputs.single-nat-gateway }}' private-vpc:'${{ inputs.private-vpc }}'; do
-                _bool_name="${_bool_input%%:*}"
-                _bool_value="${_bool_input#*:}"
-                case "${_bool_value}" in
-                  ''|true|false) ;;
-                  *)
-                    echo "::error::Invalid ${_bool_name} '${_bool_value}'; expected the HCL boolean true or false."
-                    exit 1
-                    ;;
-                esac
-              done
+              # as an opaque Terraform parse error. single-nat-gateway is always
+              # substituted, so an empty value would produce invalid HCL
+              # (`single_nat_gateway = `); private-vpc is only substituted when
+              # non-empty, so empty means "leave the module default alone".
+              case "${{ inputs.single-nat-gateway }}" in
+                true|false) ;;
+                *)
+                  echo "::error::Invalid single-nat-gateway '${{ inputs.single-nat-gateway }}'; expected the HCL boolean true or false."
+                  exit 1
+                  ;;
+              esac
+              case "${{ inputs.private-vpc }}" in
+                ''|true|false) ;;
+                *)
+                  echo "::error::Invalid private-vpc '${{ inputs.private-vpc }}'; expected the HCL boolean true or false, or an empty value to keep the module default."
+                  exit 1
+                  ;;
+              esac
 
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
@@ -237,7 +243,7 @@ runs:
               assert_override_applied single_nat_gateway '${{ inputs.single-nat-gateway }}' cluster.tf
 
               if [ -n "${{ inputs.private-vpc }}" ]; then
-                sed -i -E "s/(^\s*private_vpc\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
+                sed -i -E "s|(^[[:space:]]*private_vpc[[:space:]]*=[[:space:]]*)[a-z]+|\1${{ inputs.private-vpc }}|" cluster.tf
                 assert_override_applied private_vpc '${{ inputs.private-vpc }}' cluster.tf
               else
                 echo "No private-vpc value provided, skipping private modification."
