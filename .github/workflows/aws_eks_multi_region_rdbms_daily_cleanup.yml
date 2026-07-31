@@ -36,6 +36,16 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     AWS_REGION: eu-west-2
+
+    # The shared cleanup action carries a dual-region branch, keyed on the
+    # `clusters` module name, that expects exactly these two variables. It
+    # covers the orphaned-VPC fallback only; the primary path is a terraform
+    # destroy driven by the state, which covers every region the run created.
+    #
+    # With more than two active regions the fallback therefore sweeps the first
+    # two only. Tracked in camunda/team-infrastructure-experience#1203.
+    CLUSTER_0_AWS_REGION: eu-west-2
+    CLUSTER_1_AWS_REGION: eu-west-3
     REF_ARCH: eks-multi-region-rdbms
 
     # Every region the architecture can create must be swept, including the AWS opt-in
