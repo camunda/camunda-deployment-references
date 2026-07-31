@@ -65,6 +65,10 @@ locals {
       name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_1_PRIORITY"
       value = "500"
     },
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED"
+      value = "true"
+    },
   ]
 
   # Region-specific: tells each broker which region it belongs to
