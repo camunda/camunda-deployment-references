@@ -243,7 +243,7 @@ runs:
               assert_override_applied single_nat_gateway '${{ inputs.single-nat-gateway }}' cluster.tf
 
               if [ -n "${{ inputs.private-vpc }}" ]; then
-                sed -i -E "s|(^[[:space:]]*private_vpc[[:space:]]*=[[:space:]]*)[a-z]+|\1${{ inputs.private-vpc }}|" cluster.tf
+                sed -i -E "s#(^[[:space:]]*private_vpc[[:space:]]*=[[:space:]]*)(true|false)#\1${{ inputs.private-vpc }}#" cluster.tf
                 assert_override_applied private_vpc '${{ inputs.private-vpc }}' cluster.tf
               else
                 echo "No private-vpc value provided, skipping private modification."
