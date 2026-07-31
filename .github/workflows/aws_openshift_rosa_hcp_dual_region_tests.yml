@@ -830,7 +830,7 @@ jobs:
 
             - name: 🔬🚨 Debug dual-region infrastructure
               if: failure()
-              timeout-minutes: 15
+              timeout-minutes: 20
               run: |
                   set -uo pipefail
 
