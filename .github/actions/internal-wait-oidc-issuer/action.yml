@@ -117,6 +117,7 @@ runs:
                       # disabled/renamed component stays quiet while real errors
                       # (missing kubeconfig / RBAC) stay visible; a failed restart
                       # is downgraded to a warning so the bounce stays best-effort.
+                      restarted=()
                       for workload in "statefulset/${RELEASE_NAME}-zeebe" "deployment/${RELEASE_NAME}-connectors"; do
                           # --ignore-not-found keeps a genuine "absent" quiet
                           # (empty + exit 0) while real failures (no kubeconfig /
@@ -124,10 +125,23 @@ runs:
                           if ! found=$(kubectl -n "${NAMESPACE}" get "${workload}" --ignore-not-found -o name 2>&1); then
                               echo "::warning::Could not query ${workload}: ${found}"
                           elif [ -n "${found}" ]; then
-                              kubectl -n "${NAMESPACE}" rollout restart "${workload}" || echo "::warning::rollout restart ${workload} failed"
+                              if kubectl -n "${NAMESPACE}" rollout restart "${workload}"; then
+                                  restarted+=("${workload}")
+                              else
+                                  echo "::warning::rollout restart ${workload} failed"
+                              fi
                           else
                               echo "Skipping ${workload}: not present in namespace ${NAMESPACE}."
                           fi
+                      done
+
+                      # `rollout restart` returns as soon as the pod template is
+                      # patched, so without this the caller's health gate can run
+                      # against the pods we just asked Kubernetes to replace and
+                      # pass moments before they are torn down.
+                      for workload in ${restarted[@]+"${restarted[@]}"}; do
+                          kubectl -n "${NAMESPACE}" rollout status "${workload}" --timeout=10m ||
+                              echo "::warning::rollout status ${workload} did not complete within 10m"
                       done
                       exit 0
                   fi
