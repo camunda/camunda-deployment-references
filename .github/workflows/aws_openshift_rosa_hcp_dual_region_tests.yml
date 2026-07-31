@@ -870,6 +870,11 @@ jobs:
                       run dns-test-"${cluster_ctx}" --image=busybox:1.28 -i --rm --restart=Never --command -- \
                       nslookup "${CAMUNDA_RELEASE_NAME:-camunda}-zeebe.${ns_val}.svc.clusterset.local" \
                       || echo "DNS test failed or timed out"
+                    # `timeout` can kill kubectl before --rm gets to clean up,
+                    # which would leave the pod behind and make the next probe
+                    # fail on a name collision.
+                    kubectl --context="$cluster_ctx" -n "$ns_val" delete pod \
+                      dns-test-"${cluster_ctx}" --ignore-not-found --wait=false || true
                     echo "::endgroup::"
                   done
 
@@ -883,6 +888,8 @@ jobs:
                     echo 'Testing TCP connectivity to cluster 0 zeebe on port 26502...'
                     nc -zv local-cluster.${CAMUNDA_RELEASE_NAME:-camunda}-zeebe.${CAMUNDA_NAMESPACE_0}.svc.clusterset.local 26502 2>&1 || echo 'TCP connection failed'
                   " || echo "Connectivity test failed or timed out"
+                  kubectl --context="$CLUSTER_1" -n "$CAMUNDA_NAMESPACE_1" delete pod \
+                    connectivity-test --ignore-not-found --wait=false || true
                   echo "::endgroup::"
 
     integration-tests-retry:
