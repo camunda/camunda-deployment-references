@@ -67,12 +67,16 @@ func testEnv(t *testing.T) helpers.Env {
 		ClusterContexts:    contexts,
 		AWSRegions:         outputs.AWSRegions,
 		SubmarinerClusters: outputs.ShortNames,
-		Namespace:          helpers.GetEnv("CAMUNDA_NAMESPACE", "camunda"),
-		ReleaseName:        helpers.GetEnv("CAMUNDA_RELEASE_NAME", "camunda"),
-		RdbmsURL:           outputs.RdbmsURL,
-		RdbmsUsername:      outputs.RdbmsUsername,
-		RdbmsPassword:      outputs.RdbmsPassword,
-		AuroraGlobalID:     outputs.AuroraGlobalID,
+		VPCCidrBlocks:      outputs.VPCCidrBlocks,
+		ServiceCidrBlocks:  outputs.ServiceCidrBlocks,
+		// Any cluster can host the Submariner broker; it only stores metadata.
+		SubmarinerBrokerSlot: 0,
+		Namespace:            helpers.GetEnv("CAMUNDA_NAMESPACE", "camunda"),
+		ReleaseName:          helpers.GetEnv("CAMUNDA_RELEASE_NAME", "camunda"),
+		RdbmsURL:             outputs.RdbmsURL,
+		RdbmsUsername:        outputs.RdbmsUsername,
+		RdbmsPassword:        outputs.RdbmsPassword,
+		AuroraGlobalID:       outputs.AuroraGlobalID,
 	}
 }
 

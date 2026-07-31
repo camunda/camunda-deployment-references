@@ -18,6 +18,8 @@ type TerraformOutputs struct {
 	AWSRegions        []string
 	ShortNames        []string
 	ClusterNames      []string
+	VPCCidrBlocks     []string
+	ServiceCidrBlocks []string
 	RdbmsURL          string
 	RdbmsUsername     string
 	RdbmsPassword     string
@@ -85,6 +87,12 @@ func ReadTerraformOutputs(t *testing.T, terraformDir string) TerraformOutputs {
 	clusterNames := map[string]string{}
 	decode("cluster_names", &clusterNames)
 
+	vpcCidrs := map[string]string{}
+	decode("vpc_cidr_blocks", &vpcCidrs)
+
+	serviceCidrs := map[string]string{}
+	decode("service_cidr_blocks", &serviceCidrs)
+
 	for i := 0; i < result.ActiveRegionCount; i++ {
 		key := fmt.Sprint(i)
 		region, ok := regions[key]
@@ -94,6 +102,8 @@ func ReadTerraformOutputs(t *testing.T, terraformDir string) TerraformOutputs {
 		result.AWSRegions = append(result.AWSRegions, region.Region)
 		result.ShortNames = append(result.ShortNames, region.ShortName)
 		result.ClusterNames = append(result.ClusterNames, clusterNames[key])
+		result.VPCCidrBlocks = append(result.VPCCidrBlocks, vpcCidrs[key])
+		result.ServiceCidrBlocks = append(result.ServiceCidrBlocks, serviceCidrs[key])
 	}
 
 	result.RdbmsURL = decodeOptionalString("camunda_rdbms_url")
