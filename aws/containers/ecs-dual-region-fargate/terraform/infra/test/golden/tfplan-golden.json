@@ -1224,7 +1224,8 @@
         "name": "camunda-r0-oc-admin-user-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.admin_user_password_region_1": {
@@ -1247,7 +1248,8 @@
         "name": "camunda-r1-oc-admin-user-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-3",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.connectors_password_region_0": {
@@ -1270,7 +1272,8 @@
         "name": "camunda-r0-oc-connectors-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.connectors_password_region_1": {
@@ -1293,7 +1296,8 @@
         "name": "camunda-r1-oc-connectors-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-3",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.db_admin_password_region_0": {
@@ -1316,7 +1320,8 @@
         "name": "camunda-r0-db-admin-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret_version.admin_user_password_region_0": {
