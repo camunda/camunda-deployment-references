@@ -192,8 +192,11 @@ runs:
                   # `set -o pipefail`. A key that is missing entirely makes grep
                   # exit 1, which must not abort the script before the diagnostic
                   # below gets a chance to explain what happened.
+                  # The sed chain strips, in order: the `key =` prefix, a trailing
+                  # comment, any trailing whitespace (a formatter pass adding one
+                  # must not fail an override that did apply), then the quotes.
                   actual=$(grep -m 1 -E "^[[:space:]]*${key}[[:space:]]*=" "${file}" \
-                      | sed -E "s|^[[:space:]]*${key}[[:space:]]*=[[:space:]]*||; s|[[:space:]]*#.*$||; s|^\"||; s|\"$||") || actual=""
+                      | sed -E "s|^[[:space:]]*${key}[[:space:]]*=[[:space:]]*||; s|[[:space:]]*#.*$||; s|[[:space:]]+$||; s|^\"||; s|\"$||") || actual=""
                   if [ "${actual}" != "${expected}" ]; then
                       echo "::error::Failed to apply the '${key}' override to ${file}: expected '${expected}', found" \
                           "'${actual:-<no assignment>}'. The reference file layout probably changed; update this action."
@@ -201,6 +204,21 @@ runs:
                   fi
                   echo "✅ ${file}: ${key} = ${expected}"
               }
+
+              # Both are written into cluster.tf as bare HCL booleans, so validate
+              # them here: `TRUE` or `yes` would otherwise only blow up much later
+              # as an opaque Terraform parse error.
+              for _bool_input in single-nat-gateway:'${{ inputs.single-nat-gateway }}' private-vpc:'${{ inputs.private-vpc }}'; do
+                _bool_name="${_bool_input%%:*}"
+                _bool_value="${_bool_input#*:}"
+                case "${_bool_value}" in
+                  ''|true|false) ;;
+                  *)
+                    echo "::error::Invalid ${_bool_name} '${_bool_value}'; expected the HCL boolean true or false."
+                    exit 1
+                    ;;
+                esac
+              done
 
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
@@ -382,14 +400,19 @@ runs:
               ls
 
               sed -i -E \
-                -e "s/(^\s*vpn_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.cluster-name }}-vpn\2/" \
+                -e 's|^([[:space:]]*vpn_name[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.cluster-name }}-vpn\2|' \
                 vpn.tf
 
               # Same guard as the cluster.tf overrides: `sed -i` succeeds even
               # when it matches nothing, so read the value back rather than
-              # deploying a VPN named after the reference default.
-              if ! grep -Eq "^[[:space:]]*vpn_name[[:space:]]*=[[:space:]]*\"${{ inputs.cluster-name }}-vpn\"" vpn.tf; then
-                  echo "::error::Failed to apply the 'vpn_name' override to vpn.tf; the reference file layout probably changed; update this action."
+              # deploying a VPN named after the reference default. The read-back
+              # is a fixed-string comparison (not a regex) so a cluster name
+              # containing regex metacharacters cannot skew the match.
+              _vpn_name=$(grep -m 1 -E '^[[:space:]]*vpn_name[[:space:]]*=' vpn.tf \
+                  | sed -E 's|^[[:space:]]*vpn_name[[:space:]]*=[[:space:]]*||; s|[[:space:]]*#.*$||; s|[[:space:]]+$||; s|^"||; s|"$||') || _vpn_name=""
+              if [ "${_vpn_name}" != '${{ inputs.cluster-name }}-vpn' ]; then
+                  echo "::error::Failed to apply the 'vpn_name' override to vpn.tf: expected '${{ inputs.cluster-name }}-vpn'," \
+                      "found '${_vpn_name:-<no assignment>}'. The reference file layout probably changed; update this action."
                   exit 1
               fi
 
