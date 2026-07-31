@@ -179,16 +179,48 @@ runs:
               pwd
               ls
 
+              # `sed -i` exits 0 when its pattern matches nothing, so any rename or
+              # reformat of the reference cluster.tf silently leaves CI running
+              # against the file's own defaults instead of the override we asked
+              # for — a wrong-but-green run that is very hard to spot. Read each
+              # value back after patching and fail loudly when it did not take.
+              assert_override_applied() {
+                  local key="$1" expected="$2" file="$3" actual
+                  # -m 1 rather than `| head -n 1`: several of these keys appear
+                  # twice (the local, then the module argument referencing it) and
+                  # closing the pipe early would kill grep with SIGPIPE under
+                  # `set -o pipefail`. A key that is missing entirely makes grep
+                  # exit 1, which must not abort the script before the diagnostic
+                  # below gets a chance to explain what happened.
+                  actual=$(grep -m 1 -E "^[[:space:]]*${key}[[:space:]]*=" "${file}" \
+                      | sed -E "s|^[[:space:]]*${key}[[:space:]]*=[[:space:]]*||; s|[[:space:]]*#.*$||; s|^\"||; s|\"$||") || actual=""
+                  if [ "${actual}" != "${expected}" ]; then
+                      echo "::error::Failed to apply the '${key}' override to ${file}: expected '${expected}', found" \
+                          "'${actual:-<no assignment>}'. The reference file layout probably changed; update this action."
+                      exit 1
+                  fi
+                  echo "✅ ${file}: ${key} = ${expected}"
+              }
+
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(eks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
-                     -e 's/\(eks_cluster_region\s*=\s*"\)[^"]*\("\)/\1${{ inputs.aws-region }}\2/' \
-                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
-                     -e 's/\(single_nat_gateway\s*=\s*"\)[^"]*\("\)/\1${{ inputs.single-nat-gateway }}\2/' \
+              # The patterns are anchored to the start of the line so a comment or a
+              # later reference to the same key cannot be rewritten instead.
+              sed -i -E \
+                     -e 's|^([[:space:]]*eks_cluster_name[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.cluster-name }}\2|' \
+                     -e 's|^([[:space:]]*eks_cluster_region[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.aws-region }}\2|' \
+                     -e 's|^([[:space:]]*kubernetes_version[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.kubernetes-version }}\2|' \
+                     -e 's#^([[:space:]]*single_nat_gateway[[:space:]]*=[[:space:]]*)(true|false)#\1${{ inputs.single-nat-gateway }}#' \
                      cluster.tf
+
+              assert_override_applied eks_cluster_name '${{ inputs.cluster-name }}' cluster.tf
+              assert_override_applied eks_cluster_region '${{ inputs.aws-region }}' cluster.tf
+              assert_override_applied kubernetes_version '${{ inputs.kubernetes-version }}' cluster.tf
+              assert_override_applied single_nat_gateway '${{ inputs.single-nat-gateway }}' cluster.tf
 
               if [ -n "${{ inputs.private-vpc }}" ]; then
                 sed -i -E "s/(^\s*private_vpc\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
+                assert_override_applied private_vpc '${{ inputs.private-vpc }}' cluster.tf
               else
                 echo "No private-vpc value provided, skipping private modification."
               fi
@@ -205,7 +237,8 @@ runs:
                   echo "::error::Invalid np-capacity-type '${_np_capacity_type}'; allowed values are ON_DEMAND or SPOT."
                   exit 1
                 fi
-                sed -i -E "s/(np_capacity_type\s*=\s*\")[^\"]*(\")/\1${_np_capacity_type}\2/" cluster.tf
+                sed -i -E "s|^([[:space:]]*np_capacity_type[[:space:]]*=[[:space:]]*\")[^\"]*(\")|\1${_np_capacity_type}\2|" cluster.tf
+                assert_override_applied np_capacity_type "${_np_capacity_type}" cluster.tf
               fi
               _np_instance_types="${{ inputs.np-instance-types }}"
               if [ -n "${_np_instance_types}" ]; then
@@ -234,7 +267,8 @@ runs:
                   echo "::error::np-instance-types contained no valid entries: '${_np_instance_types}'."
                   exit 1
                 fi
-                sed -i -E "s|(np_instance_types\s*=\s*).*|\1${_np_hcl}|" cluster.tf
+                sed -i -E "s|^([[:space:]]*np_instance_types[[:space:]]*=[[:space:]]*).*|\1${_np_hcl}|" cluster.tf
+                assert_override_applied np_instance_types "${_np_hcl}" cluster.tf
               fi
 
               echo "Displaying templated cluster.tf file:"
@@ -243,8 +277,9 @@ runs:
               # Conditionally configure Aurora PostgreSQL
               if [[ "${{ inputs.deploy-aurora }}" == "true" ]]; then
                   echo "Configuring Aurora PostgreSQL database..."
-                  sed -i -e 's/\(aurora_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-pg\2/' \
+                  sed -i -E 's|^([[:space:]]*aurora_cluster_name[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.cluster-name }}-pg\2|' \
                          db.tf
+                  assert_override_applied aurora_cluster_name '${{ inputs.cluster-name }}-pg' db.tf
 
                   echo "Displaying templated db.tf file:"
                   cat db.tf
@@ -260,8 +295,9 @@ runs:
               # Conditionally configure OpenSearch
               if [[ "${{ inputs.deploy-opensearch }}" == "true" ]]; then
                   echo "Configuring OpenSearch domain..."
-                  sed -i -e 's/\(opensearch_domain_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-os\2/' \
+                  sed -i -E 's|^([[:space:]]*opensearch_domain_name[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.cluster-name }}-os\2|' \
                          opensearch.tf
+                  assert_override_applied opensearch_domain_name '${{ inputs.cluster-name }}-os' opensearch.tf
                   echo "Displaying templated opensearch.tf file:"
                   cat opensearch.tf
               else
@@ -348,6 +384,14 @@ runs:
               sed -i -E \
                 -e "s/(^\s*vpn_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.cluster-name }}-vpn\2/" \
                 vpn.tf
+
+              # Same guard as the cluster.tf overrides: `sed -i` succeeds even
+              # when it matches nothing, so read the value back rather than
+              # deploying a VPN named after the reference default.
+              if ! grep -Eq "^[[:space:]]*vpn_name[[:space:]]*=[[:space:]]*\"${{ inputs.cluster-name }}-vpn\"" vpn.tf; then
+                  echo "::error::Failed to apply the 'vpn_name' override to vpn.tf; the reference file layout probably changed; update this action."
+                  exit 1
+              fi
 
               echo "Displaying templated vpn.tf file:"
               cat vpn.tf
