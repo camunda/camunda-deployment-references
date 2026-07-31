@@ -812,12 +812,21 @@ jobs:
                   else
                       echo "::warning::rollout restart statefulset/camunda-zeebe failed"
                   fi
-                  if kubectl --namespace "$CAMUNDA_NAMESPACE" get deployment/camunda-connectors >/dev/null 2>&1; then
+                  # --ignore-not-found keeps a genuine "absent" quiet (empty,
+                  # exit 0) while a real failure (no kubeconfig / RBAC) exits
+                  # non-zero and surfaces as a warning. Swallowing both would
+                  # silently skip the restart *and* its wait, reintroducing the
+                  # very race this step exists to close.
+                  if ! found=$(kubectl --namespace "$CAMUNDA_NAMESPACE" get deployment/camunda-connectors --ignore-not-found -o name 2>&1); then
+                      echo "::warning::Could not query deployment/camunda-connectors: ${found}"
+                  elif [ -n "$found" ]; then
                       if kubectl --namespace "$CAMUNDA_NAMESPACE" rollout restart deployment/camunda-connectors; then
                           restarted+=("deployment/camunda-connectors")
                       else
                           echo "::warning::rollout restart deployment/camunda-connectors failed"
                       fi
+                  else
+                      echo "Skipping deployment/camunda-connectors: not present in namespace ${CAMUNDA_NAMESPACE}."
                   fi
 
                   # `rollout restart` only patches the pod template and returns
