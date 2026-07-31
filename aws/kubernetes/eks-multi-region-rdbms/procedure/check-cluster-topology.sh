@@ -39,8 +39,50 @@ trap "kill $port_forward_pid 2>/dev/null || true" EXIT
 
 sleep 5
 
-curl -sSf -u "${CAMUNDA_BASIC_AUTH_USER}:${CAMUNDA_BASIC_AUTH_PASSWORD}" \
-    "http://localhost:${LOCAL_PORT}/v2/topology" -o "$OUTPUT_FILE"
+# A stretched cluster does not converge instantly: brokers dial each other
+# across regions, and the README budgets 10-20 minutes for the Raft cluster to
+# form. Poll until the expected broker count is reached rather than sampling
+# once, which would report a transient state as a failure.
+expected_brokers=$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_ACTIVE_REGIONS))
+deadline=$((SECONDS + ${TOPOLOGY_TIMEOUT_SECONDS:-1500}))
+
+echo "Waiting for $expected_brokers broker(s) to join the cluster ..."
+while true; do
+    http_code="$(curl -sS -u "${CAMUNDA_BASIC_AUTH_USER}:${CAMUNDA_BASIC_AUTH_PASSWORD}" \
+        -o "$OUTPUT_FILE" -w '%{http_code}' \
+        "http://localhost:${LOCAL_PORT}/v2/topology" || echo 000)"
+
+    case "$http_code" in
+    401 | 403)
+        # Not a convergence problem and retrying will not fix it: the gateway
+        # answered and rejected the credentials.
+        echo "ERROR: the gateway rejected the basic-auth credentials (HTTP $http_code)." >&2
+        echo "       CAMUNDA_BASIC_AUTH_USER must match a user the chart provisions;" >&2
+        echo "       in CI that is the overlay passed through CAMUNDA_EXTRA_VALUES." >&2
+        exit 1
+        ;;
+    2*)
+        current="$(jq '.brokers | length // 0' "$OUTPUT_FILE" 2>/dev/null || echo 0)"
+        if [ "$current" -ge "$expected_brokers" ]; then
+            echo "  $current/$expected_brokers brokers present."
+            break
+        fi
+        ;;
+    *)
+        current="gateway unreachable (HTTP $http_code)"
+        ;;
+    esac
+
+    if [ "$SECONDS" -ge "$deadline" ]; then
+        echo "ERROR: the cluster did not converge within ${TOPOLOGY_TIMEOUT_SECONDS:-1500}s." >&2
+        echo "       Last observation: $current, expected $expected_brokers." >&2
+        cat "$OUTPUT_FILE" >&2 2>/dev/null || true
+        exit 1
+    fi
+
+    echo "  $current/$expected_brokers, waiting ..."
+    sleep 20
+done
 
 echo "Topology written to $OUTPUT_FILE"
 jq . "$OUTPUT_FILE"

@@ -76,6 +76,9 @@ func (e Env) Vars() []string {
 		"AURORA_GLOBAL_CLUSTER_ID":    e.AuroraGlobalID,
 		"CAMUNDA_BASIC_AUTH_USER":     GetEnv("CAMUNDA_BASIC_AUTH_USER", "demo"),
 		"CAMUNDA_BASIC_AUTH_PASSWORD": GetEnv("CAMUNDA_BASIC_AUTH_PASSWORD", "demo"),
+		// Optional Helm overlay, e.g. the CI credentials values file. Empty
+		// outside CI, where install-chart.sh simply skips it.
+		"CAMUNDA_EXTRA_VALUES": GetEnv("CAMUNDA_EXTRA_VALUES", ""),
 	}
 	for k, v := range e.Extra {
 		vars[k] = v

@@ -168,6 +168,7 @@ jobs:
                   echo "PATH=$PATH" | tee -a "$GITHUB_ENV"
 
             - name: Register the Camunda CI credentials
+              id: camunda-ci-credentials
               uses: ./.github/actions/internal-camunda-ci-credentials
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
@@ -182,6 +183,11 @@ jobs:
             - name: Deploy Camunda across the active regions
               timeout-minutes: 45
               working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              env:
+                  # Provisions a local user matching CAMUNDA_BASIC_AUTH_USER /
+                  # _PASSWORD. Without it the chart keeps its default user and
+                  # every authenticated call in the suite returns 401.
+                  CAMUNDA_EXTRA_VALUES: ${{ steps.camunda-ci-credentials.outputs.values-file }}
               run: go test --count=1 -v -timeout 45m -failfast -run TestMultiRegionDeployCamunda
 
             - name: Verify the multi-region topology
