@@ -33,19 +33,22 @@ func ProcedureDir(t *testing.T) string {
 
 // Env is the environment contract shared by every procedure.
 type Env struct {
-	RegionSlots        int
-	ActiveRegions      int
-	BrokersPerRegion   int
-	ClusterContexts    []string
-	AWSRegions         []string
-	SubmarinerClusters []string
-	Namespace          string
-	ReleaseName        string
-	RdbmsURL           string
-	RdbmsUsername      string
-	RdbmsPassword      string
-	AuroraGlobalID     string
-	Extra              map[string]string
+	RegionSlots          int
+	ActiveRegions        int
+	BrokersPerRegion     int
+	ClusterContexts      []string
+	AWSRegions           []string
+	SubmarinerClusters   []string
+	VPCCidrBlocks        []string
+	ServiceCidrBlocks    []string
+	SubmarinerBrokerSlot int
+	Namespace            string
+	ReleaseName          string
+	RdbmsURL             string
+	RdbmsUsername        string
+	RdbmsPassword        string
+	AuroraGlobalID       string
+	Extra                map[string]string
 }
 
 // Vars renders the environment as a KEY=VALUE slice suitable for exec.Cmd.
@@ -62,6 +65,9 @@ func (e Env) Vars() []string {
 		"CLUSTER_CONTEXTS":            strings.Join(e.ClusterContexts, " "),
 		"AWS_REGIONS":                 strings.Join(e.AWSRegions, " "),
 		"SUBMARINER_CLUSTER_IDS":      strings.Join(e.SubmarinerClusters, " "),
+		"SUBMARINER_BROKER_SLOT":      fmt.Sprint(e.SubmarinerBrokerSlot),
+		"REGION_VPC_CIDRS":            strings.Join(e.VPCCidrBlocks, " "),
+		"REGION_SERVICE_CIDRS":        strings.Join(e.ServiceCidrBlocks, " "),
 		"CAMUNDA_NAMESPACE":           e.Namespace,
 		"CAMUNDA_RELEASE_NAME":        e.ReleaseName,
 		"CAMUNDA_RDBMS_URL":           e.RdbmsURL,
