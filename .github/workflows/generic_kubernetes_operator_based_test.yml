@@ -824,10 +824,19 @@ jobs:
                   # immediately; the rotation proceeds in the background and a
                   # StatefulSet rotates in reverse-ordinal order, so the health
                   # wait below would otherwise inspect a namespace still full of
-                  # the old pods and pass just before they churn.
+                  # the old pods and pass just before they churn. One shared
+                  # budget: the rollouts overlap, and the loop must stay below
+                  # this step's own timeout-minutes so a stuck rollout degrades to
+                  # a warning rather than an opaque step timeout.
+                  rollout_deadline=$(( $(date +%s) + 600 ))
                   for wl in ${restarted[@]+"${restarted[@]}"}; do
-                      kubectl --namespace "$CAMUNDA_NAMESPACE" rollout status "$wl" --timeout=10m ||
-                          echo "::warning::rollout status ${wl} did not complete within 10m"
+                      remaining=$(( rollout_deadline - $(date +%s) ))
+                      if [ "$remaining" -le 0 ]; then
+                          echo "::warning::rollout wait budget exhausted; not waiting for ${wl}"
+                          continue
+                      fi
+                      kubectl --namespace "$CAMUNDA_NAMESPACE" rollout status "$wl" --timeout="${remaining}s" ||
+                          echo "::warning::rollout status ${wl} did not complete within the remaining budget"
                   done
 
             - name: 👀⏳ Wait for the deployment to be healthy

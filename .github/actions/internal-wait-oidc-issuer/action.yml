@@ -138,10 +138,17 @@ runs:
                       # `rollout restart` returns as soon as the pod template is
                       # patched, so without this the caller's health gate can run
                       # against the pods we just asked Kubernetes to replace and
-                      # pass moments before they are torn down.
+                      # pass moments before they are torn down. The rollouts
+                      # overlap, so they share a single budget.
+                      rollout_deadline=$(( $(date +%s) + 600 ))
                       for workload in ${restarted[@]+"${restarted[@]}"}; do
-                          kubectl -n "${NAMESPACE}" rollout status "${workload}" --timeout=10m ||
-                              echo "::warning::rollout status ${workload} did not complete within 10m"
+                          remaining=$(( rollout_deadline - $(date +%s) ))
+                          if [ "${remaining}" -le 0 ]; then
+                              echo "::warning::rollout wait budget exhausted; not waiting for ${workload}"
+                              continue
+                          fi
+                          kubectl -n "${NAMESPACE}" rollout status "${workload}" --timeout="${remaining}s" ||
+                              echo "::warning::rollout status ${workload} did not complete within the remaining budget"
                       done
                       exit 0
                   fi
