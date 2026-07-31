@@ -2,10 +2,16 @@
 set -euo pipefail
 
 # The Submariner addons take a while to reconcile after install-submariner.sh
-# applies the manifests. Poll until every addon reports Available=True,
-# Degraded=False and no longer Progressing, up to a bounded timeout — an
-# unbounded loop here would silently consume the caller's whole step budget and
-# fail with an opaque timeout instead of showing the last observed addon status.
+# applies the manifests. Poll until every addon reports Available=True with no
+# non-False status column after it, up to a bounded timeout — an unbounded loop
+# here would silently consume the caller's whole step budget and fail with an
+# opaque timeout instead of showing the last observed addon status.
+#
+# Note on the awk check below: `oc get managedclusteraddon` leaves DEGRADED
+# blank when the addon is not degraded, and awk collapses whitespace, so the
+# field after AVAILABLE is whichever of DEGRADED/PROGRESSING is populated. The
+# condition therefore reads "AVAILABLE is True, the one populated status column
+# after it is False, and there is no further column".
 TIMEOUT_SECONDS="${SUBMARINER_ADDON_TIMEOUT_SECONDS:-600}"
 POLL_INTERVAL_SECONDS="${SUBMARINER_ADDON_POLL_INTERVAL_SECONDS:-5}"
 deadline=$((SECONDS + TIMEOUT_SECONDS))
@@ -20,7 +26,7 @@ while true; do
     if [ -z "$STATUS" ]; then
         echo "No submariner addons found yet, waiting..."
     elif echo "$STATUS" | awk '{if ($3=="True" && $4=="False" && $5=="") next; else exit 1}'; then
-        echo "All submariner addons are Available=True, Degraded=False, and not Progressing!"
+        echo "All submariner addons are Available=True and not Degraded/Progressing!"
         exit 0
     fi
 
