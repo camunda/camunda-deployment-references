@@ -90,6 +90,13 @@ inputs:
     skip-c8sm-connectivity-ingress-class-check:
         description: Whether to skip the ingress class check part of the C8 SM Kubernetes connectivity check
         default: 'false'
+    c8sm-connectivity-timeout-seconds:
+        description: >
+            Upper bound, in seconds, for the C8 SM Kubernetes connectivity sweep.
+            Must stay above the duration of a healthy sweep and below the
+            `timeout-minutes` the caller sets on the step, otherwise the guard
+            never fires and the step dies on the opaque GitHub Actions timeout.
+        default: '1200'
     enable-c8sm-irsa-check:
         description: Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)
         default: 'false'
@@ -520,6 +527,7 @@ runs:
           env:
               NAMESPACE: ${{ inputs.test-namespace }}
               CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              C8SM_CONNECTIVITY_TIMEOUT_SECONDS: ${{ inputs.c8sm-connectivity-timeout-seconds }}
           run: |
               set -euo pipefail
 
@@ -528,13 +536,53 @@ runs:
               C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh"
 
-              # Skip ingress checks if no domain is configured
-              if [[ -z "$CAMUNDA_DOMAIN" ]] || [[ "${{ inputs.skip-c8sm-connectivity-ingress-class-check }}" == "true" ]]; then
-                echo "ℹ️ No domain configured, skipping ingress checks"
-                "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" -n "$NAMESPACE" -i
-              else
-                "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" -n "$NAMESPACE"
+              # Build the connectivity.sh arguments, skipping the ingress
+              # checks when there is no domain to resolve, or when the caller
+              # explicitly opts out (distinct messages so the logs are clear).
+              connectivity_args=(-n "$NAMESPACE")
+              if [[ -z "$CAMUNDA_DOMAIN" ]]; then
+                echo "ℹ️ No domain configured; skipping ingress checks."
+                connectivity_args+=(-i)
+              elif [[ "${{ inputs.skip-c8sm-connectivity-ingress-class-check }}" == "true" ]]; then
+                echo "ℹ️ skip-c8sm-connectivity-ingress-class-check=true; skipping ingress checks."
+                connectivity_args+=(-i)
               fi
+
+              # The sweep runs `kubectl exec` into every pod to probe every
+              # Service. `kubectl exec` has no client-side deadline, so a pod
+              # that goes momentarily unresponsive mid-sweep (restart, node or
+              # volume hiccup) makes a single exec hang and would otherwise
+              # silently consume the whole step timeout, failing with an opaque
+              # "The action has timed out". Bound the sweep with `timeout` so a
+              # wedged exec fails fast with a clear message instead. The budget
+              # is deliberately generous: a healthy sweep of a large namespace
+              # probes hundreds of Service×pod pairs and legitimately takes
+              # ~10-15 min, so it must stay well above that to avoid killing a
+              # slow-but-healthy run. It must also stay below the caller's own
+              # step `timeout-minutes`, otherwise the step dies first and the
+              # guard never fires — hence the per-caller override.
+              if ! [[ "$C8SM_CONNECTIVITY_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
+                  echo "::error::c8sm-connectivity-timeout-seconds must be a positive integer (got '$C8SM_CONNECTIVITY_TIMEOUT_SECONDS')."
+                  exit 1
+              fi
+
+              # -k 30 escalates to SIGKILL 30s after the initial SIGTERM so a
+              # wedged exec cannot linger past the budget.
+              rc=0
+              timeout -k 30 "$C8SM_CONNECTIVITY_TIMEOUT_SECONDS" \
+                  "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" "${connectivity_args[@]}" || rc=$?
+              if [[ "$rc" -ne 0 ]]; then
+                  # GNU timeout exits 124 when it interrupted the command, and
+                  # 137 (128+SIGKILL) when the command ignored SIGTERM and the
+                  # `-k` escalation had to kill it — both mean "timed out".
+                  if [[ "$rc" -eq 124 || "$rc" -eq 137 ]]; then
+                      echo "::error::Connectivity check timed out after ${C8SM_CONNECTIVITY_TIMEOUT_SECONDS}s (a pod likely went unresponsive mid-sweep); re-run to retry."
+                  else
+                      echo "::error::Kubernetes connectivity check failed (exit ${rc})."
+                  fi
+                  exit 1
+              fi
+              echo "✅ Kubernetes connectivity check passed."
 
         - name: 🧪 C8-SM-CHECKS - Run AWS IRSA Check
           if: ${{ inputs.enable-c8sm-irsa-check == 'true' }}
