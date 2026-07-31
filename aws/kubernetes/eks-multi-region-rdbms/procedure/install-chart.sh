@@ -80,12 +80,26 @@ install_slot() {
     envsubst '${BROKER_IMAGE}' <"$values" >"$values.tmp"
     mv "$values.tmp" "$values"
 
+    # Optional overlay applied after the generated values, e.g. the CI
+    # credentials overlay that provisions a local user matching the basic-auth
+    # credentials the tests authenticate with. Without it the chart keeps its
+    # default user and every authenticated call returns 401.
+    local extra_args=()
+    if [ -n "${CAMUNDA_EXTRA_VALUES:-}" ]; then
+        if [ ! -f "$CAMUNDA_EXTRA_VALUES" ]; then
+            echo "ERROR: CAMUNDA_EXTRA_VALUES points at $CAMUNDA_EXTRA_VALUES, which does not exist." >&2
+            exit 1
+        fi
+        echo "Applying the extra values overlay: $CAMUNDA_EXTRA_VALUES"
+        extra_args=(-f "$CAMUNDA_EXTRA_VALUES")
+    fi
+
     echo "Installing $CAMUNDA_RELEASE_NAME into ${contexts[$slot]}/$CAMUNDA_NAMESPACE (region slot $slot)"
     helm upgrade --install \
         "$CAMUNDA_RELEASE_NAME" "$LOCAL_CHART" \
         --kube-context "${contexts[$slot]}" \
         --namespace "$CAMUNDA_NAMESPACE" \
-        -f "$values"
+        -f "$values" "${extra_args[@]}"
 }
 
 if [ $# -ge 1 ]; then
