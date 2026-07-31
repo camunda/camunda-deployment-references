@@ -236,14 +236,37 @@ jobs:
 
             - name: Debug failed pods
               if: failure()
-              timeout-minutes: 10
+              timeout-minutes: 15
               run: |
                   set -uo pipefail
                   read -r -a contexts <<< "${{ env.CLUSTER_CONTEXTS }}"
+                  ns="${{ env.CAMUNDA_NAMESPACE }}"
+
                   for ctx in "${contexts[@]}"; do
-                    echo "=== $ctx ==="
-                    kubectl --context "$ctx" -n "${{ env.CAMUNDA_NAMESPACE }}" get pods -o wide || true
-                    kubectl --context "$ctx" -n "${{ env.CAMUNDA_NAMESPACE }}" describe pods || true
+                    echo "::group::$ctx pods"
+                    kubectl --context "$ctx" -n "$ns" get pods -o wide || true
+                    kubectl --context "$ctx" -n "$ns" describe pods || true
+                    echo "::endgroup::"
+
+                    # Container logs are what actually explains a crash. Without
+                    # them a CrashLoopBackOff is only visible as exit code 255,
+                    # which says nothing about the cause.
+                    for pod in $(kubectl --context "$ctx" -n "$ns" get pods \
+                        -l app.kubernetes.io/component=zeebe-broker \
+                        -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+                      echo "::group::$ctx/$pod logs"
+                      kubectl --context "$ctx" -n "$ns" logs "$pod" --tail=200 --all-containers || true
+                      echo "--- previous instance (the one that crashed) ---"
+                      kubectl --context "$ctx" -n "$ns" logs "$pod" --tail=200 --all-containers --previous || true
+                      echo "::endgroup::"
+                    done
+
+                    # Fallback when the label selector matches nothing, e.g. a
+                    # chart change renaming the component label.
+                    echo "::group::$ctx events"
+                    kubectl --context "$ctx" -n "$ns" get events \
+                      --sort-by=.lastTimestamp | tail -40 || true
+                    echo "::endgroup::"
                   done
 
             - name: Uninstall Camunda and Submariner
