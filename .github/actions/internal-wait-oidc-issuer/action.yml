@@ -47,8 +47,10 @@ inputs:
         default: ''
     timeout-seconds:
         description: |
-            Total wall-clock budget in seconds. Fail-open: on timeout the action
-            emits a warning and exits 0 so it never blocks the pipeline.
+            Total wall-clock budget in seconds, covering both the issuer poll and
+            the rollout wait that follows the optional workload bounce. Fail-open:
+            on timeout the action emits a warning and exits 0 so it never blocks
+            the pipeline.
         required: false
         default: '600'
     restart-workloads:
@@ -139,12 +141,13 @@ runs:
                       # patched, so without this the caller's health gate can run
                       # against the pods we just asked Kubernetes to replace and
                       # pass moments before they are torn down. The rollouts
-                      # overlap, so they share a single budget.
-                      rollout_deadline=$(( $(date +%s) + 600 ))
+                      # overlap, so they share what is left of the action's
+                      # `timeout-seconds`, which is documented as a *total*
+                      # wall-clock budget — the bounce must not silently extend it.
                       for workload in ${restarted[@]+"${restarted[@]}"}; do
-                          remaining=$(( rollout_deadline - $(date +%s) ))
+                          remaining=$(( deadline - $(date +%s) ))
                           if [ "${remaining}" -le 0 ]; then
-                              echo "::warning::rollout wait budget exhausted; not waiting for ${workload}"
+                              echo "::warning::timeout-seconds budget exhausted; ${workload} was restarted but its rollout is not awaited."
                               continue
                           fi
                           kubectl -n "${NAMESPACE}" rollout status "${workload}" --timeout="${remaining}s" ||

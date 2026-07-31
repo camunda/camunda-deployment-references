@@ -691,9 +691,9 @@ jobs:
 
             - name: ⏳ Wait for the OIDC issuer to be reachable
               if: matrix.declination.name == 'domain'
-              # Covers the issuer poll (600s budget) plus the rollout wait that
-              # follows the workload bounce (600s budget), with margin.
-              timeout-minutes: 25
+              # The action is fail-open on its own 600s budget; this only stops
+              # a wedged step from running unbounded.
+              timeout-minutes: 15
               uses: ./.github/actions/internal-wait-oidc-issuer
               with:
                   issuer-url: https://${{ env.CAMUNDA_DOMAIN }}/auth/realms/camunda-platform
