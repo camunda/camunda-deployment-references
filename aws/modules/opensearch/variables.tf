@@ -9,7 +9,7 @@ variable "engine_version" {
   type        = string
   description = "OpenSearch version for the domain."
   # renovate: datasource=custom.opensearch-camunda depName=opensearch versioning=loose
-  default = "3.5"
+  default = "3.7"
 }
 
 variable "vpc_id" {
