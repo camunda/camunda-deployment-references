@@ -82,6 +82,13 @@ locals {
     },
   ]
 
+  # JDBC URL for RDBMS secondary storage. The infra layer already builds an
+  # engine-aware URL (subprotocol, port, iam/failover plugins, global-cluster
+  # host patterns, TLS), so the app layer consumes it rather than rebuilding it.
+  # var.rdbms_jdbc_url overrides it, which also keeps this layer usable against
+  # an externally provisioned database or an infra state predating that output.
+  rdbms_jdbc_url = var.rdbms_jdbc_url != null ? var.rdbms_jdbc_url : try(local.infra.aurora_jdbc_url, null)
+
   # Secondary storage environment variables (conditional on storage type)
   rdbms_env_vars = local.infra.secondary_storage_type == "rdbms" ? [
     {
@@ -94,7 +101,7 @@ locals {
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL"
-      value = local.infra.aurora_jdbc_url
+      value = local.rdbms_jdbc_url
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_USERNAME"

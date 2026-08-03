@@ -109,6 +109,23 @@ run "rdbms_env_vars_local_populated_when_rdbms" {
   }
 }
 
+run "rdbms_jdbc_url_variable_overrides_infra_output" {
+  command = plan
+
+  variables {
+    rdbms_jdbc_url = "jdbc:aws-wrapper:mysql://byo-db.example.com:3306/camunda?wrapperPlugins=failover&sslMode=REQUIRED"
+  }
+
+  assert {
+    condition = anytrue([
+      for e in local.rdbms_env_vars :
+      e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL" &&
+      e.value == "jdbc:aws-wrapper:mysql://byo-db.example.com:3306/camunda?wrapperPlugins=failover&sslMode=REQUIRED"
+    ])
+    error_message = "var.rdbms_jdbc_url should override the infra-provided aurora_jdbc_url"
+  }
+}
+
 run "opensearch_env_vars_local_populated_when_opensearch" {
   command = plan
 
