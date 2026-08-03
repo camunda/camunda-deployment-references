@@ -62,6 +62,12 @@ variable "camunda_image" {
   description = "Container image for the Camunda orchestration cluster tasks (Zeebe broker + gateway + webapps)"
 }
 
+variable "rdbms_jdbc_url" {
+  type        = string
+  default     = null
+  description = "Override for the RDBMS secondary-storage JDBC URL. When null (default), the URL is taken from the infra layer's aurora_jdbc_url output. Set it to point this app layer at a database provisioned outside this reference architecture, or at an infra state that predates the aurora_jdbc_url output. Only used when secondary storage is 'rdbms'."
+}
+
 variable "connectors_image" {
   type = string
   # Pinned to SNAPSHOT for the same reason as camunda_image above (dual-region
