@@ -758,7 +758,8 @@
         "name": "camunda-oc1-connectors-oidc-client-secret",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.db_admin_password": {
@@ -806,7 +807,8 @@
         "name": "camunda-oc1-identity-oidc-client-secret",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.identity_db_password": {
@@ -829,7 +831,8 @@
         "name": "camunda-oc1-identity-db-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.keycloak_admin_password[0]": {
@@ -853,7 +856,8 @@
         "name": "camunda-oc1-keycloak-admin-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.keycloak_db_password[0]": {
@@ -877,7 +881,8 @@
         "name": "camunda-oc1-keycloak-db-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.orchestration_admin_user_password": {
@@ -925,7 +930,8 @@
         "name": "camunda-oc1-orchestration-oidc-client-secret",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.realm_admin_user_password[0]": {
@@ -949,7 +955,8 @@
         "name": "camunda-oc1-realm-admin-user-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret_version.connectors_client_auth_password": {
