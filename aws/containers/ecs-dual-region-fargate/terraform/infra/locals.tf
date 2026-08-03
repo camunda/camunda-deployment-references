@@ -25,6 +25,12 @@ locals {
   # RDBMS engine selection. db_engine (postgresql|mysql) maps to the aurora-global
   # module's engine and the wire port; both derived here so security groups, the
   # DB seed task, and outputs stay consistent.
+  #
+  # db_port intentionally mirrors local.engine_ports in
+  # aws/modules/aurora-global/locals.tf. It cannot be read from the module output
+  # because the security groups are created even when secondary_storage_type is
+  # not "rdbms", i.e. when module.aurora_global has count = 0. Keep the two maps
+  # in sync when adding an engine.
   aurora_engine = var.db_engine == "mysql" ? "aurora-mysql" : "aurora-postgresql"
   db_port       = var.db_engine == "mysql" ? 3306 : 5432
 }

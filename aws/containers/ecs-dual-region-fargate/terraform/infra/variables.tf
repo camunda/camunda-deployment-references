@@ -52,7 +52,7 @@ variable "secondary_storage_type" {
 variable "db_engine" {
   type        = string
   default     = "postgresql"
-  description = "Aurora RDBMS engine for secondary storage: 'postgresql' or 'mysql'. NOTE: MySQL requires a Camunda image that bundles the MySQL JDBC driver; the default image does not include it."
+  description = "Aurora RDBMS engine for secondary storage: 'postgresql' or 'mysql'. Only applies when secondary_storage_type = 'rdbms' (inert otherwise). This reference architecture is validated on PostgreSQL; 'mysql' provisions an Aurora Global MySQL cluster for evaluation but running Camunda on MySQL is not covered here — the MySQL JDBC driver is never bundled in the Camunda image (licensing) and must be supplied at runtime, see https://docs.camunda.io/docs/next/self-managed/deployment/helm/configure/database/rdbms-jdbc-drivers/."
 
   validation {
     condition     = contains(["postgresql", "mysql"], var.db_engine)

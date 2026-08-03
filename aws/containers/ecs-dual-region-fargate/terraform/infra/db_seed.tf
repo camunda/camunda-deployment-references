@@ -3,12 +3,18 @@
 ################################################################
 
 locals {
-  db_seed_image = var.db_engine == "mysql" ? "public.ecr.aws/docker/library/mysql:8.4" : "public.ecr.aws/docker/library/postgres:17-alpine"
+  # renovate: datasource=docker depName=public.ecr.aws/docker/library/mysql
+  db_seed_image_mysql = "public.ecr.aws/docker/library/mysql:8.4"
+  # renovate: datasource=docker depName=public.ecr.aws/docker/library/postgres
+  db_seed_image_postgres = "public.ecr.aws/docker/library/postgres:17-alpine"
+
+  db_seed_image = var.db_engine == "mysql" ? local.db_seed_image_mysql : local.db_seed_image_postgres
 
   postgres_seed_command = <<-EOT
     set -euo pipefail
+    set -f
 
-    if [ -z "$${IAM_DB_USERS}" ]; then
+    if [ -z "$${IAM_DB_USERS:-}" ]; then
       echo "No IAM_DB_USERS provided; nothing to do."
       exit 0
     fi
@@ -34,10 +40,18 @@ locals {
   # around the db name are backslash-escaped so /bin/sh treats them as literal
   # (not command substitution) inside the double-quoted -e argument. MYSQL_PWD
   # passes the admin password without exposing it on the mysql CLI.
+  #
+  # CREATE USER IF NOT EXISTS is not convergent: on an existing user MySQL emits
+  # a note, returns 0, and reconciles neither the auth plugin nor ssl_type. The
+  # follow-up ALTER USER makes the seed idempotent, so a user created by an
+  # earlier apply (or a restored snapshot) is actually switched to IAM auth
+  # instead of silently reporting success. Both statements are needed: ALTER USER
+  # alone errors when the user is missing.
   mysql_seed_command = <<-EOT
     set -euo pipefail
+    set -f
 
-    if [ -z "$${IAM_DB_USERS}" ]; then
+    if [ -z "$${IAM_DB_USERS:-}" ]; then
       echo "No IAM_DB_USERS provided; nothing to do."
       exit 0
     fi
@@ -55,8 +69,8 @@ locals {
         --user="$${AURORA_ADMIN_USERNAME}" \
         --ssl-mode=REQUIRED \
         -e "CREATE USER IF NOT EXISTS '$${user}'@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS 'RDS' REQUIRE SSL;" \
-        -e "GRANT ALL PRIVILEGES ON \`$${AURORA_DB_NAME}\`.* TO '$${user}'@'%';" \
-        -e "FLUSH PRIVILEGES;"
+        -e "ALTER USER '$${user}'@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS 'RDS' REQUIRE SSL;" \
+        -e "GRANT ALL PRIVILEGES ON \`$${AURORA_DB_NAME}\`.* TO '$${user}'@'%';"
     done
 
     echo "DB seeding complete."

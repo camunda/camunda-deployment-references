@@ -15,10 +15,10 @@ module "aurora_global" {
 
   engine = local.aurora_engine
 
-  # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
-  postgresql_engine_version = "18.3"
-  # renovate: datasource=custom.aurora-mysql-camunda depName=aurora-mysql versioning=loose
-  mysql_engine_version = "8.4.mysql_aurora.8.4.7"
+  # Engine versions are pinned (and Renovate-tracked) once, on the module's
+  # postgresql_engine_version / mysql_engine_version defaults. Overriding them
+  # here would duplicate the pins and make Renovate bump both engines in every
+  # consumer; set engine_version instead to deviate for a single deployment.
 
   auto_minor_version_upgrade = false
   database_name              = var.db_name
