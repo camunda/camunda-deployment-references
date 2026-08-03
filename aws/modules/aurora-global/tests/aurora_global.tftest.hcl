@@ -249,6 +249,11 @@ run "postgresql_jdbc_url_uses_postgresql_subprotocol_and_port" {
   }
 
   assert {
+    condition     = strcontains(output.jdbc_url, "&sslmode=require")
+    error_message = "PostgreSQL jdbc_url should pin sslmode=require rather than relying on the pgjdbc default"
+  }
+
+  assert {
     condition     = strcontains(output.jdbc_url, ":5432/")
     error_message = "PostgreSQL jdbc_url should use port 5432"
   }
@@ -301,6 +306,11 @@ run "mysql_jdbc_url_uses_mysql_subprotocol_and_port" {
   assert {
     condition     = strcontains(output.jdbc_url, "jdbc:aws-wrapper:mysql://")
     error_message = "MySQL jdbc_url should use the aws-wrapper:mysql:// subprotocol"
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "&sslMode=REQUIRED")
+    error_message = "MySQL jdbc_url should pin sslMode=REQUIRED rather than relying on the Connector/J default"
   }
 
   assert {
