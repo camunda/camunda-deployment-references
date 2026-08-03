@@ -20,12 +20,12 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-            - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
 
-            - uses: camunda/camunda-deployment-references/.github/actions/aws-configure-cli@aa215d1597fc422b1bf6e8052d332ba2e4a9bdd6 # main
+            - uses: camunda/camunda-deployment-references/.github/actions/aws-configure-cli@d4bccfaaa2ac2e33ced96a73a4354edee55bf428 # main
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}

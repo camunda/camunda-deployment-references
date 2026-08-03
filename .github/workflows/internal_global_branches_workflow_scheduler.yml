@@ -28,13 +28,13 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
-              uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   fetch-depth: 0
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@4700be2d48ff2952fdae7a3baa481781f6999b72 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@f063d613a0c7eb6d1b5a155722f09f336e39ccb5 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -75,7 +75,7 @@ jobs:
             schedules: ${{ steps.matrix.outputs.schedules }}
         steps:
             - name: Checkout repository
-              uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   fetch-depth: 0
 
@@ -125,7 +125,7 @@ jobs:
         steps:
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@4700be2d48ff2952fdae7a3baa481781f6999b72 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@f063d613a0c7eb6d1b5a155722f09f336e39ccb5 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -137,7 +137,7 @@ jobs:
                   vault-url: ${{ secrets.VAULT_ADDR }}
 
             - name: Checkout repository
-              uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   token: ${{ steps.generate-github-token.outputs.token }}
                   ref: ${{ matrix.schedule.branch }}

@@ -109,8 +109,8 @@ run "postgresql_engine_selects_default_version" {
   }
 
   assert {
-    condition     = aws_rds_cluster.primary.engine_version == "18.3"
-    error_message = "PostgreSQL engine_version should default to postgresql_engine_version (18.3)"
+    condition     = aws_rds_cluster.primary.engine_version == "18.4"
+    error_message = "PostgreSQL engine_version should default to postgresql_engine_version (18.4)"
   }
 }
 

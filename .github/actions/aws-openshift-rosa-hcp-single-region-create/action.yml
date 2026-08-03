@@ -33,7 +33,7 @@ inputs:
         description: Version of the OpenShift to install
         required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.22.1
+        default: 4.22.5
     replicas:
         description: Number of replicas for the ROSA cluster (empty will fallback on default value of the module)
         default: ''
@@ -105,7 +105,7 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -130,7 +130,7 @@ runs:
               rosa version
 
         - name: Install CLI tools from OpenShift Mirror
-          uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+          uses: redhat-actions/openshift-tools-installer@ebd96c3fc72fc10a62663eac5e1421192152e6aa # v2
           with:
               oc: ${{ inputs.openshift-version }}
 

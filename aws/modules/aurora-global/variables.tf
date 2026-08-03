@@ -23,7 +23,7 @@ variable "engine_version" {
 variable "postgresql_engine_version" {
   type = string
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
-  default     = "18.3"
+  default     = "18.4"
   description = "Default Aurora PostgreSQL engine version, used when engine = aurora-postgresql and engine_version is not set."
 }
 
