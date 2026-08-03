@@ -48,11 +48,17 @@ export CLUSTER_1 ALB_ENDPOINT_1 NLB_GRPC_ENDPOINT_1 NLB_RAFT_ENDPOINT_1
 # Aurora Global Database
 # AURORA_GLOBAL_WRITER_ENDPOINT — global endpoint that survives failover (use in JDBC URLs)
 # AURORA_PRIMARY_ENDPOINT       — regional writer endpoint for the primary cluster (region 0)
+# AURORA_ENGINE                 — aurora-postgresql | aurora-mysql; failover/failback must
+#                                 re-create clusters with the engine actually in use
+# AURORA_DB_PORT                — 5432 (PostgreSQL) or 3306 (MySQL), for manual sessions
 AURORA_GLOBAL_CLUSTER_ID=$(echo "${TF_OUTPUT}" | jq -r '.aurora_global_cluster_id.value // empty')
 AURORA_GLOBAL_WRITER_ENDPOINT=$(echo "${TF_OUTPUT}" | jq -r '.aurora_global_writer_endpoint.value // empty')
 AURORA_PRIMARY_ENDPOINT=$(echo "${TF_OUTPUT}" | jq -r '.aurora_primary_cluster_endpoint.value // empty')
-AURORA_SECONDARY_ENDPOINT=$(echo "${TF_OUTPUT}" | jq -r '.aurora_secondary_endpoint.value // empty')
+AURORA_SECONDARY_ENDPOINT=$(echo "${TF_OUTPUT}" | jq -r '.aurora_secondary_cluster_endpoint.value // empty')
+AURORA_ENGINE=$(echo "${TF_OUTPUT}" | jq -r '.aurora_engine.value // empty')
+AURORA_DB_PORT=$(echo "${TF_OUTPUT}" | jq -r '.aurora_db_port.value // empty')
 export AURORA_GLOBAL_CLUSTER_ID AURORA_GLOBAL_WRITER_ENDPOINT AURORA_PRIMARY_ENDPOINT AURORA_SECONDARY_ENDPOINT
+export AURORA_ENGINE AURORA_DB_PORT
 
 # Admin credentials
 ADMIN_USER="${ADMIN_USER:-admin}"
@@ -84,5 +90,6 @@ Aurora Global Database:
   Global Writer:  ${AURORA_GLOBAL_WRITER_ENDPOINT}
   Primary (R0):   ${AURORA_PRIMARY_ENDPOINT}
   Secondary (R1): ${AURORA_SECONDARY_ENDPOINT}
+  Engine / Port:  ${AURORA_ENGINE} / ${AURORA_DB_PORT}
 
 EOF
