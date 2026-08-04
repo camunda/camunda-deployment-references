@@ -18,8 +18,10 @@ set -euo pipefail
 # breaks that circularity. See ../README.md, section "Pod networking".
 #
 # WHAT IT DOES, per active region:
-#   1. turns on custom networking in the aws-node DaemonSet and tells it to pick
-#      an ENIConfig by availability zone label
+#   1. turns on custom networking in the aws-node DaemonSet, tells it to pick an
+#      ENIConfig by availability zone label, and excludes the remote pod and
+#      service ranges from source NAT so a cross-region packet keeps the pod
+#      address Submariner and the security groups are written for
 #   2. creates one ENIConfig per zone, named after the zone so the label
 #      resolves it, pointing at that zone's pod subnet and at the EKS cluster
 #      security group
@@ -28,7 +30,9 @@ set -euo pipefail
 #
 # Run it BEFORE labelling the Submariner gateways: step 3 replaces every node
 # and would otherwise discard the labels. It is idempotent: step 3 is skipped
-# once every node already holds an interface in the pod subnets.
+# once every node already holds an interface in the pod subnets, which also
+# makes it cheap to re-run over the whole cluster when a region is added and
+# every other region's exclusion list has to learn the new ranges.
 #
 # CAVEAT 1 — step 3 TERMINATES every node of the region at once. That is
 # deliberate: it runs at bootstrap, before any workload exists, and it is far
@@ -48,6 +52,8 @@ set -euo pipefail
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
 : "${AWS_REGIONS:?AWS_REGIONS must be set, source export_environment_prerequisites.sh}"
 : "${EKS_CLUSTER_NAMES:?EKS_CLUSTER_NAMES must be set, source export-terraform-outputs.sh}"
+: "${REGION_POD_CIDRS:?REGION_POD_CIDRS must be set, source export-terraform-outputs.sh}"
+: "${REGION_SERVICE_CIDRS:?REGION_SERVICE_CIDRS must be set, source export-terraform-outputs.sh}"
 
 NODE_ROLL_TIMEOUT_SECONDS="${NODE_ROLL_TIMEOUT_SECONDS:-900}"
 NODE_ROLL_POLL_INTERVAL_SECONDS="${NODE_ROLL_POLL_INTERVAL_SECONDS:-20}"
@@ -55,6 +61,20 @@ NODE_ROLL_POLL_INTERVAL_SECONDS="${NODE_ROLL_POLL_INTERVAL_SECONDS:-20}"
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 read -r -a aws_regions <<<"$AWS_REGIONS"
 read -r -a cluster_names <<<"$EKS_CLUSTER_NAMES"
+read -r -a pod_cidrs <<<"$REGION_POD_CIDRS"
+read -r -a service_cidrs <<<"$REGION_SERVICE_CIDRS"
+
+# CIDRs of every OTHER region, i.e. everything that must reach its destination
+# through the Submariner tunnel with the source address intact.
+remote_tunnel_cidrs() {
+    local slot="$1" out=""
+
+    for ((j = 0; j < CAMUNDA_ACTIVE_REGIONS; j++)); do
+        [ "$j" -eq "$slot" ] && continue
+        out="${out:+$out,}${pod_cidrs[$j]},${service_cidrs[$j]}"
+    done
+    echo "$out"
+}
 
 # Instance IDs of the nodes currently backing the cluster.
 node_instance_ids() {
@@ -112,10 +132,25 @@ configure_slot() {
         return 1
     fi
 
+    # AWS_VPC_K8S_CNI_EXCLUDE_SNAT_CIDRS is as load-bearing as custom networking
+    # itself. The CNI source-NATs every packet leaving the VPC to the node
+    # address, and a remote pod range is by construction outside this VPC. The
+    # remote cluster would then see a Zeebe connection arriving from a NODE
+    # address while Submariner routes, and terraform/clusters/security.tf
+    # authorises, POD addresses -- so the packets are dropped and Raft never
+    # forms, with the tunnels reported healthy throughout.
+    #
+    # Submariner without Globalnet identifies a cluster by its pod CIDR, so
+    # preserving the source address is not an optimisation, it is the model.
+    local exclude_cidrs
+    exclude_cidrs="$(remote_tunnel_cidrs "$slot")"
+    echo "    Excluding from source NAT: $exclude_cidrs"
+
     echo "    Enabling custom networking in the aws-node DaemonSet"
     kubectl --context "$context" -n kube-system set env daemonset aws-node \
         AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG=true \
-        ENI_CONFIG_LABEL_DEF=topology.kubernetes.io/zone
+        ENI_CONFIG_LABEL_DEF=topology.kubernetes.io/zone \
+        AWS_VPC_K8S_CNI_EXCLUDE_SNAT_CIDRS="$exclude_cidrs"
 
     # One ENIConfig per zone, named after the zone: ENI_CONFIG_LABEL_DEF makes
     # the CNI look up the ENIConfig whose name equals the node's zone label, so

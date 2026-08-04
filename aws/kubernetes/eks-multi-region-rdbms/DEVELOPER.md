@@ -113,6 +113,19 @@ A cluster reporting the VPC CIDR was joined before
 `configure-vpc-cni-custom-networking.sh` ran, or with `--clustercidr` pointed at
 `REGION_VPC_CIDRS`. Re-run the procedure and rejoin the cluster.
 
+If instead the tunnels look perfect and the brokers still log
+`Poll request to N failed ... connection timed out`, the source address is
+being rewritten. Check the exclusion list:
+
+```bash
+kubectl --context cluster-london -n kube-system get daemonset aws-node \
+  -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="AWS_VPC_K8S_CNI_EXCLUDE_SNAT_CIDRS")].value}'
+```
+
+It must list every **remote** pod and service range. Empty means the CNI is
+source-NATing cross-region pod traffic to the node address, which the remote
+security group rejects because those rules are written for pod ranges.
+
 ### Zeebe never reaches the expected broker count
 
 Almost always cross-region DNS. In order:

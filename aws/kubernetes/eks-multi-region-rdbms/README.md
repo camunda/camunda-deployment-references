@@ -293,6 +293,18 @@ Two things follow, and both are load-bearing:
   one tunnel, and `subctl join` rejects it. The `regions` variable validates
   this.
 
+A third constraint only shows up once the tunnels are already healthy. The VPC
+CNI source-NATs every packet leaving the VPC to the node address, and a remote
+pod range is by construction outside the local VPC. Left alone, a Zeebe
+connection arrives in the remote cluster from a **node** address, while
+Submariner routes and `security.tf` authorises **pod** addresses — so the
+packets are dropped while `subctl show all` keeps reporting a healthy mesh, and
+the only symptom is `Poll request to N failed ... connection timed out` in the
+broker logs. `configure-vpc-cni-custom-networking.sh` therefore also sets
+`AWS_VPC_K8S_CNI_EXCLUDE_SNAT_CIDRS` to the remote pod and service ranges.
+Preserving the source address is not a tuning choice: without Globalnet, the
+pod address *is* how Submariner identifies a cluster.
+
 The Kubernetes half of the change — the `aws-node` flags, the per-zone
 `ENIConfig` objects and the node recycle that makes them take effect — lives in
 `procedure/configure-vpc-cni-custom-networking.sh`. It has to run **before** the

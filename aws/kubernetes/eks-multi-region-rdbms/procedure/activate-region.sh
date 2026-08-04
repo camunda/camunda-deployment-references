@@ -54,7 +54,12 @@ new_context="${contexts[$SLOT]}"
 survivor_context="${contexts[0]}"
 
 echo "==> 1/7 Moving the pods of region slot $SLOT into the non-routed pod CIDR"
-"$SCRIPT_DIR/configure-vpc-cni-custom-networking.sh" "$SLOT"
+# Run over EVERY active region, not just the new one: the already running
+# regions have to learn the new region's pod and service ranges in their
+# source-NAT exclusion list, or their traffic reaches it with a node address
+# and is rejected. Regions already converted skip the node recycle, so this
+# only restarts their aws-node DaemonSet.
+"$SCRIPT_DIR/configure-vpc-cni-custom-networking.sh"
 # The step above replaces the nodes of the new region, so the gateway has to be
 # labelled afterwards. Only the new slot is labelled: re-running it over the
 # established regions could move their gateway and migrate live tunnels.
