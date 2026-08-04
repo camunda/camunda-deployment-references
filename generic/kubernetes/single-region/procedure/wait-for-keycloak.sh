@@ -63,12 +63,25 @@ identity_ready_replicas() {
     printf '%s' "${out:-0}"
 }
 
-# Names of the pods backing the Identity deployment. Pod names are derived from
-# the deployment name, so a prefix match avoids depending on chart labels (which
-# have changed across chart major versions).
+# Names of the pods backing the Identity deployment, resolved through the
+# deployment's own label selector.
+#
+# Matching on the pod name prefix would be wrong: the chart can deploy siblings
+# whose names also start with `<release>-identity-`, such as the bundled
+# `identityKeycloak` and its PostgreSQL. Reporting their container states as
+# Identity's would point the reader at the wrong component. `go-template` is
+# built into kubectl, so resolving the selector adds no dependency.
 identity_pods() {
-    kubectl --namespace "$namespace" get pods -o name 2>/dev/null |
-        sed -n "s|^pod/\(${identity_deployment}-[^/]*\)$|\1|p"
+    local selector
+    # SC2016: `$k` and `$v` are Go template variables consumed by kubectl, they
+    # must reach it literally and must not be expanded by the shell.
+    # shellcheck disable=SC2016
+    selector="$(kubectl --namespace "$namespace" get deployment "$identity_deployment" \
+        -o go-template='{{range $k, $v := .spec.selector.matchLabels}}{{$k}}={{$v}},{{end}}' 2>/dev/null)" || return 0
+    selector="${selector%,}"
+    [ -n "$selector" ] || return 0
+    kubectl --namespace "$namespace" get pods --selector "$selector" \
+        -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null
 }
 
 # Per-container state of every Identity pod: restarts, why it is waiting, and how

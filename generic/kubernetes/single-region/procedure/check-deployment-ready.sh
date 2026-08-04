@@ -49,11 +49,10 @@ pods_json() {
 # Containers that are not ready, with the reason they are waiting and how their
 # previous attempt died. 'OOMKilled' or a non-zero exit code here is the actual
 # root cause, and is what a component needing more resources looks like.
+# Takes the namespace snapshot as its first argument.
 report_unready_containers() {
-    local pods
-    pods="$(pods_json)"
-    [ -n "$pods" ] || return 0
-    printf '%s' "$pods" | jq -r '
+    [ -n "$1" ] || return 0
+    printf '%s' "$1" | jq -r '
         .items[]
         | . as $pod
         | (($pod.status.containerStatuses // []) + ($pod.status.initContainerStatuses // []))[]
@@ -69,11 +68,10 @@ report_unready_containers() {
 
 # Pods that never reached the Running phase have no container status to report,
 # so surface them separately (Pending pods are usually unschedulable ones).
+# Takes the namespace snapshot as its first argument.
 report_non_running_pods() {
-    local pods
-    pods="$(pods_json)"
-    [ -n "$pods" ] || return 0
-    printf '%s' "$pods" | jq -r '
+    [ -n "$1" ] || return 0
+    printf '%s' "$1" | jq -r '
         .items[]
         | select(.status.phase != "Running")
         | "  \(.metadata.name) phase=\(.status.phase) reason=\(.status.reason // "-")"
@@ -93,9 +91,12 @@ report_warning_events() {
 }
 
 diagnostics() {
-    local unready non_running events
-    unready="$(report_unready_containers)"
-    non_running="$(report_non_running_pods)"
+    local pods unready non_running events
+    # One snapshot for the whole report: two independent calls could describe
+    # different moments and contradict each other in the same output.
+    pods="$(pods_json)"
+    unready="$(report_unready_containers "$pods")"
+    non_running="$(report_non_running_pods "$pods")"
     events="$(report_warning_events)"
 
     echo "--- why the deployment is not ready yet ---"
