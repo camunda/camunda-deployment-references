@@ -198,6 +198,12 @@ AlloyDB or CockroachDB cluster, or a plain DNS CNAME you repoint during
 failover.
 
 > [!IMPORTANT]
+> `CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED=true` is
+> **required**, not a tuning knob. Without it the RDBMS exporter does not
+> enable async replication and an Aurora failover can lose exported data —
+> which this architecture treats as a routine operation, not an incident.
+
+> [!IMPORTANT]
 > The Zeebe data plane is active-active across all regions. The **database tier
 > is active-standby**: a single writer serves every region. Brokers that are not
 > co-located with the writer pay the inter-region round trip on every export
