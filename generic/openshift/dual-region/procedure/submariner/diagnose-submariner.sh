@@ -10,11 +10,16 @@ set +e
 # would otherwise eat it and leave the later contexts and dumps uncollected.
 CMD_TIMEOUT_SECONDS="${DIAGNOSE_CMD_TIMEOUT_SECONDS:-90}"
 run() {
+  local rc
   timeout "${CMD_TIMEOUT_SECONDS}" "$@" 2>&1
   rc=$?
   if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
     echo "(timed out after ${CMD_TIMEOUT_SECONDS}s: $*)"
   fi
+  # Propagate the wrapped command's status: without this the function always
+  # returns 0 (the status of the `if`), which would silently mask a failure for
+  # any caller that branches on it.
+  return "$rc"
 }
 
 # Support both the 0-indexed (CLUSTER_0/CLUSTER_1) and 1-indexed
