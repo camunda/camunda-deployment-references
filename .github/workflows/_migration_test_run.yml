@@ -705,6 +705,11 @@ jobs:
                   enable-c8sm-deployment-check: 'true'
                   enable-c8sm-connectivity-check: 'true'
                   skip-c8sm-connectivity-ingress-class-check: 'true'
+                  # This step's budget is 15 min and it also runs the deployment
+                  # and Zeebe checks, so the connectivity sweep gets a tighter
+                  # bound than the 20 min default: the Kind namespace is small
+                  # and its sweep completes in well under a minute.
+                  c8sm-connectivity-timeout-seconds: '300'
                   enable-c8sm-irsa-check: 'false'
                   # Zeebe token/connectivity checks require domain + credentials
                   enable-c8sm-zeebe-token-check: ${{ matrix.distro.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' || 'false'
@@ -786,6 +791,11 @@ jobs:
                   enable-c8sm-deployment-check: 'true'
                   enable-c8sm-connectivity-check: 'true'
                   skip-c8sm-connectivity-ingress-class-check: 'true'
+                  # This step's budget is 15 min and it also runs the deployment
+                  # and Zeebe checks, so the connectivity sweep gets a tighter
+                  # bound than the 20 min default: the Kind namespace is small
+                  # and its sweep completes in well under a minute.
+                  c8sm-connectivity-timeout-seconds: '300'
                   enable-c8sm-irsa-check: 'false'
                   enable-c8sm-zeebe-token-check: ${{ matrix.distro.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' || 'false'
                       }}
