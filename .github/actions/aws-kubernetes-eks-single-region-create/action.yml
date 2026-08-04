@@ -173,6 +173,18 @@ runs:
           id: plan-cluster
           working-directory: ${{ env.TF_DIR_CLUSTER }}
           shell: bash
+          # Passed as env rather than interpolated into the script: a value
+          # containing a quote would otherwise break the generated shell, and
+          # sed replacement metacharacters (& \ and the delimiter) would corrupt
+          # the substitution.
+          env:
+              CLUSTER_NAME: ${{ inputs.cluster-name }}
+              CLUSTER_REGION: ${{ inputs.aws-region }}
+              KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
+              SINGLE_NAT_GATEWAY: ${{ inputs.single-nat-gateway }}
+              PRIVATE_VPC: ${{ inputs.private-vpc }}
+              NP_CAPACITY_TYPE: ${{ inputs.np-capacity-type }}
+              NP_INSTANCE_TYPES: ${{ inputs.np-instance-types }}
           run: |
               set -euo pipefail
               echo "Adapting the files with input values"
@@ -205,23 +217,30 @@ runs:
                   echo "✅ ${file}: ${key} = ${expected}"
               }
 
+              # `&` and a backslash are replacement metacharacters for sed, and
+              # so is whichever delimiter the expression uses. Escape them so a
+              # value is inserted literally instead of corrupting the file.
+              sed_escape() {
+                  printf '%s' "$1" | sed -e 's/[&\\|#]/\\&/g'
+              }
+
               # Both are written into cluster.tf as bare HCL booleans, so validate
               # them here: `TRUE` or `yes` would otherwise only blow up much later
               # as an opaque Terraform parse error. single-nat-gateway is always
               # substituted, so an empty value would produce invalid HCL
               # (`single_nat_gateway = `); private-vpc is only substituted when
               # non-empty, so empty means "leave the module default alone".
-              case "${{ inputs.single-nat-gateway }}" in
+              case "${SINGLE_NAT_GATEWAY}" in
                 true|false) ;;
                 *)
-                  echo "::error::Invalid single-nat-gateway '${{ inputs.single-nat-gateway }}'; expected the HCL boolean true or false."
+                  echo "::error::Invalid single-nat-gateway '${SINGLE_NAT_GATEWAY}'; expected the HCL boolean true or false."
                   exit 1
                   ;;
               esac
-              case "${{ inputs.private-vpc }}" in
+              case "${PRIVATE_VPC}" in
                 ''|true|false) ;;
                 *)
-                  echo "::error::Invalid private-vpc '${{ inputs.private-vpc }}'; expected the HCL boolean true or false, or an empty value to keep the module default."
+                  echo "::error::Invalid private-vpc '${PRIVATE_VPC}'; expected the HCL boolean true or false, or an empty value to keep the module default."
                   exit 1
                   ;;
               esac
@@ -230,21 +249,24 @@ runs:
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
               # The patterns are anchored to the start of the line so a comment or a
               # later reference to the same key cannot be rewritten instead.
+              _cluster_name_sed=$(sed_escape "${CLUSTER_NAME}")
+              _cluster_region_sed=$(sed_escape "${CLUSTER_REGION}")
+              _kubernetes_version_sed=$(sed_escape "${KUBERNETES_VERSION}")
               sed -i -E \
-                     -e 's|^([[:space:]]*eks_cluster_name[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.cluster-name }}\2|' \
-                     -e 's|^([[:space:]]*eks_cluster_region[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.aws-region }}\2|' \
-                     -e 's|^([[:space:]]*kubernetes_version[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.kubernetes-version }}\2|' \
-                     -e 's#^([[:space:]]*single_nat_gateway[[:space:]]*=[[:space:]]*)(true|false)#\1${{ inputs.single-nat-gateway }}#' \
+                     -e "s|^([[:space:]]*eks_cluster_name[[:space:]]*=[[:space:]]*\")[^\"]*(\")|\\1${_cluster_name_sed}\\2|" \
+                     -e "s|^([[:space:]]*eks_cluster_region[[:space:]]*=[[:space:]]*\")[^\"]*(\")|\\1${_cluster_region_sed}\\2|" \
+                     -e "s|^([[:space:]]*kubernetes_version[[:space:]]*=[[:space:]]*\")[^\"]*(\")|\\1${_kubernetes_version_sed}\\2|" \
+                     -e "s#^([[:space:]]*single_nat_gateway[[:space:]]*=[[:space:]]*)(true|false)#\\1${SINGLE_NAT_GATEWAY}#" \
                      cluster.tf
 
-              assert_override_applied eks_cluster_name '${{ inputs.cluster-name }}' cluster.tf
-              assert_override_applied eks_cluster_region '${{ inputs.aws-region }}' cluster.tf
-              assert_override_applied kubernetes_version '${{ inputs.kubernetes-version }}' cluster.tf
-              assert_override_applied single_nat_gateway '${{ inputs.single-nat-gateway }}' cluster.tf
+              assert_override_applied eks_cluster_name "${CLUSTER_NAME}" cluster.tf
+              assert_override_applied eks_cluster_region "${CLUSTER_REGION}" cluster.tf
+              assert_override_applied kubernetes_version "${KUBERNETES_VERSION}" cluster.tf
+              assert_override_applied single_nat_gateway "${SINGLE_NAT_GATEWAY}" cluster.tf
 
-              if [ -n "${{ inputs.private-vpc }}" ]; then
-                sed -i -E "s#(^[[:space:]]*private_vpc[[:space:]]*=[[:space:]]*)(true|false)#\1${{ inputs.private-vpc }}#" cluster.tf
-                assert_override_applied private_vpc '${{ inputs.private-vpc }}' cluster.tf
+              if [ -n "${PRIVATE_VPC}" ]; then
+                sed -i -E "s#(^[[:space:]]*private_vpc[[:space:]]*=[[:space:]]*)(true|false)#\\1${PRIVATE_VPC}#" cluster.tf
+                assert_override_applied private_vpc "${PRIVATE_VPC}" cluster.tf
               else
                 echo "No private-vpc value provided, skipping private modification."
               fi
@@ -253,7 +275,7 @@ runs:
               # cost-efficient SPOT capacity with diversified instance types. The reference
               # cluster.tf passes these as literal module arguments (not wired to root
               # variables), so there is no -var to override; patch the file in place instead.
-              _np_capacity_type="${{ inputs.np-capacity-type }}"
+              _np_capacity_type="${NP_CAPACITY_TYPE}"
               if [ -n "${_np_capacity_type}" ]; then
                 # Validate early so a typo fails fast with a clear message instead of a
                 # cryptic Terraform error (or a silently wrong capacity type) later on.
@@ -264,7 +286,7 @@ runs:
                 sed -i -E "s|^([[:space:]]*np_capacity_type[[:space:]]*=[[:space:]]*\")[^\"]*(\")|\1${_np_capacity_type}\2|" cluster.tf
                 assert_override_applied np_capacity_type "${_np_capacity_type}" cluster.tf
               fi
-              _np_instance_types="${{ inputs.np-instance-types }}"
+              _np_instance_types="${NP_INSTANCE_TYPES}"
               if [ -n "${_np_instance_types}" ]; then
                 # Convert the comma-separated list into an HCL list literal, trimming
                 # surrounding whitespace and dropping empty entries so a loosely formatted
@@ -301,9 +323,9 @@ runs:
               # Conditionally configure Aurora PostgreSQL
               if [[ "${{ inputs.deploy-aurora }}" == "true" ]]; then
                   echo "Configuring Aurora PostgreSQL database..."
-                  sed -i -E 's|^([[:space:]]*aurora_cluster_name[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.cluster-name }}-pg\2|' \
+                  sed -i -E "s|^([[:space:]]*aurora_cluster_name[[:space:]]*=[[:space:]]*\")[^\"]*(\")|\\1${_cluster_name_sed}-pg\\2|" \
                          db.tf
-                  assert_override_applied aurora_cluster_name '${{ inputs.cluster-name }}-pg' db.tf
+                  assert_override_applied aurora_cluster_name "${CLUSTER_NAME}-pg" db.tf
 
                   echo "Displaying templated db.tf file:"
                   cat db.tf
@@ -319,9 +341,9 @@ runs:
               # Conditionally configure OpenSearch
               if [[ "${{ inputs.deploy-opensearch }}" == "true" ]]; then
                   echo "Configuring OpenSearch domain..."
-                  sed -i -E 's|^([[:space:]]*opensearch_domain_name[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.cluster-name }}-os\2|' \
+                  sed -i -E "s|^([[:space:]]*opensearch_domain_name[[:space:]]*=[[:space:]]*\")[^\"]*(\")|\\1${_cluster_name_sed}-os\\2|" \
                          opensearch.tf
-                  assert_override_applied opensearch_domain_name '${{ inputs.cluster-name }}-os' opensearch.tf
+                  assert_override_applied opensearch_domain_name "${CLUSTER_NAME}-os" opensearch.tf
                   echo "Displaying templated opensearch.tf file:"
                   cat opensearch.tf
               else
@@ -398,6 +420,10 @@ runs:
           if: inputs.vpn-enabled == 'true'
           working-directory: ${{ env.TF_DIR_VPN }}
           shell: bash
+          # Passed as env rather than interpolated into the script, for the same
+          # reason as the cluster plan step above.
+          env:
+              CLUSTER_NAME: ${{ inputs.cluster-name }}
           run: |
               set -euo pipefail
 
@@ -405,8 +431,9 @@ runs:
               pwd
               ls
 
+              _cluster_name_sed=$(printf '%s' "${CLUSTER_NAME}" | sed -e 's/[&\\|]/\\&/g')
               sed -i -E \
-                -e 's|^([[:space:]]*vpn_name[[:space:]]*=[[:space:]]*")[^"]*(")|\1${{ inputs.cluster-name }}-vpn\2|' \
+                -e "s|^([[:space:]]*vpn_name[[:space:]]*=[[:space:]]*\")[^\"]*(\")|\\1${_cluster_name_sed}-vpn\\2|" \
                 vpn.tf
 
               # Same guard as the cluster.tf overrides: `sed -i` succeeds even
@@ -416,8 +443,8 @@ runs:
               # containing regex metacharacters cannot skew the match.
               _vpn_name=$(grep -m 1 -E '^[[:space:]]*vpn_name[[:space:]]*=' vpn.tf \
                   | sed -E 's|^[[:space:]]*vpn_name[[:space:]]*=[[:space:]]*||; s|[[:space:]]*#.*$||; s|[[:space:]]+$||; s|^"||; s|"$||') || _vpn_name=""
-              if [ "${_vpn_name}" != '${{ inputs.cluster-name }}-vpn' ]; then
-                  echo "::error::Failed to apply the 'vpn_name' override to vpn.tf: expected '${{ inputs.cluster-name }}-vpn'," \
+              if [ "${_vpn_name}" != "${CLUSTER_NAME}-vpn" ]; then
+                  echo "::error::Failed to apply the 'vpn_name' override to vpn.tf: expected '${CLUSTER_NAME}-vpn'," \
                       "found '${_vpn_name:-<no assignment>}'. The reference file layout probably changed; update this action."
                   exit 1
               fi
