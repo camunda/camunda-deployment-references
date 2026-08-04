@@ -128,6 +128,17 @@ orchestration:
         - name: CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST
           value: ${DOLLAR}(K8S_NAME).$ZEEBE_SERVICE_NAME
 
+        # Without this the RDBMS exporter does not enable async replication,
+        # and an Aurora failover can lose exported data. This architecture
+        # delegates replication entirely to the database and treats a writer
+        # failover as a routine operation, so it is not optional here.
+        # Added to the sibling ECS dual-region reference in #2952 for the same
+        # reason. Set as an env var rather than a chart key so it applies
+        # regardless of whether the chart exposes it.
+        # https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
+        - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED
+          value: 'true'
+
         - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
           value: 'true'
 
