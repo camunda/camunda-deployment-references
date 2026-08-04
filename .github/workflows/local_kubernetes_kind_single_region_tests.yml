@@ -79,6 +79,9 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: aws-core-8-default
         timeout-minutes: 45
+        permissions:
+            contents: read
+            id-token: write
         strategy:
             fail-fast: false
             matrix:
@@ -94,6 +97,8 @@ jobs:
             # TODO: [release-duty] remove this together with the source-build (procedure/build-camunda-chart.sh).
             CAMUNDA_PRERELEASE_ACK: 'true'
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@main
+
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -447,6 +452,17 @@ jobs:
 
                   echo "Cleaning up Kind cluster: ${{ env.CLUSTER_NAME }}"
                   kind delete cluster --name "${{ env.CLUSTER_NAME }}" || true
+
+            - name: Observe build status
+              if: always()
+              continue-on-error: true
+              uses: ./.github/actions/observe-build-status
+              with:
+                  build_status: ${{ job.status }}
+                  secret_vault_address: ${{ secrets.VAULT_ADDR }}
+                  secret_vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}
+                  secret_vault_jwt_role: ${{ secrets.VAULT_JWT_ROLE }}
+                  secret_vault_jwt_audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
     report-success:
         name: Report success
