@@ -25,12 +25,15 @@ PROBE_IMAGE="${PROBE_IMAGE:-busybox:1.37}"
 PROBE_PORT="${PROBE_PORT:-8080}"
 PROBE_TIMEOUT="${PROBE_CONNECT_TIMEOUT:-10}"
 PROBE_READY_TIMEOUT="${PROBE_READY_TIMEOUT:-120s}"
+PROBE_IMPORT_TIMEOUT="${PROBE_IMPORT_TIMEOUT:-300}"
 
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 read -r -a cluster_ids <<<"$SUBMARINER_CLUSTER_IDS"
 
 cleanup() {
     for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+        kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
+            delete serviceexport.multicluster.x-k8s.io connectivity-probe --ignore-not-found --wait=false >/dev/null 2>&1 || true
         kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
             delete statefulset connectivity-probe --ignore-not-found --wait=false >/dev/null 2>&1 || true
         kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
@@ -100,6 +103,48 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
         rollout status statefulset/connectivity-probe --timeout="$PROBE_READY_TIMEOUT"
 done
+
+###############################################################################
+# Publish the responders to the ClusterSet                                    #
+#                                                                             #
+# Lighthouse only resolves what has been exported. Without this the probe      #
+# reports "the name does not resolve" in every direction and blames discovery, #
+# which is true but says nothing about the substrate it is meant to test.      #
+#                                                                             #
+# The ServiceExport object is created directly rather than through `subctl     #
+# export service`, so the procedure needs nothing on PATH but kubectl.         #
+###############################################################################
+
+for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+    context="${contexts[$i]}"
+    echo "Exporting the probe responder of ${cluster_ids[$i]} to the ClusterSet"
+
+    kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" apply -f - <<EOF
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+  name: connectivity-probe
+EOF
+done
+
+echo "Waiting for the ServiceImports to be published ..."
+deadline=$((SECONDS + PROBE_IMPORT_TIMEOUT))
+for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+    context="${contexts[$i]}"
+    while ! kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
+        get serviceimport connectivity-probe >/dev/null 2>&1; do
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "ERROR: no ServiceImport for connectivity-probe on $context after ${PROBE_IMPORT_TIMEOUT}s." >&2
+            echo "       Lighthouse is not publishing exports, so the probe cannot say anything" >&2
+            echo "       about routing. Check the submariner-lighthouse-agent logs." >&2
+            exit 1
+        fi
+        sleep 5
+    done
+done
+
+# Lighthouse writes the DNS records shortly after the ServiceImport object.
+sleep 15
 
 ###############################################################################
 # Probe every ordered pair                                                    #

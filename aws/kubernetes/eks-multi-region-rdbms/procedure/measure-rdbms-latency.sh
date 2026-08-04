@@ -134,6 +134,16 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
 
     echo "--> Measuring from $region_id ($context)"
 
+    # The probe reads the password from the secret create-rdbms-secret.sh
+    # installs. Without it the pod never starts and the wait below burns its
+    # whole budget, which is pure noise on a run that failed before Camunda was
+    # ever deployed.
+    if ! kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
+        get secret camunda-rdbms-secret >/dev/null 2>&1; then
+        echo "    no camunda-rdbms-secret in $context/$CAMUNDA_NAMESPACE, skipping"
+        continue
+    fi
+
     kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
         delete pod "$PROBE_POD" --ignore-not-found >/dev/null 2>&1 || true
 
