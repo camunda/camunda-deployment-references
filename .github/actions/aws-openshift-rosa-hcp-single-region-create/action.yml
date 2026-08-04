@@ -325,7 +325,8 @@ runs:
               # search is scoped to the module block: the same key may legitimately
               # appear elsewhere in the file (a local, another module) and would
               # otherwise mask a removed argument.
-              module_block=$(awk '/^module "rosa_cluster"/ { inside = 1 } inside { print } inside && /^}/ { exit }' cluster.tf)
+              module_block=$(awk '/^module "rosa_cluster"/ { inside = 1 }
+                                 inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' cluster.tf)
               if [ -z "${module_block}" ]; then
                   echo "::error::No 'module \\"rosa_cluster\\"' block found in cluster.tf; update this action."
                   exit 1
@@ -430,7 +431,8 @@ runs:
               # Terraform silently ignores an unknown argument in a module
               # override block, so check it is still there first — scoped to the
               # module block, so the same key elsewhere cannot mask its removal.
-              vpn_block=$(awk '/^module "vpn"/ { inside = 1 } inside { print } inside && /^}/ { exit }' vpn.tf)
+              vpn_block=$(awk '/^module "vpn"/ { inside = 1 }
+                                 inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' vpn.tf)
               if ! grep -qE '^[[:space:]]*vpn_name[[:space:]]*=' <<< "${vpn_block}"; then
                   echo "::error::No 'vpn_name' argument in the vpn module block of vpn.tf;" \
                       "the CI override would be silently ignored. Update this action."
