@@ -19,8 +19,26 @@ resource "aws_kms_key" "this" {
   tags = var.tags
 }
 
+###############################################################################
+# Subnet group                                                                #
+#                                                                             #
+# `aws_db_subnet_group` exposes no `vpc_id`: the VPC is derived from the       #
+# subnets when the group is created and cannot change afterwards. Terraform    #
+# therefore cannot tell that a new subnet list belongs to a different VPC, and #
+# plans an in-place `ModifyDBSubnetGroup` that AWS rejects with                #
+# `InvalidParameterValue: The new Subnets are not in the same Vpc as the       #
+# existing subnet group`. A group that outlives its VPC is then stuck: every   #
+# later apply replays the same impossible update and fails.                    #
+#                                                                             #
+# Putting the VPC in the name makes that dependency visible to Terraform, so a #
+# replaced VPC yields a new subnet group instead of an update AWS cannot       #
+# honour. The id is kept verbatim rather than hashed so an orphaned group can  #
+# still be traced back to the VPC it belonged to. Only the name carries the    #
+# id: the description stays stable so the resource keeps a readable label.     #
+###############################################################################
+
 resource "aws_db_subnet_group" "this" {
-  name        = var.cluster_identifier
+  name        = "${var.cluster_identifier}-${trimprefix(var.vpc_id, "vpc-")}"
   description = "Subnet group for Aurora cluster ${var.cluster_identifier}"
   subnet_ids  = var.subnet_ids
 
