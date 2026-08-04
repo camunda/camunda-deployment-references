@@ -115,6 +115,13 @@ func TestMultiRegionSubmariner(t *testing.T) {
 	helpers.RunProcedure(t, env, 10*time.Minute, "submariner/deploy-broker.sh")
 	helpers.RunProcedure(t, env, 20*time.Minute, "submariner/join-clusters.sh")
 	helpers.RunProcedure(t, env, 20*time.Minute, "submariner/verify-submariner.sh")
+
+	// Proves the substrate in about two minutes, before the twenty-five the
+	// Camunda install costs. Established tunnels are not the same thing as
+	// reachable pods: a source-NAT or firewall mistake leaves `subctl show all`
+	// perfectly healthy and still drops every Raft message.
+	helpers.RunProcedure(t, env, 10*time.Minute, "setup-namespaces.sh")
+	helpers.RunProcedure(t, env, 15*time.Minute, "verify-cross-region-connectivity.sh")
 }
 
 // TestMultiRegionDeployCamunda installs Camunda in every active region.

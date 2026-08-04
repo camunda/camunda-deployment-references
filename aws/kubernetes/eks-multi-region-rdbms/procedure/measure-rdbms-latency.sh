@@ -82,21 +82,37 @@ trap cleanup EXIT
 # The median is reported rather than the mean: one scheduling hiccup or TCP
 # retransmit skews a mean of twenty samples enough to be misread as a topology
 # problem.
+#
+# psql's own `\timing` provides the measurement. Timing the client process
+# instead was tried and reports 0 ms: the probe image is Alpine, whose busybox
+# `date` does not implement `%N`. Running every sample in one session also
+# keeps process startup and connection setup out of the number, which is what
+# makes it comparable between regions.
 probe_command() {
     cat <<EOF
 set -eu
 export PGPASSWORD="\$RDBMS_PASSWORD"
-PSQL="psql -h $DB_HOST -p $DB_PORT -U $CAMUNDA_RDBMS_USERNAME -d $DB_NAME -qtAX -v ON_ERROR_STOP=1"
+PSQL="psql -h $DB_HOST -p $DB_PORT -U $CAMUNDA_RDBMS_USERNAME -d $DB_NAME -tAX -v ON_ERROR_STOP=1"
 
 \$PSQL -c 'CREATE TABLE IF NOT EXISTS $PROBE_TABLE (id bigserial primary key, at timestamptz default now())' >/dev/null
 
 median() {
-  for _ in \$(seq 1 $SAMPLES); do
-    start=\$(date +%s%N)
-    \$PSQL -c "\$1" >/dev/null
-    end=\$(date +%s%N)
-    echo \$(( (end - start) / 1000000 ))
-  done | sort -n | awk '{a[NR]=\$1} END {print a[int((NR+1)/2)]}'
+  # printf, not echo: the probe image runs busybox, whose echo may expand the
+  # backslash in \timing depending on how it was built.
+  {
+    printf '%s\n' '\timing on'
+    i=0
+    while [ \$i -lt $SAMPLES ]; do
+      printf '%s;\n' "\$1"
+      i=\$((i + 1))
+    done
+  } >/tmp/probe.sql
+
+  # "Time: 7.123 ms" -> 7.123
+  \$PSQL -f /tmp/probe.sql |
+    awk '/^Time:/ {print \$2}' |
+    sort -n |
+    awk '{a[NR]=\$1} END {if (NR) printf "%.1f", a[int((NR+1)/2)]}'
 }
 
 select_ms=\$(median 'SELECT 1')
