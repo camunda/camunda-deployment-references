@@ -38,11 +38,22 @@ case "$interval_seconds" in
 esac
 interval_seconds=$((10#$interval_seconds))
 
+# Snapshot of the namespace, or an empty string when the call fails. Callers must
+# treat an empty result as "nothing to report" rather than letting `kubectl` error
+# text reach `jq`, which would turn a transient API error into a parse-error storm
+# in the middle of the diagnostics.
+pods_json() {
+    kubectl get pods -n "$namespace" -o json 2>/dev/null
+}
+
 # Containers that are not ready, with the reason they are waiting and how their
 # previous attempt died. 'OOMKilled' or a non-zero exit code here is the actual
 # root cause, and is what a component needing more resources looks like.
 report_unready_containers() {
-    kubectl get pods -n "$namespace" -o json | jq -r '
+    local pods
+    pods="$(pods_json)"
+    [ -n "$pods" ] || return 0
+    printf '%s' "$pods" | jq -r '
         .items[]
         | . as $pod
         | (($pod.status.containerStatuses // []) + ($pod.status.initContainerStatuses // []))[]
@@ -53,25 +64,32 @@ report_unready_containers() {
           + " waiting=\(.state.waiting.reason // "-")"
           + " lastTerminated=\(.lastState.terminated.reason // "-")"
           + " exitCode=\(.lastState.terminated.exitCode // "-")"
-    '
+    ' 2>/dev/null
 }
 
 # Pods that never reached the Running phase have no container status to report,
 # so surface them separately (Pending pods are usually unschedulable ones).
 report_non_running_pods() {
-    kubectl get pods -n "$namespace" -o json | jq -r '
+    local pods
+    pods="$(pods_json)"
+    [ -n "$pods" ] || return 0
+    printf '%s' "$pods" | jq -r '
         .items[]
         | select(.status.phase != "Running")
         | "  \(.metadata.name) phase=\(.status.phase) reason=\(.status.reason // "-")"
-    '
+    ' 2>/dev/null
 }
 
+# Warning events only. `--no-headers` keeps the column header out of the output so
+# an empty result stays empty and `diagnostics` can skip the whole section instead
+# of printing a heading with nothing under it.
 report_warning_events() {
     kubectl get events -n "$namespace" \
         --field-selector type=Warning \
         --sort-by=.lastTimestamp \
+        --no-headers \
         -o custom-columns=OBJECT:.involvedObject.name,REASON:.reason,MESSAGE:.message \
-        2>/dev/null | tail -n 15
+        2>/dev/null | grep -v '^No resources found' | tail -n 15
 }
 
 diagnostics() {
@@ -94,7 +112,7 @@ all_pods_ready() {
     # Evaluate both conditions from a single snapshot: two independent `kubectl`
     # calls could disagree, and a failing call used to yield an empty result that
     # was counted as "nothing unhealthy" and reported the install as complete.
-    pods="$(kubectl get pods -n "$namespace" -o json 2>/dev/null)" || return 1
+    pods="$(pods_json)"
     [ -n "$pods" ] || return 1
 
     total="$(printf '%s' "$pods" | jq -r '.items | length' 2>/dev/null)"

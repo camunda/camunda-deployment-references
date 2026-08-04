@@ -74,10 +74,15 @@ identity_pods() {
 # Per-container state of every Identity pod: restarts, why it is waiting, and how
 # the previous attempt died. 'OOMKilled' or a non-zero exit code here is the root
 # cause of a platform-wide OIDC failure, not Keycloak being slow.
+#
+# Init containers are reported too. In domain mode Identity runs an `import-ca-cert`
+# init container, and a pod stuck in `Init:CrashLoopBackOff` has an empty
+# `containerStatuses`, so looking only at the regular containers would report the
+# pod as missing and hide the real failure.
 identity_container_states() {
     local pod
     for pod in $(identity_pods); do
-        kubectl --namespace "$namespace" get pod "$pod" -o jsonpath="{range .status.containerStatuses[*]}${pod}/{.name} restarts={.restartCount} waiting={.state.waiting.reason} lastTerminated={.lastState.terminated.reason} exitCode={.lastState.terminated.exitCode}{'\n'}{end}" 2>/dev/null
+        kubectl --namespace "$namespace" get pod "$pod" -o jsonpath="{range .status.initContainerStatuses[*]}${pod}/{.name} (init) restarts={.restartCount} waiting={.state.waiting.reason} lastTerminated={.lastState.terminated.reason} exitCode={.lastState.terminated.exitCode}{'\n'}{end}{range .status.containerStatuses[*]}${pod}/{.name} restarts={.restartCount} waiting={.state.waiting.reason} lastTerminated={.lastState.terminated.reason} exitCode={.lastState.terminated.exitCode}{'\n'}{end}" 2>/dev/null
     done
 }
 
