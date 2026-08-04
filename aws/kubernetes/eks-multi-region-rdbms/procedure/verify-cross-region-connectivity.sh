@@ -1,0 +1,147 @@
+#!/bin/bash
+set -euo pipefail
+
+# Cross-region pod-to-pod connectivity probe.
+#
+#   ./verify-cross-region-connectivity.sh
+#
+# Answers one question in about two minutes: can a pod in region A reach a pod
+# in region B, by name, over whatever substrate is configured?
+#
+# It exists because every connectivity failure in this architecture has so far
+# been discovered at the end of a thirty-minute Camunda deployment, where the
+# symptom (brokers not ready, HTTP 401 from the gateway) is several layers away
+# from the cause. This isolates the substrate from Camunda entirely.
+#
+# Run it after Submariner is up and before installing the chart. It is also the
+# fastest way to check a networking change without redeploying anything.
+
+: "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
+: "${SUBMARINER_CLUSTER_IDS:?SUBMARINER_CLUSTER_IDS must be set, source export_environment_prerequisites.sh}"
+: "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
+: "${CAMUNDA_NAMESPACE:?CAMUNDA_NAMESPACE must be set, source export_environment_prerequisites.sh}"
+
+PROBE_IMAGE="${PROBE_IMAGE:-busybox:1.37}"
+PROBE_PORT="${PROBE_PORT:-8080}"
+PROBE_TIMEOUT="${PROBE_CONNECT_TIMEOUT:-10}"
+PROBE_READY_TIMEOUT="${PROBE_READY_TIMEOUT:-120s}"
+
+read -r -a contexts <<<"$CLUSTER_CONTEXTS"
+read -r -a cluster_ids <<<"$SUBMARINER_CLUSTER_IDS"
+
+cleanup() {
+    for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+        kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
+            delete statefulset connectivity-probe --ignore-not-found --wait=false >/dev/null 2>&1 || true
+        kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
+            delete service connectivity-probe --ignore-not-found --wait=false >/dev/null 2>&1 || true
+    done
+}
+trap cleanup EXIT
+
+###############################################################################
+# Deploy one responder per region                                             #
+#                                                                             #
+# A headless service and a StatefulSet, matching how Zeebe is addressed: the   #
+# per-pod DNS records are what brokers actually dial, and they are published   #
+# differently from a ClusterIP service. Probing a ClusterIP would pass while   #
+# Zeebe still fails.                                                          #
+###############################################################################
+
+for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+    context="${contexts[$i]}"
+    echo "Deploying the probe responder in ${cluster_ids[$i]} ($context)"
+
+    kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: connectivity-probe
+spec:
+  clusterIP: None
+  selector:
+    app: connectivity-probe
+  ports:
+    - name: http
+      port: ${PROBE_PORT}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: connectivity-probe
+spec:
+  serviceName: connectivity-probe
+  replicas: 1
+  selector:
+    matchLabels:
+      app: connectivity-probe
+  template:
+    metadata:
+      labels:
+        app: connectivity-probe
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+        - name: responder
+          image: ${PROBE_IMAGE}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              while true; do
+                printf 'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok' | nc -l -p ${PROBE_PORT}
+              done
+          ports:
+            - containerPort: ${PROBE_PORT}
+EOF
+done
+
+for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+    kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
+        rollout status statefulset/connectivity-probe --timeout="$PROBE_READY_TIMEOUT"
+done
+
+###############################################################################
+# Probe every ordered pair                                                    #
+###############################################################################
+
+failures=0
+for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+    for ((j = 0; j < CAMUNDA_ACTIVE_REGIONS; j++)); do
+        [ "$i" -eq "$j" ] && continue
+
+        # The per-pod clusterset name, which is the form Zeebe dials.
+        target="connectivity-probe-0.${cluster_ids[$j]}.connectivity-probe.${CAMUNDA_NAMESPACE}.svc.clusterset.local"
+        echo "--> ${cluster_ids[$i]} -> ${cluster_ids[$j]}"
+
+        if kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
+            exec statefulset/connectivity-probe -- \
+            timeout "$PROBE_TIMEOUT" nc -z -w "$PROBE_TIMEOUT" "$target" "$PROBE_PORT" >/dev/null 2>&1; then
+            echo "    reachable"
+            continue
+        fi
+
+        failures=$((failures + 1))
+        echo "    UNREACHABLE"
+
+        # Separate name resolution from reachability: they fail for completely
+        # different reasons and the fix differs entirely.
+        if kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
+            exec statefulset/connectivity-probe -- nslookup "$target" >/dev/null 2>&1; then
+            echo "    the name resolves, so this is a routing problem, not discovery."
+            echo "    Check that the pod CIDR is claimed by exactly one of Submariner"
+            echo "    and the Transit Gateway routes; see the CNI note in ../README.md."
+        else
+            echo "    the name does not resolve, so this is a discovery problem."
+            echo "    Check the ServiceExports and that Lighthouse published a"
+            echo "    ServiceImport: ./submariner/export-services.sh"
+        fi
+    done
+done
+
+echo
+if [ "$failures" -ne 0 ]; then
+    echo "$failures cross-region path(s) unreachable." >&2
+    exit 1
+fi
+echo "Every cross-region path is reachable."
