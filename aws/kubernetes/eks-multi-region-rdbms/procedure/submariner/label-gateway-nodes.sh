@@ -3,10 +3,19 @@ set -euo pipefail
 
 # Labels one node per cluster as a Submariner gateway.
 #
+#   ./label-gateway-nodes.sh [slot]
+#
 # Submariner runs the IPsec tunnel endpoint on the host network of a labelled
 # node. Labelling explicitly (instead of letting `subctl join --label-gateway`
 # pick one) keeps the choice deterministic across re-runs, which matters because
 # the gateway node IP is what the remote clusters dial.
+#
+# The optional slot argument restricts the labelling to one region, which is
+# what ../activate-region.sh needs: re-labelling a running region could move the
+# gateway to another node and migrate the established tunnels for nothing.
+#
+# Run it AFTER ../configure-vpc-cni-custom-networking.sh: that procedure
+# replaces the nodes, and the label with them.
 #
 # A single gateway per cluster is a single point of failure for cross-region
 # traffic: Submariner elects a new active gateway if more nodes carry the label.
@@ -19,7 +28,16 @@ GATEWAYS_PER_CLUSTER="${SUBMARINER_GATEWAY_NODES_PER_CLUSTER:-1}"
 
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 
-for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+if [ $# -ge 1 ]; then
+    slots=("$1")
+else
+    slots=()
+    for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+        slots+=("$i")
+    done
+fi
+
+for i in "${slots[@]}"; do
     context="${contexts[$i]}"
 
     mapfile -t nodes < <(kubectl --context "$context" get nodes \
@@ -40,6 +58,6 @@ done
 
 echo
 echo "Gateway nodes:"
-for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+for i in "${slots[@]}"; do
     kubectl --context "${contexts[$i]}" get nodes -l submariner.io/gateway=true
 done

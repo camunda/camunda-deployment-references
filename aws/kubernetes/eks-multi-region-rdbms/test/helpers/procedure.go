@@ -39,8 +39,10 @@ type Env struct {
 	ClusterContexts      []string
 	AWSRegions           []string
 	SubmarinerClusters   []string
+	ClusterNames         []string
 	VPCCidrBlocks        []string
 	ServiceCidrBlocks    []string
+	PodCidrBlocks        []string
 	SubmarinerBrokerSlot int
 	Namespace            string
 	ReleaseName          string
@@ -66,8 +68,10 @@ func (e Env) Vars() []string {
 		"AWS_REGIONS":                 strings.Join(e.AWSRegions, " "),
 		"SUBMARINER_CLUSTER_IDS":      strings.Join(e.SubmarinerClusters, " "),
 		"SUBMARINER_BROKER_SLOT":      fmt.Sprint(e.SubmarinerBrokerSlot),
+		"EKS_CLUSTER_NAMES":           strings.Join(e.ClusterNames, " "),
 		"REGION_VPC_CIDRS":            strings.Join(e.VPCCidrBlocks, " "),
 		"REGION_SERVICE_CIDRS":        strings.Join(e.ServiceCidrBlocks, " "),
+		"REGION_POD_CIDRS":            strings.Join(e.PodCidrBlocks, " "),
 		"CAMUNDA_NAMESPACE":           e.Namespace,
 		"CAMUNDA_RELEASE_NAME":        e.ReleaseName,
 		"CAMUNDA_RDBMS_URL":           e.RdbmsURL,

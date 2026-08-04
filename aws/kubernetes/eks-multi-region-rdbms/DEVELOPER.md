@@ -75,12 +75,43 @@ cd ../../procedure
 export CAMUNDA_ACTIVE_REGIONS=2
 export CLUSTER_CONTEXTS="cluster-london cluster-paris"
 . ./export_environment_prerequisites.sh
+
+./configure-vpc-cni-custom-networking.sh
 ```
 
 `export-terraform-outputs.sh` derives most of the environment from the state, so
 only the kubectl context aliases really need to be provided by hand.
 
+`configure-vpc-cni-custom-networking.sh` terminates every node, so allow around
+ten minutes per region for the node group to bring the capacity back. Skipping
+it is the fastest way to reproduce the failure this architecture is designed to
+avoid: the pods keep routable VPC addresses, the Transit Gateway and Submariner
+both own them, and the brokers never form a quorum.
+
 ## Debugging
+
+### Cross-region pod traffic is dropped
+
+Before blaming Camunda, prove the substrate:
+
+```bash
+./verify-cross-region-connectivity.sh
+```
+
+Two minutes instead of the thirty a full deployment takes. If it fails, check
+the ownership of the pod range:
+
+```bash
+# Pods must be in 100.64.0.0/10, NOT in the VPC CIDR
+kubectl --context cluster-london -n camunda get pods -o wide
+
+# Submariner must report the pod and service CIDRs, never the VPC CIDR
+subctl show all --contexts cluster-london
+```
+
+A cluster reporting the VPC CIDR was joined before
+`configure-vpc-cni-custom-networking.sh` ran, or with `--clustercidr` pointed at
+`REGION_VPC_CIDRS`. Re-run the procedure and rejoin the cluster.
 
 ### Zeebe never reaches the expected broker count
 
@@ -121,8 +152,11 @@ kubectl --context cluster-london -n camunda logs camunda-zeebe-0 | grep -i -E 'j
 
 Common causes:
 
-- the Aurora security group does not include the region's VPC or service CIDR —
-  check `database_allowed_cidr_blocks` in `terraform/clusters/database.tf`;
+- the Aurora security group does not include the region's VPC, service or pod
+  CIDR — check `database_allowed_cidr_blocks` in
+  `terraform/clusters/database.tf`. Pods reach a **local** Aurora member with
+  their own address, and a **remote** one with the node address, because the
+  VPC CNI only source-NATs traffic leaving the VPC;
 - the writer moved and `globalClusterInstanceHostPatterns` does not list the new
   region;
 - Liquibase is blocked on `DATABASECHANGELOGLOCK` after a crashed startup.

@@ -9,9 +9,12 @@ set -euo pipefail
 # ../activate-region.sh when a new region is added to a running cluster.
 #
 # EKS specifics:
-#   * The AWS VPC CNI gives pods routable VPC addresses, so the pod CIDR is the
-#     VPC CIDR. subctl cannot infer that reliably, hence the explicit
-#     --clustercidr / --servicecidr.
+#   * --clustercidr is the POD CIDR, never the VPC CIDR. The pods live in the
+#     VPC secondary CIDR set up by ../configure-vpc-cni-custom-networking.sh,
+#     which the Transit Gateway deliberately does not route. Passing the VPC
+#     CIDR here makes Submariner claim the whole routed range, AWS keeps
+#     routing it natively, and cross-region pod traffic is silently dropped.
+#     subctl cannot infer either value, hence the explicit flags.
 #   * --air-gapped disables public IP discovery: gateways reach each other over
 #     the private Transit Gateway mesh, never over the internet.
 #   * --natt=false because there is no NAT between the peered VPCs.
@@ -21,7 +24,7 @@ set -euo pipefail
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${SUBMARINER_CLUSTER_IDS:?SUBMARINER_CLUSTER_IDS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
-: "${REGION_VPC_CIDRS:?REGION_VPC_CIDRS must be set, e.g. from 'terraform output -json vpc_cidr_blocks'}"
+: "${REGION_POD_CIDRS:?REGION_POD_CIDRS must be set, e.g. from 'terraform output -json pod_cidr_blocks'}"
 : "${REGION_SERVICE_CIDRS:?REGION_SERVICE_CIDRS must be set, e.g. from 'terraform output -json service_cidr_blocks'}"
 
 BROKER_INFO="${BROKER_INFO:-broker-info.subm}"
@@ -34,17 +37,19 @@ fi
 
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 read -r -a cluster_ids <<<"$SUBMARINER_CLUSTER_IDS"
-read -r -a vpc_cidrs <<<"$REGION_VPC_CIDRS"
+read -r -a pod_cidrs <<<"$REGION_POD_CIDRS"
 read -r -a service_cidrs <<<"$REGION_SERVICE_CIDRS"
 
 join_slot() {
     local slot="$1"
 
     echo "Joining ${contexts[$slot]} as cluster id '${cluster_ids[$slot]}'"
+    echo "  pod CIDR     : ${pod_cidrs[$slot]}"
+    echo "  service CIDR : ${service_cidrs[$slot]}"
     subctl join "$BROKER_INFO" \
         --context "${contexts[$slot]}" \
         --clusterid "${cluster_ids[$slot]}" \
-        --clustercidr "${vpc_cidrs[$slot]}" \
+        --clustercidr "${pod_cidrs[$slot]}" \
         --servicecidr "${service_cidrs[$slot]}" \
         --cable-driver "$CABLE_DRIVER" \
         --natt=false \
