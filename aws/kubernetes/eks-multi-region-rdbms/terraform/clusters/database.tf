@@ -143,9 +143,19 @@ resource "aws_rds_global_cluster" "camunda" {
 locals {
   database_enabled = var.deploy_database
 
-  # Every CIDR that must be able to reach the database. Brokers in regions
-  # without a local member connect to the writer across the Transit Gateway.
-  database_allowed_cidr_blocks = concat(local.active_vpc_cidr_blocks, local.active_svc_cidr_blocks)
+  # Every CIDR that must be able to reach the database.
+  #
+  # Pods in the SAME region reach their local Aurora member with their own
+  # address: the destination is inside the VPC, so the VPC CNI does not
+  # source-NAT. Pods in another region cross the Transit Gateway, which puts the
+  # destination outside their VPC, so the CNI rewrites the source to the node
+  # address. Both address kinds therefore have to be allowed, and brokers in
+  # regions without a local member connect to the writer across the mesh.
+  database_allowed_cidr_blocks = concat(
+    local.active_vpc_cidr_blocks,
+    local.active_svc_cidr_blocks,
+    local.active_pod_cidr_blocks,
+  )
 
   # Always slot 0; see the database_region_slots validation above.
   database_writer_slot = 0

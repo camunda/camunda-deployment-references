@@ -130,7 +130,11 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
             exec statefulset/connectivity-probe -- nslookup "$target" >/dev/null 2>&1; then
             echo "    the name resolves, so this is a routing problem, not discovery."
             echo "    Check that the pod CIDR is claimed by exactly one of Submariner"
-            echo "    and the Transit Gateway routes; see the CNI note in ../README.md."
+            echo "    and the Transit Gateway routes. In practice: the pods must be in"
+            echo "    the 100.64.0.0/10 range, and 'subctl show all' must report the pod"
+            echo "    and service CIDRs, never the VPC CIDR."
+            echo "    See ../README.md, section 'Pod networking'."
+
         else
             echo "    the name does not resolve, so this is a discovery problem."
             echo "    Check the ServiceExports and that Lighthouse published a"

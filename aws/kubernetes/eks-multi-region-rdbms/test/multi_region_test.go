@@ -67,8 +67,10 @@ func testEnv(t *testing.T) helpers.Env {
 		ClusterContexts:    contexts,
 		AWSRegions:         outputs.AWSRegions,
 		SubmarinerClusters: outputs.ShortNames,
+		ClusterNames:       outputs.ClusterNames,
 		VPCCidrBlocks:      outputs.VPCCidrBlocks,
 		ServiceCidrBlocks:  outputs.ServiceCidrBlocks,
+		PodCidrBlocks:      outputs.PodCidrBlocks,
 		// Any cluster can host the Submariner broker; it only stores metadata.
 		SubmarinerBrokerSlot: 0,
 		Namespace:            helpers.GetEnv("CAMUNDA_NAMESPACE", "camunda"),
@@ -101,6 +103,12 @@ func TestMultiRegionSubmariner(t *testing.T) {
 
 	helpers.RunProcedure(t, env, 10*time.Minute, "storageclass-configure.sh")
 	helpers.RunProcedure(t, env, 2*time.Minute, "storageclass-verify.sh")
+
+	// Must come before the gateway labelling: it replaces every node, and the
+	// labels with them. Without it the pods keep routable VPC addresses, the
+	// Transit Gateway and Submariner both claim them, and the Raft cluster
+	// never forms.
+	helpers.RunProcedure(t, env, 30*time.Minute, "configure-vpc-cni-custom-networking.sh")
 
 	helpers.RunProcedure(t, env, 5*time.Minute, "submariner/label-gateway-nodes.sh")
 	helpers.RunProcedure(t, env, 10*time.Minute, "submariner/deploy-broker.sh")

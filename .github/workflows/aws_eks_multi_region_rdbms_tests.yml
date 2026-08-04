@@ -175,10 +175,13 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
+            # Includes the VPC CNI custom networking switch, which terminates and
+            # replaces every node of every active region before Submariner is
+            # deployed. Budgeted at 60 minutes for that reason.
             - name: Build the Submariner mesh
-              timeout-minutes: 45
+              timeout-minutes: 60
               working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
-              run: go test --count=1 -v -timeout 45m -failfast -run TestMultiRegionSubmariner
+              run: go test --count=1 -v -timeout 60m -failfast -run TestMultiRegionSubmariner
 
             - name: Deploy Camunda across the active regions
               timeout-minutes: 45
