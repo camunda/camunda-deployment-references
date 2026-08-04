@@ -286,9 +286,17 @@ runs:
               fi
 
               # Terraform silently ignores an unknown argument in a module
-              # override block, so assert the ones we set are still there.
+              # override block, so assert the ones we set are still there. The
+              # search is scoped to the module block: the same key may legitimately
+              # appear elsewhere in the file (a local, another module) and would
+              # otherwise mask a removed argument.
+              module_block=$(awk '/^module "eks_cluster"/ { inside = 1 } inside { print } inside && /^}/ { exit }' cluster.tf)
+              if [ -z "${module_block}" ]; then
+                  echo "::error::No 'module \"eks_cluster\"' block found in cluster.tf; update this action."
+                  exit 1
+              fi
               for key in $(jq -r '.module.eks_cluster | keys[]' <<< "${overrides}"); do
-                  if ! grep -qE "^[[:space:]]*${key}[[:space:]]*=" cluster.tf; then
+                  if ! grep -qE "^[[:space:]]*${key}[[:space:]]*=" <<< "${module_block}"; then
                       echo "::error::No '${key}' argument in the eks_cluster module block of cluster.tf;" \
                           "the CI override would be silently ignored. Update this action."
                       exit 1
@@ -377,7 +385,8 @@ runs:
               # the reference file. vpn_name is a literal module argument, and
               # Terraform silently ignores an unknown argument in a module
               # override block, so check it is still there first.
-              if ! grep -qE '^[[:space:]]*vpn_name[[:space:]]*=' vpn.tf; then
+              vpn_block=$(awk '/^module "vpn"/ { inside = 1 } inside { print } inside && /^}/ { exit }' vpn.tf)
+              if ! grep -qE '^[[:space:]]*vpn_name[[:space:]]*=' <<< "${vpn_block}"; then
                   echo "::error::No 'vpn_name' argument in the vpn module block of vpn.tf;" \
                       "the CI override would be silently ignored. Update this action."
                   exit 1
