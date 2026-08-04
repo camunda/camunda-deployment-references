@@ -53,6 +53,14 @@ env:
     # aws/kubernetes/eks-multi-region-rdbms/terraform/clusters/variables.tf.
     CLEANUP_REGIONS: eu-west-2 eu-west-3 eu-central-2
 
+    # Regions of the provider aliases the teardown template declares, one per
+    # region slot. Terraform reads TF_VAR_* straight from the environment.
+    # Keep in sync with CLEANUP_REGIONS and with the `regions` variable default.
+    TF_VAR_region_0: eu-west-2
+    TF_VAR_region_1: eu-west-3
+    TF_VAR_region_2: eu-central-2
+    TF_VAR_region_3: eu-south-1
+
 jobs:
     triage:
         runs-on: ubuntu-latest
@@ -122,6 +130,7 @@ jobs:
                   max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: clusters
+                  tf-config-template: config-multi-region
 
             # The previous step has continue-on-error so that a dependency ordering failure
             # does not mask the rest of the sweep. Retry once with no age filter.
@@ -136,6 +145,7 @@ jobs:
                   max-age-hours: '0'
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: clusters
+                  tf-config-template: config-multi-region
 
     report-failure:
         if: failure() && github.event_name == 'schedule'

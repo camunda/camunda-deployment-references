@@ -49,6 +49,15 @@ env:
     CLUSTER_0_AWS_REGION: eu-west-2
     CLUSTER_1_AWS_REGION: eu-west-3
 
+    # Regions of the provider aliases the teardown template declares, one per
+    # region slot. Terraform reads TF_VAR_* straight from the environment.
+    # Keep in sync with the `regions` variable default in
+    # aws/kubernetes/eks-multi-region-rdbms/terraform/clusters/variables.tf.
+    TF_VAR_region_0: eu-west-2
+    TF_VAR_region_1: eu-west-3
+    TF_VAR_region_2: eu-central-2
+    TF_VAR_region_3: eu-south-1
+
     # Region slot 0 drives the AWS CLI default; the other regions are read from the
     # Terraform outputs so that the topology is defined in exactly one place.
     #
@@ -310,6 +319,12 @@ jobs:
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}
                   target: ${{ env.CLUSTER_NAME }}
                   modules-order: clusters
+                  # The state binds resources to the region_1..region_3 provider
+                  # aliases. The template the script infers from the module name
+                  # declares neither, and `terraform destroy` then refuses to
+                  # touch anything it cannot resolve a provider for, leaving two
+                  # EKS clusters and an Aurora Global Database running.
+                  tf-config-template: config-multi-region
                   # This teardown runs on every exit path, including a run that
                   # failed before creating anything. Finding no state to destroy
                   # is then the expected outcome and must not fail the job a
