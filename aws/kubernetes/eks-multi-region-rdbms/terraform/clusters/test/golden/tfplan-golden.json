@@ -2847,7 +2847,6 @@
           "type": "aws_db_subnet_group",
           "values": {
             "description": "Subnet group for Aurora cluster camunda-london-db",
-            "name": "camunda-london-db",
             "region": "eu-west-2",
             "tags": null
           }
@@ -2928,7 +2927,6 @@
             "database_name": "camunda",
             "db_cluster_instance_class": null,
             "db_instance_parameter_group_name": null,
-            "db_subnet_group_name": "camunda-london-db",
             "delete_automated_backups": true,
             "deletion_protection": null,
             "domain": null,
@@ -2978,7 +2976,6 @@
             "ca_cert_identifier": "rds-ca-rsa2048-g1",
             "copy_tags_to_snapshot": true,
             "custom_iam_instance_profile": null,
-            "db_subnet_group_name": "camunda-london-db",
             "engine": "aurora-postgresql",
             "engine_version": "17.9",
             "force_destroy": false,
@@ -3126,7 +3123,6 @@
           "type": "aws_db_subnet_group",
           "values": {
             "description": "Subnet group for Aurora cluster camunda-paris-db",
-            "name": "camunda-paris-db",
             "region": "eu-west-3",
             "tags": null
           }
@@ -3197,7 +3193,6 @@
             "copy_tags_to_snapshot": true,
             "db_cluster_instance_class": null,
             "db_instance_parameter_group_name": null,
-            "db_subnet_group_name": "camunda-paris-db",
             "delete_automated_backups": true,
             "deletion_protection": null,
             "domain": null,
@@ -3247,7 +3242,6 @@
             "ca_cert_identifier": "rds-ca-rsa2048-g1",
             "copy_tags_to_snapshot": true,
             "custom_iam_instance_profile": null,
-            "db_subnet_group_name": "camunda-paris-db",
             "engine": "aurora-postgresql",
             "engine_version": "17.9",
             "force_destroy": false,
