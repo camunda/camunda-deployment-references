@@ -142,16 +142,6 @@ runs:
 
               echo "AWS_REGION=${{ inputs.aws-region }}" | tee -a "$GITHUB_ENV"
 
-              IFS=',' read -r -a az_letters <<< "${{ inputs.availability-zones }}"
-              FULL_AZS=()
-              for az in "${az_letters[@]}"; do
-                FULL_AZS+=("\"${AWS_REGION}${az}\"")  # Add double quotes around each AZ
-              done
-
-              # Join the AZs with commas
-              FULL_AZS_STRING=$(IFS=,; echo "${FULL_AZS[*]}")
-              echo "FULL_AZS=$FULL_AZS_STRING" | tee -a "$GITHUB_ENV"
-
 
         - name: Login to Red Hat Hybrid Cloud Console
           shell: bash
@@ -306,12 +296,12 @@ runs:
                   }')
 
               if [ -n "${REPLICAS}" ]; then
-                  case "${REPLICAS}" in
-                    ''|*[!0-9]*)
+                  # jq --argjson would reject a leading zero with an opaque parse
+                  # error, so constrain the shape here and keep the clear message.
+                  if ! [[ "${REPLICAS}" =~ ^[1-9][0-9]*$ ]]; then
                       echo "::error::Invalid replicas '${REPLICAS}'; expected a positive integer."
                       exit 1
-                      ;;
-                  esac
+                  fi
                   overrides=$(jq --argjson v "${REPLICAS}" '.module.rosa_cluster.replicas = $v' <<< "${overrides}")
               else
                   echo "No replicas value provided, keeping the reference default."
@@ -331,9 +321,17 @@ runs:
               fi
 
               # Terraform silently ignores an unknown argument in a module
-              # override block, so assert the ones we set are still there.
+              # override block, so assert the ones we set are still there. The
+              # search is scoped to the module block: the same key may legitimately
+              # appear elsewhere in the file (a local, another module) and would
+              # otherwise mask a removed argument.
+              module_block=$(awk '/^module "rosa_cluster"/ { inside = 1 } inside { print } inside && /^}/ { exit }' cluster.tf)
+              if [ -z "${module_block}" ]; then
+                  echo "::error::No 'module \\"rosa_cluster\\"' block found in cluster.tf; update this action."
+                  exit 1
+              fi
               for key in $(jq -r '.module.rosa_cluster | keys[]' <<< "${overrides}"); do
-                  if ! grep -qE "^[[:space:]]*${key}[[:space:]]*=" cluster.tf; then
+                  if ! grep -qE "^[[:space:]]*${key}[[:space:]]*=" <<< "${module_block}"; then
                       echo "::error::No '${key}' argument in the rosa_cluster module block of cluster.tf;" \
                           "the CI override would be silently ignored. Update this action."
                       exit 1
@@ -430,8 +428,10 @@ runs:
               # Same approach as the cluster plan step: override rather than edit
               # the reference file. vpn_name is a literal module argument, and
               # Terraform silently ignores an unknown argument in a module
-              # override block, so check it is still there first.
-              if ! grep -qE '^[[:space:]]*vpn_name[[:space:]]*=' vpn.tf; then
+              # override block, so check it is still there first — scoped to the
+              # module block, so the same key elsewhere cannot mask its removal.
+              vpn_block=$(awk '/^module "vpn"/ { inside = 1 } inside { print } inside && /^}/ { exit }' vpn.tf)
+              if ! grep -qE '^[[:space:]]*vpn_name[[:space:]]*=' <<< "${vpn_block}"; then
                   echo "::error::No 'vpn_name' argument in the vpn module block of vpn.tf;" \
                       "the CI override would be silently ignored. Update this action."
                   exit 1
