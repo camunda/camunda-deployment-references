@@ -9,6 +9,7 @@
 //	TestMultiRegionSubmariner       build the ClusterSet mesh
 //	TestMultiRegionDeployCamunda    install Camunda in every active region
 //	TestMultiRegionTopology         assert the expected broker distribution
+//	TestMultiRegionRdbmsLatency     measure the write path to the single writer
 //	TestMultiRegionActivateRegion   grow the cluster by one region, online
 //	TestMultiRegionRegionLoss       lose a region and keep processing
 //	TestMultiRegionFailback         bring the region back
@@ -138,6 +139,25 @@ func TestMultiRegionTopology(t *testing.T) {
 
 	defer helpers.RunProcedureAllowFailure(t, env, 5*time.Minute, "submariner/diagnose-submariner.sh")
 	helpers.RunProcedure(t, env, 30*time.Minute, "check-cluster-topology.sh")
+}
+
+// TestMultiRegionRdbmsLatency measures the cost of the active-standby database
+// tier: every region exports to one writer, so a region that does not host it
+// pays the inter-region round trip on every flush.
+//
+// It is a measurement, not an assertion. There is no threshold to fail on --
+// the acceptable latency depends on the region pair and on the configured
+// queue size -- but the number belongs in the run log, because it is the main
+// input for sizing orchestration.data.secondaryStorage.rdbms.queueSize and it
+// has never been captured for this architecture.
+func TestMultiRegionRdbmsLatency(t *testing.T) {
+	env := testEnv(t)
+
+	if env.RdbmsURL == "" {
+		t.Skip("terraform output camunda_rdbms_url is empty; nothing to measure")
+	}
+
+	helpers.RunProcedureAllowFailure(t, env, 15*time.Minute, "measure-rdbms-latency.sh")
 }
 
 // TestMultiRegionActivateRegion grows the cluster by one region while it is

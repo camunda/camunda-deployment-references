@@ -209,6 +209,7 @@ failover.
 > co-located with the writer pay the inter-region round trip on every export
 > flush. Keep regions within the [100 ms RTT budget][rtt] and size
 > `orchestration.data.secondaryStorage.rdbms.queueSize` accordingly.
+> `./procedure/measure-rdbms-latency.sh` reports the actual cost per region.
 
 [rdbms-multiregion]: https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
 [jdbc-wrapper]: https://github.com/aws/aws-advanced-jdbc-wrapper
@@ -418,6 +419,7 @@ for the Zeebe cluster to converge across regions.
 | Handle a region loss | `./procedure/failover.sh <slot> [--unplanned]` |
 | Bring a region back | `./procedure/failback.sh <slot> [--switch-writer]` |
 | Probe the cross-region substrate | `./procedure/verify-cross-region-connectivity.sh` |
+| Measure the write path to the database | `./procedure/measure-rdbms-latency.sh` |
 | Diagnose cross-region networking | `./procedure/submariner/diagnose-submariner.sh` |
 
 ### Region loss

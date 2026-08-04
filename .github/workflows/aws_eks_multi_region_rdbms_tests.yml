@@ -91,7 +91,10 @@ jobs:
                   ci_matrix_file: ./.github/workflows-config/aws-kubernetes-eks-multi-region-rdbms/test_matrix.yml
                   is_schedule: ${{ env.IS_SCHEDULE }}
                   is_renovate_pr: ${{ github.actor == 'renovate[bot]' && 'true' || 'false' }}
-                  cluster_prefix: eks-mr-
+                  # The action appends a random suffix, which is what makes the
+                  # name — and therefore the Terraform state key — unique per
+                  # run. Same shape as aws_kubernetes_eks_dual_region_tests.yml.
+                  cluster_prefix: eks-mr-${{ github.event.pull_request.number || '' }}
 
     integration-tests:
         needs: [triage, clusters-info]
@@ -104,7 +107,17 @@ jobs:
             fail-fast: false
             matrix: ${{ fromJson(needs.clusters-info.outputs.platform-matrix) }}
         env:
-            CLUSTER_NAME: eks-mr-${{ github.event.pull_request.number || github.run_id }}
+            # Unique per run, because the matrix action appends a random suffix.
+            #
+            # A name derived only from the PR number was tried first and is a
+            # trap: the state key is `tfstate-<cluster-name>/`, so every run of
+            # the PR reused one state. A run whose teardown did not fully drain
+            # it left resources behind — an Aurora subnet group outliving its
+            # VPC, for instance — and every later run then died in `terraform
+            # apply` with `ModifyDBSubnetGroup ... not in the same Vpc`, before
+            # reaching a single test. Unique names make each run start clean;
+            # leftovers are swept by age by the daily cleanup workflow.
+            CLUSTER_NAME: ${{ matrix.distro.clusterName }}
         steps:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -197,6 +210,15 @@ jobs:
               timeout-minutes: 30
               working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
               run: go test --count=1 -v -timeout 30m -failfast -run TestMultiRegionTopology
+
+            # A measurement, not a gate: the database tier is active-standby, so
+            # this is what a region that does not host the writer pays on every
+            # export flush. Never fails the run.
+            - name: Measure the RDBMS write latency per region
+              if: always()
+              timeout-minutes: 20
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              run: go test --count=1 -v -timeout 20m -run TestMultiRegionRdbmsLatency || true
 
             # The differentiating scenario: raise active_region_count and bring the spare
             # slot online without restarting the running regions.
