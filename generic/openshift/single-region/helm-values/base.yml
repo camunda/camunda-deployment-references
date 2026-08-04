@@ -58,16 +58,13 @@ webModeler:
     enabled: false # by default, webModeler is not enabled
 
     restapi:
+        # from-address is intentionally NOT set here: when Camunda Hub is enabled this
+        # deployment also merges operator-based/postgresql/camunda-webmodeler-values.yml,
+        # which supplies camunda.modeler.mail.from-address via
+        # webModeler.restapi.extraConfiguration. The overlay merge (`yq . *+`) concatenates
+        # arrays, so also setting extraConfiguration here would duplicate the
+        # webmodeler-mail.yaml volumeMount and break OpenShift server-side apply.
         mail:
             secret:
                 existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
-        # from-address is deprecated as a values key in chart 8.10 (removed in v16),
-        # so the sender address is supplied via unified configuration instead.
-        extraConfiguration:
-            - file: webmodeler-mail.yaml
-              content: |
-                  camunda:
-                    modeler:
-                      mail:
-                        from-address: changeme@example.com   # change this required value
