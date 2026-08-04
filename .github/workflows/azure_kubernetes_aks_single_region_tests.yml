@@ -542,6 +542,12 @@ jobs:
                   if [ "$HUB_ENABLED" == "true" ]; then
                     echo "Enabling Camunda Hub (WebModeler)"
                     yq -i '.camundaHub.enabled = true' values.yml
+                    # TODO: [release-duty] drop this SNAPSHOT pin once
+                    # camunda/camunda-platform-helm#6567 is fixed. The released alpha3
+                    # chart pins camunda/hub:8.10.0-alpha3-rc1, which rejects the
+                    # `hub`/`admin` cluster app types; the rolling SNAPSHOT tag accepts
+                    # them (as kind already does).
+                    yq -i '.camundaHub.webModeler.image.tag = "SNAPSHOT"' values.yml
                   fi
 
                   # If using wildcard certificate, remove cert-manager annotations from values
