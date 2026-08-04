@@ -18,9 +18,12 @@ inputs:
         required: true
         default: camunda-aks-cluster
     kubernetes-version:
-        description: Version of Kubernetes to install
+        description: |
+            Version of Kubernetes to install. Leave empty to keep the version
+            pinned in the reference architecture (renovate-managed), which is the
+            behaviour every caller has had so far.
         required: false
-        default: '1.32'
+        default: ''
     # using S3 backend for terraform state even with Azure, to profit from existing cleanup capabilities
     s3-backend-bucket:
         description: Name of the S3 bucket to store Terraform state
@@ -125,6 +128,13 @@ runs:
           id: prepare
           working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
+          # Passed as env, never interpolated into the script: the values reach
+          # jq as data, so nothing below has to be quoted or escaped.
+          env:
+              CLUSTER_NAME: ${{ inputs.cluster-name }}
+              RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
+              LOCATION: ${{ inputs.location }}
+              KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
           run: |
               set -euo pipefail
 
@@ -132,15 +142,45 @@ runs:
               pwd
               ls
 
-              # We use sed instead of -var because the module presented to the user
-              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(aks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
-                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
-                     -e 's/\(resource_group_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.resource-group-name }}\2/' \
-                     -e 's/\(location\s*=\s*"\)[^"]*\("\)/\1${{ inputs.location }}\2/' \
-                     main.tf
+              # Terraform's own override mechanism, rather than rewriting in place
+              # the reference files we ship to users. Terraform *rejects* an
+              # override for a local that no longer exists, so a rename in the
+              # reference architecture fails the plan loudly.
+              #
+              # That is not theoretical here: the previous `sed -i ... main.tf`
+              # also targeted `aks_cluster_name` and `kubernetes_version`, which
+              # both live in aks.tf, so those two substitutions silently matched
+              # nothing and the kubernetes-version input was discarded.
+              #
+              # It also stops `sed -i` from turning the aks-single-region-rdbms
+              # main.tf/aks.tf symlinks into regular files on every run.
+              #
+              # Module arguments are merged rather than validated, so the one we
+              # set is checked explicitly below.
+              overrides=$(jq -n \
+                  --arg rg "${RESOURCE_GROUP_NAME}" \
+                  --arg loc "${LOCATION}" \
+                  --arg name "${CLUSTER_NAME}" \
+                  '{
+                      locals: { resource_group_name: $rg, location: $loc },
+                      module: { aks: { aks_cluster_name: $name } }
+                  }')
 
-              cat main.tf
+              # Empty means "keep the reference architecture's version", which is
+              # renovate-pinned. The substitution never worked, so the input's own
+              # default had drifted far behind; overriding with it unconditionally
+              # would silently downgrade the cluster.
+              if [ -n "${KUBERNETES_VERSION}" ]; then
+                  overrides=$(jq --arg v "${KUBERNETES_VERSION}" '.locals.kubernetes_version = $v' <<< "${overrides}")
+              fi
+
+              if ! grep -qE '^[[:space:]]*aks_cluster_name[[:space:]]*=' aks.tf; then
+                  echo "::error::No 'aks_cluster_name' argument in the aks module block of aks.tf;" \
+                      "the CI override would be silently ignored. Update this action."
+                  exit 1
+              fi
+
+              jq '.' <<< "${overrides}" | tee ci_override.tf.json
 
               # Set resource_prefix_placeholder to an empty string if not provided
               resource_prefix_placeholder="${{ inputs.resource-prefix }}"
