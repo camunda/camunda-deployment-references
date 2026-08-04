@@ -65,6 +65,8 @@ locals {
       name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_1_PRIORITY"
       value = "500"
     },
+    # enable async replication in zeebe to avoid data loss on failover.
+    # reference: https://docs.camunda.io/docs/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED"
       value = "true"
