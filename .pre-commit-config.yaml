@@ -11,6 +11,12 @@ repos:
       rev: v6.0.0
       hooks:
           - id: check-added-large-files
+            # Golden Terraform plans are machine-generated and grow with the
+            # number of regions an architecture spans: the three-region
+            # eks-multi-region-rdbms plan is around 520 KB, twice the
+            # dual-region ones. The guard is here to catch binaries and blobs
+            # committed by mistake, so it is raised rather than removed.
+            args: [--maxkb=1024]
           - id: end-of-file-fixer
           - id: trailing-whitespace
           - id: check-yaml
