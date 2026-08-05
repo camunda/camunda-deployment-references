@@ -42,7 +42,6 @@ type Env struct {
 	ClusterNames         []string
 	VPCCidrBlocks        []string
 	ServiceCidrBlocks    []string
-	PodCidrBlocks        []string
 	SubmarinerBrokerSlot int
 	Namespace            string
 	ReleaseName          string
@@ -71,7 +70,6 @@ func (e Env) Vars() []string {
 		"EKS_CLUSTER_NAMES":           strings.Join(e.ClusterNames, " "),
 		"REGION_VPC_CIDRS":            strings.Join(e.VPCCidrBlocks, " "),
 		"REGION_SERVICE_CIDRS":        strings.Join(e.ServiceCidrBlocks, " "),
-		"REGION_POD_CIDRS":            strings.Join(e.PodCidrBlocks, " "),
 		"CAMUNDA_NAMESPACE":           e.Namespace,
 		"CAMUNDA_RELEASE_NAME":        e.ReleaseName,
 		"CAMUNDA_RDBMS_URL":           e.RdbmsURL,

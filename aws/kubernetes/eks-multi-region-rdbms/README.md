@@ -234,104 +234,70 @@ site-to-site VPN attachments.
 
 CIDRs must not overlap across regions. The defaults are:
 
-| Slot | Region | VPC / node CIDR | Service CIDR | Pod CIDR |
-|---|---|---|---|---|
-| 0 | eu-west-2 | `10.192.0.0/16` | `10.190.0.0/16` | `100.64.0.0/16` |
-| 1 | eu-west-3 | `10.202.0.0/16` | `10.200.0.0/16` | `100.65.0.0/16` |
-| 2 | eu-central-2 | `10.212.0.0/16` | `10.210.0.0/16` | `100.66.0.0/16` |
-| 3 | eu-south-1 | `10.222.0.0/16` | `10.220.0.0/16` | `100.67.0.0/16` |
+| Slot | Region | VPC / pod CIDR | Service CIDR |
+|---|---|---|---|
+| 0 | eu-west-2 | `10.192.0.0/16` | `10.190.0.0/16` |
+| 1 | eu-west-3 | `10.202.0.0/16` | `10.200.0.0/16` |
+| 2 | eu-central-2 | `10.212.0.0/16` | `10.210.0.0/16` |
+| 3 | eu-south-1 | `10.222.0.0/16` | `10.220.0.0/16` |
 
-The Transit Gateway carries **the VPC and service CIDRs only**. Leaving the pod
-CIDR out is deliberate; see the next section.
+There is no separate pod range, and that is the point. With the AWS VPC CNI a
+pod address is an ordinary VPC address, so routing the VPC range over the
+Transit Gateway makes **cross-region pod-to-pod traffic work natively, with no
+overlay**. The service range is routed too, because Lighthouse resolves a remote
+ClusterIP service out of the exporting cluster's service range.
 
-### Pod networking
+### Why there is no encrypted overlay
 
-This is the part that differs most from the other AWS references, and the part
-that has to be right for anything else to work.
+Submariner is deployed with its **service-discovery component only**
+(`subctl deploy-broker --components service-discovery`). It provides multi-cluster
+DNS and nothing else: no gateway nodes, no IPsec, no VXLAN, no route agent.
+`subctl show connections` is empty by design.
 
-By default the AWS VPC CNI allocates pod addresses out of the node subnets, so
-a pod address *is* a VPC address. That is what makes `eks-dual-region` simple:
-pod traffic is routed natively by VPC peering, and CoreDNS forwarding is enough.
+This is a deliberate reversal of the more obvious design, and it is worth
+recording why, because the obvious one was built first and does not work.
 
-It cannot work here. Submariner installs node routes for every remote cluster
-CIDR it is joined with, so that a packet addressed to a remote pod enters its
-tunnel. When the pod range *is* the VPC range, those routes also cover the
-remote **nodes** — including the gateway addresses the tunnels are themselves
-built on — while the Transit Gateway still advertises the same prefix. The
-result is not a clean failure: brokers resolve their peers, poll requests time
-out, and no Raft quorum ever forms.
+Running Submariner's connectivity component alongside the VPC CNI puts **two
+owners on the same prefixes**. Submariner installs node routes for every remote
+cluster CIDR so it can pull that traffic into its tunnel; with the VPC CNI those
+CIDRs are the VPC ranges, which the Transit Gateway also routes — including the
+node addresses the tunnels themselves are built on. Symptom: tunnels report
+`connected`, clusterset DNS resolves to the right pod address, and every Raft
+message is dropped.
 
-The OpenShift dual-region reference does not hit this because OVNKubernetes
-gives pods a geneve overlay whose addresses the VPC never sees. This
-architecture reproduces that separation on EKS with **VPC CNI custom
-networking**:
+Separating the ranges was tried: a VPC secondary CIDR out of `100.64.0.0/10`
+carried the pods through VPC CNI custom networking, deliberately left out of the
+Transit Gateway route tables. That got further — Submariner correctly reported
+`Cluster CIDRs: [100.64.0.0/16]` and bound its gateway to the custom-networking
+interface — and still failed, for a second reason: custom networking installs
+per-pod source routing (`ip rule from <podIP> lookup <eni-table>`), so
+pod-originated traffic never consults the main routing table where Submariner
+installs its routes. The tunnel was healthy and unused.
 
-| | Node subnets | Pod subnets |
-|---|---|---|
-| Range | `vpc_cidr_block`, the VPC primary CIDR | `pod_cidr_block`, a VPC **secondary** CIDR |
-| Created by | the `eks-cluster` module | `terraform/clusters/pod-networking.tf` |
-| Carries | nodes, load balancers, Aurora | pods only |
-| Routed over the Transit Gateway | yes | **no** |
-| Reached from another region by | Transit Gateway | Submariner tunnel |
+Removing one of the two owners removes the whole class of problem. The Transit
+Gateway is the one that cannot be removed, so Submariner keeps only the part
+that does not touch the data path.
 
-Pod ranges come from `100.64.0.0/10` (RFC 6598 shared address space): outside
-the RFC 1918 plan, so a corporate network peered in later cannot collide with
-them.
-
-The service CIDR stays on the Transit Gateway even though Submariner also
-claims it. That is safe for a reason worth being explicit about: a service range
-is virtual and has no interface in any VPC, so a route for it can never capture
-a real endpoint the way a route for the node range does.
-
-Two things follow, and both are load-bearing:
-
-- `subctl join --clustercidr` is given the **pod** CIDR, not the VPC CIDR.
-  Passing the VPC CIDR is what makes Submariner claim the routed range.
-- pod CIDRs are still **distinct per region**. It is tempting to reuse one
-  range everywhere since it is never routed between them, but Submariner runs
-  without Globalnet: a prefix registered by two clusters cannot be resolved to
-  one tunnel, and `subctl join` rejects it. The `regions` variable validates
-  this.
-
-A third constraint only shows up once the tunnels are already healthy. The VPC
-CNI source-NATs every packet leaving the VPC to the node address, and a remote
-pod range is by construction outside the local VPC. Left alone, a Zeebe
-connection arrives in the remote cluster from a **node** address, while
-Submariner routes and `security.tf` authorises **pod** addresses — so the
-packets are dropped while `subctl show all` keeps reporting a healthy mesh, and
-the only symptom is `Poll request to N failed ... connection timed out` in the
-broker logs. `configure-vpc-cni-custom-networking.sh` therefore also sets
-`AWS_VPC_K8S_CNI_EXCLUDE_SNAT_CIDRS` to the remote pod and service ranges.
-Preserving the source address is not a tuning choice: without Globalnet, the
-pod address *is* how Submariner identifies a cluster.
-
-The Kubernetes half of the change — the `aws-node` flags, the per-zone
-`ENIConfig` objects and the node recycle that makes them take effect — lives in
-`procedure/configure-vpc-cni-custom-networking.sh`. It has to run **before** the
-Submariner gateways are labelled, because it replaces every node.
-
-> [!NOTE]
-> Custom networking removes the primary network interface from the pod address
-> pool, which lowers the real maximum number of pods per node (for an
-> `m6i.xlarge`, 58 to 44). The node groups here are far from that ceiling, so
-> `max-pods` is left at the default. A production sizing should set it from
-> `max-pods-calculator.sh --cni-custom-networking-enabled`.
+What this costs: cross-region traffic crosses the AWS backbone **unencrypted**.
+It stays on private addresses and never touches the internet, but it is not
+encrypted in transit, where the overlay would have provided IPsec. That is the
+trade this architecture makes, and it is listed under
+[Known limitations](#known-limitations).
 
 ### L4/L7: Submariner
 
-[Submariner][submariner] provides cross-cluster service discovery and an
-encrypted overlay. It is deployed **upstream** (`subctl deploy-broker` and
-`subctl join`), not through the Red Hat ACM add-on used by the OpenShift
-dual-region reference, because ACM is OpenShift-only.
+[Submariner][submariner] provides cross-cluster service discovery. It is
+deployed **upstream** (`subctl deploy-broker` and `subctl join`), not through the
+Red Hat ACM add-on used by the OpenShift dual-region reference, because ACM is
+OpenShift-only.
 
-- Cable driver **libreswan** (IPsec). Transit Gateway traffic crosses the AWS
-  backbone unencrypted, so this is defence in depth, not decoration.
-- `--air-gapped` and `--natt=false`: gateways reach each other over private
-  addresses through the Transit Gateway, never over the internet.
+- **`--components service-discovery`**: Lighthouse only, for the reasons above.
 - **Globalnet disabled**: CIDRs are already non-overlapping, which Transit
   Gateway requires anyway.
-- One gateway node per cluster by default; raise
-  `SUBMARINER_GATEWAY_NODES_PER_CLUSTER` for gateway HA.
+- `--clustercidr` is the VPC range, because that is where pods are addressed
+  from, and `--servicecidr` is what a remote ClusterIP resolves to. Both are
+  registered so the other clusters know which prefixes belong to which cluster;
+  reaching them is the Transit Gateway's job.
 
 Lighthouse publishes exported services as
 `<clusterID>.<service>.<namespace>.svc.clusterset.local`. This is what lets the
@@ -340,27 +306,21 @@ architecture use **one namespace name in every cluster** instead of the
 
 Firewall rules are in `terraform/clusters/security.tf` and are written out
 explicitly rather than "allow all between VPCs", because the port list is the
-part a reader actually needs. Each rule also declares *which* remote range it
-accepts, because Submariner preserves source addresses: a tunnel packet carries
-the remote **node** address, a cross-region Zeebe packet carries the remote
-**pod** address.
+part a reader actually needs. There are no tunnel ports: there is no tunnel.
 
-| Port | Protocol | Accepted from | Purpose |
-|---|---|---|---|
-| 4500 | UDP | node | IPsec NAT traversal |
-| 4490 | UDP | node | NAT traversal discovery |
-| 500 | UDP | node | IKE negotiation |
-| — | ESP (IP 50) | node | Encrypted tunnel payload |
-| 4800 | UDP | node | VXLAN pod traffic encapsulation |
-| — | ICMP | node, pod | Gateway health check and `subctl diagnose` |
-| 8080 | TCP | node, pod | Submariner metrics, Orchestration REST API |
-| 26500-26502 | TCP | pod | Zeebe gateway, command API, Raft |
-| 9600 | TCP | pod | Orchestration management API |
-| 53 | TCP/UDP | pod | CoreDNS and Lighthouse |
+| Port | Protocol | Purpose |
+|---|---|---|
+| 26500-26502 | TCP | Zeebe gateway gRPC, command API, and the internal API carrying Raft |
+| 8080 | TCP | Orchestration Cluster v2 REST API |
+| 9600 | TCP | Orchestration management API |
+| 53 | TCP/UDP | CoreDNS and Lighthouse |
+| — | ICMP | Cross-region connectivity diagnostics |
 
-Pairing every rule with every remote range instead would exceed the AWS limit of
-60 inbound rules per security group at three regions; `checks.tf` asserts the
-budget at plan time rather than letting the apply fail after the clusters exist.
+Each rule is instantiated once per remote VPC range and once per remote service
+range, so the count grows linearly with the region count: 24 inbound rules at
+three regions, 36 at four, against an AWS limit of 60 per security group.
+`checks.tf` asserts that budget at plan time rather than letting the apply fail
+after the clusters exist.
 
 
 [submariner]: https://submariner.io/
@@ -390,35 +350,32 @@ cd ../../procedure
 ./storageclass-configure.sh
 ./storageclass-verify.sh
 
-# 5. Pod networking: move the pods off the routed node range.
-#    Replaces every node, so it runs before the gateway labels.
-./configure-vpc-cni-custom-networking.sh
-
-# 6. Submariner
+# 5. Submariner service discovery
 source ./submariner/install-subctl.sh
-./submariner/label-gateway-nodes.sh
 ./submariner/deploy-broker.sh
 ./submariner/join-clusters.sh
 ./submariner/verify-submariner.sh
 
-# 7. Substrate check, two minutes, before spending thirty on Camunda
+# 6. Substrate check: two minutes, before spending twenty-five on Camunda.
+#    Submariner does not carry this traffic, so nothing else covers the
+#    Transit Gateway routes and the firewall rules.
+./setup-namespaces.sh
 ./verify-cross-region-connectivity.sh
 
-# 8. Camunda
-./setup-namespaces.sh
+# 7. Camunda
 ./create-rdbms-secret.sh
 . ./generate-zeebe-helm-values.sh
 ./assemble-envsubst-values.sh
 ./install-chart.sh
 ./submariner/export-services.sh
 
-# 9. Verify
+# 8. Verify
 ./check-cluster-topology.sh
 ```
 
 Expect roughly 25 minutes for the EKS clusters, 15 for the Aurora Global
-Database (both in parallel), 10 for the node recycle, 5 for Submariner and 10
-for the Zeebe cluster to converge across regions.
+Database (both in parallel), 3 for Submariner and 10 for the Zeebe cluster to
+converge across regions.
 
 ---
 
@@ -470,19 +427,16 @@ between. Upgrading several regions simultaneously risks losing quorum.
   every broker.
 - **Connectors run in every region** and are not deduplicated. Outbound
   connector invocations must be idempotent.
-- **Cross-region Raft is unencrypted at L3**; confidentiality comes from the
-  Submariner IPsec tunnels, so a Submariner outage is a security event, not only
-  an availability one.
-- **Custom networking is applied after the cluster exists**, by a procedure that
-  recycles every node. It is a one-off cost at bootstrap, but it means a freshly
-  applied Terraform state is not yet usable: the pods are still on the routed
-  node range until `configure-vpc-cni-custom-networking.sh` has run.
-- **A `vpc-cni` addon upgrade reverts the custom networking flags.** The EKS
-  addon owns the `aws-node` DaemonSet and is installed with
-  `resolve_conflicts_on_update = OVERWRITE`, so it overwrites the two
-  environment variables the procedure sets. Re-run the procedure after an
-  upgrade; pinning the values in the addon's `configuration_values` is the
-  production answer and is not wired up here.
+- **Cross-region traffic is unencrypted in transit.** It crosses the AWS
+  backbone on private addresses and never touches the internet, but there is no
+  overlay providing IPsec. See "Why there is no encrypted overlay": an encrypted
+  overlay and the VPC CNI cannot both own the pod ranges. If you need
+  confidentiality in transit, terminate TLS in the workload or accept the
+  operational cost of a different CNI.
+- **Submariner is a single point of failure for discovery, not for traffic.**
+  Losing Lighthouse stops new exports from propagating and new brokers from
+  resolving their peers; it does not interrupt established connections, because
+  it never carried them.
 - **Broker startup DNS gate.** Brokers resolve their initial contact points once
   and hang on `NXDOMAIN`
   ([camunda/camunda#55038](https://github.com/camunda/camunda/issues/55038)).

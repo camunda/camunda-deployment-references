@@ -15,20 +15,26 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     echo "== Submariner diagnostics for $context"
     echo "=============================================================="
 
-    echo "--- subctl show all"
-    subctl show all --contexts "$context" 2>&1
+    # `show connections` is empty by design here: there is no data plane to
+    # show. `show networks` is the useful part, it reports the CIDRs each
+    # cluster registered.
+    echo "--- subctl show networks"
+    subctl show networks --contexts "$context" 2>&1
 
     echo "--- submariner-operator pods"
     kubectl --context "$context" -n submariner-operator get pods -o wide 2>&1
 
-    echo "--- gateway logs (last 200 lines)"
-    kubectl --context "$context" -n submariner-operator logs -l app=submariner-gateway --tail=200 --prefix 2>&1
+    # No gateway logs: Submariner runs with the service-discovery component
+    # only, so the interesting components are the Lighthouse agent, which
+    # propagates exports, and its DNS server, which answers clusterset names.
+    echo "--- lighthouse agent logs (last 100 lines)"
+    kubectl --context "$context" -n submariner-operator logs -l app=submariner-lighthouse-agent --tail=100 --prefix 2>&1
 
-    echo "--- gateways and endpoints"
-    kubectl --context "$context" get gateways.submariner.io,endpoints.submariner.io -A -o wide 2>&1
+    echo "--- lighthouse coredns logs (last 100 lines)"
+    kubectl --context "$context" -n submariner-operator logs -l app=submariner-lighthouse-coredns --tail=100 --prefix 2>&1
 
-    echo "--- gateway-labelled nodes"
-    kubectl --context "$context" get nodes -l submariner.io/gateway=true -o wide 2>&1
+    echo "--- registered clusters"
+    kubectl --context "$context" -n submariner-operator get clusters.submariner.io -o wide 2>&1
 
     echo "--- service exports / imports"
     kubectl --context "$context" get serviceexports.multicluster.x-k8s.io,serviceimports.multicluster.x-k8s.io -A -o wide 2>&1

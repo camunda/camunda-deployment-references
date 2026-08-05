@@ -71,7 +71,6 @@ func testEnv(t *testing.T) helpers.Env {
 		ClusterNames:       outputs.ClusterNames,
 		VPCCidrBlocks:      outputs.VPCCidrBlocks,
 		ServiceCidrBlocks:  outputs.ServiceCidrBlocks,
-		PodCidrBlocks:      outputs.PodCidrBlocks,
 		// Any cluster can host the Submariner broker; it only stores metadata.
 		SubmarinerBrokerSlot: 0,
 		Namespace:            helpers.GetEnv("CAMUNDA_NAMESPACE", "camunda"),
@@ -97,29 +96,23 @@ func TestMultiRegionKubeConfig(t *testing.T) {
 	helpers.UpdateKubeConfig(t, outputs, env.ClusterContexts)
 }
 
-// TestMultiRegionSubmariner builds the Submariner ClusterSet and asserts that
-// every cluster holds N-1 established tunnels.
+// TestMultiRegionSubmariner builds the Submariner ClusterSet, asserts that
+// service discovery is functional in every cluster, and then proves that the
+// Transit Gateway actually carries pod-to-pod traffic between regions.
 func TestMultiRegionSubmariner(t *testing.T) {
 	env := testEnv(t)
 
 	helpers.RunProcedure(t, env, 10*time.Minute, "storageclass-configure.sh")
 	helpers.RunProcedure(t, env, 2*time.Minute, "storageclass-verify.sh")
 
-	// Must come before the gateway labelling: it replaces every node, and the
-	// labels with them. Without it the pods keep routable VPC addresses, the
-	// Transit Gateway and Submariner both claim them, and the Raft cluster
-	// never forms.
-	helpers.RunProcedure(t, env, 30*time.Minute, "configure-vpc-cni-custom-networking.sh")
-
-	helpers.RunProcedure(t, env, 5*time.Minute, "submariner/label-gateway-nodes.sh")
 	helpers.RunProcedure(t, env, 10*time.Minute, "submariner/deploy-broker.sh")
 	helpers.RunProcedure(t, env, 20*time.Minute, "submariner/join-clusters.sh")
 	helpers.RunProcedure(t, env, 20*time.Minute, "submariner/verify-submariner.sh")
 
 	// Proves the substrate in about two minutes, before the twenty-five the
-	// Camunda install costs. Established tunnels are not the same thing as
-	// reachable pods: a source-NAT or firewall mistake leaves `subctl show all`
-	// perfectly healthy and still drops every Raft message.
+	// Camunda install costs. Submariner reporting healthy says nothing about
+	// reachability here -- it does not carry the traffic -- so this is the only
+	// check that covers the Transit Gateway routes and the firewall rules.
 	helpers.RunProcedure(t, env, 10*time.Minute, "setup-namespaces.sh")
 	helpers.RunProcedure(t, env, 15*time.Minute, "verify-cross-region-connectivity.sh")
 }

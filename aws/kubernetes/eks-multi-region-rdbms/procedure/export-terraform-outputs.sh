@@ -24,9 +24,6 @@ export AWS_REGIONS="$(_tf_get '[.regions.value | to_entries | sort_by(.key | ton
 export SUBMARINER_CLUSTER_IDS="$(_tf_get '[.regions.value | to_entries | sort_by(.key | tonumber) | .[].value.short_name] | join(" ")')"
 export REGION_VPC_CIDRS="$(_tf_get '[.vpc_cidr_blocks.value | to_entries | sort_by(.key | tonumber) | .[].value] | join(" ")')"
 export REGION_SERVICE_CIDRS="$(_tf_get '[.service_cidr_blocks.value | to_entries | sort_by(.key | tonumber) | .[].value] | join(" ")')"
-# Pods live in a VPC secondary CIDR that the Transit Gateway does not route.
-# This, not REGION_VPC_CIDRS, is what Submariner must be joined with.
-export REGION_POD_CIDRS="$(_tf_get '[.pod_cidr_blocks.value | to_entries | sort_by(.key | tonumber) | .[].value] | join(" ")')"
 export EKS_CLUSTER_NAMES="$(_tf_get '[.cluster_names.value | to_entries | sort_by(.key | tonumber) | .[].value] | join(" ")')"
 
 export CAMUNDA_RDBMS_URL="$(_tf_get '.camunda_rdbms_url.value // empty')"
@@ -41,6 +38,5 @@ echo "  region slots   : $CAMUNDA_REGION_SLOTS (active: $CAMUNDA_ACTIVE_REGIONS)
 echo "  aws regions    : $AWS_REGIONS"
 echo "  eks clusters   : $EKS_CLUSTER_NAMES"
 echo "  submariner ids : $SUBMARINER_CLUSTER_IDS"
-echo "  node CIDRs     : $REGION_VPC_CIDRS"
-echo "  pod CIDRs      : $REGION_POD_CIDRS"
+echo "  vpc CIDRs      : $REGION_VPC_CIDRS"
 echo "  rdbms url      : ${CAMUNDA_RDBMS_URL:-<unset>}"
