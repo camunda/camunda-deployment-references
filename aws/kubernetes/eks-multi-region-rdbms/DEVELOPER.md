@@ -1,9 +1,9 @@
 # Developer's Guide
 
 Local development reference for the AWS EKS multi-region RDBMS architecture.
-Read [README.md](./README.md) first: the topology invariants (region slots,
-replication factor, node ID stride) are not obvious and getting them wrong
-produces a cluster that silently never forms a quorum.
+Read [README.md](./README.md) first: the topology invariants (zones, per-zone
+replicas, leadership priority) are not obvious and getting them wrong produces a
+cluster that silently never forms a quorum.
 
 ## Prerequisites
 
@@ -138,15 +138,17 @@ Same root cause. Delete the pod; it re-resolves on restart.
 
 ### Brokers are up but partitions are unhealthy
 
-Check the node ID distribution. Every region slot must own its residue class:
+Check the broker distribution. Every zone must hold its declared number of
+brokers, and every partition a replica in each zone:
 
 ```bash
 ./check-cluster-topology.sh
 ```
 
-If a slot owns the wrong node IDs, `global.multiregion.regions` does not match
-the Terraform slot count. That is a bootstrap-time mistake and cannot be fixed
-in place.
+Broker names carry the zone (`paris_1`), so a misplaced broker is visible
+directly. The usual cause is `global.multiregion.zone` not matching any `name`
+in the zone list, which nothing validates today — see
+camunda/camunda-platform-helm#6807.
 
 ### RDBMS connection failures
 

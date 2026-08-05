@@ -56,9 +56,24 @@ export CAMUNDA_BROKERS_PER_REGION="${CAMUNDA_BROKERS_PER_REGION:-2}"
 export CAMUNDA_CLUSTER_SIZE="${CAMUNDA_CLUSTER_SIZE:-$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_REGION_SLOTS))}"
 export CAMUNDA_PARTITION_COUNT="${CAMUNDA_PARTITION_COUNT:-$CAMUNDA_CLUSTER_SIZE}"
 
-# One replica per region slot. See ../README.md, "Why the replication factor
-# equals the number of regions".
-export CAMUNDA_REPLICATION_FACTOR="${CAMUNDA_REPLICATION_FACTOR:-$CAMUNDA_REGION_SLOTS}"
+# One replica per zone, so the replication factor equals the zone count. With
+# zone awareness the chart derives both from the zone list rather than from this
+# value; it is kept because the topology check asserts against it.
+export CAMUNDA_REPLICAS_PER_ZONE="${CAMUNDA_REPLICAS_PER_ZONE:-1}"
+export CAMUNDA_REPLICATION_FACTOR="${CAMUNDA_REPLICATION_FACTOR:-$((CAMUNDA_REPLICAS_PER_ZONE * CAMUNDA_REGION_SLOTS))}"
+
+# Zone awareness is not in a released chart yet. The reference architecture
+# builds the chart from source, so it is pinned to the branch implementing
+# `global.multiregion.mode: zoned`.
+#
+# The alternative was hand-assembling CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_*
+# environment variables against the released chart. That does not work: the
+# released chart always exports a numeric node ID, zone awareness requires its
+# absence, and no value passed from outside suppresses it -- `${VAR:-default}`
+# treats an empty value as unset. See camunda/camunda-platform-helm#6807.
+#
+# TODO [release-duty]: drop this pin once zoned mode is in a released chart.
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-cs/zoned-multiregion}"
 
 # TODO [release-duty]: pin to the released chart version and switch
 # HELM_CHART_REF to https://helm.camunda.io once 8.10 is generally available.
@@ -115,11 +130,10 @@ if [ "$CAMUNDA_ACTIVE_REGIONS" -lt "$((CAMUNDA_REGION_SLOTS - 1))" ]; then
     return 1 2>/dev/null || exit 1
 fi
 
-if [ $((CAMUNDA_CLUSTER_SIZE % CAMUNDA_REGION_SLOTS)) -ne 0 ]; then
-    echo "ERROR: CAMUNDA_CLUSTER_SIZE ($CAMUNDA_CLUSTER_SIZE) must be a multiple of CAMUNDA_REGION_SLOTS ($CAMUNDA_REGION_SLOTS)." >&2
-    echo "       The Helm chart derives the StatefulSet replica count as clusterSize / regions." >&2
-    return 1 2>/dev/null || exit 1
-fi
+# No clusterSize/slots divisibility check any more: in zoned mode the chart
+# derives the StatefulSet replica count from the zone's own numberOfBrokers, and
+# the cluster size from the sum across zones. Asymmetric zones are therefore
+# expressible, which the legacy integer division could not do.
 
 echo "Multi-region environment:"
 echo "  region slots       : $CAMUNDA_REGION_SLOTS (active: $CAMUNDA_ACTIVE_REGIONS)"

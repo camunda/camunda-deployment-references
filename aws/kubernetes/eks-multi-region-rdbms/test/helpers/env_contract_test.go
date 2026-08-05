@@ -15,6 +15,7 @@ import (
 var envProducedAtRuntime = map[string]bool{
 	// Emitted by generate-zeebe-helm-values.sh, which the deploy wrapper sources.
 	"CAMUNDA_CLUSTER_INITIALCONTACTPOINTS": true,
+	"CAMUNDA_MULTIREGION_ZONES":            true,
 	// Defaulted by export-terraform-outputs.sh itself.
 	"TF_DIR": true,
 }

@@ -5,7 +5,7 @@ set -euo pipefail
 # Helm values, then exports them so that assemble-envsubst-values.sh can
 # substitute them.
 #
-# Two values are produced:
+# Three values are produced:
 #
 #   CAMUNDA_CLUSTER_INITIALCONTACTPOINTS
 #       One entry per ACTIVE region, pointing at the headless Zeebe service of
@@ -18,6 +18,12 @@ set -euo pipefail
 #       (`<pod>.<service>.<namespace>.svc`) only resolves inside its own
 #       cluster.
 #
+#   CAMUNDA_MULTIREGION_ZONES
+#       The `global.multiregion.zones` list, as a JSON flow sequence. Covers every
+#       zone SLOT, not only the deployed ones -- see the note on reserved
+#       replicas below -- and is byte-identical in every region's values file,
+#       which is what keeps the topology a single description.
+#
 # Contact points intentionally cover only the active regions: a slot that has
 # not been deployed yet has no DNS record, and listing it would make every
 # broker wait on the startup DNS gate for nothing.
@@ -28,7 +34,22 @@ set -euo pipefail
 : "${CAMUNDA_NAMESPACE:?CAMUNDA_NAMESPACE must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_RELEASE_NAME:?CAMUNDA_RELEASE_NAME must be set, source export_environment_prerequisites.sh}"
 
+: "${CAMUNDA_REGION_SLOTS:?CAMUNDA_REGION_SLOTS must be set, source export_environment_prerequisites.sh}"
+: "${CAMUNDA_BROKERS_PER_REGION:?CAMUNDA_BROKERS_PER_REGION must be set, source export_environment_prerequisites.sh}"
+
 INTERNAL_PORT="${CAMUNDA_CLUSTER_INTERNAL_PORT:-26502}"
+
+# Replicas of each partition placed in a single zone. One per zone means the
+# replication factor equals the zone count, so every zone holds exactly one
+# replica of every partition and losing a zone costs one replica out of N.
+ZONE_REPLICAS="${CAMUNDA_REPLICAS_PER_ZONE:-1}"
+
+# Raft election priority of zone 0, decreasing by this step per zone. Leaders
+# are skewed to zone 0 because it hosts the Aurora writer: a leader co-located
+# with the writer avoids the inter-region round trip on every export flush,
+# which is the cost measured by ./measure-rdbms-latency.sh.
+ZONE_PRIORITY_BASE="${CAMUNDA_ZONE_PRIORITY_BASE:-1000}"
+ZONE_PRIORITY_STEP="${CAMUNDA_ZONE_PRIORITY_STEP:-100}"
 
 read -r -a cluster_ids <<<"$SUBMARINER_CLUSTER_IDS"
 
@@ -47,7 +68,40 @@ done
 
 export CAMUNDA_CLUSTER_INITIALCONTACTPOINTS="$contact_points"
 
+###############################################################################
+# Zone list                                                                   #
+#                                                                             #
+# Every SLOT is listed, including one not deployed yet. That is what makes the #
+# growth path non-disruptive: the partition layout already reserves the        #
+# missing zone's replicas, so each partition runs at N-1 of N -- a majority -- #
+# and activating the zone fills them in without redistributing anything.       #
+#                                                                             #
+# Emitted as JSON so that ../helm-values/camunda-values.yml stays valid YAML   #
+# as a template, rather than only after substitution.                          #
+###############################################################################
+
+zones_json=""
+for ((i = 0; i < CAMUNDA_REGION_SLOTS; i++)); do
+    zone_name="${cluster_ids[$i]:-}"
+    if [ -z "$zone_name" ]; then
+        echo "ERROR: SUBMARINER_CLUSTER_IDS has no entry for zone slot $i." >&2
+        echo "       It must name every one of the $CAMUNDA_REGION_SLOTS slots, not only the active ones." >&2
+        exit 1
+    fi
+
+    entry="$(printf '{"name":"%s","numberOfBrokers":%d,"numberOfReplicas":%d,"priority":%d}' \
+        "$zone_name" "$CAMUNDA_BROKERS_PER_REGION" "$ZONE_REPLICAS" \
+        "$((ZONE_PRIORITY_BASE - i * ZONE_PRIORITY_STEP))")"
+
+    zones_json="${zones_json:+$zones_json,}${entry}"
+done
+
+# A JSON array is a YAML flow sequence, so the values template stays valid YAML
+# before envsubst runs and can be linted like any other file.
+export CAMUNDA_MULTIREGION_ZONES="[${zones_json}]"
+
 echo "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS=$CAMUNDA_CLUSTER_INITIALCONTACTPOINTS"
+echo "CAMUNDA_MULTIREGION_ZONES=$CAMUNDA_MULTIREGION_ZONES"
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     varname="REGION_${i}_ZEEBE_SERVICE_NAME"
     echo "${varname}=${!varname}"
