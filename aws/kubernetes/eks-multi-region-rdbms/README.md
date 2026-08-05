@@ -278,11 +278,57 @@ Removing one of the two owners removes the whole class of problem. The Transit
 Gateway is the one that cannot be removed, so Submariner keeps only the part
 that does not touch the data path.
 
-What this costs: cross-region traffic crosses the AWS backbone **unencrypted**.
-It stays on private addresses and never touches the internet, but it is not
-encrypted in transit, where the overlay would have provided IPsec. That is the
-trade this architecture makes, and it is listed under
-[Known limitations](#known-limitations).
+What this costs is less than it first appears. Removing the overlay does **not**
+leave the traffic in clear text: AWS encrypts inter-region Transit Gateway
+peering itself.
+
+> Inter-Region gateway peering uses the same network infrastructure as VPC
+> peering. Therefore traffic is encrypted using AES-256 encryption at the
+> virtual network layer as it travels between Regions. Traffic is also encrypted
+> using AES-256 encryption at the physical layer when it traverses network links
+> that are outside of the physical control of AWS. As a result, traffic is
+> double encrypted on network links outside the physical control of AWS.
+>
+> — [Transit gateway peering attachments][tgw-encryption]
+
+The EC2 documentation states the same from the other direction: "All cross-Region
+traffic that uses Amazon VPC peering and Transit Gateway peering is automatically
+bulk-encrypted when it exits a Region", and "All traffic between AZs is
+encrypted" ([Encryption in transit][ec2-encryption]).
+
+What is actually given up is **control of the encryption**, not the encryption:
+the keys are AWS-managed and the property is asserted by the provider rather
+than verifiable from inside the cluster. Note also that the Nitro
+instance-to-instance encryption listed in the same document does not apply here,
+because it is void when "the traffic does not pass through a virtual network
+device or service, such as a load balancer or a transit gateway".
+
+If you need customer-managed keys or encryption you can demonstrate end to end,
+see [Adding your own encryption](#adding-your-own-encryption).
+
+[tgw-encryption]: https://docs.aws.amazon.com/vpc/latest/tgw/tgw-peering.html
+[ec2-encryption]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/data-protection.html#encryption-transit
+
+### Adding your own encryption
+
+The encryption above is AWS-managed. If a control requires customer-managed keys
+or encryption you can demonstrate end to end, the options in rough order of
+cost:
+
+| Option | Encrypts | Cost |
+|---|---|---|
+| **TLS in the workload** | The Camunda APIs it is enabled on | No infrastructure change; does not cover everything on the wire |
+| **Cilium in ENI mode + WireGuard or IPsec** | All pod-to-pod traffic, transparently | Replaces the VPC CNI |
+| **Site-to-site VPN instead of Transit Gateway peering** | Everything between regions | Your own IPsec keys, but per-tunnel throughput caps and an extra failure domain |
+
+Cilium is the option that fits this architecture, and the reason is the same one
+that removed the overlay: in ENI mode pod addresses stay ordinary VPC addresses,
+so the Transit Gateway remains the only owner of the routes and encryption is
+applied transparently underneath. It is the intersection of "encrypted with keys
+you hold" and "no second owner of the pod ranges".
+
+Reintroducing Submariner's connectivity component is **not** on this list. See
+the section above for why it cannot coexist with the VPC CNI.
 
 ### L4/L7: Submariner
 
@@ -427,12 +473,13 @@ between. Upgrading several regions simultaneously risks losing quorum.
   every broker.
 - **Connectors run in every region** and are not deduplicated. Outbound
   connector invocations must be idempotent.
-- **Cross-region traffic is unencrypted in transit.** It crosses the AWS
-  backbone on private addresses and never touches the internet, but there is no
-  overlay providing IPsec. See "Why there is no encrypted overlay": an encrypted
-  overlay and the VPC CNI cannot both own the pod ranges. If you need
-  confidentiality in transit, terminate TLS in the workload or accept the
-  operational cost of a different CNI.
+- **Encryption in transit is AWS-provided, not architecture-provided.** Traffic
+  is encrypted — AES-256 bulk encryption when it leaves a Region over Transit
+  Gateway peering, plus physical-layer encryption — but with AWS-managed keys
+  and no way to verify it from inside the cluster. An encrypted overlay and the
+  VPC CNI cannot both own the pod ranges, so the overlay is not available as a
+  way to change that. See [Adding your own encryption](#adding-your-own-encryption)
+  for the options if a control requires customer-managed keys.
 - **Submariner is a single point of failure for discovery, not for traffic.**
   Losing Lighthouse stops new exports from propagating and new brokers from
   resolving their peers; it does not interrupt established connections, because
