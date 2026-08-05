@@ -66,12 +66,16 @@ deadline=$((SECONDS + ${TOPOLOGY_TIMEOUT_SECONDS:-1500}))
 
 echo "Waiting for $expected_brokers broker(s) to join the cluster ..."
 while true; do
-    # `|| echo` is deliberately absent: curl already prints 000 through -w when
-    # it cannot connect, and appending a fallback produced the nonsense
-    # "HTTP 000000" that made a dead tunnel hard to recognise.
+    # `|| true` is load-bearing twice over. curl already reports 000 through -w
+    # when it cannot connect, so a fallback `echo` would append a second one and
+    # produce the nonsense "HTTP 000000". But without SOME suppression, `set -e`
+    # kills the script on curl's exit status instead of letting the retry below
+    # re-establish the tunnel -- which is how a restarting gateway turned into
+    # `exit status 52` (empty reply: the port-forward is listening, the pod
+    # behind it is not).
     http_code="$(curl -sS -u "${CAMUNDA_BASIC_AUTH_USER}:${CAMUNDA_BASIC_AUTH_PASSWORD}" \
         -o "$OUTPUT_FILE" -w '%{http_code}' \
-        "http://localhost:${LOCAL_PORT}/v2/topology" 2>/dev/null)"
+        "http://localhost:${LOCAL_PORT}/v2/topology" 2>/dev/null || true)"
     http_code="${http_code:-000}"
 
     case "$http_code" in

@@ -87,9 +87,14 @@ echo "    all $partitions partitions have a leader."
 echo "--> Checking that the gateway still serves the v2 API"
 # A quorum loss shows up to a client as a timeout or a 5xx. Anything the gateway
 # answers itself, including an authorisation error, proves it is serving.
+#
+# `|| true` rather than `|| echo 000`: curl already reports 000 through -w when
+# it cannot connect, so echoing a fallback appends a second one and reports
+# "HTTP 000000".
 response="$(curl -sS -o /dev/null -w '%{http_code}' \
     -u "${CAMUNDA_BASIC_AUTH_USER}:${CAMUNDA_BASIC_AUTH_PASSWORD}" \
-    "http://localhost:${LOCAL_PORT}/v2/license" 2>/dev/null || echo 000)"
+    "http://localhost:${LOCAL_PORT}/v2/license" 2>/dev/null || true)"
+response="${response:-000}"
 
 case "$response" in
 2* | 401 | 403)
