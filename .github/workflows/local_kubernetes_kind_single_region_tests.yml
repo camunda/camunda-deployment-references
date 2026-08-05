@@ -97,7 +97,7 @@ jobs:
             # TODO: [release-duty] remove this together with the source-build (procedure/build-camunda-chart.sh).
             CAMUNDA_PRERELEASE_ACK: 'true'
         steps:
-            - uses: camunda/infra-global-github-actions/start-build-monitor@20384346f55213d43c85943363f40d29e3911f97
+            - uses: camunda/infra-global-github-actions/start-build-monitor@02b3f0e49b00b98fffc76af690ebc83c28f24dae
 
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
