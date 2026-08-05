@@ -45,8 +45,9 @@ runs:
               roleId: ${{ inputs.secret_vault_role_id }}
               secretId: ${{ inputs.secret_vault_secret_id }}
               exportEnv: false # we rely on step outputs, no need for environment variables
+              # This repository's AppRole is scoped to infrastructure-experience secrets.
               secrets: |
-                  secret/data/products/infra/ci/ci-analytics gcloud_sa_key;
+                  secret/data/products/infrastructure-experience/ci/ci-analytics gcloud_sa_key;
 
         - name: Check secrets availability
           if: ${{ steps.secrets.outputs.gcloud_sa_key == '' }}
