@@ -53,41 +53,29 @@ read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 new_context="${contexts[$SLOT]}"
 survivor_context="${contexts[0]}"
 
-echo "==> 1/7 Moving the pods of region slot $SLOT into the non-routed pod CIDR"
-# Run over EVERY active region, not just the new one: the already running
-# regions have to learn the new region's pod and service ranges in their
-# source-NAT exclusion list, or their traffic reaches it with a node address
-# and is rejected. Regions already converted skip the node recycle, so this
-# only restarts their aws-node DaemonSet.
-"$SCRIPT_DIR/configure-vpc-cni-custom-networking.sh"
-# The step above replaces the nodes of the new region, so the gateway has to be
-# labelled afterwards. Only the new slot is labelled: re-running it over the
-# established regions could move their gateway and migrate live tunnels.
-"$SCRIPT_DIR/submariner/label-gateway-nodes.sh" "$SLOT"
-
-echo "==> 2/7 Joining region slot $SLOT ($new_context) to the Submariner ClusterSet"
+echo "==> 1/6 Joining region slot $SLOT ($new_context) to the Submariner ClusterSet"
 "$SCRIPT_DIR/submariner/join-clusters.sh" "$SLOT"
 "$SCRIPT_DIR/submariner/verify-submariner.sh"
 
-echo "==> 3/7 Creating the namespace and the RDBMS secret in $new_context"
+echo "==> 2/6 Creating the namespace and the RDBMS secret in $new_context"
 "$SCRIPT_DIR/setup-namespaces.sh"
 "$SCRIPT_DIR/create-rdbms-secret.sh"
 
-echo "==> 4/7 Rendering the Helm values with the new contact point list"
+echo "==> 3/6 Rendering the Helm values with the new contact point list"
 . "$SCRIPT_DIR/generate-zeebe-helm-values.sh"
 "$SCRIPT_DIR/assemble-envsubst-values.sh"
 
-echo "==> 5/7 Installing Camunda in region slot $SLOT"
+echo "==> 4/6 Installing Camunda in region slot $SLOT"
 # Only the new region is installed. The already running regions learn about the
 # new brokers through cluster membership gossip; their values files now carry a
 # longer contact point list, which is picked up harmlessly on their next
 # upgrade. Restarting them here would be a needless rolling restart.
 "$SCRIPT_DIR/install-chart.sh" "$SLOT"
 
-echo "==> 6/7 Exporting the new region's services to the ClusterSet"
+echo "==> 5/6 Exporting the new region's services to the ClusterSet"
 "$SCRIPT_DIR/submariner/export-services.sh"
 
-echo "==> 7/7 Waiting for the new brokers to join the Zeebe cluster"
+echo "==> 6/6 Waiting for the new brokers to join the Zeebe cluster"
 node_ids="$(camunda::region_node_ids "$SLOT")"
 echo "    Expected broker node IDs for slot $SLOT: $node_ids"
 

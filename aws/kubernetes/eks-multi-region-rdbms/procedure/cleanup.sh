@@ -3,9 +3,10 @@ set -euo pipefail
 
 # Removes Camunda and Submariner from every active cluster.
 #
-# Run before `terraform destroy`: Submariner creates cloud resources (gateway
-# annotations, routes) and Camunda creates PVCs and load balancers that keep the
-# VPC alive and make the destroy hang.
+# Run before `terraform destroy`: Camunda creates PVCs and load balancers that
+# keep the VPC alive and make the destroy hang. Submariner is only the service
+# discovery layer here, so it leaves no cloud resources behind, but uninstalling
+# it keeps the broker registry from outliving the clusters.
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"

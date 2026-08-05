@@ -50,23 +50,6 @@ output "service_cidr_blocks" {
   value       = { for i in local.active_indices : i => var.regions[i].service_cidr_block }
 }
 
-output "pod_cidr_blocks" {
-  description = <<-EOT
-    Pod CIDR block per region slot, i.e. the VPC secondary CIDR carrying the
-    custom networking subnets.
-
-    This is what `subctl join --clustercidr` must be given: passing the VPC
-    CIDR instead makes Submariner claim the whole routed range and collide with
-    the Transit Gateway. See pod-networking.tf.
-  EOT
-  value       = { for i in local.active_indices : i => var.regions[i].pod_cidr_block }
-}
-
-output "pod_subnet_ids" {
-  description = "Custom networking subnet IDs per region slot, one per availability zone, referenced by the ENIConfig objects"
-  value       = local.pod_subnet_ids
-}
-
 output "oidc_provider_arns" {
   description = "OIDC provider ARN per region slot, used to bind IRSA roles"
   value       = { for i, c in local.clusters : i => c.oidc_provider_arn }
@@ -78,8 +61,8 @@ output "transit_gateway_ids" {
 }
 
 output "all_cidr_blocks" {
-  description = "Every VPC, Kubernetes service and pod CIDR of the active regions, used to build database firewall rules"
-  value       = concat(local.active_vpc_cidr_blocks, local.active_svc_cidr_blocks, local.active_pod_cidr_blocks)
+  description = "Every VPC and Kubernetes service CIDR of the active regions, used to build database firewall rules"
+  value       = concat(local.active_vpc_cidr_blocks, local.active_svc_cidr_blocks)
 }
 
 ################################

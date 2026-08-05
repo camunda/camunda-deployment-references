@@ -75,18 +75,10 @@ cd ../../procedure
 export CAMUNDA_ACTIVE_REGIONS=2
 export CLUSTER_CONTEXTS="cluster-london cluster-paris"
 . ./export_environment_prerequisites.sh
-
-./configure-vpc-cni-custom-networking.sh
 ```
 
 `export-terraform-outputs.sh` derives most of the environment from the state, so
 only the kubectl context aliases really need to be provided by hand.
-
-`configure-vpc-cni-custom-networking.sh` terminates every node, so allow around
-ten minutes per region for the node group to bring the capacity back. Skipping
-it is the fastest way to reproduce the failure this architecture is designed to
-avoid: the pods keep routable VPC addresses, the Transit Gateway and Submariner
-both own them, and the brokers never form a quorum.
 
 ## Debugging
 
@@ -101,30 +93,29 @@ Before blaming Camunda, prove the substrate:
 Two minutes instead of the thirty a full deployment takes. If it fails, check
 the ownership of the pod range:
 
-```bash
-# Pods must be in 100.64.0.0/10, NOT in the VPC CIDR
-kubectl --context cluster-london -n camunda get pods -o wide
-
-# Submariner must report the pod and service CIDRs, never the VPC CIDR
-subctl show all --contexts cluster-london
-```
-
-A cluster reporting the VPC CIDR was joined before
-`configure-vpc-cni-custom-networking.sh` ran, or with `--clustercidr` pointed at
-`REGION_VPC_CIDRS`. Re-run the procedure and rejoin the cluster.
-
-If instead the tunnels look perfect and the brokers still log
-`Poll request to N failed ... connection timed out`, the source address is
-being rewritten. Check the exclusion list:
+Submariner does not carry this traffic, so do not start with `subctl`. The
+data plane is the Transit Gateway:
 
 ```bash
-kubectl --context cluster-london -n kube-system get daemonset aws-node \
-  -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="AWS_VPC_K8S_CNI_EXCLUDE_SNAT_CIDRS")].value}'
+# Are the remote ranges routed? Expect one route per remote VPC and service CIDR.
+aws ec2 describe-route-tables --region eu-west-2 \
+  --filters "Name=vpc-id,Values=<vpc>" \
+  --query 'RouteTables[].Routes[?TransitGatewayId!=null].[DestinationCidrBlock]' --output text
+
+# Does the remote security group allow the port? Rules come from
+# terraform/clusters/security.tf, keyed <rule>|<remote cidr>.
+aws ec2 describe-security-group-rules --region eu-west-3 \
+  --filters "Name=group-id,Values=<cluster sg>" \
+  --query 'SecurityGroupRules[?!IsEgress].[CidrIpv4,IpProtocol,FromPort,ToPort]' --output text
 ```
 
-It must list every **remote** pod and service range. Empty means the CNI is
-source-NATing cross-region pod traffic to the node address, which the remote
-security group rejects because those rules are written for pod ranges.
+If the names do not resolve at all, that is Lighthouse rather than routing:
+
+```bash
+subctl show networks --contexts cluster-london
+kubectl --context cluster-london -n submariner-operator get clusters.submariner.io
+kubectl --context cluster-london -n camunda get serviceexports,serviceimports
+```
 
 ### Zeebe never reaches the expected broker count
 
