@@ -26,6 +26,8 @@ PROBE_PORT="${PROBE_PORT:-8080}"
 PROBE_TIMEOUT="${PROBE_CONNECT_TIMEOUT:-10}"
 PROBE_READY_TIMEOUT="${PROBE_READY_TIMEOUT:-120s}"
 PROBE_IMPORT_TIMEOUT="${PROBE_IMPORT_TIMEOUT:-300}"
+# Per path, so a slow record does not read as an unreachable one.
+PROBE_RETRY_SECONDS="${PROBE_RETRY_SECONDS:-180}"
 
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 read -r -a cluster_ids <<<"$SUBMARINER_CLUSTER_IDS"
@@ -159,15 +161,30 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
         target="connectivity-probe-0.${cluster_ids[$j]}.connectivity-probe.${CAMUNDA_NAMESPACE}.svc.clusterset.local"
         echo "--> ${cluster_ids[$i]} -> ${cluster_ids[$j]}"
 
-        if kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
-            exec statefulset/connectivity-probe -- \
-            timeout "$PROBE_TIMEOUT" nc -z -w "$PROBE_TIMEOUT" "$target" "$PROBE_PORT" >/dev/null 2>&1; then
+        # Retried rather than attempted once. Lighthouse publishes the per-pod
+        # records shortly after the ServiceImport, and CoreDNS caches negative
+        # answers, so a single attempt reports a propagation delay as a routing
+        # failure -- which it did, and cost a full run to work out.
+        reachable=false
+        path_deadline=$((SECONDS + PROBE_RETRY_SECONDS))
+        while true; do
+            if kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
+                exec statefulset/connectivity-probe -- \
+                timeout "$PROBE_TIMEOUT" nc -z -w "$PROBE_TIMEOUT" "$target" "$PROBE_PORT" >/dev/null 2>&1; then
+                reachable=true
+                break
+            fi
+            [ "$SECONDS" -ge "$path_deadline" ] && break
+            sleep 5
+        done
+
+        if [ "$reachable" = true ]; then
             echo "    reachable"
             continue
         fi
 
         failures=$((failures + 1))
-        echo "    UNREACHABLE"
+        echo "    UNREACHABLE after ${PROBE_RETRY_SECONDS}s"
 
         # Separate name resolution from reachability: they fail for completely
         # different reasons and the fix differs entirely.
