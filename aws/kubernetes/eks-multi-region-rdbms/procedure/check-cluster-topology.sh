@@ -31,13 +31,31 @@ read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 # Query through the first active region; any gateway returns the whole topology.
 context="${contexts[0]}"
 
-kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
-    port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" "${LOCAL_PORT}:8080" >/dev/null 2>&1 &
-port_forward_pid=$!
-# shellcheck disable=SC2064
-trap "kill $port_forward_pid 2>/dev/null || true" EXIT
+# The port-forward has to survive a poll that can run for twenty-five minutes.
+# A single tunnel does not: kubectl drops it when the gateway pod restarts,
+# which a converging cluster does, and every later request then fails to
+# connect. Reported as "gateway unreachable", it looks exactly like a broken
+# deployment. So it is (re)established on demand instead.
+port_forward_pid=""
 
-sleep 5
+stop_port_forward() {
+    [ -n "$port_forward_pid" ] || return 0
+    kill "$port_forward_pid" 2>/dev/null || true
+    wait "$port_forward_pid" 2>/dev/null || true
+    port_forward_pid=""
+}
+trap stop_port_forward EXIT
+
+start_port_forward() {
+    stop_port_forward
+
+    kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
+        port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" "${LOCAL_PORT}:8080" >/dev/null 2>&1 &
+    port_forward_pid=$!
+    sleep 5
+}
+
+start_port_forward
 
 # A stretched cluster does not converge instantly: brokers dial each other
 # across regions, and the README budgets 10-20 minutes for the Raft cluster to
@@ -48,9 +66,13 @@ deadline=$((SECONDS + ${TOPOLOGY_TIMEOUT_SECONDS:-1500}))
 
 echo "Waiting for $expected_brokers broker(s) to join the cluster ..."
 while true; do
+    # `|| echo` is deliberately absent: curl already prints 000 through -w when
+    # it cannot connect, and appending a fallback produced the nonsense
+    # "HTTP 000000" that made a dead tunnel hard to recognise.
     http_code="$(curl -sS -u "${CAMUNDA_BASIC_AUTH_USER}:${CAMUNDA_BASIC_AUTH_PASSWORD}" \
         -o "$OUTPUT_FILE" -w '%{http_code}' \
-        "http://localhost:${LOCAL_PORT}/v2/topology" || echo 000)"
+        "http://localhost:${LOCAL_PORT}/v2/topology" 2>/dev/null)"
+    http_code="${http_code:-000}"
 
     case "$http_code" in
     401 | 403)
@@ -71,7 +93,9 @@ while true; do
         fi
         ;;
     *)
-        current="gateway unreachable (HTTP $http_code)"
+        # Anything that is not an HTTP answer is the tunnel, not the cluster.
+        current="gateway unreachable (HTTP $http_code), re-establishing the port-forward"
+        start_port_forward
         ;;
     esac
 
