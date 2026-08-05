@@ -31,12 +31,6 @@ runs:
         - name: Install asdf tools with cache
           uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
 
-        # In order to be able to list RGs that are older than the specified min-age, we need to install the resource graph extension
-        - name: Install Resource Graph extension
-          shell: bash
-          run: |
-              az extension add --name resource-graph --only-show-errors
-
         - name: Delete clusters
           id: delete_clusters
           shell: bash
