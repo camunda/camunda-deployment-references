@@ -4,20 +4,26 @@ set -euo pipefail
 # Prints the Zeebe cluster topology and asserts the expected multi-region shape:
 #
 #   * clusterSize brokers are known
-#   * every region slot hosts exactly CAMUNDA_BROKERS_PER_REGION brokers,
-#     identified by nodeId % regionSlots == regionId
+#   * every zone hosts exactly CAMUNDA_BROKERS_PER_REGION brokers
 #   * partitionCount and replicationFactor match the configuration
 #   * no partition is unhealthy
 #
-# Brokers belonging to slots that are not deployed yet are reported as missing
+# Brokers belonging to zones that are not deployed yet are reported as missing
 # rather than treated as a failure, which is the expected state while a cluster
-# is grown one region at a time.
+# is grown one zone at a time.
+#
+# Zone attribution reads the broker identity. Under ZONE_AWARE a broker is
+# `<zone>_<index>`, so the zone is the prefix. The legacy numbering is still
+# handled -- `nodeId % zoneCount` -- so this keeps working against a cluster
+# deployed before the switch, and reports which of the two it saw rather than
+# guessing silently.
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_NAMESPACE:?CAMUNDA_NAMESPACE must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_RELEASE_NAME:?CAMUNDA_RELEASE_NAME must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_REGION_SLOTS:?CAMUNDA_REGION_SLOTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
+: "${SUBMARINER_CLUSTER_IDS:?SUBMARINER_CLUSTER_IDS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_BROKERS_PER_REGION:?CAMUNDA_BROKERS_PER_REGION must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_PARTITION_COUNT:?CAMUNDA_PARTITION_COUNT must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_REPLICATION_FACTOR:?CAMUNDA_REPLICATION_FACTOR must be set, source export_environment_prerequisites.sh}"
@@ -143,18 +149,37 @@ fail() {
 [ "$actual_replication" = "$CAMUNDA_REPLICATION_FACTOR" ] ||
     fail "expected replicationFactor $CAMUNDA_REPLICATION_FACTOR, got $actual_replication"
 
+# A composite id means zone awareness; a number means the legacy scheme.
+if jq -e '[.brokers[].nodeId] | map(select(type == "string" and contains("_"))) | length > 0' \
+    "$OUTPUT_FILE" >/dev/null 2>&1; then
+    identity="zone-aware"
+else
+    identity="legacy-numeric"
+fi
+
+read -r -a _zone_names <<<"$SUBMARINER_CLUSTER_IDS"
+
 echo
-echo "Broker distribution across region slots (nodeId % $CAMUNDA_REGION_SLOTS):"
+echo "Broker distribution across zones (identity: $identity):"
 for ((slot = 0; slot < CAMUNDA_REGION_SLOTS; slot++)); do
-    count="$(jq --argjson slots "$CAMUNDA_REGION_SLOTS" --argjson slot "$slot" \
-        '[.brokers[] | select(.nodeId % $slots == $slot)] | length' "$OUTPUT_FILE")"
+    zone="${_zone_names[$slot]:-slot-$slot}"
+
+    if [ "$identity" = "zone-aware" ]; then
+        count="$(jq --arg zone "$zone" \
+            '[.brokers[] | select((.nodeId | tostring | split("_")[0]) == $zone)] | length' \
+            "$OUTPUT_FILE")"
+    else
+        count="$(jq --argjson slots "$CAMUNDA_REGION_SLOTS" --argjson slot "$slot" \
+            '[.brokers[] | select((.nodeId | tonumber) % $slots == $slot)] | length' \
+            "$OUTPUT_FILE")"
+    fi
 
     if [ "$slot" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
-        echo "  slot $slot: $count broker(s)"
+        echo "  $zone: $count broker(s)"
         [ "$count" = "$CAMUNDA_BROKERS_PER_REGION" ] ||
-            fail "region slot $slot hosts $count broker(s), expected $CAMUNDA_BROKERS_PER_REGION"
+            fail "zone $zone hosts $count broker(s), expected $CAMUNDA_BROKERS_PER_REGION"
     else
-        echo "  slot $slot: $count broker(s) (slot not activated yet)"
+        echo "  $zone: $count broker(s) (zone not activated yet)"
     fi
 done
 

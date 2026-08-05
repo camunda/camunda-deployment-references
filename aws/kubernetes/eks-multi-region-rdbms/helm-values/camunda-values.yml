@@ -11,8 +11,9 @@
 # that must survive envsubst and reach the container at runtime.
 #
 # Every region installs the same release from this file. Only two values differ
-# per region: `global.multiregion.regionId` and the advertised host, both
-# injected from the environment.
+# per region: `global.multiregion.zone` and the advertised host, both injected
+# from the environment. The zone LIST is identical everywhere, which is what
+# makes the topology a single description rather than N of them.
 
 global:
     # Multiregion options for the Orchestration Cluster
@@ -25,14 +26,30 @@ global:
     # Please, contact your customer success manager as soon as you start planning a multi-region setup.
     # Camunda reserves the right to limit support if no review was done prior to launch or the review showed significant risks.
     multiregion:
-        # Number of REGION SLOTS, not the number of regions currently deployed.
-        # The chart derives every broker node ID from it:
-        #   nodeId = statefulSetOrdinal * regions + regionId
-        # Changing it renumbers every broker, so it is immutable for the
-        # lifetime of the cluster. See ../README.md.
-        regions: ${CAMUNDA_REGION_SLOTS}
-        # Slot this deployment occupies, 0-based.
-        regionId: ${CAMUNDA_REGION_ID}
+        # Zone awareness, not the legacy parity-based numbering.
+        #
+        # The legacy scheme infers a broker's region from the parity of its node
+        # ID, which only works for exactly two regions and is what made the
+        # region count immutable: changing it renumbered every broker. Zone
+        # awareness names the zones instead, so brokers are identified as
+        # <zone>_<index> and the topology can change. It is required for three
+        # or more zones and is the recommended approach for new deployments.
+        # See ../README.md, "Zones".
+        mode: zoned
+        # The zone THIS deployment belongs to. The only per-region value here.
+        zone: ${CAMUNDA_ZONE_NAME}
+        # Every zone of the cluster, including any not deployed yet. Listing a
+        # zone before it exists is deliberate: its replicas are reserved, so
+        # each partition runs at N-1 of N until the zone is filled, which is a
+        # majority and therefore a working cluster. See "Zones vs active
+        # regions" in ../README.md.
+        #
+        # Priority skews Raft leadership. Zone 0 gets the highest because it
+        # hosts the Aurora writer, and keeping leaders next to the writer is
+        # what the measured cross-region write penalty is paid to avoid.
+        # Rendered as a JSON flow sequence, which is valid YAML, so this file
+        # stays lintable as a template instead of only after substitution.
+        zones: ${CAMUNDA_MULTIREGION_ZONES}
     security:
         authentication:
             # Basic auth for inter-component communication, because Management

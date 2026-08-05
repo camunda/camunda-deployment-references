@@ -21,6 +21,7 @@ set -euo pipefail
 : "${CAMUNDA_RDBMS_USERNAME:?CAMUNDA_RDBMS_USERNAME must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_RDBMS_URL:?CAMUNDA_RDBMS_URL must be set, e.g. from 'terraform output -raw camunda_rdbms_url'}"
 : "${CAMUNDA_CLUSTER_INITIALCONTACTPOINTS:?CAMUNDA_CLUSTER_INITIALCONTACTPOINTS must be set, source generate-zeebe-helm-values.sh}"
+: "${CAMUNDA_MULTIREGION_ZONES:?CAMUNDA_MULTIREGION_ZONES must be set, source generate-zeebe-helm-values.sh}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VALUES_TEMPLATE="${VALUES_TEMPLATE:-$SCRIPT_DIR/../helm-values/camunda-values.yml}"
@@ -35,7 +36,11 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     zeebe_service_var="REGION_${i}_ZEEBE_SERVICE_NAME"
     : "${!zeebe_service_var:?${zeebe_service_var} must be set, source generate-zeebe-helm-values.sh}"
 
+    zone_name_var="SUBMARINER_CLUSTER_IDS"
+    read -r -a _zone_names <<<"${!zone_name_var}"
+
     CAMUNDA_REGION_ID="$i" \
+        CAMUNDA_ZONE_NAME="${_zone_names[$i]}" \
         ZEEBE_SERVICE_NAME="${!zeebe_service_var}" \
         envsubst <"$VALUES_TEMPLATE" >"$OUTPUT_DIR/generated-values-region-${i}.yml"
 

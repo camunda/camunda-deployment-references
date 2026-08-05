@@ -21,15 +21,15 @@ architecture:
 | Secondary storage | One Elasticsearch cluster per region, two Camunda exporters, manual re-initialisation | One database, one exporter, replication handled by the database |
 | Cross-region DNS | CoreDNS stub forwarding, `O(N²)` stanzas, pod IPs only | Submariner Lighthouse, `*.svc.clusterset.local`, ClusterIP and headless |
 | Cross-region L3 | VPC peering mesh, `O(N²)` peerings and route entries | Transit Gateway, one attachment per VPC |
-| Adding a region | Not possible | Possible, without renumbering brokers |
+| Adding a region | Not possible | Possible: zones are named, not numbered |
 
 ---
 
 ## Contents
 
 - [Topology](#topology)
-- [Why the replication factor equals the number of regions](#why-the-replication-factor-equals-the-number-of-regions)
-- [Region slots vs active regions](#region-slots-vs-active-regions)
+- [Zones](#zones)
+- [Zones vs active regions](#zones-vs-active-regions)
 - [Replication-agnostic secondary storage](#replication-agnostic-secondary-storage)
 - [Cross-region networking](#cross-region-networking)
 - [Deploy](#deploy)
@@ -45,11 +45,11 @@ Default shape, 3 regions:
 
 ```
         eu-west-2 (London)        eu-west-3 (Paris)        eu-central-2 (Zurich)
-        region slot 0             region slot 1            region slot 2
+        zone "london"             zone "paris"            zone "zurich"
         ┌───────────────┐         ┌───────────────┐        ┌───────────────┐
         │ EKS           │         │ EKS           │        │ EKS           │
-        │  zeebe-0 (id0)│         │  zeebe-0 (id1)│        │  zeebe-0 (id2)│
-        │  zeebe-1 (id3)│         │  zeebe-1 (id4)│        │  zeebe-1 (id5)│
+        │ zeebe london_0│         │ zeebe paris_0 │        │ zeebe zurich_0│
+        │ zeebe london_1│         │ zeebe paris_1 │        │ zeebe zurich_1│
         │  connectors   │         │  connectors   │        │  connectors   │
         └───────┬───────┘         └───────┬───────┘        └───────┬───────┘
                 │      Transit Gateway full mesh + Submariner      │
@@ -64,103 +64,88 @@ Default shape, 3 regions:
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `regions` (Terraform) | 3 slots | London, Paris, Zurich |
-| `global.multiregion.regions` | 3 | Node ID stride, **immutable** |
-| `orchestration.clusterSize` | 6 | `brokersPerRegion * regionSlots` |
+| `regions` (Terraform) | 3 | London, Paris, Zurich |
+| `global.multiregion.mode` | `zoned` | Zone-aware partitioning |
+| `numberOfBrokers` per zone | 2 | Brokers deployed in that zone |
+| `numberOfReplicas` per zone | 1 | One replica of every partition per zone |
+| cluster size | 6 | Sum of `numberOfBrokers`, derived by the chart |
+| replication factor | 3 | Sum of `numberOfReplicas`, derived by the chart |
 | `orchestration.partitionCount` | 6 | One partition per broker |
-| `orchestration.replicationFactor` | 3 | One replica per region |
 | `database_region_slots` | `[0, 1]` | Aurora members, writer first |
 
-Broker node IDs follow the Helm chart formula
-`nodeId = statefulSetOrdinal * regions + regionId`, so slot *k* owns the node
-IDs congruent to *k* modulo the slot count.
+Brokers are identified as `<zone>_<index>`, so the topology is readable from the
+broker names — `paris_1` is the second broker in the Paris zone. There is no
+node-ID arithmetic to reason about.
 
 ---
 
-## Why the replication factor equals the number of regions
+## Zones
 
-Zeebe distributes partitions round robin over **consecutive node IDs**: partition
-*p* is replicated on nodes `p-1, p, p+1, …` modulo `clusterSize`
-([partition distribution][partitions]). Combined with the chart's node ID
-stride, `replicationFactor == regionSlots` places **exactly one replica of every
-partition in every region**:
+The cluster is described as a list of **zones**, one per region, using the
+`ZONE_AWARE` partitioning scheme:
 
-```
-clusterSize 6, partitionCount 6, replicationFactor 3, 3 region slots
-node IDs:  slot 0 → {0, 3}   slot 1 → {1, 4}   slot 2 → {2, 5}
-
-partition 1 → nodes 0,1,2  → one replica per region
-partition 2 → nodes 1,2,3  → one replica per region
-…
-partition 6 → nodes 5,0,1  → one replica per region
+```yaml
+global:
+  multiregion:
+    mode: zoned
+    zone: paris          # the only per-region value
+    zones:
+      - {name: london, numberOfBrokers: 2, numberOfReplicas: 1, priority: 1000}
+      - {name: paris,  numberOfBrokers: 2, numberOfReplicas: 1, priority: 900}
+      - {name: zurich, numberOfBrokers: 2, numberOfReplicas: 1, priority: 800}
 ```
 
-A partition keeps its Raft majority as long as `N-1 > N/2`, which holds for
-every `N >= 3`. So:
+Each zone declares how many brokers it holds and how many replicas of every
+partition live in it. `numberOfReplicas: 1` per zone means the replication
+factor equals the zone count and **every zone holds exactly one replica of every
+partition** — so losing a zone costs one replica out of N. A partition keeps its
+majority while `N-1 > N/2`, true for every `N >= 3`:
 
-| Region slots | Replication factor | Region losses tolerated |
+| Zones | Replication factor | Zone losses tolerated |
 |---|---|---|
-| 2 | 4 (dual-region convention) | **0** — quorum is lost |
+| 2 | 2 | **0** |
 | 3 | 3 | 1 |
 | 4 | 4 | 1 |
 | 5 | 5 | 2 |
 
-This is why the dual-region architecture needs a failover procedure at all: with
-two regions there is no assignment of an even replica count that survives losing
-half of it. Three regions is the smallest topology where a region can disappear
-and the workflow engine simply carries on.
+Three zones is the smallest topology where losing one does not stop the engine.
 
-Using a multiple of the slot count (`replicationFactor = 2 * regionSlots`) puts
-two replicas per region and increases intra-region durability at the cost of
-write amplification. It does not change the region fault tolerance.
+**Priority skews Raft leadership.** Zone 0 has the highest, and that is not
+cosmetic: it hosts the Aurora writer, and a partition leader co-located with the
+writer avoids the inter-region round trip on every export flush. That cost is
+measured — see [Day-2 operations](#day-2-operations) — and the Camunda
+documentation calls out this exact use of priority for RDBMS secondary storage.
 
-[partitions]: https://docs.camunda.io/docs/components/zeebe/technical-concepts/partitions/#partition-distribution
+### Why not the legacy numbering
 
----
+The previous iteration of this architecture used `global.multiregion.regions`,
+where a broker's region is inferred from the parity of its node ID
+(`nodeId = ordinal * regions + regionId`). Camunda documents that scheme as
+working for **exactly two regions**, with zone awareness **required for three or
+more** and recommended for all new deployments.
 
-## Region slots vs active regions
+That is not a labelling change. Three properties this architecture used to have
+were consequences of the numbering, and all three are gone:
 
-The Camunda Helm chart derives every broker's identity from the region count:
+| Legacy consequence | With zones |
+|---|---|
+| Region count immutable — changing it renumbers every broker | Zones are named; the count can change |
+| `clusterSize` must divide evenly by the region count | Each zone declares its own broker count, so 2-2-1 is expressible |
+| A broker's identity encodes arithmetic | Identity is `<zone>_<index>`, readable from the broker name |
 
-```
-nodeId = statefulSetOrdinal * global.multiregion.regions + regionId
-```
+## Zones vs active regions
 
-Changing `regions` renumbers **every** broker in the cluster, which a running
-Raft cluster cannot survive. The region count is therefore treated as a **slot
-count, fixed at bootstrap**, and regions are brought online independently:
+The zone list covers every zone the cluster will ever have; `active_region_count`
+controls how many are actually deployed. Listing a zone before deploying it is
+deliberate: the partition layout reserves its replicas, so each partition runs at
+`N-1` of `N` — a majority — and the cluster forms and serves normally.
 
-- `var.regions` — the slot definitions. Immutable for the lifetime of the
-  Camunda cluster. Plan for the largest topology you expect.
-- `var.active_region_count` — how many slots are actually deployed. Can be
-  raised at any time.
+Activating that zone then only fills in replicas that were already reserved. No
+broker is renumbered and no partition is redistributed, which is what makes
+`activate-region.sh` non-disruptive.
 
-Bootstrapping with one slot empty is supported and is the intended growth path:
-every partition then has `N-1` of its `N` replicas, which is still a majority, so
-the cluster forms and processes normally. Leaving **two or more** slots empty is
-rejected by `terraform/clusters/checks.tf`, because every partition would lose
-its majority.
-
-```
-3 slots, 2 active                    3 slots, 3 active
-partition 1 → nodes 0,1,[2]          partition 1 → nodes 0,1,2
-              2/3 replicas ✔                       3/3 replicas ✔
-              tolerates 0 losses                   tolerates 1 loss
-```
-
-Activating the last slot is a single command and does not restart the running
-regions:
-
-```bash
-export CAMUNDA_ACTIVE_REGIONS=3
-./procedure/activate-region.sh 2
-```
-
-**What this does not do:** grow a cluster from 3 slots to 4. That requires
-renumbering and is a rebuild. If you may need a fourth region later, provision
-four slots up front and leave the last one inactive.
-
----
+Leaving **two or more** zones empty is rejected by a `check` block in
+`terraform/clusters/checks.tf`: every partition would lose its majority.
 
 ## Replication-agnostic secondary storage
 
@@ -469,8 +454,10 @@ between. Upgrading several regions simultaneously risks losing quorum.
   requires Elasticsearch or OpenSearch.
 - **Database tier is active-standby.** Every region writes to one region's
   writer.
-- **The slot count is immutable.** Growing from `N` to `N+1` slots renumbers
-  every broker.
+- **The zone list is fixed at bootstrap in this architecture**, though zone
+  awareness itself does not require that. Growing the list is a change to every
+  region's values and has not been exercised here; the supported growth path is
+  activating a zone that was declared up front.
 - **Connectors run in every region** and are not deduplicated. Outbound
   connector invocations must be idempotent.
 - **Encryption in transit is AWS-provided, not architecture-provided.** Traffic
