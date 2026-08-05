@@ -832,7 +832,16 @@ jobs:
               if: failure()
               timeout-minutes: 20
               run: |
-                  set -uo pipefail
+                  set -o pipefail
+
+                  # No `set -u` here: this is a best-effort debug step, and a
+                  # failure early enough that the cluster names were never
+                  # exported must not abort it on an unbound variable. Guard
+                  # explicitly instead, with a message that says what happened.
+                  if [ -z "${CLUSTER_0:-}" ] || [ -z "${CLUSTER_1:-}" ]; then
+                      echo "::warning::CLUSTER_0/CLUSTER_1 are not set (the failure predates the cluster-name export); skipping the dual-region diagnostics."
+                      exit 0
+                  fi
 
                   # Derive namespace if not already set (e.g. failure before chart-env.sh is sourced)
                   export CAMUNDA_NAMESPACE_0="${CAMUNDA_NAMESPACE_0:-camunda-$CLUSTER_0}"
@@ -848,7 +857,12 @@ jobs:
                   # cross-region test failure leaves no record of whether the data
                   # path was still up.
                   echo "::group::Submariner state"
-                  bash ./generic/openshift/dual-region/procedure/submariner/diagnose-submariner.sh || true
+                  # Budget set explicitly so the arithmetic is visible next to the
+                  # step's own timeout-minutes: 10 min of Submariner dumps, then
+                  # the probes below (bounded at 120s and 180s) always still get
+                  # their turn inside the 20 min step.
+                  DIAGNOSE_TOTAL_TIMEOUT_SECONDS=600 \
+                    bash ./generic/openshift/dual-region/procedure/submariner/diagnose-submariner.sh || true
                   echo "::endgroup::"
 
                   for cluster_ctx in "$CLUSTER_0" "$CLUSTER_1"; do

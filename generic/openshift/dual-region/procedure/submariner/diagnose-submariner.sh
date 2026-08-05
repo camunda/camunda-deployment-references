@@ -5,16 +5,30 @@
 # never mutates the global kube context.
 set +e
 
-# Every command is bounded: this script runs inside an `if: failure()` debug step
-# with a fixed budget, and a single slow call (`subctl show all` in particular)
-# would otherwise eat it and leave the later contexts and dumps uncollected.
+# Every command is bounded, and so is the script as a whole: it runs inside an
+# `if: failure()` debug step with a fixed budget, shared with the DNS/TCP probes
+# that follow it. Bounding only each command is not enough — two contexts times
+# half a dozen calls would still overrun the step and swallow both the later
+# dumps and the probes. Each call is therefore capped to whichever is smaller,
+# the per-command timeout or what is left of the total.
 CMD_TIMEOUT_SECONDS="${DIAGNOSE_CMD_TIMEOUT_SECONDS:-90}"
+TOTAL_TIMEOUT_SECONDS="${DIAGNOSE_TOTAL_TIMEOUT_SECONDS:-600}"
+deadline=$((SECONDS + TOTAL_TIMEOUT_SECONDS))
+
 run() {
-  local rc
-  timeout "${CMD_TIMEOUT_SECONDS}" "$@" 2>&1
+  local rc remaining budget
+  remaining=$((deadline - SECONDS))
+  if [ "$remaining" -le 0 ]; then
+    echo "(skipped, ${TOTAL_TIMEOUT_SECONDS}s diagnostics budget exhausted: $*)"
+    return 0
+  fi
+  budget="${CMD_TIMEOUT_SECONDS}"
+  [ "$remaining" -lt "$budget" ] && budget="$remaining"
+
+  timeout "${budget}" "$@" 2>&1
   rc=$?
   if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
-    echo "(timed out after ${CMD_TIMEOUT_SECONDS}s: $*)"
+    echo "(timed out after ${budget}s: $*)"
   fi
   # Propagate the wrapped command's status: without this the function always
   # returns 0 (the status of the `if`), which would silently mask a failure for
