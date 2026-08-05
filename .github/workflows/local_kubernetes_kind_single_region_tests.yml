@@ -458,6 +458,7 @@ jobs:
               continue-on-error: true
               uses: ./.github/actions/observe-build-status
               with:
+                  job_name: ${{ github.job }}/${{ matrix.scenario.name }}-${{ matrix.declination.name }}
                   build_status: ${{ job.status }}
                   secret_vault_address: ${{ secrets.VAULT_ADDR }}
                   secret_vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}
