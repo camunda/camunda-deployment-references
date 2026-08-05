@@ -16,6 +16,7 @@ on:
     pull_request:
         paths:
             - .github/workflows/azure_aks_single_region_daily_cleanup.yml
+            - .github/workflows-config/azure-kubernetes-aks-single-region/test_matrix.yml
             - .tool-versions
             - azure/kubernetes/aks-single-region*/**
             - '!azure/kubernetes/aks-single-region/test/golden/**'
@@ -36,6 +37,7 @@ env:
     MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
 
     # please keep those variables synced with azure_kubernetes_aks_single_region_tests.yml
+    CI_MATRIX_FILE: .github/workflows-config/azure-kubernetes-aks-single-region/test_matrix.yml
     AWS_PROFILE: infex
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
@@ -55,10 +57,39 @@ jobs:
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
 
-    cleanup-clusters:
+    # The tests workflow stores one terraform state tree per scenario
+    # (azure/kubernetes/<scenario>/). Deriving the cleanup matrix from the very same
+    # test matrix file guarantees that a newly added scenario is cleaned up as well.
+    scenarios:
+        name: Generate cleanup matrix
+        runs-on: ubuntu-latest
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
+        outputs:
+            scenario-matrix: ${{ steps.gen.outputs.scenario_matrix }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Compute scenario matrix
+              id: gen
+              run: |
+                  set -euo pipefail
+                  scenario_matrix="$(yq '[.matrix.scenario[] | {"name": .name}]' \
+                    --indent=0 --output-format json "${CI_MATRIX_FILE}")"
+
+                  echo "${scenario_matrix}" | jq
+                  echo "scenario_matrix=${scenario_matrix}" | tee -a "$GITHUB_OUTPUT"
+
+    cleanup-clusters:
+        needs:
+            - triage
+            - scenarios
+        if: needs.triage.outputs.should_skip == 'false'
+        strategy:
+            fail-fast: false
+            matrix:
+                scenario: ${{ fromJson(needs.scenarios.outputs.scenario-matrix) }}
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
@@ -114,7 +145,7 @@ jobs:
               id: s3_prefix
               run: |
                   set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/aks-single-region/" | tee -a "$GITHUB_OUTPUT"
+                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete clusters
               id: delete_clusters
