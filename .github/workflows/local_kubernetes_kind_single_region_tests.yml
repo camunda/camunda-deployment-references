@@ -3,7 +3,7 @@ name: Tests - Integration - Local Kubernetes Kind Single Region
 
 permissions:
     contents: read
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    pull-requests: write # allow PR comments and labels
 
 on:
     schedule:
@@ -19,6 +19,7 @@ on:
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-integration-tests/**
+            - .github/actions/observe-build-status/**
             - generic/kubernetes/single-region/tests/integration/**
             - .tool-versions
             - generic/kubernetes/operator-based/postgresql/**
@@ -79,9 +80,6 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: aws-core-8-default
         timeout-minutes: 45
-        permissions:
-            contents: read
-            id-token: write
         strategy:
             fail-fast: false
             matrix:
@@ -97,7 +95,7 @@ jobs:
             # TODO: [release-duty] remove this together with the source-build (procedure/build-camunda-chart.sh).
             CAMUNDA_PRERELEASE_ACK: 'true'
         steps:
-            - uses: camunda/infra-global-github-actions/start-build-monitor@02b3f0e49b00b98fffc76af690ebc83c28f24dae
+            - uses: camunda/infra-global-github-actions/start-build-monitor@02b3f0e49b00b98fffc76af690ebc83c28f24dae # main
 
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -461,9 +459,8 @@ jobs:
                   job_name: ${{ github.job }}/${{ matrix.scenario.name }}-${{ matrix.declination.name }}
                   build_status: ${{ job.status }}
                   secret_vault_address: ${{ secrets.VAULT_ADDR }}
-                  secret_vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}
-                  secret_vault_jwt_role: ${{ secrets.VAULT_JWT_ROLE }}
-                  secret_vault_jwt_audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
+                  secret_vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  secret_vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
 
     report-success:
         name: Report success
