@@ -13,19 +13,15 @@ set -euo pipefail
 # What is checked:
 #   1. the Lighthouse agent and DNS pods are Ready, so exports can propagate and
 #      clusterset names can be answered;
-#   2. every cluster is registered in the broker, which is what makes the other
-#      clusters able to resolve its exported services.
+#   2. the clusterset.local zone is wired into the cluster's own resolver.
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
-: "${SUBMARINER_CLUSTER_IDS:?SUBMARINER_CLUSTER_IDS must be set, source export_environment_prerequisites.sh}"
 
 TIMEOUT_SECONDS="${SUBMARINER_VERIFY_TIMEOUT_SECONDS:-600}"
-POLL_INTERVAL_SECONDS="${SUBMARINER_VERIFY_POLL_INTERVAL_SECONDS:-15}"
 SUBMARINER_NAMESPACE="${SUBMARINER_NAMESPACE:-submariner-operator}"
 
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
-read -r -a cluster_ids <<<"$SUBMARINER_CLUSTER_IDS"
 
 ###############################################################################
 # 1. Lighthouse is running in every cluster                                   #
@@ -46,44 +42,35 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
 done
 
 ###############################################################################
-# 2. Every cluster is registered in the broker                                #
+# 2. Clusterset DNS is wired into the cluster's own resolver                  #
 #                                                                             #
-# The Cluster resources are synced to each joined cluster, so any context can  #
-# be asked. A missing entry means a join did not complete, and the symptom      #
-# would otherwise surface much later as an unresolvable clusterset name.       #
+# `subctl join` patches CoreDNS to forward the clusterset.local zone to the   #
+# Lighthouse DNS service. Without it every clusterset name is NXDOMAIN, and   #
+# the symptom surfaces much later as brokers hanging on an unresolvable peer. #
+#                                                                             #
+# Reported rather than enforced: how the resolver is configured is a Submariner
+# implementation detail that varies by distribution, and this procedure has    #
+# already asserted one such detail that does not exist in this deployment mode.#
+# The real gate is ../verify-cross-region-connectivity.sh, which resolves a    #
+# clusterset name and then connects to it.                                    #
 ###############################################################################
 
 echo
-echo "Waiting for all $CAMUNDA_ACTIVE_REGIONS clusters to be registered"
+for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+    context="${contexts[$i]}"
 
-deadline=$((SECONDS + TIMEOUT_SECONDS))
-while true; do
-    registered="$(kubectl --context "${contexts[0]}" -n "$SUBMARINER_NAMESPACE" \
-        get clusters.submariner.io -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | sort -u)"
-
-    missing=""
-    for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
-        if ! printf '%s\n' "$registered" | grep -qx "${cluster_ids[$i]}"; then
-            missing="${missing:+$missing }${cluster_ids[$i]}"
-        fi
-    done
-
-    if [ -z "$missing" ]; then
-        echo "  registered: $(printf '%s' "$registered" | tr '\n' ' ')"
-        break
+    if kubectl --context "$context" -n kube-system get configmap coredns -o yaml 2>/dev/null |
+        grep -q "clusterset.local"; then
+        echo "Clusterset DNS is wired into CoreDNS on $context"
+    else
+        echo "WARNING: no clusterset.local zone in the CoreDNS config of $context." >&2
+        echo "         Cross-region names will not resolve unless Submariner wires the" >&2
+        echo "         resolver another way. ../verify-cross-region-connectivity.sh will" >&2
+        echo "         say for certain." >&2
     fi
-
-    if [ "$SECONDS" -ge "$deadline" ]; then
-        echo "ERROR: cluster(s) not registered in the broker after ${TIMEOUT_SECONDS}s: $missing" >&2
-        echo "       Re-run ./join-clusters.sh for the missing slot(s)." >&2
-        exit 1
-    fi
-
-    echo "  still missing: $missing"
-    sleep "$POLL_INTERVAL_SECONDS"
 done
 
 echo
-echo "Submariner service discovery is ready across $CAMUNDA_ACTIVE_REGIONS clusters."
-echo "Cross-region reachability is provided by the Transit Gateway; prove it with"
-echo "../verify-cross-region-connectivity.sh."
+echo "Submariner service discovery is deployed across $CAMUNDA_ACTIVE_REGIONS clusters."
+echo "It does not carry traffic: cross-region reachability comes from the Transit"
+echo "Gateway and is proven by ../verify-cross-region-connectivity.sh."
