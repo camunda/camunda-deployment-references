@@ -67,7 +67,7 @@ _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda
 # the previous version in its Chart.yaml (tag N ships version N-1), so the built chart is
 # one prerelease behind the tag name — intentional; it's the known-good set the tests validate.
 # renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$
-_chart_default_git_ref="camunda-platform-8.10-15.0.0-alpha2"
+_chart_default_git_ref="camunda-platform-8.10-15.0.0-alpha3"
 # TODO: [release-duty] bump the 8.10 pin above as the 15.x line advances (keep in sync with CAMUNDA_HELM_CHART_VERSION and the helm-values).
 _chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-$_chart_default_git_ref}"
 _default_checkout_dir="$(cd "$_chart_src_dir/.." && pwd)/.camunda-platform-helm"

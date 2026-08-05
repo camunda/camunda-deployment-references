@@ -1224,7 +1224,8 @@
         "name": "camunda-r0-oc-admin-user-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.admin_user_password_region_1": {
@@ -1247,7 +1248,8 @@
         "name": "camunda-r1-oc-admin-user-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-3",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.connectors_password_region_0": {
@@ -1270,7 +1272,8 @@
         "name": "camunda-r0-oc-connectors-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.connectors_password_region_1": {
@@ -1293,7 +1296,8 @@
         "name": "camunda-r1-oc-connectors-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-3",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.db_admin_password_region_0": {
@@ -1316,7 +1320,8 @@
         "name": "camunda-r0-db-admin-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret_version.admin_user_password_region_0": {
@@ -2980,7 +2985,7 @@
             "enabled_cloudwatch_logs_exports": null,
             "engine": "aurora-postgresql",
             "engine_mode": "provisioned",
-            "engine_version": "18.3",
+            "engine_version": "18.4",
             "final_snapshot_identifier": null,
             "iam_database_authentication_enabled": true,
             "iops": null,
@@ -3048,7 +3053,7 @@
             "enabled_cloudwatch_logs_exports": null,
             "engine": "aurora-postgresql",
             "engine_mode": "provisioned",
-            "engine_version": "18.3",
+            "engine_version": "18.4",
             "final_snapshot_identifier": null,
             "iam_database_authentication_enabled": true,
             "iops": null,
@@ -3089,7 +3094,7 @@
             "custom_iam_instance_profile": null,
             "db_subnet_group_name": "camunda-r0-camunda-db",
             "engine": "aurora-postgresql",
-            "engine_version": "18.3",
+            "engine_version": "18.4",
             "force_destroy": false,
             "identifier": "camunda-r0-camunda-db-0",
             "instance_class": "db.r6g.large",
@@ -3118,7 +3123,7 @@
             "custom_iam_instance_profile": null,
             "db_subnet_group_name": "camunda-r1-camunda-db",
             "engine": "aurora-postgresql",
-            "engine_version": "18.3",
+            "engine_version": "18.4",
             "force_destroy": false,
             "identifier": "camunda-r1-camunda-db-0",
             "instance_class": "db.r6g.large",
@@ -3143,7 +3148,7 @@
             "database_name": "camunda",
             "deletion_protection": false,
             "engine": "aurora-postgresql",
-            "engine_version": "18.3",
+            "engine_version": "18.4",
             "force_destroy": null,
             "global_cluster_identifier": "camunda-global-db",
             "region": "eu-west-2",

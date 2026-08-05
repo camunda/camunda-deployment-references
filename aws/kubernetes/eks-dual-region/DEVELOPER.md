@@ -67,7 +67,7 @@ Otherwise defaults to published Helm versions and the latest stable release.
 # known-good set the tests validate); the deployed image tags come from GLOBAL_IMAGE_TAG below.
 export HELM_CHART_VERSION=15-dev-latest
 CHART_DIR="$(mktemp -d)"
-git clone --depth 1 --branch camunda-platform-8.10-15.0.0-alpha2 \
+git clone --depth 1 --branch camunda-platform-8.10-15.0.0-alpha3 \
   https://github.com/camunda/camunda-platform-helm.git "$CHART_DIR"
 helm dependency update "$CHART_DIR/charts/camunda-platform-8.10"
 export HELM_CHART_NAME="$CHART_DIR/charts/camunda-platform-8.10"

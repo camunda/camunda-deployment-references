@@ -148,7 +148,7 @@ runs:
                 # version N-1), so the built chart is one prerelease behind CHART_GIT_REF (this
                 # is intentional — the known-good set the integration tests validate).
                 # renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$
-                CHART_GIT_REF="camunda-platform-8.10-15.0.0-alpha2"
+                CHART_GIT_REF="camunda-platform-8.10-15.0.0-alpha3"
                 CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
                 CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"
                 git clone --depth 1 --branch "$CHART_GIT_REF" \
