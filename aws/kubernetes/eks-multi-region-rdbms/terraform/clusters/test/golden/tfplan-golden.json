@@ -24,646 +24,28 @@
         "timeouts": null
       }
     },
-    "aws_route_table_association.pods_region_0[0]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 0,
+    "aws_vpc_security_group_ingress_rule.region_0[\"icmp|10.200.0.0/16\"]": {
+      "index": "icmp|10.200.0.0/16",
       "mode": "managed",
-      "name": "pods_region_0",
+      "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_route_table_association",
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "gateway_id": null,
+        "cidr_ipv4": "10.200.0.0/16",
+        "cidr_ipv6": null,
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
+        "from_port": -1,
+        "ip_protocol": "icmp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
         "region": "eu-west-2",
-        "timeouts": null
-      }
-    },
-    "aws_route_table_association.pods_region_0[1]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 1,
-      "mode": "managed",
-      "name": "pods_region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_route_table_association",
-      "values": {
-        "gateway_id": null,
-        "region": "eu-west-2",
-        "timeouts": null
-      }
-    },
-    "aws_route_table_association.pods_region_0[2]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 2,
-      "mode": "managed",
-      "name": "pods_region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_route_table_association",
-      "values": {
-        "gateway_id": null,
-        "region": "eu-west-2",
-        "timeouts": null
-      }
-    },
-    "aws_route_table_association.pods_region_1[0]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 0,
-      "mode": "managed",
-      "name": "pods_region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_route_table_association",
-      "values": {
-        "gateway_id": null,
-        "region": "eu-west-3",
-        "timeouts": null
-      }
-    },
-    "aws_route_table_association.pods_region_1[1]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 1,
-      "mode": "managed",
-      "name": "pods_region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_route_table_association",
-      "values": {
-        "gateway_id": null,
-        "region": "eu-west-3",
-        "timeouts": null
-      }
-    },
-    "aws_route_table_association.pods_region_1[2]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 2,
-      "mode": "managed",
-      "name": "pods_region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_route_table_association",
-      "values": {
-        "gateway_id": null,
-        "region": "eu-west-3",
-        "timeouts": null
-      }
-    },
-    "aws_route_table_association.pods_region_2[0]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 0,
-      "mode": "managed",
-      "name": "pods_region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_route_table_association",
-      "values": {
-        "gateway_id": null,
-        "region": "eu-central-2",
-        "timeouts": null
-      }
-    },
-    "aws_route_table_association.pods_region_2[1]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 1,
-      "mode": "managed",
-      "name": "pods_region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_route_table_association",
-      "values": {
-        "gateway_id": null,
-        "region": "eu-central-2",
-        "timeouts": null
-      }
-    },
-    "aws_route_table_association.pods_region_2[2]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 2,
-      "mode": "managed",
-      "name": "pods_region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_route_table_association",
-      "values": {
-        "gateway_id": null,
-        "region": "eu-central-2",
-        "timeouts": null
-      }
-    },
-    "aws_subnet.pods_region_0[0]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 0,
-      "mode": "managed",
-      "name": "pods_region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
-      "sensitive_values": {
-        "tags": {},
-        "tags_all": {}
-      },
-      "type": "aws_subnet",
-      "values": {
-        "assign_ipv6_address_on_creation": false,
-        "availability_zone": "eu-west-2a",
-        "cidr_block": "100.64.0.0/18",
-        "customer_owned_ipv4_pool": null,
-        "enable_dns64": false,
-        "enable_lni_at_device_index": null,
-        "enable_resource_name_dns_a_record_on_launch": false,
-        "enable_resource_name_dns_aaaa_record_on_launch": false,
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "ipv6_ipam_pool_id": null,
-        "ipv6_native": false,
-        "ipv6_netmask_length": null,
-        "map_customer_owned_ip_on_launch": null,
-        "map_public_ip_on_launch": false,
-        "outpost_arn": null,
-        "region": "eu-west-2",
-        "tags": {
-          "Name": "camunda-london-pods-eu-west-2a",
-          "kubernetes.io/role/cni": "1"
-        },
-        "tags_all": {
-          "Name": "camunda-london-pods-eu-west-2a",
-          "kubernetes.io/role/cni": "1"
-        },
-        "timeouts": null
-      }
-    },
-    "aws_subnet.pods_region_0[1]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 1,
-      "mode": "managed",
-      "name": "pods_region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
-      "sensitive_values": {
-        "tags": {},
-        "tags_all": {}
-      },
-      "type": "aws_subnet",
-      "values": {
-        "assign_ipv6_address_on_creation": false,
-        "availability_zone": "eu-west-2b",
-        "cidr_block": "100.64.64.0/18",
-        "customer_owned_ipv4_pool": null,
-        "enable_dns64": false,
-        "enable_lni_at_device_index": null,
-        "enable_resource_name_dns_a_record_on_launch": false,
-        "enable_resource_name_dns_aaaa_record_on_launch": false,
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "ipv6_ipam_pool_id": null,
-        "ipv6_native": false,
-        "ipv6_netmask_length": null,
-        "map_customer_owned_ip_on_launch": null,
-        "map_public_ip_on_launch": false,
-        "outpost_arn": null,
-        "region": "eu-west-2",
-        "tags": {
-          "Name": "camunda-london-pods-eu-west-2b",
-          "kubernetes.io/role/cni": "1"
-        },
-        "tags_all": {
-          "Name": "camunda-london-pods-eu-west-2b",
-          "kubernetes.io/role/cni": "1"
-        },
-        "timeouts": null
-      }
-    },
-    "aws_subnet.pods_region_0[2]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 2,
-      "mode": "managed",
-      "name": "pods_region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
-      "sensitive_values": {
-        "tags": {},
-        "tags_all": {}
-      },
-      "type": "aws_subnet",
-      "values": {
-        "assign_ipv6_address_on_creation": false,
-        "availability_zone": "eu-west-2c",
-        "cidr_block": "100.64.128.0/18",
-        "customer_owned_ipv4_pool": null,
-        "enable_dns64": false,
-        "enable_lni_at_device_index": null,
-        "enable_resource_name_dns_a_record_on_launch": false,
-        "enable_resource_name_dns_aaaa_record_on_launch": false,
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "ipv6_ipam_pool_id": null,
-        "ipv6_native": false,
-        "ipv6_netmask_length": null,
-        "map_customer_owned_ip_on_launch": null,
-        "map_public_ip_on_launch": false,
-        "outpost_arn": null,
-        "region": "eu-west-2",
-        "tags": {
-          "Name": "camunda-london-pods-eu-west-2c",
-          "kubernetes.io/role/cni": "1"
-        },
-        "tags_all": {
-          "Name": "camunda-london-pods-eu-west-2c",
-          "kubernetes.io/role/cni": "1"
-        },
-        "timeouts": null
-      }
-    },
-    "aws_subnet.pods_region_1[0]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 0,
-      "mode": "managed",
-      "name": "pods_region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
-      "sensitive_values": {
-        "tags": {},
-        "tags_all": {}
-      },
-      "type": "aws_subnet",
-      "values": {
-        "assign_ipv6_address_on_creation": false,
-        "availability_zone": "eu-west-3a",
-        "cidr_block": "100.65.0.0/18",
-        "customer_owned_ipv4_pool": null,
-        "enable_dns64": false,
-        "enable_lni_at_device_index": null,
-        "enable_resource_name_dns_a_record_on_launch": false,
-        "enable_resource_name_dns_aaaa_record_on_launch": false,
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "ipv6_ipam_pool_id": null,
-        "ipv6_native": false,
-        "ipv6_netmask_length": null,
-        "map_customer_owned_ip_on_launch": null,
-        "map_public_ip_on_launch": false,
-        "outpost_arn": null,
-        "region": "eu-west-3",
-        "tags": {
-          "Name": "camunda-paris-pods-eu-west-3a",
-          "kubernetes.io/role/cni": "1"
-        },
-        "tags_all": {
-          "Name": "camunda-paris-pods-eu-west-3a",
-          "kubernetes.io/role/cni": "1"
-        },
-        "timeouts": null
-      }
-    },
-    "aws_subnet.pods_region_1[1]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 1,
-      "mode": "managed",
-      "name": "pods_region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
-      "sensitive_values": {
-        "tags": {},
-        "tags_all": {}
-      },
-      "type": "aws_subnet",
-      "values": {
-        "assign_ipv6_address_on_creation": false,
-        "availability_zone": "eu-west-3b",
-        "cidr_block": "100.65.64.0/18",
-        "customer_owned_ipv4_pool": null,
-        "enable_dns64": false,
-        "enable_lni_at_device_index": null,
-        "enable_resource_name_dns_a_record_on_launch": false,
-        "enable_resource_name_dns_aaaa_record_on_launch": false,
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "ipv6_ipam_pool_id": null,
-        "ipv6_native": false,
-        "ipv6_netmask_length": null,
-        "map_customer_owned_ip_on_launch": null,
-        "map_public_ip_on_launch": false,
-        "outpost_arn": null,
-        "region": "eu-west-3",
-        "tags": {
-          "Name": "camunda-paris-pods-eu-west-3b",
-          "kubernetes.io/role/cni": "1"
-        },
-        "tags_all": {
-          "Name": "camunda-paris-pods-eu-west-3b",
-          "kubernetes.io/role/cni": "1"
-        },
-        "timeouts": null
-      }
-    },
-    "aws_subnet.pods_region_1[2]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 2,
-      "mode": "managed",
-      "name": "pods_region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
-      "sensitive_values": {
-        "tags": {},
-        "tags_all": {}
-      },
-      "type": "aws_subnet",
-      "values": {
-        "assign_ipv6_address_on_creation": false,
-        "availability_zone": "eu-west-3c",
-        "cidr_block": "100.65.128.0/18",
-        "customer_owned_ipv4_pool": null,
-        "enable_dns64": false,
-        "enable_lni_at_device_index": null,
-        "enable_resource_name_dns_a_record_on_launch": false,
-        "enable_resource_name_dns_aaaa_record_on_launch": false,
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "ipv6_ipam_pool_id": null,
-        "ipv6_native": false,
-        "ipv6_netmask_length": null,
-        "map_customer_owned_ip_on_launch": null,
-        "map_public_ip_on_launch": false,
-        "outpost_arn": null,
-        "region": "eu-west-3",
-        "tags": {
-          "Name": "camunda-paris-pods-eu-west-3c",
-          "kubernetes.io/role/cni": "1"
-        },
-        "tags_all": {
-          "Name": "camunda-paris-pods-eu-west-3c",
-          "kubernetes.io/role/cni": "1"
-        },
-        "timeouts": null
-      }
-    },
-    "aws_subnet.pods_region_2[0]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 0,
-      "mode": "managed",
-      "name": "pods_region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
-      "sensitive_values": {
-        "tags": {},
-        "tags_all": {}
-      },
-      "type": "aws_subnet",
-      "values": {
-        "assign_ipv6_address_on_creation": false,
-        "availability_zone": "eu-central-2a",
-        "cidr_block": "100.66.0.0/18",
-        "customer_owned_ipv4_pool": null,
-        "enable_dns64": false,
-        "enable_lni_at_device_index": null,
-        "enable_resource_name_dns_a_record_on_launch": false,
-        "enable_resource_name_dns_aaaa_record_on_launch": false,
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "ipv6_ipam_pool_id": null,
-        "ipv6_native": false,
-        "ipv6_netmask_length": null,
-        "map_customer_owned_ip_on_launch": null,
-        "map_public_ip_on_launch": false,
-        "outpost_arn": null,
-        "region": "eu-central-2",
-        "tags": {
-          "Name": "camunda-zurich-pods-eu-central-2a",
-          "kubernetes.io/role/cni": "1"
-        },
-        "tags_all": {
-          "Name": "camunda-zurich-pods-eu-central-2a",
-          "kubernetes.io/role/cni": "1"
-        },
-        "timeouts": null
-      }
-    },
-    "aws_subnet.pods_region_2[1]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 1,
-      "mode": "managed",
-      "name": "pods_region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
-      "sensitive_values": {
-        "tags": {},
-        "tags_all": {}
-      },
-      "type": "aws_subnet",
-      "values": {
-        "assign_ipv6_address_on_creation": false,
-        "availability_zone": "eu-central-2b",
-        "cidr_block": "100.66.64.0/18",
-        "customer_owned_ipv4_pool": null,
-        "enable_dns64": false,
-        "enable_lni_at_device_index": null,
-        "enable_resource_name_dns_a_record_on_launch": false,
-        "enable_resource_name_dns_aaaa_record_on_launch": false,
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "ipv6_ipam_pool_id": null,
-        "ipv6_native": false,
-        "ipv6_netmask_length": null,
-        "map_customer_owned_ip_on_launch": null,
-        "map_public_ip_on_launch": false,
-        "outpost_arn": null,
-        "region": "eu-central-2",
-        "tags": {
-          "Name": "camunda-zurich-pods-eu-central-2b",
-          "kubernetes.io/role/cni": "1"
-        },
-        "tags_all": {
-          "Name": "camunda-zurich-pods-eu-central-2b",
-          "kubernetes.io/role/cni": "1"
-        },
-        "timeouts": null
-      }
-    },
-    "aws_subnet.pods_region_2[2]": {
-      "identity": {
-        "account_id": null,
-        "id": null,
-        "region": null
-      },
-      "identity_schema_version": 0,
-      "index": 2,
-      "mode": "managed",
-      "name": "pods_region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 1,
-      "sensitive_values": {
-        "tags": {},
-        "tags_all": {}
-      },
-      "type": "aws_subnet",
-      "values": {
-        "assign_ipv6_address_on_creation": false,
-        "availability_zone": "eu-central-2c",
-        "cidr_block": "100.66.128.0/18",
-        "customer_owned_ipv4_pool": null,
-        "enable_dns64": false,
-        "enable_lni_at_device_index": null,
-        "enable_resource_name_dns_a_record_on_launch": false,
-        "enable_resource_name_dns_aaaa_record_on_launch": false,
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "ipv6_ipam_pool_id": null,
-        "ipv6_native": false,
-        "ipv6_netmask_length": null,
-        "map_customer_owned_ip_on_launch": null,
-        "map_public_ip_on_launch": false,
-        "outpost_arn": null,
-        "region": "eu-central-2",
-        "tags": {
-          "Name": "camunda-zurich-pods-eu-central-2c",
-          "kubernetes.io/role/cni": "1"
-        },
-        "tags_all": {
-          "Name": "camunda-zurich-pods-eu-central-2c",
-          "kubernetes.io/role/cni": "1"
-        },
-        "timeouts": null
-      }
-    },
-    "aws_vpc_ipv4_cidr_block_association.pods_region_0[0]": {
-      "index": 0,
-      "mode": "managed",
-      "name": "pods_region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_vpc_ipv4_cidr_block_association",
-      "values": {
-        "cidr_block": "100.64.0.0/16",
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "region": "eu-west-2",
-        "timeouts": null
-      }
-    },
-    "aws_vpc_ipv4_cidr_block_association.pods_region_1[0]": {
-      "index": 0,
-      "mode": "managed",
-      "name": "pods_region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_vpc_ipv4_cidr_block_association",
-      "values": {
-        "cidr_block": "100.65.0.0/16",
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "region": "eu-west-3",
-        "timeouts": null
-      }
-    },
-    "aws_vpc_ipv4_cidr_block_association.pods_region_2[0]": {
-      "index": 0,
-      "mode": "managed",
-      "name": "pods_region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {},
-      "type": "aws_vpc_ipv4_cidr_block_association",
-      "values": {
-        "cidr_block": "100.66.0.0/16",
-        "ipv4_ipam_pool_id": null,
-        "ipv4_netmask_length": null,
-        "region": "eu-central-2",
-        "timeouts": null
+        "tags": null,
+        "tags_all": {},
+        "to_port": -1
       }
     },
     "aws_vpc_security_group_ingress_rule.region_0[\"icmp|10.202.0.0/16\"]": {
@@ -679,7 +61,31 @@
       "values": {
         "cidr_ipv4": "10.202.0.0/16",
         "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
+        "from_port": -1,
+        "ip_protocol": "icmp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": -1
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_0[\"icmp|10.210.0.0/16\"]": {
+      "index": "icmp|10.210.0.0/16",
+      "mode": "managed",
+      "name": "region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.210.0.0/16",
+        "cidr_ipv6": null,
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
         "from_port": -1,
         "ip_protocol": "icmp",
         "prefix_list_id": null,
@@ -703,7 +109,7 @@
       "values": {
         "cidr_ipv4": "10.212.0.0/16",
         "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
         "from_port": -1,
         "ip_protocol": "icmp",
         "prefix_list_id": null,
@@ -714,8 +120,8 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"icmp|100.65.0.0/16\"]": {
-      "index": "icmp|100.65.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns-tcp|10.200.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.200.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -725,55 +131,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.65.0.0/16",
-        "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
-        "from_port": -1,
-        "ip_protocol": "icmp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": -1
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"icmp|100.66.0.0/16\"]": {
-      "index": "icmp|100.66.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.66.0.0/16",
-        "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
-        "from_port": -1,
-        "ip_protocol": "icmp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": -1
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns-tcp|100.65.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|100.65.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.65.0.0/16",
+        "cidr_ipv4": "10.200.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
         "from_port": 53,
@@ -786,8 +144,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns-tcp|100.66.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|100.66.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns-tcp|10.202.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.202.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -797,7 +155,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.66.0.0/16",
+        "cidr_ipv4": "10.202.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
         "from_port": 53,
@@ -810,8 +168,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns|100.65.0.0/16\"]": {
-      "index": "kubernetes-dns|100.65.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns-tcp|10.210.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.210.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -821,7 +179,55 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.65.0.0/16",
+        "cidr_ipv4": "10.210.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
+        "from_port": 53,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns-tcp|10.212.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.212.0.0/16",
+      "mode": "managed",
+      "name": "region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.212.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
+        "from_port": 53,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns|10.200.0.0/16\"]": {
+      "index": "kubernetes-dns|10.200.0.0/16",
+      "mode": "managed",
+      "name": "region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.200.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution",
         "from_port": 53,
@@ -834,8 +240,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns|100.66.0.0/16\"]": {
-      "index": "kubernetes-dns|100.66.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns|10.202.0.0/16\"]": {
+      "index": "kubernetes-dns|10.202.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -845,7 +251,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.66.0.0/16",
+        "cidr_ipv4": "10.202.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution",
         "from_port": 53,
@@ -858,8 +264,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-management|100.65.0.0/16\"]": {
-      "index": "orchestration-management|100.65.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns|10.210.0.0/16\"]": {
+      "index": "kubernetes-dns|10.210.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -869,7 +275,55 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.65.0.0/16",
+        "cidr_ipv4": "10.210.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution",
+        "from_port": 53,
+        "ip_protocol": "udp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns|10.212.0.0/16\"]": {
+      "index": "kubernetes-dns|10.212.0.0/16",
+      "mode": "managed",
+      "name": "region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.212.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution",
+        "from_port": 53,
+        "ip_protocol": "udp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-management|10.200.0.0/16\"]": {
+      "index": "orchestration-management|10.200.0.0/16",
+      "mode": "managed",
+      "name": "region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.200.0.0/16",
         "cidr_ipv6": null,
         "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
         "from_port": 9600,
@@ -882,8 +336,8 @@
         "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-management|100.66.0.0/16\"]": {
-      "index": "orchestration-management|100.66.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-management|10.202.0.0/16\"]": {
+      "index": "orchestration-management|10.202.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -893,7 +347,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.66.0.0/16",
+        "cidr_ipv4": "10.202.0.0/16",
         "cidr_ipv6": null,
         "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
         "from_port": 9600,
@@ -906,8 +360,8 @@
         "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"submariner-esp|10.202.0.0/16\"]": {
-      "index": "submariner-esp|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-management|10.210.0.0/16\"]": {
+      "index": "orchestration-management|10.210.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -917,21 +371,21 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "10.202.0.0/16",
+        "cidr_ipv4": "10.210.0.0/16",
         "cidr_ipv6": null,
-        "description": "ESP, the encrypted payload of the Submariner IPsec tunnels",
-        "from_port": -1,
-        "ip_protocol": "50",
+        "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
+        "from_port": 9600,
+        "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
         "region": "eu-west-2",
         "tags": null,
         "tags_all": {},
-        "to_port": -1
+        "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"submariner-esp|10.212.0.0/16\"]": {
-      "index": "submariner-esp|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-management|10.212.0.0/16\"]": {
+      "index": "orchestration-management|10.212.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -943,19 +397,19 @@
       "values": {
         "cidr_ipv4": "10.212.0.0/16",
         "cidr_ipv6": null,
-        "description": "ESP, the encrypted payload of the Submariner IPsec tunnels",
-        "from_port": -1,
-        "ip_protocol": "50",
+        "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
+        "from_port": 9600,
+        "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
         "region": "eu-west-2",
         "tags": null,
         "tags_all": {},
-        "to_port": -1
+        "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"submariner-ike|10.202.0.0/16\"]": {
-      "index": "submariner-ike|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-rest|10.200.0.0/16\"]": {
+      "index": "orchestration-rest|10.200.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -965,201 +419,9 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "10.202.0.0/16",
+        "cidr_ipv4": "10.200.0.0/16",
         "cidr_ipv6": null,
-        "description": "IPsec IKE negotiation for the Submariner tunnels",
-        "from_port": 500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"submariner-ike|10.212.0.0/16\"]": {
-      "index": "submariner-ike|10.212.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.212.0.0/16",
-        "cidr_ipv6": null,
-        "description": "IPsec IKE negotiation for the Submariner tunnels",
-        "from_port": 500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"submariner-natt-discovery|10.202.0.0/16\"]": {
-      "index": "submariner-natt-discovery|10.202.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.202.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner NAT traversal discovery",
-        "from_port": 4490,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4490
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"submariner-natt-discovery|10.212.0.0/16\"]": {
-      "index": "submariner-natt-discovery|10.212.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.212.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner NAT traversal discovery",
-        "from_port": 4490,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4490
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"submariner-natt|10.202.0.0/16\"]": {
-      "index": "submariner-natt|10.202.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.202.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner IPsec NAT traversal encapsulation (NAT-T)",
-        "from_port": 4500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"submariner-natt|10.212.0.0/16\"]": {
-      "index": "submariner-natt|10.212.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.212.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner IPsec NAT traversal encapsulation (NAT-T)",
-        "from_port": 4500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"submariner-vxlan|10.202.0.0/16\"]": {
-      "index": "submariner-vxlan|10.202.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.202.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner pod traffic encapsulation (VXLAN)",
-        "from_port": 4800,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4800
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"submariner-vxlan|10.212.0.0/16\"]": {
-      "index": "submariner-vxlan|10.212.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.212.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner pod traffic encapsulation (VXLAN)",
-        "from_port": 4800,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4800
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"tcp-8080|10.202.0.0/16\"]": {
-      "index": "tcp-8080|10.202.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.202.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
+        "description": "Orchestration Cluster v2 REST API",
         "from_port": 8080,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
@@ -1170,8 +432,56 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"tcp-8080|10.212.0.0/16\"]": {
-      "index": "tcp-8080|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-rest|10.202.0.0/16\"]": {
+      "index": "orchestration-rest|10.202.0.0/16",
+      "mode": "managed",
+      "name": "region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.202.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Orchestration Cluster v2 REST API",
+        "from_port": 8080,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 8080
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-rest|10.210.0.0/16\"]": {
+      "index": "orchestration-rest|10.210.0.0/16",
+      "mode": "managed",
+      "name": "region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.210.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Orchestration Cluster v2 REST API",
+        "from_port": 8080,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 8080
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-rest|10.212.0.0/16\"]": {
+      "index": "orchestration-rest|10.212.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1183,7 +493,7 @@
       "values": {
         "cidr_ipv4": "10.212.0.0/16",
         "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
+        "description": "Orchestration Cluster v2 REST API",
         "from_port": 8080,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
@@ -1194,8 +504,8 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"tcp-8080|100.65.0.0/16\"]": {
-      "index": "tcp-8080|100.65.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-apis|10.200.0.0/16\"]": {
+      "index": "zeebe-apis|10.200.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1205,154 +515,10 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.65.0.0/16",
+        "cidr_ipv4": "10.200.0.0/16",
         "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
-        "from_port": 8080,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 8080
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"tcp-8080|100.66.0.0/16\"]": {
-      "index": "tcp-8080|100.66.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.66.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
-        "from_port": 8080,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 8080
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-command-api|100.65.0.0/16\"]": {
-      "index": "zeebe-command-api|100.65.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.65.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe broker command API",
-        "from_port": 26501,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26501
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-command-api|100.66.0.0/16\"]": {
-      "index": "zeebe-command-api|100.66.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.66.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe broker command API",
-        "from_port": 26501,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26501
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-gateway-grpc|100.65.0.0/16\"]": {
-      "index": "zeebe-gateway-grpc|100.65.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.65.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe gateway gRPC API",
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
         "from_port": 26500,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-gateway-grpc|100.66.0.0/16\"]": {
-      "index": "zeebe-gateway-grpc|100.66.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.66.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe gateway gRPC API",
-        "from_port": 26500,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-internal-api|100.65.0.0/16\"]": {
-      "index": "zeebe-internal-api|100.65.0.0/16",
-      "mode": "managed",
-      "name": "region_0",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.65.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe broker internal API, carries Raft replication across regions",
-        "from_port": 26502,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
@@ -1362,8 +528,8 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-internal-api|100.66.0.0/16\"]": {
-      "index": "zeebe-internal-api|100.66.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-apis|10.202.0.0/16\"]": {
+      "index": "zeebe-apis|10.202.0.0/16",
       "mode": "managed",
       "name": "region_0",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1373,10 +539,10 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.66.0.0/16",
+        "cidr_ipv4": "10.202.0.0/16",
         "cidr_ipv6": null,
-        "description": "Zeebe broker internal API, carries Raft replication across regions",
-        "from_port": 26502,
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
+        "from_port": 26500,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
@@ -1384,6 +550,78 @@
         "tags": null,
         "tags_all": {},
         "to_port": 26502
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-apis|10.210.0.0/16\"]": {
+      "index": "zeebe-apis|10.210.0.0/16",
+      "mode": "managed",
+      "name": "region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.210.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
+        "from_port": 26500,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 26502
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-apis|10.212.0.0/16\"]": {
+      "index": "zeebe-apis|10.212.0.0/16",
+      "mode": "managed",
+      "name": "region_0",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.212.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
+        "from_port": 26500,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 26502
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_1[\"icmp|10.190.0.0/16\"]": {
+      "index": "icmp|10.190.0.0/16",
+      "mode": "managed",
+      "name": "region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.190.0.0/16",
+        "cidr_ipv6": null,
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
+        "from_port": -1,
+        "ip_protocol": "icmp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-3",
+        "tags": null,
+        "tags_all": {},
+        "to_port": -1
       }
     },
     "aws_vpc_security_group_ingress_rule.region_1[\"icmp|10.192.0.0/16\"]": {
@@ -1399,7 +637,31 @@
       "values": {
         "cidr_ipv4": "10.192.0.0/16",
         "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
+        "from_port": -1,
+        "ip_protocol": "icmp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-3",
+        "tags": null,
+        "tags_all": {},
+        "to_port": -1
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_1[\"icmp|10.210.0.0/16\"]": {
+      "index": "icmp|10.210.0.0/16",
+      "mode": "managed",
+      "name": "region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.210.0.0/16",
+        "cidr_ipv6": null,
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
         "from_port": -1,
         "ip_protocol": "icmp",
         "prefix_list_id": null,
@@ -1423,7 +685,7 @@
       "values": {
         "cidr_ipv4": "10.212.0.0/16",
         "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
         "from_port": -1,
         "ip_protocol": "icmp",
         "prefix_list_id": null,
@@ -1434,8 +696,8 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"icmp|100.64.0.0/16\"]": {
-      "index": "icmp|100.64.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns-tcp|10.190.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.190.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1445,55 +707,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.64.0.0/16",
-        "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
-        "from_port": -1,
-        "ip_protocol": "icmp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": -1
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"icmp|100.66.0.0/16\"]": {
-      "index": "icmp|100.66.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.66.0.0/16",
-        "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
-        "from_port": -1,
-        "ip_protocol": "icmp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": -1
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns-tcp|100.64.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|100.64.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.64.0.0/16",
+        "cidr_ipv4": "10.190.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
         "from_port": 53,
@@ -1506,8 +720,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns-tcp|100.66.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|100.66.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns-tcp|10.192.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.192.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1517,7 +731,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.66.0.0/16",
+        "cidr_ipv4": "10.192.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
         "from_port": 53,
@@ -1530,8 +744,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns|100.64.0.0/16\"]": {
-      "index": "kubernetes-dns|100.64.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns-tcp|10.210.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.210.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1541,7 +755,55 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.64.0.0/16",
+        "cidr_ipv4": "10.210.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
+        "from_port": 53,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-3",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns-tcp|10.212.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.212.0.0/16",
+      "mode": "managed",
+      "name": "region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.212.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
+        "from_port": 53,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-3",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns|10.190.0.0/16\"]": {
+      "index": "kubernetes-dns|10.190.0.0/16",
+      "mode": "managed",
+      "name": "region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.190.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution",
         "from_port": 53,
@@ -1554,8 +816,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns|100.66.0.0/16\"]": {
-      "index": "kubernetes-dns|100.66.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns|10.192.0.0/16\"]": {
+      "index": "kubernetes-dns|10.192.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1565,7 +827,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.66.0.0/16",
+        "cidr_ipv4": "10.192.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution",
         "from_port": 53,
@@ -1578,8 +840,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-management|100.64.0.0/16\"]": {
-      "index": "orchestration-management|100.64.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns|10.210.0.0/16\"]": {
+      "index": "kubernetes-dns|10.210.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1589,7 +851,55 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.64.0.0/16",
+        "cidr_ipv4": "10.210.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution",
+        "from_port": 53,
+        "ip_protocol": "udp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-3",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns|10.212.0.0/16\"]": {
+      "index": "kubernetes-dns|10.212.0.0/16",
+      "mode": "managed",
+      "name": "region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.212.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution",
+        "from_port": 53,
+        "ip_protocol": "udp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-3",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-management|10.190.0.0/16\"]": {
+      "index": "orchestration-management|10.190.0.0/16",
+      "mode": "managed",
+      "name": "region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.190.0.0/16",
         "cidr_ipv6": null,
         "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
         "from_port": 9600,
@@ -1602,8 +912,8 @@
         "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-management|100.66.0.0/16\"]": {
-      "index": "orchestration-management|100.66.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-management|10.192.0.0/16\"]": {
+      "index": "orchestration-management|10.192.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1613,7 +923,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.66.0.0/16",
+        "cidr_ipv4": "10.192.0.0/16",
         "cidr_ipv6": null,
         "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
         "from_port": 9600,
@@ -1626,8 +936,8 @@
         "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"submariner-esp|10.192.0.0/16\"]": {
-      "index": "submariner-esp|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-management|10.210.0.0/16\"]": {
+      "index": "orchestration-management|10.210.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1637,21 +947,21 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "10.192.0.0/16",
+        "cidr_ipv4": "10.210.0.0/16",
         "cidr_ipv6": null,
-        "description": "ESP, the encrypted payload of the Submariner IPsec tunnels",
-        "from_port": -1,
-        "ip_protocol": "50",
+        "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
+        "from_port": 9600,
+        "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
         "region": "eu-west-3",
         "tags": null,
         "tags_all": {},
-        "to_port": -1
+        "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"submariner-esp|10.212.0.0/16\"]": {
-      "index": "submariner-esp|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-management|10.212.0.0/16\"]": {
+      "index": "orchestration-management|10.212.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1663,19 +973,19 @@
       "values": {
         "cidr_ipv4": "10.212.0.0/16",
         "cidr_ipv6": null,
-        "description": "ESP, the encrypted payload of the Submariner IPsec tunnels",
-        "from_port": -1,
-        "ip_protocol": "50",
+        "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
+        "from_port": 9600,
+        "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
         "region": "eu-west-3",
         "tags": null,
         "tags_all": {},
-        "to_port": -1
+        "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"submariner-ike|10.192.0.0/16\"]": {
-      "index": "submariner-ike|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-rest|10.190.0.0/16\"]": {
+      "index": "orchestration-rest|10.190.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1685,201 +995,9 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "10.192.0.0/16",
+        "cidr_ipv4": "10.190.0.0/16",
         "cidr_ipv6": null,
-        "description": "IPsec IKE negotiation for the Submariner tunnels",
-        "from_port": 500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"submariner-ike|10.212.0.0/16\"]": {
-      "index": "submariner-ike|10.212.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.212.0.0/16",
-        "cidr_ipv6": null,
-        "description": "IPsec IKE negotiation for the Submariner tunnels",
-        "from_port": 500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"submariner-natt-discovery|10.192.0.0/16\"]": {
-      "index": "submariner-natt-discovery|10.192.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.192.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner NAT traversal discovery",
-        "from_port": 4490,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4490
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"submariner-natt-discovery|10.212.0.0/16\"]": {
-      "index": "submariner-natt-discovery|10.212.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.212.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner NAT traversal discovery",
-        "from_port": 4490,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4490
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"submariner-natt|10.192.0.0/16\"]": {
-      "index": "submariner-natt|10.192.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.192.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner IPsec NAT traversal encapsulation (NAT-T)",
-        "from_port": 4500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"submariner-natt|10.212.0.0/16\"]": {
-      "index": "submariner-natt|10.212.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.212.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner IPsec NAT traversal encapsulation (NAT-T)",
-        "from_port": 4500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"submariner-vxlan|10.192.0.0/16\"]": {
-      "index": "submariner-vxlan|10.192.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.192.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner pod traffic encapsulation (VXLAN)",
-        "from_port": 4800,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4800
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"submariner-vxlan|10.212.0.0/16\"]": {
-      "index": "submariner-vxlan|10.212.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.212.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner pod traffic encapsulation (VXLAN)",
-        "from_port": 4800,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4800
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"tcp-8080|10.192.0.0/16\"]": {
-      "index": "tcp-8080|10.192.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.192.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
+        "description": "Orchestration Cluster v2 REST API",
         "from_port": 8080,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
@@ -1890,8 +1008,56 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"tcp-8080|10.212.0.0/16\"]": {
-      "index": "tcp-8080|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-rest|10.192.0.0/16\"]": {
+      "index": "orchestration-rest|10.192.0.0/16",
+      "mode": "managed",
+      "name": "region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.192.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Orchestration Cluster v2 REST API",
+        "from_port": 8080,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-3",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 8080
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-rest|10.210.0.0/16\"]": {
+      "index": "orchestration-rest|10.210.0.0/16",
+      "mode": "managed",
+      "name": "region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.210.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Orchestration Cluster v2 REST API",
+        "from_port": 8080,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-3",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 8080
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-rest|10.212.0.0/16\"]": {
+      "index": "orchestration-rest|10.212.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1903,7 +1069,7 @@
       "values": {
         "cidr_ipv4": "10.212.0.0/16",
         "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
+        "description": "Orchestration Cluster v2 REST API",
         "from_port": 8080,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
@@ -1914,8 +1080,8 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"tcp-8080|100.64.0.0/16\"]": {
-      "index": "tcp-8080|100.64.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-apis|10.190.0.0/16\"]": {
+      "index": "zeebe-apis|10.190.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1925,154 +1091,10 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.64.0.0/16",
+        "cidr_ipv4": "10.190.0.0/16",
         "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
-        "from_port": 8080,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 8080
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"tcp-8080|100.66.0.0/16\"]": {
-      "index": "tcp-8080|100.66.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.66.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
-        "from_port": 8080,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 8080
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-command-api|100.64.0.0/16\"]": {
-      "index": "zeebe-command-api|100.64.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.64.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe broker command API",
-        "from_port": 26501,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26501
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-command-api|100.66.0.0/16\"]": {
-      "index": "zeebe-command-api|100.66.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.66.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe broker command API",
-        "from_port": 26501,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26501
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-gateway-grpc|100.64.0.0/16\"]": {
-      "index": "zeebe-gateway-grpc|100.64.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.64.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe gateway gRPC API",
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
         "from_port": 26500,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-gateway-grpc|100.66.0.0/16\"]": {
-      "index": "zeebe-gateway-grpc|100.66.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.66.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe gateway gRPC API",
-        "from_port": 26500,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-west-3",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-internal-api|100.64.0.0/16\"]": {
-      "index": "zeebe-internal-api|100.64.0.0/16",
-      "mode": "managed",
-      "name": "region_1",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.64.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe broker internal API, carries Raft replication across regions",
-        "from_port": 26502,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
@@ -2082,8 +1104,8 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-internal-api|100.66.0.0/16\"]": {
-      "index": "zeebe-internal-api|100.66.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-apis|10.192.0.0/16\"]": {
+      "index": "zeebe-apis|10.192.0.0/16",
       "mode": "managed",
       "name": "region_1",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2093,10 +1115,10 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.66.0.0/16",
+        "cidr_ipv4": "10.192.0.0/16",
         "cidr_ipv6": null,
-        "description": "Zeebe broker internal API, carries Raft replication across regions",
-        "from_port": 26502,
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
+        "from_port": 26500,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
@@ -2104,6 +1126,78 @@
         "tags": null,
         "tags_all": {},
         "to_port": 26502
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-apis|10.210.0.0/16\"]": {
+      "index": "zeebe-apis|10.210.0.0/16",
+      "mode": "managed",
+      "name": "region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.210.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
+        "from_port": 26500,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-3",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 26502
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-apis|10.212.0.0/16\"]": {
+      "index": "zeebe-apis|10.212.0.0/16",
+      "mode": "managed",
+      "name": "region_1",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.212.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
+        "from_port": 26500,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-west-3",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 26502
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_2[\"icmp|10.190.0.0/16\"]": {
+      "index": "icmp|10.190.0.0/16",
+      "mode": "managed",
+      "name": "region_2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.190.0.0/16",
+        "cidr_ipv6": null,
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
+        "from_port": -1,
+        "ip_protocol": "icmp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-central-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": -1
       }
     },
     "aws_vpc_security_group_ingress_rule.region_2[\"icmp|10.192.0.0/16\"]": {
@@ -2119,7 +1213,31 @@
       "values": {
         "cidr_ipv4": "10.192.0.0/16",
         "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
+        "from_port": -1,
+        "ip_protocol": "icmp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-central-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": -1
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_2[\"icmp|10.200.0.0/16\"]": {
+      "index": "icmp|10.200.0.0/16",
+      "mode": "managed",
+      "name": "region_2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.200.0.0/16",
+        "cidr_ipv6": null,
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
         "from_port": -1,
         "ip_protocol": "icmp",
         "prefix_list_id": null,
@@ -2143,7 +1261,7 @@
       "values": {
         "cidr_ipv4": "10.202.0.0/16",
         "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
+        "description": "ICMP, used by the cross-region connectivity diagnostics",
         "from_port": -1,
         "ip_protocol": "icmp",
         "prefix_list_id": null,
@@ -2154,8 +1272,8 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"icmp|100.64.0.0/16\"]": {
-      "index": "icmp|100.64.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns-tcp|10.190.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.190.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2165,55 +1283,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.64.0.0/16",
-        "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
-        "from_port": -1,
-        "ip_protocol": "icmp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": -1
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"icmp|100.65.0.0/16\"]": {
-      "index": "icmp|100.65.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.65.0.0/16",
-        "cidr_ipv6": null,
-        "description": "ICMP, used by the Submariner gateway health check and diagnostics",
-        "from_port": -1,
-        "ip_protocol": "icmp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": -1
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns-tcp|100.64.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|100.64.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.64.0.0/16",
+        "cidr_ipv4": "10.190.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
         "from_port": 53,
@@ -2226,8 +1296,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns-tcp|100.65.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|100.65.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns-tcp|10.192.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.192.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2237,7 +1307,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.65.0.0/16",
+        "cidr_ipv4": "10.192.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
         "from_port": 53,
@@ -2250,8 +1320,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns|100.64.0.0/16\"]": {
-      "index": "kubernetes-dns|100.64.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns-tcp|10.200.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.200.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2261,7 +1331,55 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.64.0.0/16",
+        "cidr_ipv4": "10.200.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
+        "from_port": 53,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-central-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns-tcp|10.202.0.0/16\"]": {
+      "index": "kubernetes-dns-tcp|10.202.0.0/16",
+      "mode": "managed",
+      "name": "region_2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.202.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution over TCP",
+        "from_port": 53,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-central-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns|10.190.0.0/16\"]": {
+      "index": "kubernetes-dns|10.190.0.0/16",
+      "mode": "managed",
+      "name": "region_2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.190.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution",
         "from_port": 53,
@@ -2274,8 +1392,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns|100.65.0.0/16\"]": {
-      "index": "kubernetes-dns|100.65.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns|10.192.0.0/16\"]": {
+      "index": "kubernetes-dns|10.192.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2285,7 +1403,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.65.0.0/16",
+        "cidr_ipv4": "10.192.0.0/16",
         "cidr_ipv6": null,
         "description": "CoreDNS and Submariner Lighthouse DNS resolution",
         "from_port": 53,
@@ -2298,8 +1416,8 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-management|100.64.0.0/16\"]": {
-      "index": "orchestration-management|100.64.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns|10.200.0.0/16\"]": {
+      "index": "kubernetes-dns|10.200.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2309,7 +1427,55 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.64.0.0/16",
+        "cidr_ipv4": "10.200.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution",
+        "from_port": 53,
+        "ip_protocol": "udp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-central-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns|10.202.0.0/16\"]": {
+      "index": "kubernetes-dns|10.202.0.0/16",
+      "mode": "managed",
+      "name": "region_2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.202.0.0/16",
+        "cidr_ipv6": null,
+        "description": "CoreDNS and Submariner Lighthouse DNS resolution",
+        "from_port": 53,
+        "ip_protocol": "udp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-central-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 53
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-management|10.190.0.0/16\"]": {
+      "index": "orchestration-management|10.190.0.0/16",
+      "mode": "managed",
+      "name": "region_2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.190.0.0/16",
         "cidr_ipv6": null,
         "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
         "from_port": 9600,
@@ -2322,8 +1488,8 @@
         "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-management|100.65.0.0/16\"]": {
-      "index": "orchestration-management|100.65.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-management|10.192.0.0/16\"]": {
+      "index": "orchestration-management|10.192.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2333,7 +1499,7 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.65.0.0/16",
+        "cidr_ipv4": "10.192.0.0/16",
         "cidr_ipv6": null,
         "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
         "from_port": 9600,
@@ -2346,8 +1512,8 @@
         "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"submariner-esp|10.192.0.0/16\"]": {
-      "index": "submariner-esp|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-management|10.200.0.0/16\"]": {
+      "index": "orchestration-management|10.200.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2357,21 +1523,21 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "10.192.0.0/16",
+        "cidr_ipv4": "10.200.0.0/16",
         "cidr_ipv6": null,
-        "description": "ESP, the encrypted payload of the Submariner IPsec tunnels",
-        "from_port": -1,
-        "ip_protocol": "50",
+        "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
+        "from_port": 9600,
+        "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
         "region": "eu-central-2",
         "tags": null,
         "tags_all": {},
-        "to_port": -1
+        "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"submariner-esp|10.202.0.0/16\"]": {
-      "index": "submariner-esp|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-management|10.202.0.0/16\"]": {
+      "index": "orchestration-management|10.202.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2383,19 +1549,19 @@
       "values": {
         "cidr_ipv4": "10.202.0.0/16",
         "cidr_ipv6": null,
-        "description": "ESP, the encrypted payload of the Submariner IPsec tunnels",
-        "from_port": -1,
-        "ip_protocol": "50",
+        "description": "Orchestration Cluster management API, used by the failover and scaling procedures",
+        "from_port": 9600,
+        "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
         "region": "eu-central-2",
         "tags": null,
         "tags_all": {},
-        "to_port": -1
+        "to_port": 9600
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"submariner-ike|10.192.0.0/16\"]": {
-      "index": "submariner-ike|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-rest|10.190.0.0/16\"]": {
+      "index": "orchestration-rest|10.190.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2405,201 +1571,9 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "10.192.0.0/16",
+        "cidr_ipv4": "10.190.0.0/16",
         "cidr_ipv6": null,
-        "description": "IPsec IKE negotiation for the Submariner tunnels",
-        "from_port": 500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"submariner-ike|10.202.0.0/16\"]": {
-      "index": "submariner-ike|10.202.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.202.0.0/16",
-        "cidr_ipv6": null,
-        "description": "IPsec IKE negotiation for the Submariner tunnels",
-        "from_port": 500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"submariner-natt-discovery|10.192.0.0/16\"]": {
-      "index": "submariner-natt-discovery|10.192.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.192.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner NAT traversal discovery",
-        "from_port": 4490,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4490
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"submariner-natt-discovery|10.202.0.0/16\"]": {
-      "index": "submariner-natt-discovery|10.202.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.202.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner NAT traversal discovery",
-        "from_port": 4490,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4490
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"submariner-natt|10.192.0.0/16\"]": {
-      "index": "submariner-natt|10.192.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.192.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner IPsec NAT traversal encapsulation (NAT-T)",
-        "from_port": 4500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"submariner-natt|10.202.0.0/16\"]": {
-      "index": "submariner-natt|10.202.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.202.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner IPsec NAT traversal encapsulation (NAT-T)",
-        "from_port": 4500,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"submariner-vxlan|10.192.0.0/16\"]": {
-      "index": "submariner-vxlan|10.192.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.192.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner pod traffic encapsulation (VXLAN)",
-        "from_port": 4800,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4800
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"submariner-vxlan|10.202.0.0/16\"]": {
-      "index": "submariner-vxlan|10.202.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.202.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Submariner pod traffic encapsulation (VXLAN)",
-        "from_port": 4800,
-        "ip_protocol": "udp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 4800
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"tcp-8080|10.192.0.0/16\"]": {
-      "index": "tcp-8080|10.192.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "10.192.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
+        "description": "Orchestration Cluster v2 REST API",
         "from_port": 8080,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
@@ -2610,8 +1584,56 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"tcp-8080|10.202.0.0/16\"]": {
-      "index": "tcp-8080|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-rest|10.192.0.0/16\"]": {
+      "index": "orchestration-rest|10.192.0.0/16",
+      "mode": "managed",
+      "name": "region_2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.192.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Orchestration Cluster v2 REST API",
+        "from_port": 8080,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-central-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 8080
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-rest|10.200.0.0/16\"]": {
+      "index": "orchestration-rest|10.200.0.0/16",
+      "mode": "managed",
+      "name": "region_2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.200.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Orchestration Cluster v2 REST API",
+        "from_port": 8080,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-central-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 8080
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-rest|10.202.0.0/16\"]": {
+      "index": "orchestration-rest|10.202.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2623,7 +1645,7 @@
       "values": {
         "cidr_ipv4": "10.202.0.0/16",
         "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
+        "description": "Orchestration Cluster v2 REST API",
         "from_port": 8080,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
@@ -2634,8 +1656,8 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"tcp-8080|100.64.0.0/16\"]": {
-      "index": "tcp-8080|100.64.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-apis|10.190.0.0/16\"]": {
+      "index": "zeebe-apis|10.190.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2645,154 +1667,10 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.64.0.0/16",
+        "cidr_ipv4": "10.190.0.0/16",
         "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
-        "from_port": 8080,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 8080
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"tcp-8080|100.65.0.0/16\"]": {
-      "index": "tcp-8080|100.65.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.65.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Orchestration Cluster v2 REST API and Submariner gateway metrics",
-        "from_port": 8080,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 8080
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-command-api|100.64.0.0/16\"]": {
-      "index": "zeebe-command-api|100.64.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.64.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe broker command API",
-        "from_port": 26501,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26501
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-command-api|100.65.0.0/16\"]": {
-      "index": "zeebe-command-api|100.65.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.65.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe broker command API",
-        "from_port": 26501,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26501
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-gateway-grpc|100.64.0.0/16\"]": {
-      "index": "zeebe-gateway-grpc|100.64.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.64.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe gateway gRPC API",
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
         "from_port": 26500,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-gateway-grpc|100.65.0.0/16\"]": {
-      "index": "zeebe-gateway-grpc|100.65.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.65.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe gateway gRPC API",
-        "from_port": 26500,
-        "ip_protocol": "tcp",
-        "prefix_list_id": null,
-        "referenced_security_group_id": null,
-        "region": "eu-central-2",
-        "tags": null,
-        "tags_all": {},
-        "to_port": 26500
-      }
-    },
-    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-internal-api|100.64.0.0/16\"]": {
-      "index": "zeebe-internal-api|100.64.0.0/16",
-      "mode": "managed",
-      "name": "region_2",
-      "provider_name": "registry.terraform.io/hashicorp/aws",
-      "schema_version": 0,
-      "sensitive_values": {
-        "tags_all": {}
-      },
-      "type": "aws_vpc_security_group_ingress_rule",
-      "values": {
-        "cidr_ipv4": "100.64.0.0/16",
-        "cidr_ipv6": null,
-        "description": "Zeebe broker internal API, carries Raft replication across regions",
-        "from_port": 26502,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
@@ -2802,8 +1680,8 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-internal-api|100.65.0.0/16\"]": {
-      "index": "zeebe-internal-api|100.65.0.0/16",
+    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-apis|10.192.0.0/16\"]": {
+      "index": "zeebe-apis|10.192.0.0/16",
       "mode": "managed",
       "name": "region_2",
       "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2813,10 +1691,58 @@
       },
       "type": "aws_vpc_security_group_ingress_rule",
       "values": {
-        "cidr_ipv4": "100.65.0.0/16",
+        "cidr_ipv4": "10.192.0.0/16",
         "cidr_ipv6": null,
-        "description": "Zeebe broker internal API, carries Raft replication across regions",
-        "from_port": 26502,
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
+        "from_port": 26500,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-central-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 26502
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-apis|10.200.0.0/16\"]": {
+      "index": "zeebe-apis|10.200.0.0/16",
+      "mode": "managed",
+      "name": "region_2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.200.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
+        "from_port": 26500,
+        "ip_protocol": "tcp",
+        "prefix_list_id": null,
+        "referenced_security_group_id": null,
+        "region": "eu-central-2",
+        "tags": null,
+        "tags_all": {},
+        "to_port": 26502
+      }
+    },
+    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-apis|10.202.0.0/16\"]": {
+      "index": "zeebe-apis|10.202.0.0/16",
+      "mode": "managed",
+      "name": "region_2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_vpc_security_group_ingress_rule",
+      "values": {
+        "cidr_ipv4": "10.202.0.0/16",
+        "cidr_ipv6": null,
+        "description": "Zeebe gateway gRPC, broker command API, and the internal API carrying Raft replication",
+        "from_port": 26500,
         "ip_protocol": "tcp",
         "prefix_list_id": null,
         "referenced_security_group_id": null,
@@ -3008,9 +1934,6 @@
                   false,
                   false,
                   false,
-                  false,
-                  false,
-                  false,
                   false
                 ],
                 "ipv6_cidr_blocks": [],
@@ -3021,9 +1944,6 @@
             "ingress": [
               {
                 "cidr_blocks": [
-                  false,
-                  false,
-                  false,
                   false,
                   false,
                   false,
@@ -3050,10 +1970,7 @@
                   "10.212.0.0/16",
                   "10.190.0.0/16",
                   "10.200.0.0/16",
-                  "10.210.0.0/16",
-                  "100.64.0.0/16",
-                  "100.65.0.0/16",
-                  "100.66.0.0/16"
+                  "10.210.0.0/16"
                 ],
                 "description": "Allow PostgreSQL to every participating region",
                 "from_port": 5432,
@@ -3073,10 +1990,7 @@
                   "10.212.0.0/16",
                   "10.190.0.0/16",
                   "10.200.0.0/16",
-                  "10.210.0.0/16",
-                  "100.64.0.0/16",
-                  "100.65.0.0/16",
-                  "100.66.0.0/16"
+                  "10.210.0.0/16"
                 ],
                 "description": "Allow PostgreSQL from every participating region",
                 "from_port": 5432,
@@ -3274,9 +2188,6 @@
                   false,
                   false,
                   false,
-                  false,
-                  false,
-                  false,
                   false
                 ],
                 "ipv6_cidr_blocks": [],
@@ -3287,9 +2198,6 @@
             "ingress": [
               {
                 "cidr_blocks": [
-                  false,
-                  false,
-                  false,
                   false,
                   false,
                   false,
@@ -3316,10 +2224,7 @@
                   "10.212.0.0/16",
                   "10.190.0.0/16",
                   "10.200.0.0/16",
-                  "10.210.0.0/16",
-                  "100.64.0.0/16",
-                  "100.65.0.0/16",
-                  "100.66.0.0/16"
+                  "10.210.0.0/16"
                 ],
                 "description": "Allow PostgreSQL to every participating region",
                 "from_port": 5432,
@@ -3339,10 +2244,7 @@
                   "10.212.0.0/16",
                   "10.190.0.0/16",
                   "10.200.0.0/16",
-                  "10.210.0.0/16",
-                  "100.64.0.0/16",
-                  "100.65.0.0/16",
-                  "100.66.0.0/16"
+                  "10.210.0.0/16"
                 ],
                 "description": "Allow PostgreSQL from every participating region",
                 "from_port": 5432,
