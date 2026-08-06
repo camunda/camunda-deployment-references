@@ -11,7 +11,7 @@ inputs:
         description: Optional string (200 chars max) the user can submit to indicate the reason why a build ended with a certain status.
         required: false
     user_description:
-        description: Optional string (1000 chars max) for the build entry.
+        description: Optional string (200 chars max) for the build entry.
         required: false
     job_name:
         description: Optional string, the job whose status is being observed; defaults to $GITHUB_JOB when omitted
@@ -60,28 +60,32 @@ runs:
           if: ${{ steps.secrets.outputs.gcloud_sa_key != '' }}
           shell: bash
           run: |
-              # start-build-monitor writes this PID file at job start; see
-              # camunda/infra-global-github-actions/start-build-monitor/start-build-monitor.sh.
-              if [ -f /tmp/_monitor-start.pid ]; then
-                start=$(date -r /tmp/_monitor-start.pid +"%s")
-              else
-                start=$(date -r "$GITHUB_ACTION_PATH" +"%s")
+              set -euo pipefail
+
+              if [ ! -f /tmp/_monitor-start.pid ]; then
+                echo "::warning::Not sending build duration because start-build-monitor did not create /tmp/_monitor-start.pid."
+                echo "result=" >> "$GITHUB_OUTPUT"
+                exit 0
               fi
+
+              start=$(date -r /tmp/_monitor-start.pid +"%s")
               now=$(date +'%s')
               duration=$(( now - start ))
 
               # only submit plausible durations between 0 and 72 hours
               if (( duration >= 0 && duration <= 259200 )); then
-                echo "result=$(( duration * 1000 ))" >> $GITHUB_OUTPUT
+                echo "result=$(( duration * 1000 ))" >> "$GITHUB_OUTPUT"
               else
-                echo "result=" >> $GITHUB_OUTPUT
+                echo "::warning::Not sending build duration because the calculated duration is outside the expected range."
+                echo "result=" >> "$GITHUB_OUTPUT"
               fi
+
 
         ######################## Report build result #############################
         - uses: camunda/infra-global-github-actions/submit-build-status@e6bf8b7ee0c9ce3e851c0be09fef57c4f4d647db # main
           if: ${{ always() && steps.secrets.outputs.gcloud_sa_key != '' }}
           with:
-              job_name_override: ${{ inputs.job_name || github.job }}
+              job_name_override: ${{ inputs.job_name }}
               build_status: ${{ inputs.build_status }}
               build_duration_millis: ${{ steps.get-build-duration-millis.outputs.result }}
               user_reason: ${{ inputs.user_reason }}
