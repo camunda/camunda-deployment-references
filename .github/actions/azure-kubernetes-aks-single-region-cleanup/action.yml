@@ -45,10 +45,21 @@ runs:
               ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
                 ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
 
+        # Required for matrix jobs: without it, every scenario would upload the same
+        # artifact name and the upload would fail on conflict.
+        - name: Convert key prefix into slug
+          id: key-prefix-slug
+          if: always()
+          shell: bash
+          run: |
+              set -euo pipefail
+              SLUG=$(echo "${{ inputs.tf-bucket-key-prefix }}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              echo "PREFIX_SLUG=${SLUG%-}" | tee -a "$GITHUB_OUTPUT"
+
         - name: Upload cleanup logs
           if: always()
           uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
           with:
-              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}
+              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG }}
               path: ./logs/
               retention-days: 7
