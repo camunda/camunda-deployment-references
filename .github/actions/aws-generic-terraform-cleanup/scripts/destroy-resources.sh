@@ -569,6 +569,13 @@ else
   fi
 fi
 
+# Without this the loop below iterates zero times and the script still reports
+# "All operations completed successfully", which reads as a successful destroy.
+if [ -z "$groups" ]; then
+  echo "No terraform state found for target '$ID_OR_ALL' under s3://$BUCKET/$KEY_PREFIX; nothing to destroy."
+  exit 0
+fi
+
 current_timestamp=$($date_command +%s)
 log_dir="./logs"
 mkdir -p "$log_dir"
