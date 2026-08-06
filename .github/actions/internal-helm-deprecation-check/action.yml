@@ -7,6 +7,11 @@ description: |
     (removed configuration) messages.
     Optionally validates that deployed values do not contain unknown keys
     by checking against a strict version of the chart's JSON Schema.
+    Objects the schema declares as free-form (an explicit
+    `additionalProperties`, or no enumerated members at all — podAnnotations,
+    commonLabels, nodeSelector, affinity, …) keep their own rule: their keys
+    cannot be checked against anything, so they are accepted rather than
+    reported.
 
     Findings are reported in an event-aware, non-blocking way:
       - pull_request / pull_request_target / workflow_run: posted to a
@@ -56,6 +61,8 @@ inputs:
             version of the chart's JSON Schema to detect unknown keys
             (typos, removed properties).
             The schema is automatically extracted from the deployed chart.
+            Objects the schema declares as free-form are exempt: their contents
+            cannot be validated, so they are accepted rather than reported.
             See: https://github.com/camunda/camunda-platform-helm/issues/4564
         required: false
         default: 'true'
