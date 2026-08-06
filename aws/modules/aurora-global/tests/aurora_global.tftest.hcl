@@ -355,6 +355,88 @@ run "jdbc_url_includes_iam_plugin_by_default" {
   }
 }
 
+run "extra_wrapper_plugins_are_appended" {
+  command = plan
+
+  variables {
+    extra_wrapper_plugins = ["efm2", "readWriteSplitting"]
+  }
+
+  override_resource {
+    target          = aws_rds_global_cluster.this
+    override_during = plan
+    values = {
+      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.primary
+    override_during = plan
+    values = {
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.secondary
+    override_during = plan
+    values = {
+      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "wrapperPlugins=iam,failover,efm2,readWriteSplitting")
+    error_message = "extra_wrapper_plugins should be appended after the built-in iam,failover plugins, in order"
+  }
+}
+
+run "extra_wrapper_plugins_do_not_duplicate_builtins" {
+  command = plan
+
+  variables {
+    extra_wrapper_plugins = ["failover", "efm2"]
+  }
+
+  override_resource {
+    target          = aws_rds_global_cluster.this
+    override_during = plan
+    values = {
+      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.primary
+    override_during = plan
+    values = {
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.secondary
+    override_during = plan
+    values = {
+      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "wrapperPlugins=iam,failover,efm2")
+    error_message = "A plugin already provided by the module should not be repeated in wrapperPlugins"
+  }
+}
+
+run "extra_wrapper_plugins_reject_comma_separated_input" {
+  command = plan
+
+  variables {
+    extra_wrapper_plugins = ["efm2,readWriteSplitting"]
+  }
+
+  expect_failures = [
+    var.extra_wrapper_plugins,
+  ]
+}
+
 run "jdbc_url_omits_iam_plugin_when_iam_disabled" {
   command = plan
 

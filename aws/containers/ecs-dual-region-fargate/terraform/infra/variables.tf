@@ -127,6 +127,12 @@ variable "db_admin_password" {
   sensitive   = true
 }
 
+variable "db_extra_wrapper_plugins" {
+  type        = list(string)
+  default     = []
+  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the generated JDBC URL. 'failover' (and 'iam' when db_iam_auth_enabled) are always set, so list only the extras, e.g. ['efm2']. Only applies when secondary_storage_type = 'rdbms'."
+}
+
 variable "db_iam_auth_enabled" {
   type        = bool
   description = "Enable IAM database authentication on the Aurora cluster"

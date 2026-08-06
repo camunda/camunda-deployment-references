@@ -31,6 +31,7 @@ No modules.
 | <a name="input_database_name"></a> [database\_name](#input\_database\_name) | The name for the automatically created database | `string` | `"camunda"` | no |
 | <a name="input_engine"></a> [engine](#input\_engine) | The Aurora engine type: 'aurora-postgresql' or 'aurora-mysql' | `string` | `"aurora-postgresql"` | no |
 | <a name="input_engine_version"></a> [engine\_version](#input\_engine\_version) | Exact engine version override. When null, the module selects the per-engine default (postgresql\_engine\_version or mysql\_engine\_version) based on var.engine. | `string` | `null` | no |
+| <a name="input_extra_wrapper_plugins"></a> [extra\_wrapper\_plugins](#input\_extra\_wrapper\_plugins) | Additional AWS Advanced JDBC Wrapper plugins to append to the jdbc\_url. The module always sets 'failover' (and 'iam' when iam\_auth\_enabled), so list only the extras here, e.g. ['efm2', 'readWriteSplitting']. Order is preserved and duplicates of the built-in plugins are ignored. | `list(string)` | `[]` | no |
 | <a name="input_global_cluster_identifier"></a> [global\_cluster\_identifier](#input\_global\_cluster\_identifier) | Identifier for the Aurora Global Database cluster | `string` | n/a | yes |
 | <a name="input_iam_auth_enabled"></a> [iam\_auth\_enabled](#input\_iam\_auth\_enabled) | Enable IAM database authentication | `bool` | `true` | no |
 | <a name="input_instance_class"></a> [instance\_class](#input\_instance\_class) | The instance type of the Aurora instances | `string` | `"db.r6g.large"` | no |

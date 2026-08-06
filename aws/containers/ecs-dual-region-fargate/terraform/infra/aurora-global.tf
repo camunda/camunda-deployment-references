@@ -23,9 +23,10 @@ module "aurora_global" {
   auto_minor_version_upgrade = false
   database_name              = var.db_name
 
-  master_username  = var.db_admin_username
-  master_password  = local.db_admin_password_effective
-  iam_auth_enabled = var.db_iam_auth_enabled
+  master_username       = var.db_admin_username
+  master_password       = local.db_admin_password_effective
+  iam_auth_enabled      = var.db_iam_auth_enabled
+  extra_wrapper_plugins = var.db_extra_wrapper_plugins
 
   # Primary cluster (region 0 — writer)
   primary_cluster_name       = "${local.prefix_region_0}-camunda-db"

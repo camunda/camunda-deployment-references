@@ -50,7 +50,10 @@ locals {
   jdbc_instance_host_patterns = "${local.jdbc_primary_host_pattern},${local.jdbc_secondary_host_pattern}"
 
   # iam plugin only when IAM auth is enabled; failover always (global cluster).
-  jdbc_wrapper_plugins = var.iam_auth_enabled ? "iam,failover" : "failover"
+  # var.extra_wrapper_plugins is appended after the built-ins; distinct() keeps
+  # the result stable if a caller repeats one of them.
+  jdbc_base_wrapper_plugins = var.iam_auth_enabled ? ["iam", "failover"] : ["failover"]
+  jdbc_wrapper_plugins      = join(",", distinct(concat(local.jdbc_base_wrapper_plugins, var.extra_wrapper_plugins)))
 
   # TLS is pinned explicitly rather than left to the driver default: pgjdbc
   # defaults to sslmode=prefer and Connector/J to sslMode=PREFERRED, both of
