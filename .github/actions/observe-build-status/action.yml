@@ -49,10 +49,14 @@ runs:
               secrets: |
                   secret/data/products/infrastructure-experience/ci/ci-analytics gcloud_sa_key;
 
-        - name: Check secrets availability
-          if: ${{ steps.secrets.outputs.gcloud_sa_key == '' }}
+        - name: Check CI Analytics secret availability
+          if: >-
+              inputs.secret_vault_address != ''
+              && inputs.secret_vault_role_id != ''
+              && inputs.secret_vault_secret_id != ''
+              && steps.secrets.outputs.gcloud_sa_key == ''
           shell: bash
-          run: echo "::warning::Not sending any CI health metrics since no access to GHA secrets!"
+          run: echo "::warning::Not sending CI health metrics because the CI Analytics Vault secret is unavailable."
 
         ######################## Calculate build duration #########################
         - name: Get build duration in milliseconds

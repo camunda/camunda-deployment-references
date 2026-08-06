@@ -16,6 +16,7 @@ Records the build status remotely for analytic purposes
 | `secret_vault_role_id` | <p>Vault AppRole role ID</p> | `false` | `""` |
 | `secret_vault_secret_id` | <p>Vault AppRole secret ID</p> | `false` | `""` |
 
+
 ## Runs
 
 This action is a `composite` action.
