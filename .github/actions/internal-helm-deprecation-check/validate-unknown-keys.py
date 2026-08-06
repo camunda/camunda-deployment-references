@@ -6,8 +6,8 @@ Detects unknown keys (typos, removed properties) by checking that every key
 in the values exists in the chart's JSON Schema definition.
 
 Objects the schema declares as free-form (explicit additionalProperties, or no
-enumerated members at all) are reported as-is: their keys cannot be checked,
-so they are accepted rather than flagged.
+enumerated members at all) are exempt: their keys cannot be checked against
+anything, so they are accepted instead of being reported as unknown.
 
 Only uses Python standard library modules (json, sys, re).
 
