@@ -1,7 +1,9 @@
 ---
-# This workflow updates an artifact containing the Aurora PostgreSQL versions,
-# it's used by renovate and published at https://camunda.github.io/camunda-deployment-references/aurora_postgres_versions.txt
-name: Internal - AWS - Save Aurora PostgreSQL Versions as an artifact
+# This workflow updates the artifacts containing the Aurora PostgreSQL and Aurora MySQL versions,
+# they are used by renovate and published at
+# https://camunda.github.io/camunda-deployment-references/aurora_postgres_versions.txt
+# and https://camunda.github.io/camunda-deployment-references/aurora_mysql_versions.txt
+name: Internal - AWS - Save Aurora Versions as an artifact
 
 on:
     schedule:
@@ -60,17 +62,40 @@ jobs:
                     exit 1
                   fi
 
-            - name: Commit and push Aurora PostgreSQL versions file to gh-pages
+            - name: Output Aurora MySQL versions to file
               shell: bash
               run: |
                   set -euo pipefail
 
-                  git diff --exit-code docs/aurora_postgres_versions.txt || {
+                  mkdir -p docs
+                  aws rds describe-db-engine-versions \
+                    --engine aurora-mysql \
+                    --no-cli-pager \
+                    | jq -r '.DBEngineVersions[].EngineVersion' \
+                    | sort -V \
+                    > docs/aurora_mysql_versions.txt
+                  cat docs/aurora_mysql_versions.txt
+
+                  # Guard: never publish an empty/invalid artifact (see commit fa56123).
+                  if [ ! -s docs/aurora_mysql_versions.txt ] || ! grep -qE '[0-9]' docs/aurora_mysql_versions.txt; then
+                    echo "::error::Generated 'docs/aurora_mysql_versions.txt' is empty or has no version numbers; aborting to avoid publishing an empty artifact."
+                    exit 1
+                  fi
+
+            - name: Commit and push Aurora versions files to gh-pages
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  # Stage first: `git diff` alone ignores untracked files, so a brand new
+                  # artifact (e.g. the first Aurora MySQL publication) would be skipped.
+                  git add docs/aurora_postgres_versions.txt docs/aurora_mysql_versions.txt
+
+                  git diff --cached --quiet || {
                     echo "Changes detected, committing and pushing to gh-pages"
                     git config --local user.name "github-actions[bot]"
                     git config --local user.email "github-actions[bot]@users.noreply.github.com"
-                    git add docs/aurora_postgres_versions.txt
-                    git commit -m "Update Aurora PostgreSQL versions"
+                    git commit -m "Update Aurora versions"
                     git push origin gh-pages
                   }
               env:
