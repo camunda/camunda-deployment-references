@@ -71,6 +71,17 @@ variable "iam_auth_enabled" {
   description = "Enable IAM database authentication"
 }
 
+variable "extra_wrapper_plugins" {
+  type        = list(string)
+  default     = []
+  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the jdbc_url. The module always sets 'failover' (and 'iam' when iam_auth_enabled), so list only the extras here, e.g. ['efm2', 'readWriteSplitting']. Order is preserved and duplicates of the built-in plugins are ignored."
+
+  validation {
+    condition     = alltrue([for p in var.extra_wrapper_plugins : can(regex("^[A-Za-z][A-Za-z0-9]*$", p))])
+    error_message = "extra_wrapper_plugins entries must be bare plugin codes (alphanumeric, no commas or spaces) — pass each plugin as its own list element."
+  }
+}
+
 variable "instance_class" {
   type        = string
   default     = "db.r6g.large"
