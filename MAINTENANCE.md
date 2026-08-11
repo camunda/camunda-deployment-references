@@ -68,10 +68,30 @@ When a new version is ready for release, we need to cut the `main` branch to cre
 
 7. **Update Renovate branch patterns**
 
-   * In `.github/renovate.json5`, update the `baseBranchPatterns` list:
+   Renovate reads its configuration from the **default branch** only. A run against `stable/8.x` reuses `main`'s `.github/renovate.json5` rather than the copy sitting on the branch, because [`useBaseBranchConfig`](https://docs.renovatebot.com/configuration-options/#usebasebranchconfig) is not set. Both steps below follow from that.
+
+   * On `main`, in `.github/renovate.json5`, update the `baseBranchPatterns` list:
      * Add the newly created `stable/8.x` branch.
      * Remove any branches whose maintenance period has ended.
    * This ensures Renovate only creates dependency update PRs for actively maintained branches.
+   * On the newly created `stable/8.x` branch, replace the inherited `.github/renovate.json5` with the pointer stub already used by the other maintenance branches:
+
+     ```json5
+     {
+       // Renovate does not read this file.
+       //
+       // A base branch run reuses the configuration of the repository default branch
+       // unless `useBaseBranchConfig` is set, and it is not set here. Anything that
+       // must apply to this maintenance branch belongs in `.github/renovate.json5` on
+       // `main`, scoped with `matchBaseBranches`.
+       //
+       // This stub is kept so that a rule added here is not silently ignored.
+       $schema: "https://docs.renovatebot.com/renovate-schema.json",
+       extends: ["github>camunda/infraex-common-config:default.json5"],
+     }
+     ```
+
+     Skipping this leaves the branch carrying a `baseBranchPatterns` list frozen on the day of the cut, and invites the next person to add a rule there that Renovate will never apply. Anything genuinely specific to a maintenance branch goes on `main`, scoped with `matchBaseBranches`.
 
 ---
 
