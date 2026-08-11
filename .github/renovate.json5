@@ -1,4 +1,10 @@
 {
+  // This is the only Renovate configuration this repository has.
+  //
+  // `useBaseBranchConfig` is not set, so a base branch run reuses this file
+  // instead of the copy sitting on the branch it targets. Every rule that has to
+  // apply to a maintenance branch belongs here, scoped with `matchBaseBranches`;
+  // put it on the branch itself and Renovate will never see it.
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["github>camunda/infraex-common-config:default.json5"],
   packageRules: [],
