@@ -64,7 +64,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@83b06cabc31dc3a09ef33e9131f5e6de575d1c9c # 2.1.0
 
             - name: Use repo .tool-version as global version
               run: cp .tool-versions ~/.tool-versions
@@ -142,7 +142,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ failure() && steps.retry_delete_clusters.outcome == 'failure' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@83b06cabc31dc3a09ef33e9131f5e6de575d1c9c # 2.1.0
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

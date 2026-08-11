@@ -52,7 +52,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@83b06cabc31dc3a09ef33e9131f5e6de575d1c9c # 2.1.0
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
