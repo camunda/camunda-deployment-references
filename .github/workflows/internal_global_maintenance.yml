@@ -8,6 +8,29 @@ name: Internal - Global - Maintenance
 #
 # This helps keep the repository in sync with dependency updates and
 # ensures golden files remain current with the latest infrastructure changes.
+#
+# It is split in two jobs on purpose, and the split is a security boundary:
+#
+#   regenerate  runs the repository's own code -- asdf plugins, `go mod tidy`,
+#               terraform providers, `just` recipes -- all of it taken from the
+#               Renovate branch, i.e. from whatever the dependency update brought
+#               in. It therefore holds no GitHub write credential: no app token,
+#               and `persist-credentials: false` so the job's own GITHUB_TOKEN is
+#               not left in `.git/config` either. It emits a patch as an artifact.
+#
+#   commit      holds the Vault-backed GitHub App token, and runs no repository
+#               code: only SHA-pinned third-party actions plus `git apply` of the
+#               artifact. Applying a patch does not execute it.
+#
+# Before the split both lived in one job, so a dependency update could execute
+# arbitrary code next to an org-level app token. That is the shape of INC-7027,
+# where a malicious payload reached a Renovate pull request.
+#
+# The cloud credentials stay in `regenerate`: `just regenerate-golden-file-all`
+# runs `terraform init` against a real S3 backend and `terraform plan` against
+# AWS and Azure, so the job cannot do its work without them. They are scoped test
+# credentials, unlike the app token, which can write to every repository the app
+# is installed on.
 
 on:
     pull_request:
@@ -21,33 +44,34 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     S3_BUCKET_KEY: golden.tfstate
+    PATCH_ARTIFACT_NAME: maintenance-patch
+    PATCH_FILE_NAME: maintenance.patch
 
 jobs:
-    maintenance:
+    regenerate:
         name: Automated maintenance
         runs-on: ubuntu-latest
         permissions:
             id-token: write # required for azure login
-            contents: write # allow commits
-        if: github.event.pull_request.user.login == 'renovate[bot]'
+            contents: read # this job must never be able to write to the repository
+        # Renovate branches live in this repository. A fork pull request would get no
+        # secrets anyway, but stating it keeps the trust boundary readable.
+        if: >-
+            github.event.pull_request.user.login == 'renovate[bot]'
+            && github.event.pull_request.head.repo.full_name == github.repository
+        outputs:
+            changes: ${{ steps.build-patch.outputs.changes }}
         steps:
-            - name: Generate token for GitHub
-              id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@14f6353d2b18d592c390f65c99f75e00c6915234 # main
-              with:
-                  github-app-id-vault-key: GITHUB_APP_ID
-                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
-                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
-                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
-                  vault-auth-method: approle
-                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  vault-url: ${{ secrets.VAULT_ADDR }}
-
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
-                  token: ${{ steps.generate-github-token.outputs.token }}
+                  # The head branch, not the default `refs/pull/N/merge`: the patch is
+                  # produced here and replayed onto the same commit by the `commit` job,
+                  # so both jobs have to stand on the same tree or the patch will not apply.
+                  ref: ${{ github.event.pull_request.head.ref }}
+                  # Everything below this point runs code coming from the pull request.
+                  # Leaving a credential in `.git/config` would hand it to that code.
+                  persist-credentials: false
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
@@ -94,17 +118,88 @@ jobs:
                   just regenerate-golden-file-all
                   echo "✅ 'just regenerate-golden-file-all' completed successfully"
 
-            - name: Check for changes
-              id: check-changes
+            - name: Build the patch
+              id: build-patch
               run: |
-                  if [[ -n $(git status --porcelain) ]]; then
-                    echo "changes=true" >> "$GITHUB_OUTPUT"
-                  else
-                    echo "changes=false" >> "$GITHUB_OUTPUT"
+                  set -euo pipefail
+
+                  # `git add -A` honours .gitignore, so terraform provider caches and
+                  # state files stay out of the patch.
+                  git add -A
+
+                  if git diff --cached --quiet; then
+                      echo "No changes produced by maintenance."
+                      echo "changes=false" | tee -a "$GITHUB_OUTPUT"
+                      exit 0
                   fi
 
+                  git diff --cached --binary > "${RUNNER_TEMP}/${PATCH_FILE_NAME}"
+                  echo "changes=true" | tee -a "$GITHUB_OUTPUT"
+
+                  echo "Patch summary:"
+                  git diff --cached --stat
+
+            - name: Upload the patch
+              if: steps.build-patch.outputs.changes == 'true'
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: ${{ env.PATCH_ARTIFACT_NAME }}
+                  path: ${{ runner.temp }}/${{ env.PATCH_FILE_NAME }}
+                  if-no-files-found: error
+                  retention-days: 1
+
+    commit:
+        name: Commit maintenance changes
+        runs-on: ubuntu-latest
+        needs: regenerate
+        if: needs.regenerate.outputs.changes == 'true'
+        permissions:
+            contents: read # the write is carried by the app token, not by GITHUB_TOKEN
+        steps:
+            # No step in this job may run code from the pull request: that is the whole
+            # point of the split. Keep it to SHA-pinned third-party actions and git.
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@14f6353d2b18d592c390f65c99f75e00c6915234 # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+
+            - name: Checkout the pull request branch
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  ref: ${{ github.event.pull_request.head.ref }}
+                  token: ${{ steps.generate-github-token.outputs.token }}
+                  # The commit is made through the GitHub API by the step below, which
+                  # receives the token explicitly, so nothing here needs to push over git.
+                  # Keeping the token out of `.git/config` costs nothing.
+                  persist-credentials: false
+
+            - name: Download the patch
+              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+              with:
+                  name: ${{ env.PATCH_ARTIFACT_NAME }}
+                  path: ${{ runner.temp }}
+
+            - name: Apply the patch
+              run: |
+                  set -euo pipefail
+
+                  patch_path="${RUNNER_TEMP}/${PATCH_FILE_NAME}"
+
+                  # `git apply` refuses paths outside the working tree, so the patch cannot
+                  # reach the runner's filesystem. It is applied, never executed.
+                  git apply --stat "$patch_path"
+                  git apply --check --binary "$patch_path"
+                  git apply --binary "$patch_path"
+
             - name: Commit changes
-              if: steps.check-changes.outputs.changes == 'true'
               uses: getsentry/action-github-commit@5972d5f578ad77306063449e718c0c2a6fbc4ae1 # main
               with:
                   github-token: ${{ steps.generate-github-token.outputs.token }}
