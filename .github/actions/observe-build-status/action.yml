@@ -11,7 +11,7 @@ inputs:
         description: Optional string (200 chars max) the user can submit to indicate the reason why a build ended with a certain status.
         required: false
     user_description:
-        description: Optional string (200 chars max) for the build entry.
+        description: Optional string (1000 chars max) for the build entry.
         required: false
     job_name:
         description: Optional string, the job whose status is being observed; defaults to $GITHUB_JOB when omitted
@@ -86,7 +86,7 @@ runs:
 
 
         ######################## Report build result #############################
-        - uses: camunda/infra-global-github-actions/submit-build-status@e6bf8b7ee0c9ce3e851c0be09fef57c4f4d647db # main
+        - uses: camunda/infra-global-github-actions/submit-build-status@951c097ed4b2c0b079ef8afbb18eca4169884ec4 # PR 781
           if: ${{ always() && steps.secrets.outputs.gcloud_sa_key != '' }}
           with:
               job_name_override: ${{ inputs.job_name }}

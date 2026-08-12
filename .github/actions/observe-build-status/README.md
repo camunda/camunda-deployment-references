@@ -10,7 +10,7 @@ Records the build status remotely for analytic purposes
 | --- | --- | --- | --- |
 | `build_status` | <p>The status of the job, one of: success, failure, aborted, cancelled</p> | `true` | `""` |
 | `user_reason` | <p>Optional string (200 chars max) the user can submit to indicate the reason why a build ended with a certain status.</p> | `false` | `""` |
-| `user_description` | <p>Optional string (200 chars max) for the build entry.</p> | `false` | `""` |
+| `user_description` | <p>Optional string (1000 chars max) for the build entry.</p> | `false` | `""` |
 | `job_name` | <p>Optional string, the job whose status is being observed; defaults to $GITHUB_JOB when omitted</p> | `false` | `""` |
 | `secret_vault_address` | <p>Vault server URL</p> | `false` | `""` |
 | `secret_vault_role_id` | <p>Vault AppRole role ID</p> | `false` | `""` |
@@ -39,7 +39,7 @@ This action is a `composite` action.
     # Default: ""
 
     user_description:
-    # Optional string (200 chars max) for the build entry.
+    # Optional string (1000 chars max) for the build entry.
     #
     # Required: false
     # Default: ""
