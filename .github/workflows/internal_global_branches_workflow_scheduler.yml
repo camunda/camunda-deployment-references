@@ -30,7 +30,7 @@ jobs:
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@3721f3c6e9c134c597f45ec1a730a53eb0f669df # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@66bf6e260f2beb42a83284fef490bb96672e8f36 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -121,7 +121,7 @@ jobs:
         steps:
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@3721f3c6e9c134c597f45ec1a730a53eb0f669df # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@66bf6e260f2beb42a83284fef490bb96672e8f36 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -161,12 +161,26 @@ jobs:
                     yq -i '... comments=""' "$workflow_file"
                   done
 
+            # pre-commit/action is deliberately not used: it resolves `actions/cache@v4`, an
+            # unpinned reference. GitHub evaluates "Require actions to be pinned to a full-length
+            # commit SHA" over the entire dependency tree at Set up job, so every run of this
+            # workflow was refused before any step could execute.
+            #
+            # Inlining also drops the `pip install pre-commit` the action performs, which
+            # installed the latest release over the version pinned in .tool-versions.
+            - name: Install asdf tools
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+
+            - name: Cache pre-commit hook environments
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: ~/.cache/pre-commit
+                  key: pre-commit-1|${{ runner.os }}|${{ hashFiles('.pre-commit-config.yaml', '.tool-versions') }}
+
             - name: Reformat yaml after yq files using pre-commit
-              uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
               id: pre_commit_check_first_run
               continue-on-error: true # it will fail as we reformat the files
-              with:
-                  extra_args: --all-files --verbose
+              run: pre-commit run --show-diff-on-failure --color=always --all-files --verbose
 
             - name: Create the schedule PR
               uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
