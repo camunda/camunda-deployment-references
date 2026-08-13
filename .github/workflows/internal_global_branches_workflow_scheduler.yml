@@ -122,7 +122,7 @@ jobs:
               # template expansion: expanded inline it is pasted into the shell before bash
               # sees it, so a schedule name containing shell metacharacters would execute.
               env:
-                  SCHEDULE_NAME: ${{ github.event.inputs.schedule_name }}
+                  SCHEDULE_NAME: ${{ github.event.inputs.schedule_name || '' }}
               run: |
                   set -euo pipefail
 
