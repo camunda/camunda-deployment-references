@@ -20,7 +20,9 @@ name: Internal - Global - Maintenance
 #
 #   commit      holds the Vault-backed GitHub App token, and runs no repository
 #               code: only SHA-pinned third-party actions plus `git apply` of the
-#               artifact. Applying a patch does not execute it.
+#               artifact. Applying a patch does not execute it. The token is
+#               scoped to this repository and minted last, after the untrusted
+#               patch has been measured and applied.
 #
 # Before the split both lived in one job, so a dependency update could execute
 # arbitrary code next to an org-level app token. That is the shape of INC-7027,
@@ -31,6 +33,11 @@ name: Internal - Global - Maintenance
 # AWS and Azure, so the job cannot do its work without them. They are scoped test
 # credentials, unlike the app token, which can write to every repository the app
 # is installed on.
+
+# The workflow-level default is the floor for both jobs: neither of them writes to the
+# repository with GITHUB_TOKEN. The write is carried by the app token in `commit` alone.
+permissions:
+    contents: read
 
 on:
     pull_request:
@@ -46,6 +53,14 @@ env:
     S3_BUCKET_KEY: golden.tfstate
     PATCH_ARTIFACT_NAME: maintenance-patch
     PATCH_FILE_NAME: maintenance.patch
+    # Refuse to auto-commit a patch larger than this. Deliberately loose: a full
+    # regeneration of every golden file rewrites ~1.5 MB of pretty-printed plan JSON,
+    # so a limit tight enough to keep the commit human-readable would refuse every
+    # legitimate provider bump. This is not an injection defence either -- a hostile
+    # patch needs three lines, not ten megabytes. What it catches is a runaway: a
+    # .gitignore miss dumping `.terraform/` provider binaries into the patch, or a
+    # broken recipe rewriting the tree.
+    MAX_PATCH_BYTES: 10485760
 
 jobs:
     regenerate:
@@ -139,6 +154,18 @@ jobs:
                   echo "Patch summary:"
                   git diff --cached --stat
 
+                  # Resource guard only, NOT a security control: branch code has already
+                  # run in this job, so anything measured here can be lied to. It exists to
+                  # avoid uploading a multi-gigabyte artifact and minting a token for a patch
+                  # the `commit` job is going to refuse anyway. The authoritative check runs
+                  # there, on a runner where no branch code has executed.
+                  bytes=$(wc -c < "${RUNNER_TEMP}/${PATCH_FILE_NAME}" | tr -d ' ')
+                  if [ "$bytes" -gt "$MAX_PATCH_BYTES" ]; then
+                      echo "::error::Maintenance produced a ${bytes}-byte patch, over the ${MAX_PATCH_BYTES}-byte limit; not auto-committing it."
+                      echo "::error::Run 'go mod tidy' and 'just regenerate-golden-file-all' locally and commit the result yourself, or raise MAX_PATCH_BYTES."
+                      exit 1
+                  fi
+
             - name: Upload the patch
               if: steps.build-patch.outputs.changes == 'true'
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -158,27 +185,14 @@ jobs:
         steps:
             # No step in this job may run code from the pull request: that is the whole
             # point of the split. Keep it to SHA-pinned third-party actions and git.
-            - name: Generate token for GitHub
-              id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@14f6353d2b18d592c390f65c99f75e00c6915234 # main
-              with:
-                  github-app-id-vault-key: GITHUB_APP_ID
-                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
-                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
-                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
-                  vault-auth-method: approle
-                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  vault-url: ${{ secrets.VAULT_ADDR }}
-
             - name: Checkout the pull request branch
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
+                  # The job's own GITHUB_TOKEN is enough to read the branch, and the commit
+                  # is created through the GitHub API by the last step, which receives the
+                  # app token explicitly. Nothing here needs a write credential, so the app
+                  # token does not have to exist yet.
                   ref: ${{ github.event.pull_request.head.ref }}
-                  token: ${{ steps.generate-github-token.outputs.token }}
-                  # The commit is made through the GitHub API by the step below, which
-                  # receives the token explicitly, so nothing here needs to push over git.
-                  # Keeping the token out of `.git/config` costs nothing.
                   persist-credentials: false
 
             - name: Download the patch
@@ -186,6 +200,49 @@ jobs:
               with:
                   name: ${{ env.PATCH_ARTIFACT_NAME }}
                   path: ${{ runner.temp }}
+
+            - name: Check the patch is safe to auto-commit
+              # The patch content is untrusted: it was produced by branch code in the
+              # `regenerate` job. What is trustworthy here is the toolchain measuring it --
+              # no branch code has run on this runner, so `git`, `wc` and `grep` cannot
+              # have been shimmed to under-report.
+              run: |
+                  set -euo pipefail
+
+                  patch_path="${RUNNER_TEMP}/${PATCH_FILE_NAME}"
+
+                  numstat=$(git apply --numstat "$patch_path")
+                  bytes=$(wc -c < "$patch_path" | tr -d ' ')
+                  files=$(printf '%s\n' "$numstat" | grep -c . || true)
+                  echo "Patch: ${files} file(s), ${bytes} byte(s)."
+                  printf '%s\n' "$numstat"
+
+                  if [ "$bytes" -gt "$MAX_PATCH_BYTES" ]; then
+                      echo "::error::The maintenance patch is ${bytes} bytes, over the ${MAX_PATCH_BYTES}-byte limit; not auto-committing it."
+                      echo "::error::Run 'go mod tidy' and 'just regenerate-golden-file-all' locally and commit the result yourself, or raise MAX_PATCH_BYTES."
+                      exit 1
+                  fi
+
+                  # getsentry/action-github-commit sends every file to the API as
+                  # Buffer.from(content).toString(), i.e. decoded as UTF-8, and hardcodes mode
+                  # 100644. Binary content comes out mangled and permissions are lost. The
+                  # patch itself carries both faithfully -- it is built and applied with
+                  # --binary -- so nothing upstream of here notices; refuse instead of
+                  # producing a commit that is quietly wrong.
+                  #
+                  # Binary hunks report "-" for both counts in --numstat.
+                  if printf '%s\n' "$numstat" | awk '$1 == "-" && $2 == "-" { found = 1 } END { exit !found }'; then
+                      echo "::error::The patch changes binary files, which the commit step would corrupt."
+                      echo "::error::Run the maintenance commands locally and commit the result yourself."
+                      exit 1
+                  fi
+
+                  if grep -qE '^(old|new) mode ' "$patch_path" \
+                     || grep -E '^new file mode ' "$patch_path" | grep -qv ' 100644$'; then
+                      echo "::error::The patch changes file modes, which the commit step would flatten to 100644."
+                      echo "::error::Run the maintenance commands locally and commit the result yourself."
+                      exit 1
+                  fi
 
             - name: Apply the patch
               run: |
@@ -195,9 +252,36 @@ jobs:
 
                   # `git apply` refuses paths outside the working tree, so the patch cannot
                   # reach the runner's filesystem. It is applied, never executed.
+                  #
+                  # The changes are left unstaged on purpose: action-github-commit collects
+                  # them with `git ls-files -om`, which compares the working tree against
+                  # the index.
                   git apply --stat "$patch_path"
                   git apply --check --binary "$patch_path"
-                  git apply --binary "$patch_path"
+                  if ! git apply --binary "$patch_path"; then
+                      echo "::error::Could not apply the maintenance patch, most likely because the branch moved between jobs. Re-run the workflow."
+                      exit 1
+                  fi
+
+            # Minted last, deliberately: the token only needs to exist for the commit call,
+            # so it is not alive while the untrusted patch is downloaded, measured and
+            # applied.
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@14f6353d2b18d592c390f65c99f75e00c6915234 # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  # Pin the installation token to this repository. Without it the composite
+                  # action mints a token valid on every repository the app is installed on,
+                  # which is exactly the blast radius this workflow is trying to shrink.
+                  repositories: ${{ github.event.repository.name }}
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
 
             - name: Commit changes
               uses: getsentry/action-github-commit@5972d5f578ad77306063449e718c0c2a6fbc4ae1 # main
