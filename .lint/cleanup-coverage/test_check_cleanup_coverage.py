@@ -6,10 +6,13 @@ Run with:
     python3 -m unittest discover -s .lint/cleanup-coverage
 """
 
+import contextlib
 import importlib.util
+import io
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 MODULE_PATH = Path(__file__).with_name("check-cleanup-coverage.py")
 
@@ -94,6 +97,29 @@ matrix:
           auth_provider: keycloak-operator
 """
 
+TWO_JOB_WORKFLOW = """---
+name: Tests
+jobs:
+    first:
+        strategy:
+            matrix:
+                scenario:
+                    - name: aks-single-region
+                    - name: aks-single-region-rdbms
+        steps:
+            - run: |
+                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
+
+    second:
+        strategy:
+            matrix:
+                scenario:
+                    - name: aks-single-region
+                    - name: aks-dual-region
+        steps:
+            - run: echo second
+"""
+
 
 class ScenarioNamesTest(unittest.TestCase):
     def setUp(self):
@@ -122,6 +148,14 @@ class ScenarioNamesTest(unittest.TestCase):
     def test_reads_inline_strategy_matrix(self):
         path = self.write("cleanup.yml", INLINE_CLEANUP)
         self.assertEqual(scenario_names(path), ["aks-single-region"])
+
+    def test_reads_every_block_not_just_the_first(self):
+        """One block per job: reading only the first under-reports the file."""
+        path = self.write("tests.yml", TWO_JOB_WORKFLOW)
+        self.assertEqual(
+            scenario_names(path),
+            ["aks-single-region", "aks-single-region-rdbms", "aks-dual-region"],
+        )
 
     def test_missing_block_yields_nothing(self):
         path = self.write("plain.yml", "---\nname: Nothing\n")
@@ -236,6 +270,57 @@ class ReadWorkflowTest(unittest.TestCase):
         path.write_text(TESTS_WORKFLOW.format(matrix="does/not/exist.yml"))
         _, scenarios = read_workflow(path)
         self.assertEqual(scenarios, [])
+
+
+class MainTest(unittest.TestCase):
+    """`main` over a synthetic .github/workflows tree."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.addCleanup(self.tmp.cleanup)
+        self.workflows = self.root / "workflows"
+        self.workflows.mkdir()
+        self.matrix = self.root / "test_matrix.yml"
+        self.matrix.write_text(TEST_MATRIX)
+
+    def write(self, name, content):
+        path = self.workflows / name
+        path.write_text(content)
+        return path
+
+    def run_main(self):
+        with mock.patch.object(check_cleanup_coverage, "WORKFLOWS", self.workflows):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                return check_cleanup_coverage.main(), output.getvalue()
+
+    def test_reports_an_uncovered_prefix(self):
+        self.write("azure_tests.yml", TESTS_WORKFLOW.format(matrix=self.matrix))
+        self.write("azure_daily_cleanup.yml", STATIC_CLEANUP)
+        code, output = self.run_main()
+        self.assertEqual(code, 1)
+        self.assertIn("azure/kubernetes/aks-single-region-rdbms/", output)
+
+    def test_covered_tree_passes(self):
+        self.write("azure_tests.yml", TESTS_WORKFLOW.format(matrix=self.matrix))
+        self.write("azure_daily_cleanup.yml", DERIVED_CLEANUP.format(matrix=self.matrix))
+        code, output = self.run_main()
+        self.assertEqual(code, 0)
+        self.assertIn("2 scenario-templated state prefixes", output)
+
+    def test_scans_a_workflow_named_off_convention(self):
+        """A writer is anything that is not a cleanup, whatever it is called.
+
+        Keying discovery off a `_tests` / `_test` suffix would let an
+        off-convention name write unreclaimed state in silence — the very
+        failure mode this check exists to catch.
+        """
+        self.write("azure_smoke_check.yml", TESTS_WORKFLOW.format(matrix=self.matrix))
+        self.write("azure_daily_cleanup.yml", STATIC_CLEANUP)
+        code, output = self.run_main()
+        self.assertEqual(code, 1)
+        self.assertIn("azure_smoke_check.yml", output)
 
 
 if __name__ == "__main__":

@@ -54,10 +54,12 @@ def indent_of(line: str) -> int:
 
 
 def scenario_names(path: Path) -> list[str]:
-    """Collect the `- name:` entries of the first `scenario:` block in a file.
+    """Collect the `- name:` entries of every `scenario:` block in a file.
 
     A `test_matrix.yml` and a cleanup workflow's inline strategy matrix share
-    this shape, so one reader serves both.
+    this shape, so one reader serves both. A workflow can hold several such
+    blocks, one per job, and each of them feeds its scenario into a state
+    prefix, so reading only the first would under-report a multi-job workflow.
     """
     names: list[str] = []
     block_indent: int | None = None
@@ -66,20 +68,25 @@ def scenario_names(path: Path) -> list[str]:
         if not line.strip() or line.lstrip().startswith("#"):
             continue
 
+        key = KEY.match(line)
+
         if block_indent is None:
-            key = KEY.match(line)
             if key and key.group("key") == "scenario":
                 block_indent = indent_of(line)
             continue
 
-        # Any key at or above the `scenario:` level closes the block.
-        key = KEY.match(line)
+        # Any key at or above the `scenario:` level ends the current block. Keep
+        # reading: that key may itself be a later job's own `scenario:`.
         if key and indent_of(line) <= block_indent:
-            break
+            starts_another_block = key.group("key") == "scenario"
+            block_indent = indent_of(line) if starts_another_block else None
+            continue
 
         entry = LIST_NAME.match(line)
         if entry and len(entry.group("indent")) > block_indent:
-            names.append(entry.group("value"))
+            name = entry.group("value")
+            if name not in names:
+                names.append(name)
 
     return names
 
@@ -157,12 +164,14 @@ def main() -> int:
     if not WORKFLOWS.is_dir():
         raise SystemExit(f"{WORKFLOWS} not found; run from the repository root")
 
-    tests = [
-        p
-        for p in sorted(WORKFLOWS.glob("*.yml"))
-        if p.stem.endswith("_tests") or p.stem.endswith("_test")
-    ]
     cleanups = sorted(WORKFLOWS.glob("*daily_cleanup*.yml"))
+    # Everything else is a candidate writer. Keying this off a `_tests` /
+    # `_test` filename suffix would reopen the very hole being guarded: a
+    # workflow that writes scenario-templated state under an off-convention
+    # name would be skipped in silence. Only workflows that declare such a
+    # prefix survive the filter below, so widening the scan costs nothing.
+    reclaimers = set(cleanups)
+    tests = [p for p in sorted(WORKFLOWS.glob("*.yml")) if p not in reclaimers]
 
     written = {p: templated_prefixes(p) for p in tests}
     written = {p: v for p, v in written.items() if v}
