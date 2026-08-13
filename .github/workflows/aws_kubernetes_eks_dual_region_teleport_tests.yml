@@ -2,9 +2,7 @@
 name: Tests - Integration - Teleport - AWS Kubernetes EKS Dual Region
 
 permissions:
-    contents: read # don't allow commits
-    id-token: write # for Teleport authentication
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     # Disabled: waiting for https://github.com/camunda/team-infrastructure-experience/issues/1052
@@ -76,6 +74,9 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels, via internal-triage-skip / internal-apply-skip-label
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
@@ -87,6 +88,9 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         needs:
             - triage
+        permissions:
+            contents: read
+            id-token: write # required for teleport-actions/auth-k8s
         steps:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -349,6 +353,9 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - integration-tests
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels, via internal-triage-skip / internal-apply-skip-label
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 

@@ -2,9 +2,7 @@
 name: Tests - Daily Cleanup - Azure Kubernetes AKS Single Region
 
 permissions:
-    id-token: write # this is required for azure login
-    contents: write # allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     workflow_dispatch:
@@ -51,6 +49,9 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels, via internal-triage-skip / internal-apply-skip-label
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
@@ -91,6 +92,9 @@ jobs:
             matrix:
                 scenario: ${{ fromJson(needs.scenarios.outputs.scenario-matrix) }}
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write # required for azure/login
         steps:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
