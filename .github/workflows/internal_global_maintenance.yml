@@ -219,7 +219,7 @@ jobs:
 
                   patch_path="${RUNNER_TEMP}/${PATCH_FILE_NAME}"
 
-                  numstat=$(git apply --numstat "$patch_path")
+                  numstat=$(git apply --numstat --binary "$patch_path")
                   bytes=$(wc -c < "$patch_path" | tr -d ' ')
                   files=$(printf '%s\n' "$numstat" | grep -c . || true)
                   echo "Patch: ${files} file(s), ${bytes} byte(s)."
@@ -252,6 +252,23 @@ jobs:
                       exit 1
                   fi
 
+                  # The maintenance commands regenerate golden plans and Go module files. They have no business rewriting CI
+                  # logic, so a patch that does is either a broken recipe or a dependency writing
+                  # itself a workflow. That matters because the result lands on the pull request
+                  # branch as an app commit, after any review already given: unless the branch
+                  # requires re-approval on push, an approval predating it still stands.
+                  #
+                  # Scoped to the CI entrypoints rather than all of `.github/`, which cannot be
+                  # refused: .github/skills/ci-feedback-loop/go.mod is a real module and
+                  # `go mod tidy` legitimately updates it.
+                  # `cut -f3-` keeps the whole path field, so a rename with either side inside
+                  # those directories is caught too.
+                  if printf '%s\n' "$numstat" | cut -f3- | grep -qE '\.github/(workflows|actions)/|(^|/)\.gitmodules$'; then
+                      echo "::error::The patch touches CI definitions (.github/workflows, .github/actions or .gitmodules); maintenance never needs to."
+                      echo "::error::Inspect the pull request: this is a broken recipe, or a dependency writing itself CI logic."
+                      exit 1
+                  fi
+
             - name: Apply the patch
               run: |
                   set -euo pipefail
@@ -264,7 +281,7 @@ jobs:
                   # The changes are left unstaged on purpose: action-github-commit collects
                   # them with `git ls-files -om`, which compares the working tree against
                   # the index.
-                  git apply --stat "$patch_path"
+                  git apply --stat --binary "$patch_path"
                   git apply --check --binary "$patch_path"
                   if ! git apply --binary "$patch_path"; then
                       echo "::error::Could not apply the maintenance patch, most likely because the branch moved between jobs. Re-run the workflow."
