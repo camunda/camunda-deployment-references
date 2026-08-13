@@ -17,7 +17,9 @@ Scope: only scenario-templated prefixes are checked. A workflow with a fixed
 prefix cannot acquire an unreclaimed state tree by gaining a scenario, and the
 cleanups covering those use varying mechanisms (some scan the whole bucket and
 filter on the Camunda version rather than on a key prefix), which this check
-deliberately does not try to model.
+deliberately does not try to model. That scope restriction applies to what is
+checked, not to what reclaims: a cleanup pinned to a literal prefix still
+reclaims that tree and is counted as coverage.
 
 Stdlib only, and only the constructs the repository actually uses are parsed, so
 an unrecognised shape fails loudly instead of being silently skipped.
@@ -115,9 +117,10 @@ def read_workflow(path: Path) -> tuple[set[str], list[str]]:
 def templated_prefixes(path: Path) -> set[str]:
     """Expand the scenario-templated prefixes of a workflow.
 
-    Fixed prefixes are dropped: they are out of scope. A templated prefix with
-    no resolvable scenario list is an error, not an empty result, otherwise the
-    very drift this guards against would read as a pass.
+    Fixed prefixes are dropped: they are out of scope as something to check.
+    Use `reclaimed_prefixes` for the cleanup side, where they do count. A
+    templated prefix with no resolvable scenario list is an error, not an empty
+    result, otherwise the very drift this guards against would read as a pass.
     """
     prefixes, scenarios = read_workflow(path)
     templated = {p for p in prefixes if SCENARIO_PLACEHOLDER.search(p)}
@@ -137,6 +140,19 @@ def templated_prefixes(path: Path) -> set[str]:
     }
 
 
+def reclaimed_prefixes(path: Path) -> set[str]:
+    """Return every state prefix a daily cleanup reclaims.
+
+    Fixed prefixes are out of scope on the test side only: there, they cannot
+    acquire an unreclaimed tree by gaining a scenario. A cleanup pinned to a
+    literal prefix does reclaim that one tree, which is how a single-scenario
+    test workflow is covered on branches predating #2978.
+    """
+    prefixes, _ = read_workflow(path)
+    fixed = {p for p in prefixes if not SCENARIO_PLACEHOLDER.search(p)}
+    return fixed | templated_prefixes(path)
+
+
 def main() -> int:
     if not WORKFLOWS.is_dir():
         raise SystemExit(f"{WORKFLOWS} not found; run from the repository root")
@@ -153,7 +169,7 @@ def main() -> int:
 
     covered: set[str] = set()
     for path in cleanups:
-        covered |= templated_prefixes(path)
+        covered |= reclaimed_prefixes(path)
 
     failures = [
         f"{path}: no daily cleanup reclaims {sorted(prefixes - covered)}"
