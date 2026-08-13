@@ -11,10 +11,11 @@ name: Internal - Global - Maintenance
 #
 #   regenerate  runs the repository's own code -- asdf plugins and `go mod tidy`,
 #               both taken from the Renovate branch, i.e. from whatever the
-#               dependency update brought in. It therefore holds no credential at
-#               all: no app token, no Vault approle, and `persist-credentials:
-#               false` so the job's own GITHUB_TOKEN is not left in `.git/config`
-#               either. It emits a patch as an artifact.
+#               dependency update brought in. It therefore holds no write
+#               credential and no secret: no app token, no Vault approle, nothing
+#               beyond its own `contents: read` GITHUB_TOKEN, which
+#               `persist-credentials: false` keeps out of `.git/config` and which
+#               no step puts in the environment. It emits a patch as an artifact.
 #
 #   commit      holds the Vault-backed GitHub App token, and runs no repository
 #               code: only SHA-pinned third-party actions plus `git apply` of the
@@ -28,9 +29,10 @@ name: Internal - Global - Maintenance
 # request.
 #
 # This branch has no golden file regeneration, so `regenerate` needs no cloud
-# credentials and the separation is complete: nothing worth stealing is present in
-# the job that runs branch code. On the branches that do regenerate golden files,
-# the Vault approle has to stay behind and the boundary is weaker.
+# credentials, and the only thing left in the job that runs branch code is a
+# `contents: read` GITHUB_TOKEN it never puts anywhere that code can reach. On the
+# branches that do regenerate golden files, the Vault approle has to stay behind and
+# the boundary is weaker.
 
 # The workflow-level default is the floor for both jobs: neither of them writes to the
 # repository with GITHUB_TOKEN. The write is carried by the app token in `commit` alone.
@@ -44,11 +46,6 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true
 env:
-    AWS_PROFILE: infraex
-    AWS_REGION: eu-west-2
-    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
-    S3_BUCKET_REGION: eu-central-1
-    S3_BUCKET_KEY: golden.tfstate
     PATCH_ARTIFACT_NAME: maintenance-patch
     PATCH_FILE_NAME: maintenance.patch
     # Refuse to auto-commit a patch larger than this. `go mod tidy` rewrites a handful of
@@ -75,10 +72,11 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
-                  # The head branch, not the default `refs/pull/N/merge`: the patch is
-                  # produced here and replayed onto the same commit by the `commit` job,
-                  # so both jobs have to stand on the same tree or the patch will not apply.
-                  ref: ${{ github.event.pull_request.head.ref }}
+                  # The head commit, not the default `refs/pull/N/merge` and not the branch
+                  # name: the patch is produced here and replayed by the `commit` job, so both
+                  # jobs have to stand on exactly the same tree. A branch name would let a push
+                  # in between move the ground under the second job.
+                  ref: ${{ github.event.pull_request.head.sha }}
                   # Everything below this point runs code coming from the pull request.
                   # Leaving a credential in `.git/config` would hand it to that code.
                   persist-credentials: false
@@ -146,11 +144,11 @@ jobs:
             - name: Checkout the pull request branch
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
-                  # The job's own GITHUB_TOKEN is enough to read the branch, and the commit
-                  # is created through the GitHub API by the last step, which receives the
-                  # app token explicitly. Nothing here needs a write credential, so the app
-                  # token does not have to exist yet.
-                  ref: ${{ github.event.pull_request.head.ref }}
+                  # The exact commit `regenerate` built the patch from. The job's own
+                  # GITHUB_TOKEN is enough to read it, and the commit is created through the
+                  # GitHub API by the last step, which receives the app token explicitly, so no
+                  # write credential has to exist yet.
+                  ref: ${{ github.event.pull_request.head.sha }}
                   persist-credentials: false
 
             - name: Download the patch
@@ -238,6 +236,32 @@ jobs:
                       echo "::error::Could not apply the maintenance patch, most likely because the branch moved between jobs. Re-run the workflow."
                       exit 1
                   fi
+
+            - name: Check the branch has not moved
+              # `git apply` matches context, not position, so a patch built from an older tree
+              # can still apply cleanly to a newer one. And the commit step takes its parent
+              # from the remote branch as it stands at that moment while sending the working
+              # tree's file contents: if the branch was rebased while this run was working,
+              # that would quietly overwrite the newer version of every file in the patch.
+              #
+              # This narrows the window rather than closing it -- the commit call re-reads the
+              # ref seconds later and there is no compare-and-swap to hand -- but it turns the
+              # likely case, a push during the minutes this workflow takes, from a silent bad
+              # commit into a loud failure. The push that moved the branch has started its own
+              # run, which redoes the work.
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+                  HEAD_REF: ${{ github.event.pull_request.head.ref }}
+              run: |
+                  set -euo pipefail
+
+                  current=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${HEAD_REF}" --jq '.object.sha')
+                  if [ "$current" != "$HEAD_SHA" ]; then
+                      echo "::error::${HEAD_REF} moved from ${HEAD_SHA} to ${current} while maintenance was running; not committing a patch built from the old tree."
+                      exit 1
+                  fi
+                  echo "${HEAD_REF} is still at ${HEAD_SHA}."
 
             # Minted last, deliberately: the token only needs to exist for the commit call,
             # so it is not alive while the untrusted patch is downloaded, measured and
