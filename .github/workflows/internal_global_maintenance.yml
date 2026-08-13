@@ -91,8 +91,8 @@ jobs:
             changes: ${{ steps.build-patch.outputs.changes }}
             # Published rather than repeated in the `commit` call: job-level `with:` cannot
             # read the `env` context, and two hardcoded copies of an artifact name drift.
-            artifact-name: ${{ steps.build-patch.outputs.artifact-name }}
-            patch-file-name: ${{ steps.build-patch.outputs.patch-file-name }}
+            artifact_name: ${{ steps.build-patch.outputs.artifact_name }}
+            patch_file_name: ${{ steps.build-patch.outputs.patch_file_name }}
         steps:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -158,8 +158,8 @@ jobs:
 
                   # Emitted unconditionally, before the early exit: the `commit` job reads them
                   # from this job's outputs.
-                  echo "artifact-name=${PATCH_ARTIFACT_NAME}" | tee -a "$GITHUB_OUTPUT"
-                  echo "patch-file-name=${PATCH_FILE_NAME}" | tee -a "$GITHUB_OUTPUT"
+                  echo "artifact_name=${PATCH_ARTIFACT_NAME}" | tee -a "$GITHUB_OUTPUT"
+                  echo "patch_file_name=${PATCH_FILE_NAME}" | tee -a "$GITHUB_OUTPUT"
 
                   # `git add -A` honours .gitignore, so terraform provider caches and
                   # state files stay out of the patch.
@@ -208,8 +208,8 @@ jobs:
         # whole point, since everything that produced this patch ran in `regenerate`.
         uses: camunda/infraex-common-config/.github/workflows/commit-patch-global.yml@4f41fc83a003370fdba17e7cc5a34840640e1248 # 2.3.2
         with:
-            artifact-name: ${{ needs.regenerate.outputs.artifact-name }}
-            patch-file-name: ${{ needs.regenerate.outputs.patch-file-name }}
+            artifact-name: ${{ needs.regenerate.outputs.artifact_name }}
+            patch-file-name: ${{ needs.regenerate.outputs.patch_file_name }}
             head-sha: ${{ github.event.pull_request.head.sha }}
             head-ref: ${{ github.event.pull_request.head.ref }}
             commit-message: 'chore: update from scheduled maintenance (go mod tidy & just regenerate)'
