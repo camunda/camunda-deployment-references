@@ -75,11 +75,11 @@ def scenario_names(path: Path) -> list[str]:
                 block_indent = indent_of(line)
             continue
 
-        # Any key at or above the `scenario:` level closes the block. Keep
-        # reading: a later job may open one of its own.
+        # Any key at or above the `scenario:` level ends the current block. Keep
+        # reading: that key may itself be a later job's own `scenario:`.
         if key and indent_of(line) <= block_indent:
-            closes = key.group("key") == "scenario"
-            block_indent = indent_of(line) if closes else None
+            starts_another_block = key.group("key") == "scenario"
+            block_indent = indent_of(line) if starts_another_block else None
             continue
 
         entry = LIST_NAME.match(line)
