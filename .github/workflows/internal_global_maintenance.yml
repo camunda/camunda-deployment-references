@@ -88,10 +88,11 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
-                  # The head branch, not the default `refs/pull/N/merge`: the patch is
-                  # produced here and replayed onto the same commit by the `commit` job,
-                  # so both jobs have to stand on the same tree or the patch will not apply.
-                  ref: ${{ github.event.pull_request.head.ref }}
+                  # The head commit, not the default `refs/pull/N/merge` and not the branch
+                  # name: the patch is produced here and replayed by the `commit` job, so both
+                  # jobs have to stand on exactly the same tree. A branch name would let a push
+                  # in between move the ground under the second job.
+                  ref: ${{ github.event.pull_request.head.sha }}
                   # Everything below this point runs code coming from the pull request.
                   # Leaving a credential in `.git/config` would hand it to that code.
                   persist-credentials: false
@@ -196,11 +197,11 @@ jobs:
             - name: Checkout the pull request branch
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
-                  # The job's own GITHUB_TOKEN is enough to read the branch, and the commit
-                  # is created through the GitHub API by the last step, which receives the
-                  # app token explicitly. Nothing here needs a write credential, so the app
-                  # token does not have to exist yet.
-                  ref: ${{ github.event.pull_request.head.ref }}
+                  # The exact commit `regenerate` built the patch from. The job's own
+                  # GITHUB_TOKEN is enough to read it, and the commit is created through the
+                  # GitHub API by the last step, which receives the app token explicitly, so no
+                  # write credential has to exist yet.
+                  ref: ${{ github.event.pull_request.head.sha }}
                   persist-credentials: false
 
             - name: Download the patch
@@ -287,6 +288,32 @@ jobs:
                       echo "::error::Could not apply the maintenance patch, most likely because the branch moved between jobs. Re-run the workflow."
                       exit 1
                   fi
+
+            - name: Check the branch has not moved
+              # `git apply` matches context, not position, so a patch built from an older tree
+              # can still apply cleanly to a newer one. And the commit step takes its parent
+              # from the remote branch as it stands at that moment while sending the working
+              # tree's file contents: if the branch was rebased while this run was working,
+              # that would quietly overwrite the newer version of every file in the patch.
+              #
+              # This narrows the window rather than closing it -- the commit call re-reads the
+              # ref seconds later and there is no compare-and-swap to hand -- but it turns the
+              # likely case, a push during the minutes this workflow takes, from a silent bad
+              # commit into a loud failure. The push that moved the branch has started its own
+              # run, which redoes the work.
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+                  HEAD_REF: ${{ github.event.pull_request.head.ref }}
+              run: |
+                  set -euo pipefail
+
+                  current=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${HEAD_REF}" --jq '.object.sha')
+                  if [ "$current" != "$HEAD_SHA" ]; then
+                      echo "::error::${HEAD_REF} moved from ${HEAD_SHA} to ${current} while maintenance was running; not committing a patch built from the old tree."
+                      exit 1
+                  fi
+                  echo "${HEAD_REF} is still at ${HEAD_SHA}."
 
             # Minted last, deliberately: the token only needs to exist for the commit call,
             # so it is not alive while the untrusted patch is downloaded, measured and
