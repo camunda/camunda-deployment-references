@@ -20,6 +20,7 @@ _spec.loader.exec_module(check_cleanup_coverage)
 scenario_names = check_cleanup_coverage.scenario_names
 read_workflow = check_cleanup_coverage.read_workflow
 templated_prefixes = check_cleanup_coverage.templated_prefixes
+reclaimed_prefixes = check_cleanup_coverage.reclaimed_prefixes
 
 TEST_MATRIX = """---
 matrix:
@@ -78,6 +79,19 @@ STATIC_WORKFLOW = """---
 name: Tests
 env:
     S3_BACKEND_BUCKET_PREFIX: aws/compute/ec2-single-region/ # keep it synced
+"""
+
+STATIC_CLEANUP = """---
+name: Cleanup
+env:
+    S3_BACKEND_BUCKET_PREFIX: azure/kubernetes/aks-single-region/
+"""
+
+SINGLE_SCENARIO_MATRIX = """---
+matrix:
+    scenario:
+        - name: aks-single-region
+          auth_provider: keycloak-operator
 """
 
 
@@ -167,6 +181,42 @@ class TemplatedPrefixesTest(unittest.TestCase):
         tests = self.write("tests.yml", TESTS_WORKFLOW.format(matrix=self.matrix))
         cleanup = self.write("cleanup.yml", DERIVED_CLEANUP.format(matrix=self.matrix))
         self.assertEqual(templated_prefixes(tests) - templated_prefixes(cleanup), set())
+
+
+class ReclaimedPrefixesTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.addCleanup(self.tmp.cleanup)
+        self.matrix = self.root / "test_matrix.yml"
+
+    def write(self, name, content):
+        path = self.root / name
+        path.write_text(content)
+        return path
+
+    def test_fixed_prefix_cleanup_reclaims_its_tree(self):
+        """A cleanup pinned to a literal prefix reclaims exactly that tree."""
+        path = self.write("cleanup.yml", STATIC_CLEANUP)
+        self.assertEqual(
+            reclaimed_prefixes(path), {"azure/kubernetes/aks-single-region/"}
+        )
+
+    def test_fixed_cleanup_covers_a_single_scenario_workflow(self):
+        self.matrix.write_text(SINGLE_SCENARIO_MATRIX)
+        tests = self.write("tests.yml", TESTS_WORKFLOW.format(matrix=self.matrix))
+        cleanup = self.write("cleanup.yml", STATIC_CLEANUP)
+        self.assertEqual(templated_prefixes(tests) - reclaimed_prefixes(cleanup), set())
+
+    def test_fixed_cleanup_still_misses_an_added_scenario(self):
+        """Widening coverage must not blunt the #2978 detection."""
+        self.matrix.write_text(TEST_MATRIX)
+        tests = self.write("tests.yml", TESTS_WORKFLOW.format(matrix=self.matrix))
+        cleanup = self.write("cleanup.yml", STATIC_CLEANUP)
+        self.assertEqual(
+            templated_prefixes(tests) - reclaimed_prefixes(cleanup),
+            {"azure/kubernetes/aks-single-region-rdbms/"},
+        )
 
 
 class ReadWorkflowTest(unittest.TestCase):
