@@ -1,9 +1,32 @@
 ---
 name: Internal - Global - Branches Schedule Workflows
 
+# This workflow opens throwaway pull requests whose only purpose is to trigger the
+# workflows listed in .github/workflows-config/workflow-scheduler.yml on a given branch.
+#
+# Two of its three jobs act on the repository and are therefore never run from a pull
+# request:
+#
+#   close-scheduled-prs  closes real schedule pull requests and deletes their branches.
+#   schedule-workflows   opens them, with a GitHub App token, after running the
+#                        repository's own pre-commit hooks over the checked-out branch.
+#
+# The branch `schedule-workflows` checks out comes from the scheduler config, which
+# `define-matrix` reads from the tree it is running on. On a pull request that tree is
+# the contributor's, so a pull request able to reach `schedule-workflows` could aim the
+# privileged checkout at its own branch and have its pre-commit hooks executed next to
+# the app token. Gating both jobs on the event closes that: on `schedule` and
+# `workflow_dispatch` the config and every branch it names come from the default branch.
+#
+# `define-matrix` still runs on pull requests -- it only parses the config, and it holds
+# no credential, which is why its checkout sets `persist-credentials: false`: the asdf
+# plugins it installs come from the branch's .tool-versions.
+
+# No job writes to the repository with GITHUB_TOKEN. Both writes -- closing pull requests
+# and opening them -- are carried by the App token, minted per job. `pull-requests: write`
+# used to be declared here for internal-apply-skip-label, which this workflow does not use.
 permissions:
-    contents: write # allow commits to create pull requests & commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     pull_request:
@@ -26,11 +49,18 @@ concurrency:
 jobs:
     close-scheduled-prs:
         runs-on: ubuntu-latest
+        # Never from a pull request: this job closes live schedule pull requests and
+        # deletes their branches.
+        if: github.event_name != 'pull_request'
         steps:
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
                   fetch-depth: 0
+                  # Load-bearing checkout: `gh` resolves the repository from the git remote
+                  # below. It does not need a credential on disk to do that -- the App token
+                  # is passed to `gh` through the environment.
+                  persist-credentials: false
 
             - name: Generate token for GitHub
               id: generate-github-token
@@ -78,11 +108,21 @@ jobs:
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
                   fetch-depth: 0
+                  # The asdf step below installs plugins named by the branch's
+                  # .tool-versions, which is arbitrary code on a pull request run. This job
+                  # holds no App token; do not leave GITHUB_TOKEN in `.git/config` for that
+                  # code to find either.
+                  persist-credentials: false
 
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
 
             - id: matrix
+              # The dispatch input reaches the script through the environment, not through
+              # template expansion: expanded inline it is pasted into the shell before bash
+              # sees it, so a schedule name containing shell metacharacters would execute.
+              env:
+                  SCHEDULE_NAME: ${{ github.event.inputs.schedule_name || '' }}
               run: |
                   set -euo pipefail
 
@@ -92,9 +132,9 @@ jobs:
                   # Convert each workflow_files array to a string format
                   formatted_schedules=$(echo "$schedules" | jq -c '.[].workflow_files |= tostring')
 
-                  if [[ -n "${{ github.event.inputs.schedule_name }}" ]]; then
+                  if [[ -n "${SCHEDULE_NAME:-}" ]]; then
                     # Filter schedules based on the provided workflow name
-                    filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg schedule_name "${{ github.event.inputs.schedule_name }}" '
+                    filtered_schedules=$(echo "$formatted_schedules" | jq -c --arg schedule_name "${SCHEDULE_NAME}" '
                     [.[] | select(.name == $schedule_name)]
                     ')
                   else
@@ -114,7 +154,12 @@ jobs:
 
     schedule-workflows:
         runs-on: ubuntu-latest
-        if: needs.define-matrix.outputs.schedules != '[]' && needs.define-matrix.outputs.schedules != ''
+        # Never from a pull request: this job opens live pull requests with the App token,
+        # onto a branch named by a config file that a pull request run would supply.
+        if: >-
+            github.event_name != 'pull_request'
+            && needs.define-matrix.outputs.schedules != '[]'
+            && needs.define-matrix.outputs.schedules != ''
         needs:
             - define-matrix
             - close-scheduled-prs
@@ -123,24 +168,15 @@ jobs:
             matrix:
                 schedule: ${{ fromJson(needs.define-matrix.outputs.schedules) }}
         steps:
-            - name: Generate token for GitHub
-              id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
-              with:
-                  github-app-id-vault-key: GITHUB_APP_ID
-                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
-                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
-                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
-                  vault-auth-method: approle
-                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  vault-url: ${{ secrets.VAULT_ADDR }}
-
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
-                  token: ${{ steps.generate-github-token.outputs.token }}
                   ref: ${{ matrix.schedule.branch }}
+                  # The pre-commit step below executes the checked-out branch's hooks, so
+                  # this job runs repository code. Nothing here needs a git credential:
+                  # create-pull-request receives the App token explicitly and does its own
+                  # push, and the token is not minted until after the hooks have run.
+                  persist-credentials: false
 
             - name: Prepare the working branch
               id: branch-update
@@ -188,6 +224,27 @@ jobs:
               id: pre_commit_check_first_run
               continue-on-error: true # it will fail as we reformat the files
               run: pre-commit run --show-diff-on-failure --color=always --all-files --verbose
+
+            # Minted last, deliberately: everything above runs repository code -- asdf
+            # plugins from .tool-versions, then the pre-commit hooks -- so the token is not
+            # alive while any of it executes, and no hook can have planted a PATH shim or a
+            # BASH_ENV able to intercept it.
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  # Pin the installation token to this repository rather than relying on the
+                  # composite action's default, which derives the same value from
+                  # `github.repository`.
+                  repositories: ${{ github.event.repository.name }}
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
 
             - name: Create the schedule PR
               uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
