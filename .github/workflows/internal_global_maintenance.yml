@@ -21,18 +21,26 @@ name: Internal - Global - Maintenance
 #   commit      holds the Vault-backed GitHub App token, and runs no repository
 #               code: only SHA-pinned third-party actions plus `git apply` of the
 #               artifact. Applying a patch does not execute it. The token is
-#               scoped to this repository and minted last, after the untrusted
-#               patch has been measured and applied.
+#               minted last, after the untrusted patch has been measured and
+#               applied.
 #
 # Before the split both lived in one job, so a dependency update could execute
-# arbitrary code next to an org-level app token. That is the shape of INC-7027,
-# where a malicious payload reached a Renovate pull request.
+# arbitrary code next to a GitHub App token with write access to this repository.
+# That is the shape of INC-7027, where a malicious payload reached a Renovate pull
+# request.
 #
-# The cloud credentials stay in `regenerate`: `just regenerate-golden-file-all`
-# runs `terraform init` against a real S3 backend and `terraform plan` against
-# AWS and Azure, so the job cannot do its work without them. They are scoped test
-# credentials, unlike the app token, which can write to every repository the app
-# is installed on.
+# What the split does not remove: `regenerate` still holds the Vault AppRole used to
+# fetch the cloud credentials, and that AppRole can read the same Vault path the app
+# private key lives at. Branch code that exfiltrates it can therefore still mint an
+# app token for itself. The split removes the token sitting in the job; it does not
+# remove the escalation. Closing that means either a Vault role scoped away from the
+# app key, or dropping golden regeneration from pull requests -- both out of scope
+# here, both tracked in camunda/team-infrastructure#1126.
+#
+# The cloud credentials stay in `regenerate` because `just regenerate-golden-file-all`
+# runs `terraform init` against a real S3 backend and `terraform plan` against AWS and
+# Azure; the job cannot do its work without them. They are scoped test credentials for
+# a test state bucket in a test region.
 
 # The workflow-level default is the floor for both jobs: neither of them writes to the
 # repository with GITHUB_TOKEN. The write is carried by the app token in `commit` alone.
@@ -274,9 +282,10 @@ jobs:
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
                   github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
                   github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
-                  # Pin the installation token to this repository. Without it the composite
-                  # action mints a token valid on every repository the app is installed on,
-                  # which is exactly the blast radius this workflow is trying to shrink.
+                  # Pin the installation token to this repository rather than relying on
+                  # the composite action's default, which derives the same value from
+                  # `github.repository`. Identical scope today; stated so it cannot drift
+                  # if that default ever changes.
                   repositories: ${{ github.event.repository.name }}
                   vault-auth-method: approle
                   vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
