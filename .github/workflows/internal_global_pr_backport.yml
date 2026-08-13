@@ -29,9 +29,31 @@ jobs:
             )
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            # GITHUB_TOKEN cannot push anything under .github/workflows/, whatever permissions
+            # the workflow declares -- `workflows` is an App/PAT scope, not a GITHUB_TOKEN one.
+            # Every backport of a pull request that touched a workflow file was therefore
+            # rejected with "refusing to allow a GitHub App to create or update workflow ...
+            # without `workflows` permission", while this job still reported success and left
+            # only a comment on the source pull request. An App token carries the scope.
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  repositories: ${{ github.event.repository.name }}
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+
             - name: Create backport PRs
               uses: korthout/backport-action@2e830a1d0b8269505846ddd407a70876913ad1f8 # v4.6.0
               with:
+                  github_token: ${{ steps.generate-github-token.outputs.token }}
                   add_author_as_assignee: true
                   copy_assignees: true
                   experimental: >
