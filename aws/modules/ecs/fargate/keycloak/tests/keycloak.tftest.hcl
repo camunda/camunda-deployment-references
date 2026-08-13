@@ -43,6 +43,29 @@ run "prefix_used_in_resource_names" {
   }
 }
 
+run "realm_import_disabled_by_default" {
+  command = plan
+  assert {
+    condition     = !strcontains(aws_ecs_task_definition.keycloak.container_definitions, "--import-realm")
+    error_message = "Keycloak must start without --import-realm when realm import is disabled (default)"
+  }
+}
+
+run "realm_import_changes_startup_command" {
+  command = plan
+  variables {
+    enable_realm_import = true
+  }
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.keycloak.container_definitions, "--import-realm")
+    error_message = "With enable_realm_import, the container must start Keycloak with --import-realm"
+  }
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.keycloak.container_definitions, "KEYCLOAK_REALM_IMPORT_JSON")
+    error_message = "With enable_realm_import, the startup command must consume KEYCLOAK_REALM_IMPORT_JSON"
+  }
+}
+
 run "extra_task_role_attachments_count_matches_var" {
   command = plan
   variables {

@@ -1,28 +1,29 @@
 # Platform authentication mode.
 #
-#   basic     (default) - Orchestration Cluster and Connectors use built-in
-#                         basic-auth users. The bundled Keycloak + Management
-#                         Identity are still deployed (Identity needs an IdP), so
-#                         the reference stays self-contained and can be flipped to
-#                         "keycloak" without adding infrastructure.
-#   keycloak            - Full OIDC against the bundled Keycloak `camunda-platform`
-#                         realm that Management Identity bootstraps. Keycloak is
-#                         exposed on the shared ALB for the browser login redirect.
-#   external            - Bring-your-own OIDC provider (Entra ID, Okta, ...).
-#                         Keycloak is NOT deployed; Orchestration, Connectors and
-#                         Management Identity point at var.external_oidc instead.
+#   basic (default) - Orchestration Cluster and Connectors use built-in basic-auth
+#                     users. No OIDC provider is deployed: neither the bundled
+#                     Keycloak nor Management Identity. Fully self-contained.
+#   oidc            - OIDC authentication across the platform. The identity provider
+#                     is selected automatically from var.external_oidc:
+#                       * external_oidc == null (default) -> a self-contained bundled
+#                         Keycloak is deployed and self-provisions the
+#                         `camunda-platform` realm (Keycloak --import-realm), so the
+#                         reference runs out of the box with no external dependency.
+#                       * external_oidc != null -> the customer's OIDC provider
+#                         (Entra ID, Okta, ...) is used and Keycloak is NOT deployed.
 #
-# Everything that depends on "which IdP" is resolved once into the local.oidc_*
-# values below, so the module blocks never branch on the provider themselves.
+# Either way every component consumes the single provider-agnostic `local.oidc`
+# object below and never references Keycloak: the bundled Keycloak is just the
+# default OIDC provider we ship, wired exactly like an external one.
 
 variable "authentication_mode" {
   type        = string
-  description = "Platform authentication: 'basic' (built-in users, bundled Keycloak), 'keycloak' (OIDC via bundled Keycloak), or 'external' (bring-your-own OIDC, Keycloak skipped)."
+  description = "Platform authentication: 'basic' (built-in users, no IdP deployed) or 'oidc' (OIDC via the bundled Keycloak by default, or an external provider when var.external_oidc is set)."
   default     = "basic"
 
   validation {
-    condition     = contains(["basic", "keycloak", "external"], var.authentication_mode)
-    error_message = "authentication_mode must be one of: basic, keycloak, external."
+    condition     = contains(["basic", "oidc"], var.authentication_mode)
+    error_message = "authentication_mode must be one of: basic, oidc."
   }
 }
 
@@ -39,46 +40,59 @@ variable "external_oidc" {
     connectors_client_secret_arn    = string
   })
   default     = null
-  description = "External OIDC provider config, required only when authentication_mode = \"external\". One client per component (identity, orchestration, connectors); client secrets are passed as existing Secrets Manager ARNs (created out-of-band), never as raw values."
+  description = "External OIDC provider config. Optional and only honored when authentication_mode = \"oidc\": when set, that provider is used and the bundled Keycloak is skipped; when null (default), a bundled Keycloak is deployed as the OIDC provider. One client per component (identity, orchestration, connectors); client secrets are existing Secrets Manager ARNs (created out-of-band), never raw values."
 }
 
-# Fail fast if external mode is selected without its config.
+# Fail fast if external_oidc is supplied while OIDC is not enabled.
 resource "terraform_data" "validate_authentication_mode" {
   lifecycle {
     precondition {
-      condition     = var.authentication_mode != "external" || var.external_oidc != null
-      error_message = "authentication_mode = \"external\" requires var.external_oidc (issuer_uri, token_uri, audience, client ids and client-secret ARNs)."
+      condition     = var.external_oidc == null || var.authentication_mode == "oidc"
+      error_message = "var.external_oidc is only valid when authentication_mode = \"oidc\" (in basic mode no OIDC provider is deployed)."
     }
   }
 }
 
 locals {
-  oidc_enabled = var.authentication_mode != "basic"    # OIDC login used at all
-  use_keycloak = var.authentication_mode != "external" # bundled Keycloak deployed
-  is_external  = var.authentication_mode == "external"
+  oidc_enabled            = var.authentication_mode == "oidc"               # OIDC used at all
+  use_external            = local.oidc_enabled && var.external_oidc != null # bring-your-own IdP
+  deploy_bundled_keycloak = local.oidc_enabled && var.external_oidc == null # ship the default IdP
 
-  # Browser-facing base URL of the shared ALB. In keycloak mode it is also the
-  # OIDC issuer host, so the token `iss` is identical for the browser and the
-  # backend (which reaches the ALB via NAT egress). HTTP only in this demo.
+  # Browser-facing base URL of the shared ALB. For the bundled Keycloak it is also the
+  # OIDC issuer host, so the token `iss` is identical for the browser and the backend
+  # (which reaches the ALB via NAT egress). HTTP only in this demo.
   alb_base_url                = "http://${join("", aws_lb.main[*].dns_name)}"
   keycloak_public_base_url    = "${local.alb_base_url}/auth"
   camunda_realm_issuer_public = "${local.keycloak_public_base_url}/realms/camunda-platform"
 
-  # Effective OIDC settings, resolved once: bundled Keycloak realm vs. external IdP.
-  oidc_issuer_uri              = local.is_external ? try(var.external_oidc.issuer_uri, "") : local.camunda_realm_issuer_public
-  oidc_token_uri               = local.is_external ? try(var.external_oidc.token_uri, "") : "${local.camunda_realm_issuer_public}/protocol/openid-connect/token"
-  oidc_audience                = local.is_external ? try(var.external_oidc.audience, "") : "orchestration-api"
-  oidc_redirect_uri            = "${local.alb_base_url}/sso-callback"
-  oidc_orchestration_client_id = local.is_external ? try(var.external_oidc.orchestration_client_id, "") : "orchestration"
-  oidc_connectors_client_id    = local.is_external ? try(var.external_oidc.connectors_client_id, "") : "connectors"
+  # Management Identity's own base URL on the shared ALB (used both for its
+  # CAMUNDA_IDENTITY_BASE_URL and for the camunda-identity client redirect in the
+  # bundled realm import).
+  identity_public_base = "${local.alb_base_url}/identity"
 
-  # Client-secret ARNs consumed by the tasks: generated here for the bundled
-  # Keycloak, or the customer-supplied ARNs for an external provider.
-  oidc_orchestration_client_secret_arn = local.is_external ? try(var.external_oidc.orchestration_client_secret_arn, "") : (var.enable_orchestration_oidc_client ? aws_secretsmanager_secret.orchestration_oidc_client_secret[0].arn : "")
-  oidc_connectors_client_secret_arn    = local.is_external ? try(var.external_oidc.connectors_client_secret_arn, "") : (var.enable_connectors_oidc_client ? aws_secretsmanager_secret.connectors_oidc_client_secret[0].arn : "")
+  # Single provider-agnostic OIDC interface. Every component reads only this object;
+  # it is populated identically whether the IdP is the bundled Keycloak or external.
+  oidc = {
+    issuer_uri   = local.use_external ? try(var.external_oidc.issuer_uri, "") : local.camunda_realm_issuer_public
+    token_uri    = local.use_external ? try(var.external_oidc.token_uri, "") : "${local.camunda_realm_issuer_public}/protocol/openid-connect/token"
+    audience     = local.use_external ? try(var.external_oidc.audience, "") : "orchestration-api"
+    redirect_uri = "${local.alb_base_url}/sso-callback"
 
-  # Management Identity's own OIDC client (bundled: the generated camunda-identity
-  # client; external: the customer-registered client).
-  oidc_identity_client_id         = local.is_external ? try(var.external_oidc.identity_client_id, "") : "camunda-identity"
-  oidc_identity_client_secret_arn = local.is_external ? try(var.external_oidc.identity_client_secret_arn, "") : (local.use_keycloak ? aws_secretsmanager_secret.identity_client_secret[0].arn : "")
+    orchestration = {
+      client_id         = local.use_external ? try(var.external_oidc.orchestration_client_id, "") : "orchestration"
+      client_secret_arn = local.use_external ? try(var.external_oidc.orchestration_client_secret_arn, "") : try(aws_secretsmanager_secret.orchestration_oidc_client_secret[0].arn, "")
+    }
+
+    connectors = {
+      client_id         = local.use_external ? try(var.external_oidc.connectors_client_id, "") : "connectors"
+      client_secret_arn = local.use_external ? try(var.external_oidc.connectors_client_secret_arn, "") : try(aws_secretsmanager_secret.connectors_oidc_client_secret[0].arn, "")
+    }
+
+    identity = {
+      client_id         = local.use_external ? try(var.external_oidc.identity_client_id, "") : "camunda-identity"
+      client_secret_arn = local.use_external ? try(var.external_oidc.identity_client_secret_arn, "") : try(aws_secretsmanager_secret.identity_client_secret[0].arn, "")
+      # Management Identity's own resource-server audience (mandatory in generic OIDC).
+      audience = local.use_external ? try(var.external_oidc.audience, "") : "camunda-identity-resource-server"
+    }
+  }
 }

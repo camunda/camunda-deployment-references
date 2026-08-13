@@ -170,3 +170,9 @@ variable "task_desired_count" {
   type        = number
   default     = 1
 }
+
+variable "enable_realm_import" {
+  description = "When true, Keycloak imports a realm on startup: the container writes the JSON provided via the KEYCLOAK_REALM_IMPORT_JSON environment variable (typically injected from a Secrets Manager secret) to the import directory and starts with `--import-realm`. Import is skipped for realms that already exist."
+  type        = bool
+  default     = false
+}

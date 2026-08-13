@@ -5,6 +5,8 @@
 # This file wires selected sensitive environment variables through
 # ECS task definition `secrets` (Secrets Manager) instead of plaintext
 # `environment` values.
+#
+# Keycloak / realm secrets live in keycloak_secrets.tf (bundled-IdP only).
 
 locals {
   db_admin_password_effective = var.db_admin_password != "" ? var.db_admin_password : random_password.db_admin_password[0].result
@@ -65,13 +67,17 @@ resource "aws_secretsmanager_secret_version" "connectors_client_auth_password" {
   secret_string = random_password.connectors_user_password.result
 }
 
+# Management Identity database role password. Only needed when OIDC is enabled
+# (Identity is deployed); in basic mode Identity is not deployed.
 resource "random_password" "identity_db_password" {
+  count            = local.oidc_enabled ? 1 : 0
   length           = 32
   special          = true
   override_special = "!#$%^()-_=+[]{}:?"
 }
 
 resource "aws_secretsmanager_secret" "identity_db_password" {
+  count                   = local.oidc_enabled ? 1 : 0
   name                    = "${var.prefix}-oc1-identity-db-password"
   description             = "Password for the Management Identity Aurora PostgreSQL role (IDENTITY_DATABASE_PASSWORD)"
   recovery_window_in_days = 0
@@ -79,170 +85,7 @@ resource "aws_secretsmanager_secret" "identity_db_password" {
 }
 
 resource "aws_secretsmanager_secret_version" "identity_db_password" {
-  secret_id     = aws_secretsmanager_secret.identity_db_password.id
-  secret_string = random_password.identity_db_password.result
-}
-
-# Keycloak/realm secrets below are only created for the bundled Keycloak
-# (authentication_mode basic|keycloak). In external mode Keycloak is skipped and
-# these are not created; client secrets then come from var.external_oidc.
-resource "random_password" "keycloak_db_password" {
-  count            = local.use_keycloak ? 1 : 0
-  length           = 32
-  special          = true
-  override_special = "!#$%^()-_=+[]{}:?"
-}
-
-resource "aws_secretsmanager_secret" "keycloak_db_password" {
-  count                   = local.use_keycloak ? 1 : 0
-  name                    = "${var.prefix}-oc1-keycloak-db-password"
-  description             = "Password for the Keycloak Aurora PostgreSQL role (KC_DB_PASSWORD)"
-  recovery_window_in_days = 0
-  kms_key_id              = local.secrets_kms_key_arn_effective
-}
-
-resource "aws_secretsmanager_secret_version" "keycloak_db_password" {
-  count         = local.use_keycloak ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.keycloak_db_password[0].id
-  secret_string = random_password.keycloak_db_password[0].result
-}
-
-resource "random_password" "keycloak_admin_password" {
-  count            = local.use_keycloak ? 1 : 0
-  length           = 32
-  special          = true
-  override_special = "!#$%^()-_=+[]{}:?"
-}
-
-resource "aws_secretsmanager_secret" "keycloak_admin_password" {
-  count                   = local.use_keycloak ? 1 : 0
-  name                    = "${var.prefix}-oc1-keycloak-admin-password"
-  description             = "Keycloak bootstrap admin password (KC_BOOTSTRAP_ADMIN_PASSWORD / Identity KEYCLOAK_SETUP_PASSWORD)"
-  recovery_window_in_days = 0
-  kms_key_id              = local.secrets_kms_key_arn_effective
-}
-
-resource "aws_secretsmanager_secret_version" "keycloak_admin_password" {
-  count         = local.use_keycloak ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.keycloak_admin_password[0].id
-  secret_string = random_password.keycloak_admin_password[0].result
-}
-
-# Password for the `admin` login user that Identity creates in the camunda-platform
-# realm (the interactive login user in keycloak mode). Same 32-char strength as the
-# basic-auth admin, but excludes ${ } because this value is resolved by Spring as a
-# ${...} placeholder inside SPRING_APPLICATION_JSON and those chars could interfere.
-resource "random_password" "realm_admin_user_password" {
-  count            = local.use_keycloak ? 1 : 0
-  length           = 32
-  special          = true
-  override_special = "!#%^()-_=+[]:?"
-}
-
-resource "aws_secretsmanager_secret" "realm_admin_user_password" {
-  count                   = local.use_keycloak ? 1 : 0
-  name                    = "${var.prefix}-oc1-realm-admin-user-password"
-  description             = "Password for the Keycloak camunda-platform realm 'admin' login user (Identity KEYCLOAK_REALM_ADMIN_PASSWORD)"
-  recovery_window_in_days = 0
-  kms_key_id              = local.secrets_kms_key_arn_effective
-}
-
-resource "aws_secretsmanager_secret_version" "realm_admin_user_password" {
-  count         = local.use_keycloak ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.realm_admin_user_password[0].id
-  secret_string = random_password.realm_admin_user_password[0].result
-}
-
-resource "random_password" "identity_client_secret" {
-  count   = local.use_keycloak ? 1 : 0
-  length  = 32
-  special = false
-}
-
-resource "aws_secretsmanager_secret" "identity_client_secret" {
-  count                   = local.use_keycloak ? 1 : 0
-  name                    = "${var.prefix}-oc1-identity-oidc-client-secret"
-  description             = "Keycloak OIDC client secret for the camunda-identity client (CAMUNDA_IDENTITY_CLIENT_SECRET)"
-  recovery_window_in_days = 0
-  kms_key_id              = local.secrets_kms_key_arn_effective
-}
-
-resource "aws_secretsmanager_secret_version" "identity_client_secret" {
-  count         = local.use_keycloak ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.identity_client_secret[0].id
-  secret_string = random_password.identity_client_secret[0].result
-}
-
-# --- flag-gated component client secrets ---
-
-resource "random_password" "orchestration_oidc_client_secret" {
-  count   = local.use_keycloak && var.enable_orchestration_oidc_client ? 1 : 0
-  length  = 32
-  special = false
-}
-resource "aws_secretsmanager_secret" "orchestration_oidc_client_secret" {
-  count                   = local.use_keycloak && var.enable_orchestration_oidc_client ? 1 : 0
-  name                    = "${var.prefix}-oc1-orchestration-oidc-client-secret"
-  description             = "Keycloak OIDC client secret for the orchestration client"
-  recovery_window_in_days = 0
-  kms_key_id              = local.secrets_kms_key_arn_effective
-}
-resource "aws_secretsmanager_secret_version" "orchestration_oidc_client_secret" {
-  count         = local.use_keycloak && var.enable_orchestration_oidc_client ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.orchestration_oidc_client_secret[0].id
-  secret_string = random_password.orchestration_oidc_client_secret[0].result
-}
-
-resource "random_password" "connectors_oidc_client_secret" {
-  count   = local.use_keycloak && var.enable_connectors_oidc_client ? 1 : 0
-  length  = 32
-  special = false
-}
-resource "aws_secretsmanager_secret" "connectors_oidc_client_secret" {
-  count                   = local.use_keycloak && var.enable_connectors_oidc_client ? 1 : 0
-  name                    = "${var.prefix}-oc1-connectors-oidc-client-secret"
-  description             = "Keycloak OIDC client secret for the connectors client"
-  recovery_window_in_days = 0
-  kms_key_id              = local.secrets_kms_key_arn_effective
-}
-resource "aws_secretsmanager_secret_version" "connectors_oidc_client_secret" {
-  count         = local.use_keycloak && var.enable_connectors_oidc_client ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.connectors_oidc_client_secret[0].id
-  secret_string = random_password.connectors_oidc_client_secret[0].result
-}
-
-resource "random_password" "optimize_oidc_client_secret" {
-  count   = local.use_keycloak && var.enable_optimize_oidc_client ? 1 : 0
-  length  = 32
-  special = false
-}
-resource "aws_secretsmanager_secret" "optimize_oidc_client_secret" {
-  count                   = local.use_keycloak && var.enable_optimize_oidc_client ? 1 : 0
-  name                    = "${var.prefix}-oc1-optimize-oidc-client-secret"
-  description             = "Keycloak OIDC client secret for the optimize client"
-  recovery_window_in_days = 0
-  kms_key_id              = local.secrets_kms_key_arn_effective
-}
-resource "aws_secretsmanager_secret_version" "optimize_oidc_client_secret" {
-  count         = local.use_keycloak && var.enable_optimize_oidc_client ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.optimize_oidc_client_secret[0].id
-  secret_string = random_password.optimize_oidc_client_secret[0].result
-}
-
-resource "random_password" "console_oidc_client_secret" {
-  count   = local.use_keycloak && var.enable_console_oidc_client ? 1 : 0
-  length  = 32
-  special = false
-}
-resource "aws_secretsmanager_secret" "console_oidc_client_secret" {
-  count                   = local.use_keycloak && var.enable_console_oidc_client ? 1 : 0
-  name                    = "${var.prefix}-oc1-console-oidc-client-secret"
-  description             = "Keycloak OIDC client secret for the console client"
-  recovery_window_in_days = 0
-  kms_key_id              = local.secrets_kms_key_arn_effective
-}
-resource "aws_secretsmanager_secret_version" "console_oidc_client_secret" {
-  count         = local.use_keycloak && var.enable_console_oidc_client ? 1 : 0
-  secret_id     = aws_secretsmanager_secret.console_oidc_client_secret[0].id
-  secret_string = random_password.console_oidc_client_secret[0].result
+  count         = local.oidc_enabled ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.identity_db_password[0].id
+  secret_string = random_password.identity_db_password[0].result
 }

@@ -170,23 +170,24 @@ locals {
       aws_secretsmanager_secret.connectors_client_auth_password.arn,
       aws_secretsmanager_secret.orchestration_admin_user_password.arn,
       aws_secretsmanager_secret.db_admin_password.arn,
-      aws_secretsmanager_secret.identity_db_password.arn,
     ],
-    # Bundled Keycloak / realm secrets (basic|keycloak modes).
-    local.use_keycloak ? [
+    # Management Identity DB role password (only when OIDC/Identity is deployed).
+    local.oidc_enabled ? [aws_secretsmanager_secret.identity_db_password[0].arn] : [],
+    # Bundled Keycloak realm/client secrets (deploy_bundled_keycloak only).
+    local.deploy_bundled_keycloak ? [
       aws_secretsmanager_secret.keycloak_db_password[0].arn,
       aws_secretsmanager_secret.keycloak_admin_password[0].arn,
       aws_secretsmanager_secret.realm_admin_user_password[0].arn,
       aws_secretsmanager_secret.identity_client_secret[0].arn,
+      aws_secretsmanager_secret.orchestration_oidc_client_secret[0].arn,
+      aws_secretsmanager_secret.connectors_oidc_client_secret[0].arn,
+      aws_secretsmanager_secret.keycloak_realm_import[0].arn,
     ] : [],
-    local.use_keycloak && var.enable_orchestration_oidc_client ? [aws_secretsmanager_secret.orchestration_oidc_client_secret[0].arn] : [],
-    local.use_keycloak && var.enable_connectors_oidc_client ? [aws_secretsmanager_secret.connectors_oidc_client_secret[0].arn] : [],
-    local.use_keycloak && var.enable_optimize_oidc_client ? [aws_secretsmanager_secret.optimize_oidc_client_secret[0].arn] : [],
-    local.use_keycloak && var.enable_console_oidc_client ? [aws_secretsmanager_secret.console_oidc_client_secret[0].arn] : [],
-    # External OIDC client secrets (external mode) - customer-provided ARNs.
-    local.is_external ? compact([
-      local.oidc_orchestration_client_secret_arn,
-      local.oidc_connectors_client_secret_arn,
+    # External OIDC client secrets (external provider) - customer-provided ARNs.
+    local.use_external ? compact([
+      local.oidc.orchestration.client_secret_arn,
+      local.oidc.connectors.client_secret_arn,
+      local.oidc.identity.client_secret_arn,
     ]) : [],
   )
 }
