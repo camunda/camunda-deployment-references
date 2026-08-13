@@ -131,3 +131,7 @@ camunda-platform-helm/**
 
 # Exclude actionlint binary
 actionlint
+
+# Python bytecode cache
+__pycache__/
+*.pyc

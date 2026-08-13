@@ -63,6 +63,22 @@ repos:
             types: [terraform]
             pass_filenames: false
 
+          - id: cleanup-coverage
+            name: Daily cleanups cover every test scenario
+            entry: .lint/cleanup-coverage/check-cleanup-coverage.py
+            language: script
+            # yamllint disable-line rule:line-length
+            files: ^\.github/(workflows/.*\.yml|workflows-config/.*/test_matrix\.yml)$|^\.lint/cleanup-coverage/
+            pass_filenames: false
+
+          - id: python-unittest-cleanup-coverage
+            name: Python unit tests (cleanup coverage)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/cleanup-coverage -p 'test_*.py'
+            language: system
+            files: ^\.lint/cleanup-coverage/.*\.py$
+            pass_filenames: false
+
     - repo: https://github.com/tekwizely/pre-commit-golang
       rev: v1.0.0-rc.4
       hooks:
