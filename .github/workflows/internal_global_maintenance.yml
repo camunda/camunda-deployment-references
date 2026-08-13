@@ -24,6 +24,11 @@ name: Internal - Global - Maintenance
 #               minted last, after the untrusted patch has been measured and
 #               applied.
 #
+#               Its steps live in infraex-common-config's commit-patch-global.yml,
+#               shared with lint-global's auto-fix. A remote workflow pinned to a
+#               SHA is fetched at that pin rather than from this branch, so it is
+#               not branch code -- unlike `uses: ./...`, which would be.
+#
 # Before the split both lived in one job, so a dependency update could execute
 # arbitrary code next to a GitHub App token with write access to this repository.
 # That is the shape of INC-7027, where a malicious payload reached a Renovate pull
@@ -84,6 +89,10 @@ jobs:
             && github.event.pull_request.head.repo.full_name == github.repository
         outputs:
             changes: ${{ steps.build-patch.outputs.changes }}
+            # Published rather than repeated in the `commit` call: job-level `with:` cannot
+            # read the `env` context, and two hardcoded copies of an artifact name drift.
+            artifact-name: ${{ steps.build-patch.outputs.artifact-name }}
+            patch-file-name: ${{ steps.build-patch.outputs.patch-file-name }}
         steps:
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -147,6 +156,11 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  # Emitted unconditionally, before the early exit: the `commit` job reads them
+                  # from this job's outputs.
+                  echo "artifact-name=${PATCH_ARTIFACT_NAME}" | tee -a "$GITHUB_OUTPUT"
+                  echo "patch-file-name=${PATCH_FILE_NAME}" | tee -a "$GITHUB_OUTPUT"
+
                   # `git add -A` honours .gitignore, so terraform provider caches and
                   # state files stay out of the patch.
                   git add -A
@@ -186,158 +200,35 @@ jobs:
 
     commit:
         name: Commit maintenance changes
-        runs-on: ubuntu-latest
         needs: regenerate
         if: needs.regenerate.outputs.changes == 'true'
-        permissions:
-            contents: read # the write is carried by the app token, not by GITHUB_TOKEN
-        steps:
-            # No step in this job may run code from the pull request: that is the whole
-            # point of the split. Keep it to SHA-pinned third-party actions and git.
-            - name: Checkout the pull request branch
-              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-              with:
-                  # The exact commit `regenerate` built the patch from. The job's own
-                  # GITHUB_TOKEN is enough to read it, and the commit is created through the
-                  # GitHub API by the last step, which receives the app token explicitly, so no
-                  # write credential has to exist yet.
-                  ref: ${{ github.event.pull_request.head.sha }}
-                  persist-credentials: false
-
-            - name: Download the patch
-              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-              with:
-                  name: ${{ env.PATCH_ARTIFACT_NAME }}
-                  path: ${{ runner.temp }}
-
-            - name: Check the patch is safe to auto-commit
-              # The patch content is untrusted: it was produced by branch code in the
-              # `regenerate` job. What is trustworthy here is the toolchain measuring it --
-              # no branch code has run on this runner, so `git`, `wc` and `grep` cannot
-              # have been shimmed to under-report.
-              run: |
-                  set -euo pipefail
-
-                  patch_path="${RUNNER_TEMP}/${PATCH_FILE_NAME}"
-
-                  numstat=$(git apply --numstat --binary "$patch_path")
-                  bytes=$(wc -c < "$patch_path" | tr -d ' ')
-                  files=$(printf '%s\n' "$numstat" | grep -c . || true)
-                  echo "Patch: ${files} file(s), ${bytes} byte(s)."
-                  printf '%s\n' "$numstat"
-
-                  if [ "$bytes" -gt "$MAX_PATCH_BYTES" ]; then
-                      echo "::error::The maintenance patch is ${bytes} bytes, over the ${MAX_PATCH_BYTES}-byte limit; not auto-committing it."
-                      echo "::error::Run 'go mod tidy' and 'just regenerate-golden-file-all' locally and commit the result yourself, or raise MAX_PATCH_BYTES."
-                      exit 1
-                  fi
-
-                  # getsentry/action-github-commit sends every file to the API as
-                  # Buffer.from(content).toString(), i.e. decoded as UTF-8, and hardcodes mode
-                  # 100644. Binary content comes out mangled and permissions are lost. The
-                  # patch itself carries both faithfully -- it is built and applied with
-                  # --binary -- so nothing upstream of here notices; refuse instead of
-                  # producing a commit that is quietly wrong.
-                  #
-                  # Binary hunks report "-" for both counts in --numstat.
-                  if printf '%s\n' "$numstat" | awk '$1 == "-" && $2 == "-" { found = 1 } END { exit !found }'; then
-                      echo "::error::The patch changes binary files, which the commit step would corrupt."
-                      echo "::error::Run the maintenance commands locally and commit the result yourself."
-                      exit 1
-                  fi
-
-                  if grep -qE '^(old|new) mode ' "$patch_path" \
-                     || grep -E '^new file mode ' "$patch_path" | grep -qv ' 100644$'; then
-                      echo "::error::The patch changes file modes, which the commit step would flatten to 100644."
-                      echo "::error::Run the maintenance commands locally and commit the result yourself."
-                      exit 1
-                  fi
-
-                  # The maintenance commands regenerate golden plans and Go module files. They have no business rewriting CI
-                  # logic, so a patch that does is either a broken recipe or a dependency writing
-                  # itself a workflow. That matters because the result lands on the pull request
-                  # branch as an app commit, after any review already given: unless the branch
-                  # requires re-approval on push, an approval predating it still stands.
-                  #
-                  # Scoped to the CI entrypoints rather than all of `.github/`, which cannot be
-                  # refused: .github/skills/ci-feedback-loop/go.mod is a real module and
-                  # `go mod tidy` legitimately updates it.
-                  # `cut -f3-` keeps the whole path field, so a rename with either side inside
-                  # those directories is caught too.
-                  if printf '%s\n' "$numstat" | cut -f3- | grep -qE '\.github/(workflows|actions)/|(^|/)\.gitmodules$'; then
-                      echo "::error::The patch touches CI definitions (.github/workflows, .github/actions or .gitmodules); maintenance never needs to."
-                      echo "::error::Inspect the pull request: this is a broken recipe, or a dependency writing itself CI logic."
-                      exit 1
-                  fi
-
-            - name: Apply the patch
-              run: |
-                  set -euo pipefail
-
-                  patch_path="${RUNNER_TEMP}/${PATCH_FILE_NAME}"
-
-                  # `git apply` refuses paths outside the working tree, so the patch cannot
-                  # reach the runner's filesystem. It is applied, never executed.
-                  #
-                  # The changes are left unstaged on purpose: action-github-commit collects
-                  # them with `git ls-files -om`, which compares the working tree against
-                  # the index.
-                  git apply --stat --binary "$patch_path"
-                  git apply --check --binary "$patch_path"
-                  if ! git apply --binary "$patch_path"; then
-                      echo "::error::Could not apply the maintenance patch, most likely because the branch moved between jobs. Re-run the workflow."
-                      exit 1
-                  fi
-
-            - name: Check the branch has not moved
-              # `git apply` matches context, not position, so a patch built from an older tree
-              # can still apply cleanly to a newer one. And the commit step takes its parent
-              # from the remote branch as it stands at that moment while sending the working
-              # tree's file contents: if the branch was rebased while this run was working,
-              # that would quietly overwrite the newer version of every file in the patch.
-              #
-              # This narrows the window rather than closing it -- the commit call re-reads the
-              # ref seconds later and there is no compare-and-swap to hand -- but it turns the
-              # likely case, a push during the minutes this workflow takes, from a silent bad
-              # commit into a loud failure. The push that moved the branch has started its own
-              # run, which redoes the work.
-              env:
-                  GH_TOKEN: ${{ github.token }}
-                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-                  HEAD_REF: ${{ github.event.pull_request.head.ref }}
-              run: |
-                  set -euo pipefail
-
-                  current=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/${HEAD_REF}" --jq '.object.sha')
-                  if [ "$current" != "$HEAD_SHA" ]; then
-                      echo "::error::${HEAD_REF} moved from ${HEAD_SHA} to ${current} while maintenance was running; not committing a patch built from the old tree."
-                      exit 1
-                  fi
-                  echo "${HEAD_REF} is still at ${HEAD_SHA}."
-
-            # Minted last, deliberately: the token only needs to exist for the commit call,
-            # so it is not alive while the untrusted patch is downloaded, measured and
-            # applied.
-            - name: Generate token for GitHub
-              id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
-              with:
-                  github-app-id-vault-key: GITHUB_APP_ID
-                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
-                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
-                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
-                  # Pin the installation token to this repository rather than relying on
-                  # the composite action's default, which derives the same value from
-                  # `github.repository`. Identical scope today; stated so it cannot drift
-                  # if that default ever changes.
-                  repositories: ${{ github.event.repository.name }}
-                  vault-auth-method: approle
-                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  vault-url: ${{ secrets.VAULT_ADDR }}
-
-            - name: Commit changes
-              uses: getsentry/action-github-commit@5972d5f578ad77306063449e718c0c2a6fbc4ae1 # main
-              with:
-                  github-token: ${{ steps.generate-github-token.outputs.token }}
-                  message: 'chore: update from scheduled maintenance (go mod tidy & just regenerate)'
+        # The privileged half of the split, shared with lint-global's auto-fix. It downloads the
+        # patch, refuses what it should not commit, applies it, mints a repository-scoped app
+        # token last and commits through the API. It runs no repository code -- which is the
+        # whole point, since everything that produced this patch ran in `regenerate`.
+        uses: camunda/infraex-common-config/.github/workflows/commit-patch-global.yml@4f41fc83a003370fdba17e7cc5a34840640e1248 # 2.3.2
+        with:
+            artifact-name: ${{ needs.regenerate.outputs.artifact-name }}
+            patch-file-name: ${{ needs.regenerate.outputs.patch-file-name }}
+            head-sha: ${{ github.event.pull_request.head.sha }}
+            head-ref: ${{ github.event.pull_request.head.ref }}
+            commit-message: 'chore: update from scheduled maintenance (go mod tidy & just regenerate)'
+            # Deliberately loose: a full regeneration rewrites over a megabyte of pretty-printed
+            # plan JSON, so this catches a runaway -- a .gitignore miss dumping provider binaries
+            # into the patch -- not a targeted payload, which needs three lines.
+            max-patch-bytes: 10485760
+            # Disabled: golden plans are machine-written JSON, so a changed-line count measures
+            # nothing useful and any threshold tight enough to be readable refuses every
+            # legitimate provider bump.
+            max-changed-lines: 0
+            # Neither `go mod tidy` nor `just regenerate-golden-file-all` has any reason to write
+            # CI definitions, and the result lands as an app commit after any review already
+            # given. Not all of `.github/`: .github/skills/ci-feedback-loop/go.mod is a real
+            # module that `go mod tidy` legitimately updates.
+            refuse-paths-regex: \.github/(workflows|actions)/|(^|/)\.gitmodules$
+        secrets:
+            # Mapped rather than inherited: the callee names its secrets vault-addr and so on,
+            # while this repository supplies VAULT_ADDR.
+            vault-addr: ${{ secrets.VAULT_ADDR }}
+            vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+            vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
