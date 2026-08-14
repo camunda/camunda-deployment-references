@@ -336,6 +336,9 @@ jobs:
             CAMUNDA_NAMESPACE: camunda
             # Do not change this secret name without updating manifests that reference this TLS secret
             WILDCARD_TLS_SECRET_NAME: camunda-tls
+        permissions:
+            contents: read
+            pull-requests: write # internal-helm-deprecation-check upserts a comment on the pull request
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
