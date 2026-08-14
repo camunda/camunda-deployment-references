@@ -91,6 +91,7 @@ jobs:
         permissions:
             contents: read
             id-token: write # required for teleport-actions/auth-k8s
+            pull-requests: write # internal-multi-region-tests -> internal-helm-deprecation-check upserts a comment
         steps:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

@@ -254,6 +254,9 @@ jobs:
         timeout-minutes: 120
         env:
             CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-multi-region-tests -> internal-helm-deprecation-check upserts a comment
         steps:
             ################## Checkout ##################
             - name: Checkout repository
