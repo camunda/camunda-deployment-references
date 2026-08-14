@@ -76,7 +76,7 @@ runs:
 
               if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${INPUTS_REF_ARCH}" != "" ]]; then
                 echo "Filtering based on supplied ref_arch: ${INPUTS_REF_ARCH}"
-                platform_matrix="$(echo "${platform_matrix}" | yq '(.scenario |= map(select(.name == "${INPUTS_REF_ARCH}")))' -o=json)"
+                platform_matrix="$(echo "${platform_matrix}" | yq '(.scenario |= map(select(.name == env(INPUTS_REF_ARCH))))' -o=json)"
               fi
 
               # Add shortName (short SHA of scenario.name)
