@@ -89,6 +89,14 @@
     {
       "version": "0.20.1-debian-12-r1",
       "newDigest": "sha256:a1d6ad81cfeead9ec853fb80b4b6b3649ae00e3d8ee247410a3d049ea0671c21"
+    },
+    {
+      "version": "0.20.1-debian-12-r2",
+      "newDigest": "sha256:d6fe09fc3b924c0eb473e3b65641bbbce489204689469962f3e4fcc83bf8a3f2"
+    },
+    {
+      "version": "0.20.1-debian-12-r3",
+      "newDigest": "sha256:29cf0a9b9c56b3480607c74058528fc1848b66f64a4fceb52642d58c3849e7a2"
     }
   ]
 }
