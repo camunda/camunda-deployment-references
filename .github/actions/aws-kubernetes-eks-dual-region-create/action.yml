@@ -86,7 +86,7 @@ runs:
               raw-tags: ${{ inputs.tags }}
         - name: Export Cluster Name
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               echo "CLUSTER_NAME=${INPUTS_CLUSTER_NAME}" >> "$GITHUB_ENV"
           env:
               INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}

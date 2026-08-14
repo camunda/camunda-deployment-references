@@ -18,7 +18,7 @@ runs:
         - name: Extract workflow file name
           id: extract_workflow_name
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               workflow_file_name=$(echo "${GITHUB_WORKFLOW_REF}" | sed 's/@.*//')

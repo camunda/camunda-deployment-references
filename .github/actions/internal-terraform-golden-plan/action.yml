@@ -53,7 +53,7 @@ runs:
 
         - name: Compare Terraform plan with golden file
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               delta "${INPUTS_MODULE_DIR}test/golden/tfplan-golden.json" "${INPUTS_MODULE_DIR}compare/tfplan-golden.json"
@@ -66,7 +66,7 @@ runs:
         - name: Manage Terraform diff comment
           if: always() && github.event_name == 'pull_request'
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               diff_comment_url=$(gh pr view "${{ github.event.pull_request.number }}" --json comments \

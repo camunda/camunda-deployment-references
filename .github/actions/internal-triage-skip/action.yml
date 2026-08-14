@@ -35,7 +35,7 @@ runs:
                 echo "[debug] pull_request.base.ref='${GITHUB_EVENT_PULL_REQUEST_BASE_REF}'"
                 echo "[debug] pull_request.title='${GITHUB_EVENT_PULL_REQUEST_TITLE}'"
                 echo "[debug] Labels on PR:"
-                echo '${{ toJSON(github.event.pull_request.labels.*.name) }}' | jq -r '.[]' || true
+                printf '%s\n' "${GITHUB_EVENT_PULL_REQUEST_LABELS}" | jq -r '.[]' || true
               elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
                 echo "[debug] workflow_dispatch inputs (raw JSON):"
                 if [[ -f "$GITHUB_EVENT_PATH" ]]; then
@@ -52,6 +52,7 @@ runs:
               GITHUB_EVENT_PULL_REQUEST_HEAD_REF: ${{ github.event.pull_request.head.ref }}
               GITHUB_EVENT_PULL_REQUEST_BASE_REF: ${{ github.event.pull_request.base.ref }}
               GITHUB_EVENT_PULL_REQUEST_TITLE: ${{ github.event.pull_request.title }}
+              GITHUB_EVENT_PULL_REQUEST_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
 
         - name: Generate skip labels list
           id: generate_labels
@@ -351,7 +352,7 @@ runs:
           shell: bash
           env:
               GH_TOKEN: ${{ github.token }}
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               if [[ "${{ github.event_name }}" != "pull_request" ]]; then
