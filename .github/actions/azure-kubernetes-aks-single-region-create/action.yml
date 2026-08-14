@@ -224,7 +224,7 @@ runs:
           with:
               working-directory: ${{ env.TF_MODULE_DIR }}
               plan-extra-args: |
-                  -var-file=terraform.tfvars \
+                  -var-file=terraform.tfvars
                   -var-file="${{ inputs.tfvars }}"
 
         - name: Login and generate kubeconfig
