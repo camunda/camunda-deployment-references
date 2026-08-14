@@ -164,9 +164,9 @@ jobs:
                   ci_metadata=$(jq -c -n \
                     --arg run_id "${{ github.run_id }}" \
                     --arg run_number "${{ github.run_number }}" \
-                    --arg workflow "${{ github.workflow }}" \
-                    --arg actor "${{ github.actor }}" \
-                    --arg ref "${{ github.ref }}" \
+                    --arg workflow "${GITHUB_WORKFLOW}" \
+                    --arg actor "${GITHUB_ACTOR}" \
+                    --arg ref "${GITHUB_REF}" \
                     --arg sha "${{ github.sha }}" \
                     --arg repository "${{ github.repository }}" \
                     --arg event_name "${{ github.event_name }}" \

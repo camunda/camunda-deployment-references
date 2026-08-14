@@ -114,22 +114,29 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME}/"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
 
-              echo "TF_DIR_CLUSTER=${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/" >> "$GITHUB_ENV"
-              echo "TF_DIR_VPN=${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/vpn/" >> "$GITHUB_ENV"
-              echo "TF_REF_ARCH_DIR=${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/" >> "$GITHUB_ENV"
+              echo "TF_DIR_CLUSTER=${INPUTS_TF_MODULES_PATH}/aws/kubernetes/${INPUTS_REF_ARCH}/terraform/cluster/" >> "$GITHUB_ENV"
+              echo "TF_DIR_VPN=${INPUTS_TF_MODULES_PATH}/aws/kubernetes/${INPUTS_REF_ARCH}/terraform/vpn/" >> "$GITHUB_ENV"
+              echo "TF_REF_ARCH_DIR=${INPUTS_TF_MODULES_PATH}/aws/kubernetes/${INPUTS_REF_ARCH}/" >> "$GITHUB_ENV"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
+              INPUTS_REF_ARCH: ${{ inputs.ref-arch }}
 
 
         - name: Sanitize Tags
@@ -181,14 +188,14 @@ runs:
 
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(eks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
-                     -e 's/\(eks_cluster_region\s*=\s*"\)[^"]*\("\)/\1${{ inputs.aws-region }}\2/' \
-                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
-                     -e 's/\(single_nat_gateway\s*=\s*"\)[^"]*\("\)/\1${{ inputs.single-nat-gateway }}\2/' \
+              sed -i -e 's/\(eks_cluster_name\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_CLUSTER_NAME}"'\2/' \
+                     -e 's/\(eks_cluster_region\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_AWS_REGION}"'\2/' \
+                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_KUBERNETES_VERSION}"'\2/' \
+                     -e 's/\(single_nat_gateway\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_SINGLE_NAT_GATEWAY}"'\2/' \
                      cluster.tf
 
-              if [ -n "${{ inputs.private-vpc }}" ]; then
-                sed -i -E "s/(^\s*private_vpc\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
+              if [ -n "${INPUTS_PRIVATE_VPC}" ]; then
+                sed -i -E "s/(^\s*private_vpc\s*=\s*)[a-z]+/\1${INPUTS_PRIVATE_VPC}/" cluster.tf
               else
                 echo "No private-vpc value provided, skipping private modification."
               fi
@@ -197,7 +204,7 @@ runs:
               # cost-efficient SPOT capacity with diversified instance types. The reference
               # cluster.tf passes these as literal module arguments (not wired to root
               # variables), so there is no -var to override; patch the file in place instead.
-              _np_capacity_type="${{ inputs.np-capacity-type }}"
+              _np_capacity_type="${INPUTS_NP_CAPACITY_TYPE}"
               if [ -n "${_np_capacity_type}" ]; then
                 # Validate early so a typo fails fast with a clear message instead of a
                 # cryptic Terraform error (or a silently wrong capacity type) later on.
@@ -207,7 +214,7 @@ runs:
                 fi
                 sed -i -E "s/(np_capacity_type\s*=\s*\")[^\"]*(\")/\1${_np_capacity_type}\2/" cluster.tf
               fi
-              _np_instance_types="${{ inputs.np-instance-types }}"
+              _np_instance_types="${INPUTS_NP_INSTANCE_TYPES}"
               if [ -n "${_np_instance_types}" ]; then
                 # Convert the comma-separated list into an HCL list literal, trimming
                 # surrounding whitespace and dropping empty entries so a loosely formatted
@@ -241,9 +248,9 @@ runs:
               cat cluster.tf
 
               # Conditionally configure Aurora PostgreSQL
-              if [[ "${{ inputs.deploy-aurora }}" == "true" ]]; then
+              if [[ "${INPUTS_DEPLOY_AURORA}" == "true" ]]; then
                   echo "Configuring Aurora PostgreSQL database..."
-                  sed -i -e 's/\(aurora_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-pg\2/' \
+                  sed -i -e 's/\(aurora_cluster_name\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_CLUSTER_NAME}"'-pg\2/' \
                          db.tf
 
                   echo "Displaying templated db.tf file:"
@@ -258,9 +265,9 @@ runs:
               fi
 
               # Conditionally configure OpenSearch
-              if [[ "${{ inputs.deploy-opensearch }}" == "true" ]]; then
+              if [[ "${INPUTS_DEPLOY_OPENSEARCH}" == "true" ]]; then
                   echo "Configuring OpenSearch domain..."
-                  sed -i -e 's/\(opensearch_domain_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-os\2/' \
+                  sed -i -e 's/\(opensearch_domain_name\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_CLUSTER_NAME}"'-os\2/' \
                          opensearch.tf
                   echo "Displaying templated opensearch.tf file:"
                   cat opensearch.tf
@@ -274,6 +281,16 @@ runs:
               fi
 
               terraform plan -no-color -var-file=terraform-cluster.tfvars -out tf.plan
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+              INPUTS_KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
+              INPUTS_SINGLE_NAT_GATEWAY: ${{ inputs.single-nat-gateway }}
+              INPUTS_PRIVATE_VPC: ${{ inputs.private-vpc }}
+              INPUTS_NP_CAPACITY_TYPE: ${{ inputs.np-capacity-type }}
+              INPUTS_NP_INSTANCE_TYPES: ${{ inputs.np-instance-types }}
+              INPUTS_DEPLOY_AURORA: ${{ inputs.deploy-aurora }}
+              INPUTS_DEPLOY_OPENSEARCH: ${{ inputs.deploy-opensearch }}
 
         - name: Terraform Apply - Cluster
           id: apply-cluster
@@ -346,13 +363,15 @@ runs:
               ls
 
               sed -i -E \
-                -e "s/(^\s*vpn_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.cluster-name }}-vpn\2/" \
+                -e "s/(^\s*vpn_name\s*=\s*\")[^\"]*(\")/\1${INPUTS_CLUSTER_NAME}-vpn\2/" \
                 vpn.tf
 
               echo "Displaying templated vpn.tf file:"
               cat vpn.tf
 
               terraform plan -no-color -var-file=terraform-vpn.tfvars -out vpn.plan
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Terraform Apply - VPN
           id: apply-vpn
@@ -415,10 +434,13 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              aws eks update-kubeconfig --region ${{ inputs.aws-region }} --name ${{ inputs.cluster-name }} --alias ${{ inputs.cluster-name }}
+              aws eks update-kubeconfig --region ${INPUTS_AWS_REGION} --name ${INPUTS_CLUSTER_NAME} --alias ${INPUTS_CLUSTER_NAME}
 
               kubectl config current-context
               kubectl get nodes
+          env:
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Apply and verify storage class
           shell: bash
