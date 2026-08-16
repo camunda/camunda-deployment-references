@@ -129,7 +129,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -197,7 +197,7 @@ jobs:
         # patch, refuses what it should not commit, applies it, mints a repository-scoped app
         # token last and commits through the API. It runs no repository code -- which is the
         # whole point, since everything that produced this patch ran in `regenerate`.
-        uses: camunda/infraex-common-config/.github/workflows/commit-patch-global.yml@4f41fc83a003370fdba17e7cc5a34840640e1248 # 2.3.2
+        uses: camunda/infraex-common-config/.github/workflows/commit-patch-global.yml@887ed647c59e94535464fdfe2cfa0f33cffee468 # 2.3.3
         with:
             # Literals, deliberately, and not read from `regenerate`'s outputs: that job runs
             # branch code, which can write to $GITHUB_ENV and so influence anything it
