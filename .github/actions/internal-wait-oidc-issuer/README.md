@@ -33,7 +33,7 @@ workaround.
 | `namespace` | <p>Kubernetes namespace of the deployed release.</p> | `false` | `camunda` |
 | `release-name` | <p>Helm release name, used to target the workloads to bounce (<code>statefulset/&lt;release&gt;-zeebe</code>, <code>deployment/&lt;release&gt;-connectors</code>).</p> | `false` | `camunda` |
 | `insecure` | <p>Set to 'true' to skip TLS verification of the issuer (e.g. when the public endpoint uses a CI internal-CA / Vault wildcard certificate).</p> | `false` | `""` |
-| `timeout-seconds` | <p>Total wall-clock budget in seconds. Fail-open: on timeout the action emits a warning and exits 0 so it never blocks the pipeline.</p> | `false` | `600` |
+| `timeout-seconds` | <p>Total wall-clock budget in seconds, covering both the issuer poll and the rollout wait that follows the optional workload bounce. Fail-open: on timeout the action emits a warning and exits 0 so it never blocks the pipeline.</p> | `false` | `600` |
 | `restart-workloads` | <p>Bounce the OIDC workloads (zeebe/connectors) once the issuer is reachable. Set to 'false' to wait only — e.g. when a later step refreshes CoreDNS and restarts the workloads itself (so they are not bounced before in-cluster DNS is fixed).</p> | `false` | `true` |
 
 
@@ -74,8 +74,10 @@ This action is a `composite` action.
     # Default: ""
 
     timeout-seconds:
-    # Total wall-clock budget in seconds. Fail-open: on timeout the action
-    # emits a warning and exits 0 so it never blocks the pipeline.
+    # Total wall-clock budget in seconds, covering both the issuer poll and
+    # the rollout wait that follows the optional workload bounce. Fail-open:
+    # on timeout the action emits a warning and exits 0 so it never blocks
+    # the pipeline.
     #
     # Required: false
     # Default: 600
