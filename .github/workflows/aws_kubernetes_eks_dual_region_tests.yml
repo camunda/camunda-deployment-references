@@ -88,7 +88,7 @@ jobs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         permissions:
             contents: read
-            pull-requests: write # comments and labels, via internal-triage-skip / internal-apply-skip-label
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
@@ -604,7 +604,7 @@ jobs:
             - cleanup-clusters
         permissions:
             contents: read
-            pull-requests: write # comments and labels, via internal-triage-skip / internal-apply-skip-label
+            pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
