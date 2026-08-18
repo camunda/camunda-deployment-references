@@ -52,8 +52,10 @@ runs:
               done < <(printf '%s' "${INPUTS_PLAN_EXTRA_ARGS}" | xargs -n1 printf '%s\n' 2>/dev/null)
 
               # Run plan with detailed exit code. 0 = no changes, 2 = changes, 1 = error
+              # `${EXTRA_ARGS[@]+...}` guards the expansion: `set -u` treats an empty
+              # array as unbound before bash 4.4, and the default input is empty.
               set +e
-              terraform plan -no-color -detailed-exitcode "${EXTRA_ARGS[@]}" > "$PLAN_OUT" 2>&1
+              terraform plan -no-color -detailed-exitcode ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} > "$PLAN_OUT" 2>&1
               code=$?
               set -e
 
