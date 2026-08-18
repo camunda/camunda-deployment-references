@@ -364,7 +364,7 @@ runs:
               echo "Checking deployed values for unknown configuration keys..."
 
               WORK_DIR=$(mktemp -d)
-              trap 'rm -rf "'"${WORK_DIR}"'"' EXIT
+              trap 'rm -rf "${WORK_DIR}"' EXIT
 
               # Extract chart name and version from the deployed release
               CHART_INFO=$(helm list --namespace "${NAMESPACE}" "${CONTEXT_ARGS[@]}" \
