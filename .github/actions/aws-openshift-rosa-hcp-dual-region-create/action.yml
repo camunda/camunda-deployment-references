@@ -152,12 +152,14 @@ runs:
           shell: bash
           working-directory: /tmp
           run: |
-              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${INPUTS_ROSA_CLI_VERSION}/rosa-linux.tar.gz"
               tar -xvf rosa-linux.tar.gz
               sudo mv rosa /usr/local/bin/rosa
               chmod +x /usr/local/bin/rosa
               rm -f rosa-linux.tar.gz
               rosa version
+          env:
+              INPUTS_ROSA_CLI_VERSION: ${{ inputs.rosa-cli-version }}
 
         - name: Install CLI tools from OpenShift Mirror
           uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -168,18 +170,18 @@ runs:
           id: construct_azs
           shell: bash
           run: |
-              IFS=',' read -r -a az_cluster_1 <<< "${{ inputs.availability-zones-cluster-1 }}"
-              IFS=',' read -r -a az_cluster_2 <<< "${{ inputs.availability-zones-cluster-2 }}"
+              IFS=',' read -r -a az_cluster_1 <<< "${INPUTS_AVAILABILITY_ZONES_CLUSTER_1}"
+              IFS=',' read -r -a az_cluster_2 <<< "${INPUTS_AVAILABILITY_ZONES_CLUSTER_2}"
 
               FULL_AZS_CLUSTER_1=()
               FULL_AZS_CLUSTER_2=()
 
               for az in "${az_cluster_1[@]}"; do
-                FULL_AZS_CLUSTER_1+=("\"${{ inputs.aws-region-cluster-1 }}${az}\"")
+                FULL_AZS_CLUSTER_1+=("\"${INPUTS_AWS_REGION_CLUSTER_1}${az}\"")
               done
 
               for az in "${az_cluster_2[@]}"; do
-                FULL_AZS_CLUSTER_2+=("\"${{ inputs.aws-region-cluster-2 }}${az}\"")
+                FULL_AZS_CLUSTER_2+=("\"${INPUTS_AWS_REGION_CLUSTER_2}${az}\"")
               done
 
               # Join the AZs with commas
@@ -188,13 +190,20 @@ runs:
 
               echo "FULL_AZS_CLUSTER_1=$FULL_AZS_CLUSTER_1_STRING" | tee -a "$GITHUB_ENV"
               echo "FULL_AZS_CLUSTER_2=$FULL_AZS_CLUSTER_2_STRING" | tee -a "$GITHUB_ENV"
+          env:
+              INPUTS_AVAILABILITY_ZONES_CLUSTER_1: ${{ inputs.availability-zones-cluster-1 }}
+              INPUTS_AVAILABILITY_ZONES_CLUSTER_2: ${{ inputs.availability-zones-cluster-2 }}
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
+              INPUTS_AWS_REGION_CLUSTER_2: ${{ inputs.aws-region-cluster-2 }}
 
 
         - name: Login to Red Hat Hybrid Cloud Console
           shell: bash
           run: |
-              rosa login --token="${{ inputs.rh-token }}"
+              rosa login --token="${INPUTS_RH_TOKEN}"
               rosa whoami
+          env:
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
 
         - name: Verify and enable HCP ROSA on AWS Marketplace
           shell: bash
@@ -207,9 +216,9 @@ runs:
           id: set-terraform-variables
           shell: bash
           run: |
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}/"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME_1}-oOo-${INPUTS_CLUSTER_NAME_2}/"
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
@@ -224,23 +233,31 @@ runs:
               # by every terraform command in this action.
               echo "TF_REGISTRY_DISCOVERY_RETRY=5" >> "$GITHUB_ENV"
               echo "TF_REGISTRY_CLIENT_TIMEOUT=20" >> "$GITHUB_ENV"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_CLUSTER_NAME_1: ${{ inputs.cluster-name-1 }}
+              INPUTS_CLUSTER_NAME_2: ${{ inputs.cluster-name-2 }}
 
         - name: Check if S3 bucket exists
           id: create-s3-bucket
           shell: bash
           run: |
-              if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
+              if aws s3api head-bucket --bucket ${INPUTS_S3_BACKEND_BUCKET} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
                 echo "Bucket already exists"
               else
                 echo "Bucket does not exist, creating..."
-                aws s3api create-bucket --bucket ${{ inputs.s3-backend-bucket }} \
+                aws s3api create-bucket --bucket ${INPUTS_S3_BACKEND_BUCKET} \
                     --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
                     --create-bucket-configuration LocationConstraint=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
               fi
 
-              aws s3api put-public-access-block --bucket ${{ inputs.s3-backend-bucket }} \
+              aws s3api put-public-access-block --bucket ${INPUTS_S3_BACKEND_BUCKET} \
                 --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
                 --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
 
       ### Clusters
 
@@ -249,6 +266,8 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
+              INPUTS_AWS_REGION_CLUSTER_2: ${{ inputs.aws-region-cluster-2 }}
           shell: bash
           run: |
               set -euo pipefail
@@ -264,8 +283,8 @@ runs:
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
                 -backend-config="key=$terraform_state_key" \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
+                -var="cluster_1_region=${INPUTS_AWS_REGION_CLUSTER_1}" \
+                -var="cluster_2_region=${INPUTS_AWS_REGION_CLUSTER_2}"
 
               terraform validate -no-color
 
@@ -280,6 +299,18 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
+              INPUTS_ADMIN_PASSWORD_CLUSTER_1: ${{ inputs.admin-password-cluster-1 }}
+              INPUTS_ADMIN_PASSWORD_CLUSTER_2: ${{ inputs.admin-password-cluster-2 }}
+              INPUTS_CLUSTER_NAME_1: ${{ inputs.cluster-name-1 }}
+              INPUTS_ADMIN_USERNAME_CLUSTER_1: ${{ inputs.admin-username-cluster-1 }}
+              INPUTS_OPENSHIFT_VERSION_CLUSTER_1: ${{ inputs.openshift-version-cluster-1 }}
+              INPUTS_REPLICAS_CLUSTER_1: ${{ inputs.replicas-cluster-1 }}
+              INPUTS_CLUSTER_NAME_2: ${{ inputs.cluster-name-2 }}
+              INPUTS_ADMIN_USERNAME_CLUSTER_2: ${{ inputs.admin-username-cluster-2 }}
+              INPUTS_OPENSHIFT_VERSION_CLUSTER_2: ${{ inputs.openshift-version-cluster-2 }}
+              INPUTS_REPLICAS_CLUSTER_2: ${{ inputs.replicas-cluster-2 }}
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
+              INPUTS_AWS_REGION_CLUSTER_2: ${{ inputs.aws-region-cluster-2 }}
           shell: bash
           run: |
               set -euo pipefail
@@ -289,22 +320,22 @@ runs:
               ls
 
               # protect sensitive values
-              echo "::add-mask::${{ inputs.admin-password-cluster-1 }}"
-              echo "::add-mask::${{ inputs.admin-password-cluster-2 }}"
+              echo "::add-mask::${INPUTS_ADMIN_PASSWORD_CLUSTER_1}"
+              echo "::add-mask::${INPUTS_ADMIN_PASSWORD_CLUSTER_2}"
 
               ## Cluster 1
 
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(rosa_cluster_1_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name-1 }}\2/' \
-                     -e 's/\(rosa_cluster_1_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password-cluster-1 }}\2/' \
-                     -e 's/\(rosa_cluster_1_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username-cluster-1 }}\2/' \
-                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version-cluster-1 }}\2/' \
+              sed -i -e 's/\(rosa_cluster_1_name\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_CLUSTER_NAME_1}"'\2/' \
+                     -e 's/\(rosa_cluster_1_admin_password\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_ADMIN_PASSWORD_CLUSTER_1}"'\2/' \
+                     -e 's/\(rosa_cluster_1_admin_username\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_ADMIN_USERNAME_CLUSTER_1}"'\2/' \
+                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_OPENSHIFT_VERSION_CLUSTER_1}"'\2/' \
                      -e "s/\(rosa_cluster_1_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_1]/" \
                      cluster_region_1.tf
 
-              if [ -n "${{ inputs.replicas-cluster-1 }}" ]; then
-                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas-cluster-1 }}/' cluster_region_1.tf
+              if [ -n "${INPUTS_REPLICAS_CLUSTER_1}" ]; then
+                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1'"${INPUTS_REPLICAS_CLUSTER_1}"'/' cluster_region_1.tf
               else
                 echo "No replicas value provided, skipping replica modification."
               fi
@@ -316,15 +347,15 @@ runs:
 
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(rosa_cluster_2_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name-2 }}\2/' \
-                     -e 's/\(rosa_cluster_2_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password-cluster-2 }}\2/' \
-                     -e 's/\(rosa_cluster_2_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username-cluster-2 }}\2/' \
-                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version-cluster-2 }}\2/' \
+              sed -i -e 's/\(rosa_cluster_2_name\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_CLUSTER_NAME_2}"'\2/' \
+                     -e 's/\(rosa_cluster_2_admin_password\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_ADMIN_PASSWORD_CLUSTER_2}"'\2/' \
+                     -e 's/\(rosa_cluster_2_admin_username\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_ADMIN_USERNAME_CLUSTER_2}"'\2/' \
+                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_OPENSHIFT_VERSION_CLUSTER_2}"'\2/' \
                      -e "s/\(rosa_cluster_2_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_2]/" \
                      cluster_region_2.tf
 
-              if [ -n "${{ inputs.replicas-cluster-2 }}" ]; then
-                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas-cluster-2 }}/' cluster_region_2.tf
+              if [ -n "${INPUTS_REPLICAS_CLUSTER_2}" ]; then
+                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1'"${INPUTS_REPLICAS_CLUSTER_2}"'/' cluster_region_2.tf
               else
                 echo "No replicas value provided, skipping replica modification."
               fi
@@ -334,8 +365,8 @@ runs:
 
               terraform plan -no-color -out clusters.plan  \
                 -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
+                -var="cluster_1_region=${INPUTS_AWS_REGION_CLUSTER_1}" \
+                -var="cluster_2_region=${INPUTS_AWS_REGION_CLUSTER_2}"
 
         - name: Terraform Apply - Clusters
           id: apply-clusters
@@ -448,10 +479,13 @@ runs:
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
                 -backend-config="key=$terraform_state_key"  \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
+                -var="cluster_1_region=${INPUTS_AWS_REGION_CLUSTER_1}" \
+                -var="cluster_2_region=${INPUTS_AWS_REGION_CLUSTER_2}"
 
               terraform validate -no-color
+          env:
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
+              INPUTS_AWS_REGION_CLUSTER_2: ${{ inputs.aws-region-cluster-2 }}
 
         - name: Terraform Plan - Peering
           id: plan-peering
@@ -463,10 +497,13 @@ runs:
 
               terraform plan -no-color -out peering.plan \
                 -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}" \
+                -var="cluster_1_region=${INPUTS_AWS_REGION_CLUSTER_1}" \
+                -var="cluster_2_region=${INPUTS_AWS_REGION_CLUSTER_2}" \
                 -var="cluster_1_vpc_id=${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}" \
                 -var="cluster_2_vpc_id=${{ steps.apply-clusters.outputs.cluster_2_vpc_id }}"
+          env:
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
+              INPUTS_AWS_REGION_CLUSTER_2: ${{ inputs.aws-region-cluster-2 }}
 
 
         - name: Terraform Apply - Peering
@@ -510,10 +547,12 @@ runs:
           shell: bash
           env:
               AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
+              INPUTS_CLUSTER_NAME_1: ${{ inputs.cluster-name-1 }}
+              INPUTS_CLUSTER_NAME_2: ${{ inputs.cluster-name-2 }}
           run: |
               set -euo pipefail
 
-              hash=$(echo -n "${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}" | sha256sum | cut -c1-8)
+              hash=$(echo -n "${INPUTS_CLUSTER_NAME_1}-oOo-${INPUTS_CLUSTER_NAME_2}" | sha256sum | cut -c1-8)
 
               terraform plan -no-color -out  backup_bucket.plan \
                 -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
@@ -545,4 +584,6 @@ runs:
           if: always() && inputs.cleanup-tf-modules-path == 'true'
           shell: bash
           run: |
-              rm -rf "${{ inputs.tf-modules-path }}"
+              rm -rf "${INPUTS_TF_MODULES_PATH}"
+          env:
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}

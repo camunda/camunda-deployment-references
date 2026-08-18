@@ -72,13 +72,13 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/${{ inputs.cluster-name }}.tfstate"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME}/${INPUTS_CLUSTER_NAME}.tfstate"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
@@ -87,6 +87,11 @@ runs:
 
               terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
               echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
 
         - name: Terraform Init
           id: init
@@ -122,28 +127,33 @@ runs:
 
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(eks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
-                     -e 's/\(eks_cluster_region\s*=\s*"\)[^"]*\("\)/\1${{ inputs.aws-region }}\2/' \
-                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
-                     -e 's/\(single_nat_gateway\s*=\s*"\)[^"]*\("\)/\1${{ inputs.single-nat-gateway }}\2/' \
+              sed -i -e 's/\(eks_cluster_name\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_CLUSTER_NAME}"'\2/' \
+                     -e 's/\(eks_cluster_region\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_AWS_REGION}"'\2/' \
+                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_KUBERNETES_VERSION}"'\2/' \
+                     -e 's/\(single_nat_gateway\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_SINGLE_NAT_GATEWAY}"'\2/' \
                      cluster.tf
 
               echo "Displaying templated cluster.tf file:"
               cat cluster.tf
 
-              sed -i -e 's/\(aurora_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-pg\2/' \
+              sed -i -e 's/\(aurora_cluster_name\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_CLUSTER_NAME}"'-pg\2/' \
                      db.tf
 
               echo "Displaying templated db.tf file:"
               cat db.tf
 
-              sed -i -e 's/\(opensearch_domain_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-os\2/' \
+              sed -i -e 's/\(opensearch_domain_name\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_CLUSTER_NAME}"'-os\2/' \
                      opensearch.tf
 
               echo "Displaying templated opensearch.tf file:"
               cat opensearch.tf
 
               terraform plan -no-color -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' -out tf.plan
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+              INPUTS_KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
+              INPUTS_SINGLE_NAT_GATEWAY: ${{ inputs.single-nat-gateway }}
 
         - name: Terraform Apply
           id: apply
@@ -158,7 +168,10 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              aws eks update-kubeconfig --region ${{ inputs.aws-region }} --name ${{ inputs.cluster-name }} --alias ${{ inputs.cluster-name }}
+              aws eks update-kubeconfig --region ${INPUTS_AWS_REGION} --name ${INPUTS_CLUSTER_NAME} --alias ${INPUTS_CLUSTER_NAME}
 
               kubectl config current-context
               kubectl get nodes
+          env:
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}

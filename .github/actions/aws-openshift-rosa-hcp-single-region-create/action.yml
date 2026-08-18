@@ -125,12 +125,14 @@ runs:
           run: |
               set -euo pipefail
 
-              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${INPUTS_ROSA_CLI_VERSION}/rosa-linux.tar.gz"
               tar -xvf rosa-linux.tar.gz
               sudo mv rosa /usr/local/bin/rosa
               chmod +x /usr/local/bin/rosa
               rm -f rosa-linux.tar.gz
               rosa version
+          env:
+              INPUTS_ROSA_CLI_VERSION: ${{ inputs.rosa-cli-version }}
 
         - name: Install CLI tools from OpenShift Mirror
           uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -143,9 +145,9 @@ runs:
           run: |
               set -euo pipefail
 
-              echo "AWS_REGION=${{ inputs.aws-region }}" | tee -a "$GITHUB_ENV"
+              echo "AWS_REGION=${INPUTS_AWS_REGION}" | tee -a "$GITHUB_ENV"
 
-              IFS=',' read -r -a az_letters <<< "${{ inputs.availability-zones }}"
+              IFS=',' read -r -a az_letters <<< "${INPUTS_AVAILABILITY_ZONES}"
               FULL_AZS=()
               for az in "${az_letters[@]}"; do
                 FULL_AZS+=("\"${AWS_REGION}${az}\"")  # Add double quotes around each AZ
@@ -154,6 +156,9 @@ runs:
               # Join the AZs with commas
               FULL_AZS_STRING=$(IFS=,; echo "${FULL_AZS[*]}")
               echo "FULL_AZS=$FULL_AZS_STRING" | tee -a "$GITHUB_ENV"
+          env:
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+              INPUTS_AVAILABILITY_ZONES: ${{ inputs.availability-zones }}
 
 
         - name: Login to Red Hat Hybrid Cloud Console
@@ -161,8 +166,10 @@ runs:
           run: |
               set -euo pipefail
 
-              rosa login --token="${{ inputs.rh-token }}"
+              rosa login --token="${INPUTS_RH_TOKEN}"
               rosa whoami
+          env:
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
 
         - name: Verify and enable HCP ROSA on AWS Marketplace
           shell: bash
@@ -179,18 +186,23 @@ runs:
           run: |
               set -euo pipefail
 
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME}/"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
 
         - name: Check if S3 bucket exists
           id: create-s3-bucket
@@ -198,18 +210,20 @@ runs:
           run: |
               set -euo pipefail
 
-              if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
+              if aws s3api head-bucket --bucket ${INPUTS_S3_BACKEND_BUCKET} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
                 echo "Bucket already exists"
               else
                 echo "Bucket does not exist, creating..."
-                aws s3api create-bucket --bucket ${{ inputs.s3-backend-bucket }} \
+                aws s3api create-bucket --bucket ${INPUTS_S3_BACKEND_BUCKET} \
                     --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
                     --create-bucket-configuration LocationConstraint=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
               fi
 
-              aws s3api put-public-access-block --bucket ${{ inputs.s3-backend-bucket }} \
+              aws s3api put-public-access-block --bucket ${INPUTS_S3_BACKEND_BUCKET} \
                 --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
                 --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
 
         - name: Terraform Init - Cluster
           id: init-cluster
@@ -244,6 +258,12 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
+              INPUTS_ADMIN_PASSWORD: ${{ inputs.admin-password }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_ADMIN_USERNAME: ${{ inputs.admin-username }}
+              INPUTS_OPENSHIFT_VERSION: ${{ inputs.openshift-version }}
+              INPUTS_REPLICAS: ${{ inputs.replicas }}
+              INPUTS_PRIVATE_VPC: ${{ inputs.private-vpc }}
           shell: bash
           run: |
               set -euo pipefail
@@ -253,25 +273,25 @@ runs:
               ls
 
               # protect sensitive values
-              echo "::add-mask::${{ inputs.admin-password }}"
+              echo "::add-mask::${INPUTS_ADMIN_PASSWORD}"
 
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(rosa_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
-                     -e 's/\(rosa_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password }}\2/' \
-                     -e 's/\(rosa_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username }}\2/' \
-                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version }}\2/' \
+              sed -i -e 's/\(rosa_cluster_name\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_CLUSTER_NAME}"'\2/' \
+                     -e 's/\(rosa_admin_password\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_ADMIN_PASSWORD}"'\2/' \
+                     -e 's/\(rosa_admin_username\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_ADMIN_USERNAME}"'\2/' \
+                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_OPENSHIFT_VERSION}"'\2/' \
                      -e "s/\(rosa_cluster_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS]/" \
                      cluster.tf
 
-              if [ -n "${{ inputs.replicas }}" ]; then
-                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas }}/' cluster.tf
+              if [ -n "${INPUTS_REPLICAS}" ]; then
+                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1'"${INPUTS_REPLICAS}"'/' cluster.tf
               else
                 echo "No replicas value provided, skipping replica modification."
               fi
 
-              if [ -n "${{ inputs.private-vpc }}" ]; then
-                sed -i -E "s/(^\s*rosa_private_cluster\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
+              if [ -n "${INPUTS_PRIVATE_VPC}" ]; then
+                sed -i -E "s/(^\s*rosa_private_cluster\s*=\s*)[a-z]+/\1${INPUTS_PRIVATE_VPC}/" cluster.tf
               else
                 echo "No private-vpc value provided, skipping private modification."
               fi
@@ -336,7 +356,7 @@ runs:
               ls
 
               sed -i -E \
-                -e "s/(^\s*vpn_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.cluster-name }}-vpn\2/" \
+                -e "s/(^\s*vpn_name\s*=\s*\")[^\"]*(\")/\1${INPUTS_CLUSTER_NAME}-vpn\2/" \
                 vpn.tf
 
               echo "Displaying templated vpn.tf file:"
@@ -346,6 +366,8 @@ runs:
                 -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var="vpc_id=${{ steps.apply-cluster.outputs.vpc_id }}" \
                 -out vpn.plan
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Terraform Apply - VPN
           id: apply-vpn
@@ -448,4 +470,6 @@ runs:
           run: |
               set -euo pipefail
 
-              rm -rf "${{ inputs.tf-modules-path }}"
+              rm -rf "${INPUTS_TF_MODULES_PATH}"
+          env:
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}

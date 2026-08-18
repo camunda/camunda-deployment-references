@@ -48,12 +48,14 @@ runs:
         - name: Install ROSA CLI
           shell: bash
           run: |
-              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${INPUTS_ROSA_CLI_VERSION}/rosa-linux.tar.gz"
               tar -xvf rosa-linux.tar.gz
               sudo mv rosa /usr/local/bin/rosa
               chmod +x /usr/local/bin/rosa
               rm -f rosa-linux.tar.gz
               rosa version
+          env:
+              INPUTS_ROSA_CLI_VERSION: ${{ inputs.rosa-cli-version }}
 
         - name: Install CLI tools from OpenShift Mirror
           uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -79,14 +81,21 @@ runs:
           id: delete_clusters
           shell: bash
           run: |
-              if [ -n "${{ inputs.tf-bucket-region }}" ]; then
-                export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
+              if [ -n "${INPUTS_TF_BUCKET_REGION}" ]; then
+                export AWS_S3_REGION="${INPUTS_TF_BUCKET_REGION}"
               fi
 
               # Use repo .tool-version as global version
               cp .tool-versions ~/.tool-versions
 
-              ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
+              ${{ github.action_path }}/scripts/destroy-clusters.sh "${INPUTS_TF_BUCKET}" \
                 ${{ github.action_path }}/../../../aws/openshift/rosa-hcp-dual-region/terraform/ /tmp/cleanup/ \
-                 ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }} \
-                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
+                 ${INPUTS_MAX_AGE_HOURS_CLUSTER} ${INPUTS_TARGET} ${INPUTS_TF_BUCKET_KEY_PREFIX} \
+                $([[ "${INPUTS_FAIL_ON_NOT_FOUND}" == "true" ]] && echo "--fail-on-not-found")
+          env:
+              INPUTS_TF_BUCKET_REGION: ${{ inputs.tf-bucket-region }}
+              INPUTS_TF_BUCKET: ${{ inputs.tf-bucket }}
+              INPUTS_MAX_AGE_HOURS_CLUSTER: ${{ inputs.max-age-hours-cluster }}
+              INPUTS_TARGET: ${{ inputs.target }}
+              INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
+              INPUTS_FAIL_ON_NOT_FOUND: ${{ inputs.fail-on-not-found }}
