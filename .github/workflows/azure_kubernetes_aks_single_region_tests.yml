@@ -2,9 +2,7 @@
 name: Tests - Integration - Azure Kubernetes AKS Single Region
 
 permissions:
-    id-token: write # this is required for azure login
-    contents: write # allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     schedule:
@@ -103,6 +101,9 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
             - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
             - name: Check labels
@@ -144,6 +145,9 @@ jobs:
         env:
             TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-${{ matrix.scenario.name }}-create/
             CAMUNDA_NAMESPACE: camunda
+        permissions:
+            contents: read
+            id-token: write # OIDC token for the cloud login in this job
         steps:
             - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
               with:
@@ -318,6 +322,9 @@ jobs:
         env:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
+        permissions:
+            contents: read
+            id-token: write # OIDC token for the cloud login in this job
         steps:
             - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -722,6 +729,9 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
 
+        permissions:
+            contents: read
+            id-token: write # OIDC token for the cloud login in this job
         steps:
             - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -796,6 +806,9 @@ jobs:
         needs:
             - integration-tests
             - cleanup-clusters
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
             - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
