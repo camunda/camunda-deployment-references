@@ -62,18 +62,23 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME}/"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" >> "$GITHUB_OUTPUT"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
 
         - name: Copy CI fixtures
           shell: bash
@@ -93,10 +98,12 @@ runs:
 
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}${{ inputs.tf-modules-name }}.tfstate" \
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}${INPUTS_TF_MODULES_NAME}.tfstate" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
 
               terraform validate -no-color
+          env:
+              INPUTS_TF_MODULES_NAME: ${{ inputs.tf-modules-name }}
 
         - name: Sanitize Tags
           id: sanitize-tags
@@ -115,12 +122,14 @@ runs:
               # e.g. target groups have a max length of 32 characters
               # with 15 characters we're adding in Terraform
               # therefore cut to 17 characters to be on the safe side
-              PREFIX=$(echo "${{ inputs.cluster-name }}" | cut -c1-17)
+              PREFIX=$(echo "${INPUTS_CLUSTER_NAME}" | cut -c1-17)
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
               prefix       = "${PREFIX}"
               EOF
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Terraform Plan
           id: plan
@@ -128,11 +137,13 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              export AWS_REGION="${{ inputs.aws-region }}"
+              export AWS_REGION="${INPUTS_AWS_REGION}"
 
               terraform plan -no-color \
                 -var-file=terraform.tfvars \
                 -out tf.plan
+          env:
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
 
         - name: Terraform Apply
           id: apply

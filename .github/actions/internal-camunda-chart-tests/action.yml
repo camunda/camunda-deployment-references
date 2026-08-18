@@ -176,36 +176,50 @@ runs:
               echo "======================================"
               echo ""
               echo "Tests enabled:"
-              echo "  - Deployment Check: ${{ inputs.enable-c8sm-deployment-check }}"
-              echo "  - Kubernetes Connectivity Check: ${{ inputs.enable-c8sm-connectivity-check }}"
-              echo "  - AWS IRSA Check: ${{ inputs.enable-c8sm-irsa-check }}"
-              echo "  - Zeebe Token Generation Check: ${{ inputs.enable-c8sm-zeebe-token-check }}"
-              echo "  - Zeebe Connectivity Check: ${{ inputs.enable-c8sm-zeebe-connectivity-check }}"
+              echo "  - Deployment Check: ${INPUTS_ENABLE_C8SM_DEPLOYMENT_CHECK}"
+              echo "  - Kubernetes Connectivity Check: ${INPUTS_ENABLE_C8SM_CONNECTIVITY_CHECK}"
+              echo "  - AWS IRSA Check: ${INPUTS_ENABLE_C8SM_IRSA_CHECK}"
+              echo "  - Zeebe Token Generation Check: ${INPUTS_ENABLE_C8SM_ZEEBE_TOKEN_CHECK}"
+              echo "  - Zeebe Connectivity Check: ${INPUTS_ENABLE_C8SM_ZEEBE_CONNECTIVITY_CHECK}"
               echo ""
               echo "Configuration:"
-              echo "  - Namespace: ${{ inputs.test-namespace }}"
-              echo "  - Release Name: ${{ inputs.test-release-name }}"
-              echo "  - Cluster Type: ${{ inputs.test-cluster-type }}"
+              echo "  - Namespace: ${INPUTS_TEST_NAMESPACE}"
+              echo "  - Release Name: ${INPUTS_TEST_RELEASE_NAME}"
+              echo "  - Cluster Type: ${INPUTS_TEST_CLUSTER_TYPE}"
               echo "  - Domain: ${{ inputs.camunda-domain || '(not configured)' }}"
-              echo "  - WebModeler Enabled: ${{ inputs.webmodeler-enabled }}"
-              echo "  - Console Enabled: ${{ inputs.console-enabled }}"
-              echo "  - Elasticsearch Enabled: ${{ inputs.elasticsearch-enabled }}"
+              echo "  - WebModeler Enabled: ${INPUTS_WEBMODELER_ENABLED}"
+              echo "  - Console Enabled: ${INPUTS_CONSOLE_ENABLED}"
+              echo "  - Elasticsearch Enabled: ${INPUTS_ELASTICSEARCH_ENABLED}"
               echo ""
               echo "======================================"
+          env:
+              INPUTS_ENABLE_C8SM_DEPLOYMENT_CHECK: ${{ inputs.enable-c8sm-deployment-check }}
+              INPUTS_ENABLE_C8SM_CONNECTIVITY_CHECK: ${{ inputs.enable-c8sm-connectivity-check }}
+              INPUTS_ENABLE_C8SM_IRSA_CHECK: ${{ inputs.enable-c8sm-irsa-check }}
+              INPUTS_ENABLE_C8SM_ZEEBE_TOKEN_CHECK: ${{ inputs.enable-c8sm-zeebe-token-check }}
+              INPUTS_ENABLE_C8SM_ZEEBE_CONNECTIVITY_CHECK: ${{ inputs.enable-c8sm-zeebe-connectivity-check }}
+              INPUTS_TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              INPUTS_TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
+              INPUTS_TEST_CLUSTER_TYPE: ${{ inputs.test-cluster-type }}
+              INPUTS_WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
+              INPUTS_CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              INPUTS_ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
 
         - name: 🔧 Configure service references
           shell: bash
           env:
               CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name }}
+              INPUTS_KEYCLOAK_SERVICE_NAME: ${{ inputs.keycloak-service-name }}
+              INPUTS_ELASTICSEARCH_SERVICE_NAME: ${{ inputs.elasticsearch-service-name }}
           run: |
               set -euo pipefail
 
               # Configure Keycloak service reference
-              KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
+              KEYCLOAK_SERVICE_INPUT="${INPUTS_KEYCLOAK_SERVICE_NAME}"
               KEYCLOAK_TARGET="${KEYCLOAK_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-keycloak:8080}"
 
               # Configure Elasticsearch service reference
-              ELASTICSEARCH_SERVICE_INPUT="${{ inputs.elasticsearch-service-name }}"
+              ELASTICSEARCH_SERVICE_INPUT="${INPUTS_ELASTICSEARCH_SERVICE_NAME}"
               ELASTICSEARCH_TARGET="${ELASTICSEARCH_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-elasticsearch:9200}"
 
               # Export service configurations for subsequent steps
@@ -222,14 +236,20 @@ runs:
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
+              INPUTS_TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              INPUTS_TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
+              INPUTS_TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ${{ inputs.tests-camunda-helm-chart-repo-path }}
+              INPUTS_ENABLE_HELM_CHART_TESTS: ${{ inputs.enable-helm-chart-tests }}
+              INPUTS_TEST_CLIENT_ID: ${{ inputs.test-client-id }}
+              INPUTS_TEST_CLIENT_SECRET: ${{ inputs.test-client-secret }}
           run: |
               set -euo pipefail
 
               # export test variables to be used in other steps
-              echo "TEST_NAMESPACE=${{ inputs.test-namespace }}" | tee -a "$GITHUB_ENV"
-              echo "TEST_CHART_NAME=${{ inputs.test-release-name }}" | tee -a "$GITHUB_ENV"
+              echo "TEST_NAMESPACE=${INPUTS_TEST_NAMESPACE}" | tee -a "$GITHUB_ENV"
+              echo "TEST_CHART_NAME=${INPUTS_TEST_RELEASE_NAME}" | tee -a "$GITHUB_ENV"
               echo "TEST_CLUSTER_TYPE=$TEST_CLUSTER_TYPE" | tee -a "$GITHUB_ENV"
-              export TESTS_CAMUNDA_HELM_CHART_REPO_PATH="${{ inputs.tests-camunda-helm-chart-repo-path }}"
+              export TESTS_CAMUNDA_HELM_CHART_REPO_PATH="${INPUTS_TESTS_CAMUNDA_HELM_CHART_REPO_PATH}"
               echo "TESTS_CAMUNDA_HELM_CHART_REPO_PATH=$TESTS_CAMUNDA_HELM_CHART_REPO_PATH" | tee -a "$GITHUB_ENV"
 
               export TEST_CHART_DIR_STATIC="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/charts/camunda-platform-$CAMUNDA_VERSION"
@@ -255,7 +275,7 @@ runs:
               echo "TEST_VALUES_BASE_DIR=$TEST_VALUES_BASE_DIR" | tee -a "$GITHUB_ENV"
 
               # replace integration with the camunda release name as part of adaptation required to run the tests in our environment
-              if [[ "${{ inputs.enable-helm-chart-tests }}" == "true" ]]; then
+              if [[ "${INPUTS_ENABLE_HELM_CHART_TESTS}" == "true" ]]; then
                 find "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/" -type f -print0 | xargs -0 sed -i "s/integration/$CAMUNDA_RELEASE_NAME/g"
 
                 # Use pre-configured service references from environment
@@ -322,8 +342,8 @@ runs:
                     -i "$TEST_CHART_DIR_STATIC/test/integration/testsuites/vars/files/variables-default.yaml"
                 fi
 
-                echo "VENOM_VAR_TEST_CLIENT_ID=${{ inputs.test-client-id }}" >> "$VARIABLES_ENV_FILE"
-                echo "VENOM_VAR_TEST_CLIENT_SECRET=${{ inputs.test-client-secret }}" >> "$VARIABLES_ENV_FILE"
+                echo "VENOM_VAR_TEST_CLIENT_ID=${INPUTS_TEST_CLIENT_ID}" >> "$VARIABLES_ENV_FILE"
+                echo "VENOM_VAR_TEST_CLIENT_SECRET=${INPUTS_TEST_CLIENT_SECRET}" >> "$VARIABLES_ENV_FILE"
 
                 ZEEBE_VERSION=$(yq '.zeebe.image.tag' "$TEST_CHART_DIR_STATIC/values.yaml")
                 # shellcheck disable=SC2129
@@ -397,20 +417,25 @@ runs:
               CAMUNDA_NAMESPACE_2: ${{ inputs.camunda-namespace-2 || '' }}
               CAMUNDA_NAMESPACE_1: ${{ inputs.camunda-namespace-1 || '' }}
               CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name || '' }}
+              INPUTS_ZEEBE_TOPOLOGY_GOLDEN_FILE: ${{ inputs.zeebe-topology-golden-file }}
+              INPUTS_ZEEBE_TOPOLOGY_CHECK_SCRIPT: ${{ inputs.zeebe-topology-check-script }}
+              INPUTS_ZEEBE_AUTHENTICATED: ${{ inputs.zeebe-authenticated }}
+              INPUTS_TEST_CLIENT_ID: ${{ inputs.test-client-id }}
+              INPUTS_TEST_CLIENT_SECRET: ${{ inputs.test-client-secret }}
           run: |
               set -euo pipefail
 
-              reference_file="${{ inputs.zeebe-topology-golden-file }}"
-              topology_check_script="${{ inputs.zeebe-topology-check-script }}"
-              zeebe_authenticated="${{ inputs.zeebe-authenticated }}"
+              reference_file="${INPUTS_ZEEBE_TOPOLOGY_GOLDEN_FILE}"
+              topology_check_script="${INPUTS_ZEEBE_TOPOLOGY_CHECK_SCRIPT}"
+              zeebe_authenticated="${INPUTS_ZEEBE_AUTHENTICATED}"
 
               echo "Using golden reference file to compare against: $reference_file"
               echo "Using topology check script: $topology_check_script"
 
               if [[ "$zeebe_authenticated" == "true" ]]; then
                 echo "Using authenticated Zeebe client credentials..."
-                export ZEEBE_CLIENT_ID="${{ inputs.test-client-id }}"
-                export ZEEBE_CLIENT_SECRET="${{ inputs.test-client-secret }}"
+                export ZEEBE_CLIENT_ID="${INPUTS_TEST_CLIENT_ID}"
+                export ZEEBE_CLIENT_SECRET="${INPUTS_TEST_CLIENT_SECRET}"
               fi
 
               # function to help with port-forwarding in the background
@@ -643,6 +668,10 @@ runs:
           env:
               NAMESPACE: ${{ inputs.test-namespace }}
               HELM_DEPLOYMENT_NAME: ${{ inputs.test-release-name }}
+              INPUTS_CAMUNDA_VERSION: ${{ inputs.camunda-version }}
+              INPUTS_WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
+              INPUTS_CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
           run: |
               set -euo pipefail
 
@@ -650,23 +679,23 @@ runs:
 
               # Determine required containers based on what's enabled and Camunda version
               # For Camunda 8.8+, zeebe components are unified under 'orchestration'
-              CAMUNDA_MAJOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f1)
-              CAMUNDA_MINOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f2)
+              CAMUNDA_MAJOR_VERSION=$(echo "${INPUTS_CAMUNDA_VERSION}" | cut -d. -f1)
+              CAMUNDA_MINOR_VERSION=$(echo "${INPUTS_CAMUNDA_VERSION}" | cut -d. -f2)
 
               # Camunda 8.8+ uses 'zeebe' instead of 'zeebe,zeebe-gateway'
               REQUIRED_CONTAINERS="connector,optimize,zeebe"
 
-              if [[ "${{ inputs.webmodeler-enabled }}" == "true" ]]; then
+              if [[ "${INPUTS_WEBMODELER_ENABLED}" == "true" ]]; then
                 REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},web-modeler"
               fi
 
-              if [[ "${{ inputs.console-enabled }}" == "true" ]]; then
+              if [[ "${INPUTS_CONSOLE_ENABLED}" == "true" ]]; then
                 REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},console"
               fi
 
-              echo "Required containers for Camunda ${{ inputs.camunda-version }}: $REQUIRED_CONTAINERS"
+              echo "Required containers for Camunda ${INPUTS_CAMUNDA_VERSION}: $REQUIRED_CONTAINERS"
 
-              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              C8_SM_CHECKS_PATH="${INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/kube/deployment.sh"
               "$C8_SM_CHECKS_PATH/checks/kube/deployment.sh" \
                 -n "$NAMESPACE" \
@@ -735,12 +764,14 @@ runs:
               NAMESPACE: ${{ inputs.test-namespace }}
               CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
               C8SM_CONNECTIVITY_TIMEOUT_SECONDS: ${{ inputs.c8sm-connectivity-timeout-seconds }}
+              INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
+              INPUTS_SKIP_C8SM_CONNECTIVITY_INGRESS_CLASS_CHECK: ${{ inputs.skip-c8sm-connectivity-ingress-class-check }}
           run: |
               set -euo pipefail
 
               echo "🔍 Running Kubernetes connectivity check..."
 
-              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              C8_SM_CHECKS_PATH="${INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh"
 
               # Build the connectivity.sh arguments, skipping the ingress
@@ -750,7 +781,7 @@ runs:
               if [[ -z "$CAMUNDA_DOMAIN" ]]; then
                 echo "ℹ️ No domain configured; skipping ingress checks."
                 connectivity_args+=(-i)
-              elif [[ "${{ inputs.skip-c8sm-connectivity-ingress-class-check }}" == "true" ]]; then
+              elif [[ "${INPUTS_SKIP_C8SM_CONNECTIVITY_INGRESS_CLASS_CHECK}" == "true" ]]; then
                 echo "ℹ️ skip-c8sm-connectivity-ingress-class-check=true; skipping ingress checks."
                 connectivity_args+=(-i)
               fi
@@ -797,12 +828,15 @@ runs:
           env:
               NAMESPACE: ${{ inputs.test-namespace }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
+              INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
+              INPUTS_CAMUNDA_VERSION: ${{ inputs.camunda-version }}
+              INPUTS_WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
           run: |
               set -euo pipefail
 
               echo "🔍 Running AWS IRSA check..."
 
-              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              C8_SM_CHECKS_PATH="${INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/kube/aws-irsa.sh"
 
               # Exclude components based on configuration
@@ -813,15 +847,15 @@ runs:
               fi
 
               # Build component lists based on Camunda version
-              CAMUNDA_MAJOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f1)
-              CAMUNDA_MINOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f2)
+              CAMUNDA_MAJOR_VERSION=$(echo "${INPUTS_CAMUNDA_VERSION}" | cut -d. -f1)
+              CAMUNDA_MINOR_VERSION=$(echo "${INPUTS_CAMUNDA_VERSION}" | cut -d. -f2)
 
               # Camunda 8.8+ uses 'orchestration' and 'optimize' for OpenSearch
               OS_COMPONENTS="orchestration,optimize"
 
               PG_COMPONENTS="identityKeycloak,identity"
 
-              if [[ "${{ inputs.webmodeler-enabled }}" == "true" ]]; then
+              if [[ "${INPUTS_WEBMODELER_ENABLED}" == "true" ]]; then
                 PG_COMPONENTS="${PG_COMPONENTS},webModeler"
               fi
 
@@ -875,12 +909,13 @@ runs:
               ZEEBE_CLIENT_ID: ${{ inputs.test-client-id }}
               ZEEBE_CLIENT_SECRET: ${{ inputs.test-client-secret }}
               ZEEBE_TOKEN_AUDIENCE: orchestration-api
+              INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
           run: |
               set -euo pipefail
 
               echo "🔍 Running Zeebe token generation check..."
 
-              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              C8_SM_CHECKS_PATH="${INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/zeebe/token.sh"
 
               "$C8_SM_CHECKS_PATH/checks/zeebe/token.sh" \
@@ -900,12 +935,13 @@ runs:
               ZEEBE_CLIENT_SECRET: ${{ inputs.test-client-secret }}
               ZEEBE_TOKEN_AUDIENCE: orchestration-api
               ZEEBE_DEFAULT_VERSION: ${{ inputs.camunda-version }}
+              INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
           run: |
               set -euo pipefail
 
               echo "🔍 Running Zeebe connectivity check..."
 
-              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              C8_SM_CHECKS_PATH="${INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh"
 
               # The gRPC probe mints a fresh Keycloak token and calls

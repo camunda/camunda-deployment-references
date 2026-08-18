@@ -21,7 +21,7 @@ runs:
           run: |
               set -euo pipefail
 
-              workflow_file_name=$(echo "${{ github.workflow_ref }}" | sed 's/@.*//')
+              workflow_file_name=$(echo "${GITHUB_WORKFLOW_REF}" | sed 's/@.*//')
               workflow_file_name=$(basename "$workflow_file_name" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
               echo "workflow_file_name=$workflow_file_name" | tee -a "$GITHUB_ENV"
               echo "skip_label_name=skip_${workflow_file_name}" | tee -a "$GITHUB_ENV"
@@ -73,5 +73,7 @@ runs:
 
               pr_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
               comment="🏷️ The label [${{ env.skip_label_name }}](https://github.com/${{ github.repository }}/labels/${{ env.skip_label_name }}) \
-                has been applied ${{ inputs.comment-message }}"
+                has been applied ${INPUTS_COMMENT_MESSAGE}"
               gh api -X POST repos/${{ github.repository }}/issues/$pr_number/comments -f body="$comment"
+          env:
+              INPUTS_COMMENT_MESSAGE: ${{ inputs.comment-message }}
