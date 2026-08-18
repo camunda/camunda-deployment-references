@@ -64,7 +64,7 @@ jobs:
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@66bf6e260f2beb42a83284fef490bb96672e8f36 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@787bec31b4ae6b70702321d0331676e88cfea9c5 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -228,7 +228,7 @@ jobs:
             # BASH_ENV able to intercept it.
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@66bf6e260f2beb42a83284fef490bb96672e8f36 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@787bec31b4ae6b70702321d0331676e88cfea9c5 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
