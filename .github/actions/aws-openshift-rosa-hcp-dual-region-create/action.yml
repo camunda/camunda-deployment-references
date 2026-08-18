@@ -259,7 +259,7 @@ runs:
           env:
               INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
 
-      ### Clusters
+        ### Clusters
 
         - name: Terraform Init - Clusters
           id: init-clusters
@@ -482,7 +482,7 @@ runs:
                       kubectl config rename-context "$(oc config current-context)" "${{ inputs.cluster-name-2 }}"
                   fi
 
-      ### VPC Peering
+        ### VPC Peering
 
         - name: Terraform Init - Peering
           id: init-peering
@@ -556,7 +556,7 @@ runs:
               plan-extra-args: |
                   -var-file=terraform.tfvars
 
-      ### Backup bucket
+        ### Backup bucket
 
         - name: Terraform Init - Backup bucket
           id: init-backup-bucket
