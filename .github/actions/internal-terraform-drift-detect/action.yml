@@ -37,9 +37,25 @@ runs:
 
               PLAN_OUT="drift.plan.out"
 
+              # `plan-extra-args` is a string holding several arguments, so it has to be
+              # split. An unquoted expansion splits on whitespace but leaves quotes and
+              # backslash-continuations as literal characters, which is not what callers
+              # write: the AKS one passes a quoted path continued over two lines, and a
+              # bare `\` reached terraform as an argument of its own.
+              #
+              # `xargs` tokenises the way the shell would -- honouring quotes, joining
+              # continuations -- without evaluating anything, so a `;` or a backtick in
+              # the value stays data. Empty tokens are dropped; terraform rejects them.
+              EXTRA_ARGS=()
+              while IFS= read -r arg; do
+                  [[ -n "$arg" ]] && EXTRA_ARGS+=("$arg")
+              done < <(printf '%s' "${INPUTS_PLAN_EXTRA_ARGS}" | xargs -n1 printf '%s\n' 2>/dev/null)
+
               # Run plan with detailed exit code. 0 = no changes, 2 = changes, 1 = error
+              # `${EXTRA_ARGS[@]+...}` guards the expansion: `set -u` treats an empty
+              # array as unbound before bash 4.4, and the default input is empty.
               set +e
-              terraform plan -no-color -detailed-exitcode ${INPUTS_PLAN_EXTRA_ARGS} > "$PLAN_OUT" 2>&1
+              terraform plan -no-color -detailed-exitcode ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} > "$PLAN_OUT" 2>&1
               code=$?
               set -e
 
