@@ -39,7 +39,7 @@ runs:
 
               # Run plan with detailed exit code. 0 = no changes, 2 = changes, 1 = error
               set +e
-              terraform plan -no-color -detailed-exitcode ${{ inputs.plan-extra-args }} > "$PLAN_OUT" 2>&1
+              terraform plan -no-color -detailed-exitcode ${INPUTS_PLAN_EXTRA_ARGS} > "$PLAN_OUT" 2>&1
               code=$?
               set -e
 
@@ -52,10 +52,13 @@ runs:
                 echo "drift_detected=false" >> "$GITHUB_OUTPUT"
               else
                 echo "drift_detected=true" >> "$GITHUB_OUTPUT"
-                if [[ "${{ inputs.fail-on-drift }}" == "true" ]]; then
+                if [[ "${INPUTS_FAIL_ON_DRIFT}" == "true" ]]; then
                   echo "::error::Drift detected immediately after apply (configuration flapping - exit code $code)."
                   exit 1
                 else
                   echo "::warning::Drift detected but not failing as per configuration."
                 fi
               fi
+          env:
+              INPUTS_PLAN_EXTRA_ARGS: ${{ inputs.plan-extra-args }}
+              INPUTS_FAIL_ON_DRIFT: ${{ inputs.fail-on-drift }}

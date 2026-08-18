@@ -80,13 +80,13 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.resource-group-name }}/${{ inputs.resource-group-name }}.tfstate"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_RESOURCE_GROUP_NAME}/${INPUTS_RESOURCE_GROUP_NAME}.tfstate"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
@@ -96,7 +96,14 @@ runs:
               terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
               echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
 
-              echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}" >> "$GITHUB_ENV"
+              echo "TF_MODULE_DIR=${INPUTS_TF_MODULES_PATH}/azure/kubernetes/${INPUTS_REF_ARCH}" >> "$GITHUB_ENV"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
+              INPUTS_REF_ARCH: ${{ inputs.ref-arch }}
 
         - name: Copy config_override.tf to module root
           shell: bash
@@ -134,16 +141,16 @@ runs:
 
               # We use sed instead of -var because the module presented to the user
               # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(aks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
-                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
-                     -e 's/\(resource_group_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.resource-group-name }}\2/' \
-                     -e 's/\(location\s*=\s*"\)[^"]*\("\)/\1${{ inputs.location }}\2/' \
+              sed -i -e 's/\(aks_cluster_name\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_CLUSTER_NAME}"'\2/' \
+                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_KUBERNETES_VERSION}"'\2/' \
+                     -e 's/\(resource_group_name\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_RESOURCE_GROUP_NAME}"'\2/' \
+                     -e 's/\(location\s*=\s*"\)[^"]*\("\)/\1'"${INPUTS_LOCATION}"'\2/' \
                      main.tf
 
               cat main.tf
 
               # Set resource_prefix_placeholder to an empty string if not provided
-              resource_prefix_placeholder="${{ inputs.resource-prefix }}"
+              resource_prefix_placeholder="${INPUTS_RESOURCE_PREFIX}"
               if [ -z "$resource_prefix_placeholder" ]; then
                 resource_prefix_placeholder=""
               fi
@@ -152,7 +159,7 @@ runs:
 
               # Default tags are not supported
               # https://github.com/hashicorp/terraform-provider-azurerm/issues/13776
-              raw_tags='${{ inputs.tags }}'
+              raw_tags="${INPUTS_TAGS}"
 
               # Default tags from azure/kubernetes/aks-single-region/variables.tf
               static_tags='{
@@ -162,6 +169,13 @@ runs:
 
               combined_tags=$(jq -c -s '.[0] + .[1]' <(echo "$raw_tags") <(echo "$static_tags"))
               echo "COMBINED_TAGS=$combined_tags" | tee -a "$GITHUB_OUTPUT"
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
+              INPUTS_RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
+              INPUTS_LOCATION: ${{ inputs.location }}
+              INPUTS_RESOURCE_PREFIX: ${{ inputs.resource-prefix }}
+              INPUTS_TAGS: ${{ inputs.tags }}
 
         - name: Sanitize Tags
           id: sanitize-tags
@@ -192,7 +206,9 @@ runs:
                   -no-color \
                   -out tf.plan \
                   -var-file=terraform.tfvars \
-                  -var-file="${{ inputs.tfvars }}"
+                  -var-file="${INPUTS_TFVARS}"
+          env:
+              INPUTS_TFVARS: ${{ inputs.tfvars }}
 
         - name: Terraform Apply
           id: apply
@@ -216,10 +232,13 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              az aks get-credentials --resource-group ${{ inputs.resource-group-name }} --name ${{ inputs.cluster-name }} --overwrite-existing
+              az aks get-credentials --resource-group ${INPUTS_RESOURCE_GROUP_NAME} --name ${INPUTS_CLUSTER_NAME} --overwrite-existing
 
               kubectl config current-context
               kubectl get nodes
+          env:
+              INPUTS_RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Apply and verify storage class
           shell: bash
