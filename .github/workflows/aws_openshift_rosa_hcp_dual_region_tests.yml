@@ -286,7 +286,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@787bec31b4ae6b70702321d0331676e88cfea9c5 # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -766,7 +766,7 @@ jobs:
             - integration-tests
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@66bf6e260f2beb42a83284fef490bb96672e8f36 # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@787bec31b4ae6b70702321d0331676e88cfea9c5 # main
               with:
                   error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
                   run-id: ${{ github.run_id }}

@@ -187,7 +187,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -298,7 +298,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@787bec31b4ae6b70702321d0331676e88cfea9c5 # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -393,7 +393,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -796,7 +796,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
 
             - name: Azure Login with OIDC
-              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
               if: env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 10
               with:
