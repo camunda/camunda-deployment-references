@@ -705,6 +705,9 @@ jobs:
 
             - name: ⏳ Wait for the OIDC issuer to be reachable
               if: matrix.declination.name == 'domain'
+              # The action is fail-open on its own 600s budget; this only stops
+              # a wedged step from running unbounded.
+              timeout-minutes: 15
               uses: ./.github/actions/internal-wait-oidc-issuer
               with:
                   issuer-url: https://${{ env.CAMUNDA_DOMAIN }}/auth/realms/camunda-platform
@@ -732,20 +735,55 @@ jobs:
             # verified by the health wait below.
             - name: 🔁 Restart Camunda workloads after DNS refresh
               if: matrix.declination.name == 'domain'
+              timeout-minutes: 15
               run: |
                   set -uo pipefail
                   ns="${{ env.CAMUNDA_NAMESPACE }}"
                   rel="${{ env.CAMUNDA_RELEASE_NAME }}"
+                  restarted=()
                   for wl in "statefulset/${rel}-zeebe" "deployment/${rel}-connectors" "deployment/${rel}-identity"; do
                       # Distinguish a genuine "absent" (empty, exit 0) from a real
                       # query error (RBAC/kubeconfig) so failures stay visible.
                       if ! found=$(kubectl -n "$ns" get "$wl" --ignore-not-found -o name 2>&1); then
                           echo "::warning::Could not query ${wl}: ${found}"
                       elif [ -n "$found" ]; then
-                          kubectl -n "$ns" rollout restart "$wl" || echo "::warning::rollout restart ${wl} failed"
+                          if kubectl -n "$ns" rollout restart "$wl"; then
+                              restarted+=("$wl")
+                          else
+                              echo "::warning::rollout restart ${wl} failed"
+                          fi
                       else
                           echo "Skipping ${wl}: not present in namespace ${ns}."
                       fi
+                  done
+
+                  # `rollout restart` only patches the pod template and returns
+                  # immediately; the rotation then proceeds in the background, and
+                  # a StatefulSet rotates in reverse-ordinal order. Moments later
+                  # most pods are therefore still the *old* ones, so every
+                  # "is every pod Ready?" gate downstream happily passes on a
+                  # namespace that is about to churn, and the health wait or the
+                  # C8-SM deployment check trips over a pod that drops into
+                  # ContainerCreating behind them. Await the rotations here so the
+                  # restarts are genuinely finished before anything asserts health.
+                  # Restarts are all issued first so the rollouts overlap instead
+                  # of running back-to-back.
+                  # One shared budget rather than a per-workload one: the
+                  # rollouts overlap in the cluster (every restart was issued
+                  # before the first wait), so the worst case is the slowest
+                  # rollout, not their sum. A shared deadline also keeps the whole
+                  # loop below this step's own timeout-minutes, so a stuck rollout
+                  # still degrades to a warning instead of killing the step with
+                  # an opaque "The action has timed out".
+                  rollout_deadline=$(( $(date +%s) + 600 ))
+                  for wl in ${restarted[@]+"${restarted[@]}"}; do
+                      remaining=$(( rollout_deadline - $(date +%s) ))
+                      if [ "$remaining" -le 0 ]; then
+                          echo "::warning::rollout wait budget exhausted; not waiting for ${wl}"
+                          continue
+                      fi
+                      kubectl -n "$ns" rollout status "$wl" --timeout="${remaining}s" ||
+                          echo "::warning::rollout status ${wl} did not complete within the remaining budget"
                   done
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
