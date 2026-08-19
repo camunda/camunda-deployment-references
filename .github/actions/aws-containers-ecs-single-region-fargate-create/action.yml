@@ -38,6 +38,10 @@ inputs:
         description: Reference architecture to deploy
         default: ecs-single-region-fargate
         required: false
+    authentication-mode:
+        description: "Platform authentication mode to deploy: 'basic' (built-in users) or 'oidc' (bundled Keycloak)."
+        default: basic
+        required: false
 
 outputs:
     terraform-state-url:
@@ -130,8 +134,9 @@ runs:
               PREFIX=${PREFIX%-}
 
               cat > terraform.tfvars <<EOF
-              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              prefix       = "${PREFIX}"
+              default_tags        = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              prefix              = "${PREFIX}"
+              authentication_mode = "${{ inputs.authentication-mode }}"
               EOF
 
         - name: Terraform Plan

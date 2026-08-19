@@ -128,5 +128,8 @@ This directory contains the Terraform implementation for the ECS single-region (
 | ---- | ----------- |
 | <a name="output_admin_user_password"></a> [admin\_user\_password](#output\_admin\_user\_password) | The admin password for Camunda. Easy access purposes, saved in Secrets Manager. |
 | <a name="output_alb_endpoint"></a> [alb\_endpoint](#output\_alb\_endpoint) | (Optional) The DNS name of the Application Load Balancer (ALB) to access the Camunda Webapp. |
+| <a name="output_connectors_oidc_client_id"></a> [connectors\_oidc\_client\_id](#output\_connectors\_oidc\_client\_id) | OIDC client id used for machine-to-machine authentication (empty in basic mode). |
+| <a name="output_connectors_oidc_client_secret"></a> [connectors\_oidc\_client\_secret](#output\_connectors\_oidc\_client\_secret) | OIDC client secret for the connectors client (bundled Keycloak only; empty otherwise). |
 | <a name="output_nlb_endpoint"></a> [nlb\_endpoint](#output\_nlb\_endpoint) | (Optional) The DNS name of the Network Load Balancer (NLB) to access the Camunda Core. |
+| <a name="output_oidc_token_url"></a> [oidc\_token\_url](#output\_oidc\_token\_url) | OIDC token endpoint for machine-to-machine authentication (empty in basic mode). |
 <!-- END_TF_DOCS -->

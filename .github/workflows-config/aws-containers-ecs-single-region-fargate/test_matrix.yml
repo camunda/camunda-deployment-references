@@ -4,8 +4,15 @@ matrix:
         - name: fargate
           schedule_only: false
 
+    # Each scenario is deployed as its own cluster (shortName derives from name, so
+    # the names must be distinct). Both use the same reference architecture module;
+    # they differ only in authentication_mode, giving live coverage of basic auth and
+    # OIDC (bundled Keycloak + Management Identity).
     scenario:
         - name: ecs-single-region-fargate
+          authentication_mode: basic
+        - name: ecs-single-region-fargate-oidc
+          authentication_mode: oidc
 
     declination:
         - name: no-domain
