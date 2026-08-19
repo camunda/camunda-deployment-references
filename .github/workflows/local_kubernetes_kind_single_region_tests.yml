@@ -3,7 +3,6 @@ name: Tests - Integration - Local Kubernetes Kind Single Region
 
 permissions:
     contents: read
-    pull-requests: write # allow PR comments and labels
 
 on:
     schedule:
@@ -44,6 +43,9 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
@@ -94,6 +96,9 @@ jobs:
             # Non-interactive acknowledgement of the pre-release chart build.
             # TODO: [release-duty] remove this together with the source-build (procedure/build-camunda-chart.sh).
             CAMUNDA_PRERELEASE_ACK: 'true'
+        permissions:
+            contents: read
+            pull-requests: write # internal-helm-deprecation-check upserts a comment on the pull request
         steps:
             - uses: camunda/infra-global-github-actions/start-build-monitor@02b3f0e49b00b98fffc76af690ebc83c28f24dae # main
 
@@ -468,6 +473,9 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - integration-tests
+        permissions:
+            contents: read
+            pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
