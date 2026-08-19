@@ -47,8 +47,10 @@ inputs:
         default: ''
     timeout-seconds:
         description: |
-            Total wall-clock budget in seconds. Fail-open: on timeout the action
-            emits a warning and exits 0 so it never blocks the pipeline.
+            Total wall-clock budget in seconds, covering both the issuer poll and
+            the rollout wait that follows the optional workload bounce. Fail-open:
+            on timeout the action emits a warning and exits 0 so it never blocks
+            the pipeline.
         required: false
         default: '600'
     restart-workloads:
@@ -117,6 +119,7 @@ runs:
                       # disabled/renamed component stays quiet while real errors
                       # (missing kubeconfig / RBAC) stay visible; a failed restart
                       # is downgraded to a warning so the bounce stays best-effort.
+                      restarted=()
                       for workload in "statefulset/${RELEASE_NAME}-zeebe" "deployment/${RELEASE_NAME}-connectors"; do
                           # --ignore-not-found keeps a genuine "absent" quiet
                           # (empty + exit 0) while real failures (no kubeconfig /
@@ -124,10 +127,31 @@ runs:
                           if ! found=$(kubectl -n "${NAMESPACE}" get "${workload}" --ignore-not-found -o name 2>&1); then
                               echo "::warning::Could not query ${workload}: ${found}"
                           elif [ -n "${found}" ]; then
-                              kubectl -n "${NAMESPACE}" rollout restart "${workload}" || echo "::warning::rollout restart ${workload} failed"
+                              if kubectl -n "${NAMESPACE}" rollout restart "${workload}"; then
+                                  restarted+=("${workload}")
+                              else
+                                  echo "::warning::rollout restart ${workload} failed"
+                              fi
                           else
                               echo "Skipping ${workload}: not present in namespace ${NAMESPACE}."
                           fi
+                      done
+
+                      # `rollout restart` returns as soon as the pod template is
+                      # patched, so without this the caller's health gate can run
+                      # against the pods we just asked Kubernetes to replace and
+                      # pass moments before they are torn down. The rollouts
+                      # overlap, so they share what is left of the action's
+                      # `timeout-seconds`, which is documented as a *total*
+                      # wall-clock budget — the bounce must not silently extend it.
+                      for workload in ${restarted[@]+"${restarted[@]}"}; do
+                          remaining=$(( deadline - $(date +%s) ))
+                          if [ "${remaining}" -le 0 ]; then
+                              echo "::warning::timeout-seconds budget exhausted; ${workload} was restarted but its rollout is not awaited."
+                              continue
+                          fi
+                          kubectl -n "${NAMESPACE}" rollout status "${workload}" --timeout="${remaining}s" ||
+                              echo "::warning::rollout status ${workload} did not complete within the remaining budget"
                       done
                       exit 0
                   fi
