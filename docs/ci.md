@@ -68,6 +68,14 @@ Skip labels are auto-created by the action (color `#1D76DB`). Apply them at PR c
 | Daily cleanup | Scheduled destroy jobs to prevent orphaned cloud resources |
 | Module unit tests | Go-based Terratest for `modules/` — fast, no real infra |
 
+## CI Status Reporting
+
+CI emits complementary operational signals:
+
+- `internal_global_ci_events_reporter.yml` records workflow-run failures and warnings in a Google Sheet.
+- `report-failure-on-slack` notifies the responsible Slack channel when a workflow fails.
+- Onboarded jobs use `start-build-monitor` as their first step and `observe-build-status` as their final, non-blocking step to record status and duration in the `build_status_v2` BigQuery table. The action uses the workflow's existing Vault AppRole credentials to retrieve its upload key.
+
 ## Workflow Scheduling
 
 Schedules are defined in `.github/workflows-config/workflow-scheduler.yml`. Tests are staggered by:
