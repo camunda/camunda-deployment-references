@@ -114,7 +114,7 @@ jobs:
                   persist-credentials: false
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@887ed647c59e94535464fdfe2cfa0f33cffee468 # 2.3.3
 
             - id: matrix
               # The dispatch input reaches the script through the environment, not through
@@ -208,7 +208,7 @@ jobs:
             # Inlining also drops the `pip install pre-commit` the action performs, which
             # installed the latest release over the version pinned in .tool-versions.
             - name: Install asdf tools
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@887ed647c59e94535464fdfe2cfa0f33cffee468 # 2.3.3
 
             - name: Cache pre-commit hook environments
               uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -278,7 +278,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@887ed647c59e94535464fdfe2cfa0f33cffee468 # 2.3.3
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
