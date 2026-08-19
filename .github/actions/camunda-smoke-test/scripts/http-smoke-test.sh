@@ -258,7 +258,7 @@ log "=== Waiting ${PROPAGATION_WAIT}s for search index propagation ==="
 # A bare `sleep 60` lets the SPDY/TCP idle timer (typically 4 min on
 # managed cloud LBs, but as low as 60s on AKS LB / Azure ILB / some
 # CNIs) close both port-forward streams. When they die, every
-# subsequent verify call returns HTTP 000000 even though Zeebe and
+# subsequent verify call returns HTTP 000 even though Zeebe and
 # Keycloak are healthy. Probing /v2/topology and the OIDC token
 # endpoint every 10s keeps both PFs warm.
 KEEPALIVE_INTERVAL=10
