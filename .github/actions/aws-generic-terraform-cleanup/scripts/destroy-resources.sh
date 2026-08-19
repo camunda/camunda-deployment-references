@@ -553,8 +553,13 @@ EOF
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
 aws_exit_code=$?
 
-# Don't fail on missing folder
-if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
+# `aws s3 ls` exits 1 when the prefix holds no object, which is not an error
+# here, and 255 when the call itself fails: expired credentials, no network, a
+# denied bucket. The previous condition only tripped when stdout was non-empty,
+# but a failed call writes to stderr and leaves stdout empty, so it was
+# indistinguishable from an empty prefix and would be reported below as
+# "nothing to destroy" — a green run that reclaimed nothing.
+if [ $aws_exit_code -ne 0 ] && [ $aws_exit_code -ne 1 ]; then
   echo "Error executing aws s3 ls (Exit Code: $aws_exit_code)." >&2
   exit 1
 fi
