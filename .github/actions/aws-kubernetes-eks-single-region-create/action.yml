@@ -107,7 +107,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
 
         - name: Set Terraform variables
           id: set-terraform-variables
@@ -173,105 +173,138 @@ runs:
           id: plan-cluster
           working-directory: ${{ env.TF_DIR_CLUSTER }}
           shell: bash
+          # Passed as env, never interpolated into the script: the values reach
+          # jq as data, so no quoting or escaping concern arises anywhere below.
+          env:
+              CLUSTER_NAME: ${{ inputs.cluster-name }}
+              CLUSTER_REGION: ${{ inputs.aws-region }}
+              KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
+              SINGLE_NAT_GATEWAY: ${{ inputs.single-nat-gateway }}
+              PRIVATE_VPC: ${{ inputs.private-vpc }}
+              NP_CAPACITY_TYPE: ${{ inputs.np-capacity-type }}
+              NP_INSTANCE_TYPES: ${{ inputs.np-instance-types }}
+              DEPLOY_AURORA: ${{ inputs.deploy-aurora }}
+              DEPLOY_OPENSEARCH: ${{ inputs.deploy-opensearch }}
           run: |
               set -euo pipefail
               echo "Adapting the files with input values"
               pwd
               ls
 
-              # We use sed instead of -var because the module presented to the user
-              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(eks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
-                     -e 's/\(eks_cluster_region\s*=\s*"\)[^"]*\("\)/\1${{ inputs.aws-region }}\2/' \
-                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
-                     -e 's/\(single_nat_gateway\s*=\s*"\)[^"]*\("\)/\1${{ inputs.single-nat-gateway }}\2/' \
-                     cluster.tf
+              # Aurora and OpenSearch are opt-in: drop their files before building
+              # the override, so it never references a local that is not there.
+              if [[ "${DEPLOY_AURORA}" != "true" && -f db.tf ]]; then
+                  echo "Skipping Aurora PostgreSQL deployment"
+                  mv db.tf db.tf.disabled
+              fi
+              if [[ "${DEPLOY_OPENSEARCH}" != "true" && -f opensearch.tf ]]; then
+                  echo "Skipping OpenSearch deployment"
+                  mv opensearch.tf opensearch.tf.disabled
+              fi
 
-              if [ -n "${{ inputs.private-vpc }}" ]; then
-                sed -i -E "s/(^\s*private_vpc\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
-              else
-                echo "No private-vpc value provided, skipping private modification."
+              # The reference configuration is what we ship to users, so CI must
+              # not rewrite it in place. Terraform's own override mechanism does
+              # the job declaratively: a `*_override.tf.json` file is merged over
+              # the primary configuration, and Terraform *rejects* an override for
+              # a local that no longer exists ("An override file can only override
+              # a local value that was already defined in a primary configuration
+              # file"). A rename in the reference architecture therefore fails the
+              # plan loudly, instead of silently testing the reference defaults.
+              #
+              # Module arguments are merged rather than validated, so those are
+              # checked explicitly below.
+              #
+              # The file is built with jq so every value is carried as data: no
+              # quoting, no regex, no shell interpolation.
+
+              case "${SINGLE_NAT_GATEWAY}" in
+                true|false) ;;
+                *)
+                  echo "::error::Invalid single-nat-gateway '${SINGLE_NAT_GATEWAY}'; expected the boolean true or false."
+                  exit 1
+                  ;;
+              esac
+
+              overrides=$(jq -n \
+                  --arg name "${CLUSTER_NAME}" \
+                  --arg region "${CLUSTER_REGION}" \
+                  --arg k8s "${KUBERNETES_VERSION}" \
+                  --argjson nat "${SINGLE_NAT_GATEWAY}" \
+                  '{
+                      locals: {
+                          eks_cluster_name: $name,
+                          eks_cluster_region: $region,
+                          kubernetes_version: $k8s,
+                          single_nat_gateway: $nat
+                      },
+                      module: { eks_cluster: {} }
+                  }')
+
+              # The reference file passes these as literal module arguments, so
+              # there is no local to override and no -var to set.
+              if [ -n "${PRIVATE_VPC}" ]; then
+                  case "${PRIVATE_VPC}" in
+                    true|false) ;;
+                    *)
+                      echo "::error::Invalid private-vpc '${PRIVATE_VPC}'; expected the boolean true or false, or an empty value to keep the reference default."
+                      exit 1
+                      ;;
+                  esac
+                  overrides=$(jq --argjson v "${PRIVATE_VPC}" '.module.eks_cluster.private_vpc = $v' <<< "${overrides}")
               fi
 
               # Optional CI-only node pool overrides (see issue #109): run tests on
-              # cost-efficient SPOT capacity with diversified instance types. The reference
-              # cluster.tf passes these as literal module arguments (not wired to root
-              # variables), so there is no -var to override; patch the file in place instead.
-              _np_capacity_type="${{ inputs.np-capacity-type }}"
-              if [ -n "${_np_capacity_type}" ]; then
-                # Validate early so a typo fails fast with a clear message instead of a
-                # cryptic Terraform error (or a silently wrong capacity type) later on.
-                if [ "${_np_capacity_type}" != "ON_DEMAND" ] && [ "${_np_capacity_type}" != "SPOT" ]; then
-                  echo "::error::Invalid np-capacity-type '${_np_capacity_type}'; allowed values are ON_DEMAND or SPOT."
+              # cost-efficient SPOT capacity with diversified instance types.
+              if [ -n "${NP_CAPACITY_TYPE}" ]; then
+                  case "${NP_CAPACITY_TYPE}" in
+                    ON_DEMAND|SPOT) ;;
+                    *)
+                      echo "::error::Invalid np-capacity-type '${NP_CAPACITY_TYPE}'; allowed values are ON_DEMAND or SPOT."
+                      exit 1
+                      ;;
+                  esac
+                  overrides=$(jq --arg v "${NP_CAPACITY_TYPE}" '.module.eks_cluster.np_capacity_type = $v' <<< "${overrides}")
+              fi
+
+              if [ -n "${NP_INSTANCE_TYPES}" ]; then
+                  # Comma-separated input -> JSON array, trimming whitespace and
+                  # dropping empty entries so a loosely formatted value still works.
+                  np_types=$(jq -n --arg s "${NP_INSTANCE_TYPES}" \
+                      '[$s | split(",") | .[] | sub("^\\s+";"") | sub("\\s+$";"") | select(length > 0)]')
+                  if ! jq -e 'length > 0 and all(test("^[a-z0-9-]+\\.[a-z0-9-]+$"))' <<< "${np_types}" > /dev/null; then
+                      echo "::error::Invalid np-instance-types '${NP_INSTANCE_TYPES}'; expected a comma-separated list of AWS instance types such as m6i.xlarge."
+                      exit 1
+                  fi
+                  overrides=$(jq --argjson v "${np_types}" '.module.eks_cluster.np_instance_types = $v' <<< "${overrides}")
+              fi
+
+              if [[ "${DEPLOY_AURORA}" == "true" ]]; then
+                  overrides=$(jq --arg v "${CLUSTER_NAME}-pg" '.locals.aurora_cluster_name = $v' <<< "${overrides}")
+              fi
+              if [[ "${DEPLOY_OPENSEARCH}" == "true" ]]; then
+                  overrides=$(jq --arg v "${CLUSTER_NAME}-os" '.locals.opensearch_domain_name = $v' <<< "${overrides}")
+              fi
+
+              # Terraform silently ignores an unknown argument in a module
+              # override block, so assert the ones we set are still there. The
+              # search is scoped to the module block: the same key may legitimately
+              # appear elsewhere in the file (a local, another module) and would
+              # otherwise mask a removed argument.
+              module_block=$(awk '/^module "eks_cluster"/ { inside = 1 }
+                                 inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' cluster.tf)
+              if [ -z "${module_block}" ]; then
+                  echo "::error::No 'module \"eks_cluster\"' block found in cluster.tf; update this action."
                   exit 1
-                fi
-                sed -i -E "s/(np_capacity_type\s*=\s*\")[^\"]*(\")/\1${_np_capacity_type}\2/" cluster.tf
               fi
-              _np_instance_types="${{ inputs.np-instance-types }}"
-              if [ -n "${_np_instance_types}" ]; then
-                # Convert the comma-separated list into an HCL list literal, trimming
-                # surrounding whitespace and dropping empty entries so a loosely formatted
-                # input (spaces or a trailing comma) still yields valid HCL.
-                IFS=',' read -ra _np_types <<< "${_np_instance_types}"
-                _np_hcl="["
-                for _np_type in "${_np_types[@]}"; do
-                  # Strip leading and trailing whitespace, then skip empty entries.
-                  _np_type="${_np_type#"${_np_type%%[![:space:]]*}"}"
-                  _np_type="${_np_type%"${_np_type##*[![:space:]]}"}"
-                  [ -z "${_np_type}" ] && continue
-                  # Validate the token against an AWS instance-type shape (family.size,
-                  # both of which may contain hyphens, e.g. c7i-flex.large or
-                  # m7i.metal-48xl) so stray characters (quotes, newlines, ...) can't
-                  # inject invalid content into the generated HCL list.
-                  if [[ ! "${_np_type}" =~ ^[a-z0-9-]+\.[a-z0-9-]+$ ]]; then
-                    echo "::error::Invalid np-instance-types entry '${_np_type}'; expected an AWS instance type such as m6i.xlarge."
-                    exit 1
+              for key in $(jq -r '.module.eks_cluster | keys[]' <<< "${overrides}"); do
+                  if ! grep -qE "^[[:space:]]*${key}[[:space:]]*=" <<< "${module_block}"; then
+                      echo "::error::No '${key}' argument in the eks_cluster module block of cluster.tf;" \
+                          "the CI override would be silently ignored. Update this action."
+                      exit 1
                   fi
-                  _np_hcl+="\"${_np_type}\", "
-                done
-                _np_hcl="${_np_hcl%, }]"
-                if [ "${_np_hcl}" = "[]" ]; then
-                  echo "::error::np-instance-types contained no valid entries: '${_np_instance_types}'."
-                  exit 1
-                fi
-                sed -i -E "s|(np_instance_types\s*=\s*).*|\1${_np_hcl}|" cluster.tf
-              fi
+              done
 
-              echo "Displaying templated cluster.tf file:"
-              cat cluster.tf
-
-              # Conditionally configure Aurora PostgreSQL
-              if [[ "${{ inputs.deploy-aurora }}" == "true" ]]; then
-                  echo "Configuring Aurora PostgreSQL database..."
-                  sed -i -e 's/\(aurora_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-pg\2/' \
-                         db.tf
-
-                  echo "Displaying templated db.tf file:"
-                  cat db.tf
-              else
-                  echo "Skipping Aurora PostgreSQL deployment"
-                  # Comment out or remove Aurora resources
-                  if [[ -f "db.tf" ]]; then
-                      mv db.tf db.tf.disabled
-                      echo "Aurora resources disabled"
-                  fi
-              fi
-
-              # Conditionally configure OpenSearch
-              if [[ "${{ inputs.deploy-opensearch }}" == "true" ]]; then
-                  echo "Configuring OpenSearch domain..."
-                  sed -i -e 's/\(opensearch_domain_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}-os\2/' \
-                         opensearch.tf
-                  echo "Displaying templated opensearch.tf file:"
-                  cat opensearch.tf
-              else
-                  echo "Skipping OpenSearch deployment"
-                  # Comment out or remove OpenSearch resources
-                  if [[ -f "opensearch.tf" ]]; then
-                      mv opensearch.tf opensearch.tf.disabled
-                      echo "OpenSearch resources disabled"
-                  fi
-              fi
+              jq '.' <<< "${overrides}" | tee ci_override.tf.json
 
               terraform plan -no-color -var-file=terraform-cluster.tfvars -out tf.plan
 
@@ -338,6 +371,10 @@ runs:
           if: inputs.vpn-enabled == 'true'
           working-directory: ${{ env.TF_DIR_VPN }}
           shell: bash
+          # Passed as env, never interpolated into the script, as in the cluster
+          # plan step above.
+          env:
+              CLUSTER_NAME: ${{ inputs.cluster-name }}
           run: |
               set -euo pipefail
 
@@ -345,12 +382,20 @@ runs:
               pwd
               ls
 
-              sed -i -E \
-                -e "s/(^\s*vpn_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.cluster-name }}-vpn\2/" \
-                vpn.tf
+              # Same approach as the cluster plan step: override rather than edit
+              # the reference file. vpn_name is a literal module argument, and
+              # Terraform silently ignores an unknown argument in a module
+              # override block, so check it is still there first.
+              vpn_block=$(awk '/^module "vpn"/ { inside = 1 }
+                                 inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' vpn.tf)
+              if ! grep -qE '^[[:space:]]*vpn_name[[:space:]]*=' <<< "${vpn_block}"; then
+                  echo "::error::No 'vpn_name' argument in the vpn module block of vpn.tf;" \
+                      "the CI override would be silently ignored. Update this action."
+                  exit 1
+              fi
 
-              echo "Displaying templated vpn.tf file:"
-              cat vpn.tf
+              jq -n --arg name "${CLUSTER_NAME}-vpn" \
+                  '{module: {vpn: {vpn_name: $name}}}' | tee ci_override.tf.json
 
               terraform plan -no-color -var-file=terraform-vpn.tfvars -out vpn.plan
 

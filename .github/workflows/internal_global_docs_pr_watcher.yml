@@ -54,7 +54,7 @@ jobs:
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@f063d613a0c7eb6d1b5a155722f09f336e39ccb5 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -376,7 +376,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure()
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
