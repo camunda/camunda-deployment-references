@@ -119,10 +119,12 @@ runs:
         - name: Install ROSA CLI
           shell: bash
           working-directory: /tmp
+          env:
+              INPUTS_ROSA_CLI_VERSION: ${{ inputs.rosa-cli-version }}
           run: |
               set -euo pipefail
 
-              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${INPUTS_ROSA_CLI_VERSION}/rosa-linux.tar.gz"
               tar -xvf rosa-linux.tar.gz
               sudo mv rosa /usr/local/bin/rosa
               chmod +x /usr/local/bin/rosa
@@ -132,26 +134,36 @@ runs:
         - name: Install CLI tools from OpenShift Mirror
           uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
           with:
-              oc: ${{ inputs.openshift-version }}
+              oc: ${INPUTS_OPENSHIFT_VERSION}
 
         - name: Set AWS Region
           id: set_aws_region
           shell: bash
-          run: |
+          env:
+              INPUTS_OPENSHIFT_VERSION: ${{ inputs.openshift-version }}
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
-              echo "AWS_REGION=${{ inputs.aws-region }}" | tee -a "$GITHUB_ENV"
+              echo "AWS_REGION=${INPUTS_AWS_REGION}" | tee -a "$GITHUB_ENV"
 
         - name: Login to Red Hat Hybrid Cloud Console
           shell: bash
+          env:
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
           run: |
               set -euo pipefail
 
-              rosa login --token="${{ inputs.rh-token }}"
+              rosa login --token="${INPUTS_RH_TOKEN}"
               rosa whoami
 
         - name: Verify and enable HCP ROSA on AWS Marketplace
           shell: bash
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
           run: |
               set -euo pipefail
 
@@ -162,41 +174,43 @@ runs:
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME}/"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
 
-              echo "TF_DIR_CLUSTER=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/" >> "$GITHUB_ENV"
-              echo "TF_DIR_VPN=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/" >> "$GITHUB_ENV"
+              echo "TF_DIR_CLUSTER=${INPUTS_TF_MODULES_PATH}/aws/openshift/rosa-hcp-single-region/terraform/cluster/" >> "$GITHUB_ENV"
+              echo "TF_DIR_VPN=${INPUTS_TF_MODULES_PATH}/aws/openshift/rosa-hcp-single-region/terraform/vpn/" >> "$GITHUB_ENV"
 
         - name: Check if S3 bucket exists
           id: create-s3-bucket
           shell: bash
+          env:
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
           run: |
               set -euo pipefail
 
-              if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
+              if aws s3api head-bucket --bucket ${INPUTS_S3_BACKEND_BUCKET} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
                 echo "Bucket already exists"
               else
                 echo "Bucket does not exist, creating..."
-                aws s3api create-bucket --bucket ${{ inputs.s3-backend-bucket }} \
+                aws s3api create-bucket --bucket ${INPUTS_S3_BACKEND_BUCKET} \
                     --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
                     --create-bucket-configuration LocationConstraint=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
               fi
 
-              aws s3api put-public-access-block --bucket ${{ inputs.s3-backend-bucket }} \
+              aws s3api put-public-access-block --bucket ${INPUTS_S3_BACKEND_BUCKET} \
                 --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
                 --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
 
@@ -204,7 +218,9 @@ runs:
           id: init-cluster
           working-directory: ${{ env.TF_DIR_CLUSTER }}
           env:
-              RHCS_TOKEN: ${{ inputs.rh-token }}
+              RHCS_TOKEN: ${INPUTS_RH_TOKEN}
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
           shell: bash
           run: |
               set -euo pipefail
@@ -226,7 +242,7 @@ runs:
           id: sanitize-tags
           uses: ./.github/actions/internal-sanitize-tags
           with:
-              raw-tags: ${{ inputs.tags }}
+              raw-tags: ${INPUTS_TAGS}
 
         - name: Generate tfvars file - Cluster
           id: generate-tfvars-cluster
@@ -245,13 +261,21 @@ runs:
           # Passed as env, never interpolated into the script: the values reach
           # jq as data, so nothing below has to be quoted or escaped.
           env:
-              RHCS_TOKEN: ${{ inputs.rh-token }}
-              CLUSTER_NAME: ${{ inputs.cluster-name }}
-              ADMIN_USERNAME: ${{ inputs.admin-username }}
-              OPENSHIFT_VERSION: ${{ inputs.openshift-version }}
-              AVAILABILITY_ZONES: ${{ inputs.availability-zones }}
-              REPLICAS: ${{ inputs.replicas }}
-              PRIVATE_VPC: ${{ inputs.private-vpc }}
+              RHCS_TOKEN: ${INPUTS_RH_TOKEN}
+              CLUSTER_NAME: ${INPUTS_CLUSTER_NAME}
+              ADMIN_USERNAME: ${INPUTS_ADMIN_USERNAME}
+              OPENSHIFT_VERSION: ${INPUTS_OPENSHIFT_VERSION}
+              AVAILABILITY_ZONES: ${INPUTS_AVAILABILITY_ZONES}
+              REPLICAS: ${INPUTS_REPLICAS}
+              PRIVATE_VPC: ${INPUTS_PRIVATE_VPC}
+              INPUTS_ADMIN_USERNAME: ${{ inputs.admin-username }}
+              INPUTS_AVAILABILITY_ZONES: ${{ inputs.availability-zones }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_OPENSHIFT_VERSION: ${{ inputs.openshift-version }}
+              INPUTS_PRIVATE_VPC: ${{ inputs.private-vpc }}
+              INPUTS_REPLICAS: ${{ inputs.replicas }}
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
+              INPUTS_TAGS: ${{ inputs.tags }}
           shell: bash
           run: |
               set -euo pipefail
@@ -346,7 +370,8 @@ runs:
           id: apply-cluster
           working-directory: ${{ env.TF_DIR_CLUSTER }}
           env:
-              RHCS_TOKEN: ${{ inputs.rh-token }}
+              RHCS_TOKEN: ${INPUTS_RH_TOKEN}
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
               set -euo pipefail
@@ -374,7 +399,8 @@ runs:
                   -var-file=terraform.tfvars
               fail-on-drift: 'false' # not failing on drift as there may be an expected drift due to hcp module drifting - cluster_console_url
           env:
-              RHCS_TOKEN: ${{ inputs.rh-token }}
+              RHCS_TOKEN: ${INPUTS_RH_TOKEN}
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
 
         - name: Terraform Init - VPN
           id: init-vpn
@@ -417,7 +443,8 @@ runs:
           # Passed as env, never interpolated into the script, as in the cluster
           # plan step above.
           env:
-              CLUSTER_NAME: ${{ inputs.cluster-name }}
+              CLUSTER_NAME: ${INPUTS_CLUSTER_NAME}
+              INPUTS_CLUSTER_NAME: ${INPUTS_CLUSTER_NAME}
           run: |
               set -euo pipefail
 
@@ -555,7 +582,9 @@ runs:
         - name: Clean up cloned modules
           if: always() && inputs.cleanup-tf-modules-path == 'true'
           shell: bash
+          env:
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
           run: |
               set -euo pipefail
 
-              rm -rf "${{ inputs.tf-modules-path }}"
+              rm -rf "${INPUTS_TF_MODULES_PATH}"

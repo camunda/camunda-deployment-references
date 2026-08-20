@@ -166,9 +166,9 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              NS="${{ inputs.test-namespace }}"
-              RELEASE="${{ inputs.test-release-name }}"
-              DOMAIN="${{ inputs.camunda-domain }}"
+              NS="${INPUTS_TEST_NAMESPACE}"
+              RELEASE="${INPUTS_TEST_RELEASE_NAME}"
+              DOMAIN="${INPUTS_CAMUNDA_DOMAIN}"
 
               # Detach kubectl port-forwards from the composite-action step's
               # process group with setsid + nohup so they survive across step
@@ -201,10 +201,10 @@ runs:
               # reach directly even in domain mode (the public ingress does
               # not always expose Keycloak). Forward it locally so the Go
               # tests can hit the OIDC token endpoint via localhost.
-              KC_URL="${{ inputs.keycloak-url }}"
+              KC_URL="${INPUTS_KEYCLOAK_URL}"
               # Default local URL = original URL when port-forward not applicable.
               KC_LOCAL_URL="$KC_URL"
-              if [[ -n "$KC_URL" && "${{ inputs.auth-mode }}" == "oidc" ]]; then
+              if [[ -n "$KC_URL" && "${INPUTS_AUTH_MODE}" == "oidc" ]]; then
                   # Strip scheme, then split host:port from path.
                   KC_NO_SCHEME=$(echo "$KC_URL" | sed 's|^http[s]*://||')
                   KC_HOST_PORT=$(echo "$KC_NO_SCHEME" | cut -d/ -f1)
@@ -229,13 +229,13 @@ runs:
               echo "orchestration_local_url=http://localhost:9600" >> "$GITHUB_OUTPUT"
 
               # Connectors actuator (always, when service is present)
-              CONN_SVC="${{ inputs.connectors-service-name }}"
-              CONN_LOCAL_PORT="${{ inputs.connectors-local-port }}"
+              CONN_SVC="${INPUTS_CONNECTORS_SERVICE_NAME}"
+              CONN_LOCAL_PORT="${INPUTS_CONNECTORS_LOCAL_PORT}"
               if kubectl get svc "$CONN_SVC" -n "$NS" >/dev/null 2>&1; then
                   echo "Starting port-forward to ${CONN_SVC}..."
                   PF_CONN_PID=$(pf connectors "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080" -n "$NS")
                   echo "pf_conn_pid=${PF_CONN_PID}" >> "$GITHUB_OUTPUT"
-                  CONN_PATH="${{ inputs.connectors-context-path }}"
+                  CONN_PATH="${INPUTS_CONNECTORS_CONTEXT_PATH}"
                   # Strip trailing slash so concatenation never doubles up.
                   CONN_PATH="${CONN_PATH%/}"
                   echo "connectors_local_url=http://localhost:${CONN_LOCAL_PORT}${CONN_PATH}" >> "$GITHUB_OUTPUT"
@@ -247,7 +247,7 @@ runs:
               # The preflight Go tests hit http://localhost:9200 unconditionally
               # when ELASTICSEARCH_ENABLED=true, so they need a forward in
               # no-domain / port-forward mode.
-              if [[ "${{ inputs.elasticsearch-enabled }}" == "true" ]]; then
+              if [[ "${INPUTS_ELASTICSEARCH_ENABLED}" == "true" ]]; then
                   ES_SVC=""
                   for candidate in \
                       "${RELEASE}-elasticsearch" \
@@ -298,6 +298,16 @@ runs:
                       sleep 2
                   done
               fi
+          env:
+              INPUTS_TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              INPUTS_TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
+              INPUTS_CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              INPUTS_KEYCLOAK_URL: ${{ inputs.keycloak-url }}
+              INPUTS_AUTH_MODE: ${{ inputs.auth-mode }}
+              INPUTS_CONNECTORS_SERVICE_NAME: ${{ inputs.connectors-service-name }}
+              INPUTS_CONNECTORS_LOCAL_PORT: ${{ inputs.connectors-local-port }}
+              INPUTS_CONNECTORS_CONTEXT_PATH: ${{ inputs.connectors-context-path }}
+              INPUTS_ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
 
         - name: 🧪 Run Preflight Tests
           id: preflight
@@ -330,10 +340,33 @@ runs:
               TEST_ELASTICSEARCH_PASSWORD: ${{ steps.port-forward.outputs.es_pass }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
               TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
+              INPUTS_GO_TEST_ARGS: ${{ inputs.go-test-args }}
           run: |
               set -euo pipefail
               echo "🧪 Running preflight tests..."
-              go test ${{ inputs.go-test-args }} ./preflight/...
+              # `go-test-args` is one string holding several arguments, so it has to be
+              # split. Expanding it unquoted splits on whitespace but leaves quotes as
+              # literal characters, so `-run 'TestA|TestB'` would reach `go test` as two
+              # broken tokens. Before this branch the value was substituted by GitHub
+              # straight into the command line and the shell did the grouping.
+              #
+              # `xargs` tokenises the way the shell would -- honouring quotes -- without
+              # evaluating anything, so a `;` or a backtick in the value stays data.
+              # `xargs` exits non-zero on unmatched quotes. Capturing it here rather than
+              # in a process substitution is what makes that failure visible: inside
+              # `< <(...)` the exit status is lost, the loop reads nothing, and the tests
+              # would run with none of the arguments the caller asked for.
+              if ! parsed_test_args=$(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n'); then
+                  echo "::error::go-test-args could not be tokenised, check for unmatched quotes: ${INPUTS_GO_TEST_ARGS}" >&2
+                  exit 1
+              fi
+
+              GO_TEST_ARGS=()
+              while IFS= read -r arg; do
+                  [[ -n "$arg" ]] && GO_TEST_ARGS+=("$arg")
+              done <<< "${parsed_test_args}"
+
+              go test ${GO_TEST_ARGS[@]+"${GO_TEST_ARGS[@]}"} ./preflight/...
 
         # Warm up the Zeebe Gateway → Identity JWKS path on cold clusters
         # (notably ROSA HCP). The Spring OAuth resource server lazily fetches
@@ -458,10 +491,33 @@ runs:
               TEST_ELASTICSEARCH_PASSWORD: ${{ steps.port-forward.outputs.es_pass }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
               TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
+              INPUTS_GO_TEST_ARGS: ${{ inputs.go-test-args }}
           run: |
               set -euo pipefail
               echo "🧪 Running core tests..."
-              go test ${{ inputs.go-test-args }} ./core/...
+              # `go-test-args` is one string holding several arguments, so it has to be
+              # split. Expanding it unquoted splits on whitespace but leaves quotes as
+              # literal characters, so `-run 'TestA|TestB'` would reach `go test` as two
+              # broken tokens. Before this branch the value was substituted by GitHub
+              # straight into the command line and the shell did the grouping.
+              #
+              # `xargs` tokenises the way the shell would -- honouring quotes -- without
+              # evaluating anything, so a `;` or a backtick in the value stays data.
+              # `xargs` exits non-zero on unmatched quotes. Capturing it here rather than
+              # in a process substitution is what makes that failure visible: inside
+              # `< <(...)` the exit status is lost, the loop reads nothing, and the tests
+              # would run with none of the arguments the caller asked for.
+              if ! parsed_test_args=$(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n'); then
+                  echo "::error::go-test-args could not be tokenised, check for unmatched quotes: ${INPUTS_GO_TEST_ARGS}" >&2
+                  exit 1
+              fi
+
+              GO_TEST_ARGS=()
+              while IFS= read -r arg; do
+                  [[ -n "$arg" ]] && GO_TEST_ARGS+=("$arg")
+              done <<< "${parsed_test_args}"
+
+              go test ${GO_TEST_ARGS[@]+"${GO_TEST_ARGS[@]}"} ./core/...
 
         # ==============================================================
         # Cleanup port-forwards
