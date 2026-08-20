@@ -29,13 +29,7 @@ runs:
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
-        # In order to be able to list RGs that are older than the specified min-age, we need to install the resource graph extension
-        - name: Install Resource Graph extension
-          shell: bash
-          run: |
-              az extension add --name resource-graph --only-show-errors
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
 
         - name: Delete clusters
           id: delete_clusters
@@ -51,10 +45,21 @@ runs:
               ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
                 ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
 
+        # Required for matrix jobs: without it, every scenario would upload the same
+        # artifact name and the upload would fail on conflict.
+        - name: Convert key prefix into slug
+          id: key-prefix-slug
+          if: always()
+          shell: bash
+          run: |
+              set -euo pipefail
+              SLUG=$(echo "${{ inputs.tf-bucket-key-prefix }}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              echo "PREFIX_SLUG=${SLUG%-}" | tee -a "$GITHUB_OUTPUT"
+
         - name: Upload cleanup logs
           if: always()
           uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
           with:
-              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}
+              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG }}
               path: ./logs/
               retention-days: 7
