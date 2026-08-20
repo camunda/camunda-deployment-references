@@ -80,7 +80,25 @@ rosa create ocm-role --mode auto --yes
 # subnets and its Elastic IPs stay allocated indefinitely.
 installer_role_missing() {
   local cluster_name="$1"
-  ! aws iam get-role --role-name "${cluster_name}-account-HCP-ROSA-Installer-Role" >/dev/null 2>&1
+  local role_name="${cluster_name}-account-HCP-ROSA-Installer-Role"
+  local err
+
+  # Keep stderr, discard the role document: only the failure reason matters.
+  if err=$(aws iam get-role --role-name "$role_name" 2>&1 >/dev/null); then
+    return 1
+  fi
+
+  # Answer "missing" only for an explicit NoSuchEntity. Any other failure —
+  # throttling, a network blip, AccessDenied — says nothing about the role, and
+  # feeding a healthy cluster into the loop below would delete it over an IAM
+  # hiccup. Treat those as present and let a later run decide.
+  if [[ "$err" == *NoSuchEntity* ]]; then
+    return 0
+  fi
+
+  echo "  ⚠️ Could not determine whether ${cluster_name} still has ${role_name}; assuming it does." >&2
+  echo "     ${err}" >&2
+  return 1
 }
 
 all_clusters=$(rosa list cluster --output json)
