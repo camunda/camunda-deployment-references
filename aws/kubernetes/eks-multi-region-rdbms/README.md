@@ -471,11 +471,19 @@ between. Upgrading several regions simultaneously risks losing quorum.
   Losing Lighthouse stops new exports from propagating and new brokers from
   resolving their peers; it does not interrupt established connections, because
   it never carried them.
-- **Broker startup DNS gate.** Brokers resolve their initial contact points once
-  and hang on `NXDOMAIN`
-  ([camunda/camunda#55038](https://github.com/camunda/camunda/issues/55038)).
-  A temporary init container gates startup until clusterset DNS resolves; remove
-  it once the upstream fix ships.
+- **Broker startup DNS race.** A broker that starts before a cross-region peer
+  is resolvable parks during startup, never binds 9600 and never recovers on its
+  own ([camunda/camunda#55038](https://github.com/camunda/camunda/issues/55038)).
+  Upstream closed that as fixed downstream and does not intend to change the
+  product: the fix is to mark the initial contact points as **fully qualified**,
+  with a trailing dot, so the resolver does not spend its budget walking the
+  pod's search domains first. That is what `generate-zeebe-helm-values.sh` emits.
+
+  The cross-region DNS gate in the Helm values predates that fix and is now
+  belt-and-braces rather than the mechanism: it is fail-open, and with
+  fully-qualified contact points it should resolve immediately. It is a
+  candidate for removal once a run confirms the dot alone is sufficient —
+  `eks-dual-region` carries the dot and no gate.
 - **Backups are not wired up yet.** RDBMS backup and restore relies on
   continuous primary-storage backups plus a database-native backup; see
   [Backup and restore for RDBMS][rdbms-backup].
