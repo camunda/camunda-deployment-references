@@ -38,11 +38,46 @@ runs:
               PLAN_OUT="drift.plan.out"
               PLAN_BIN="drift.plan.bin"
 
+              # `plan-extra-args` is one string holding several arguments, so it has to be
+              # split. Expanding it unquoted splits on whitespace but leaves quotes and
+              # backslash-continuations as literal characters, which is not what callers
+              # write: the AKS one passes a quoted path continued over two lines.
+              #
+              # `xargs` tokenises the way the shell would -- honouring quotes, joining
+              # continuations -- without evaluating anything, so a `;` or a backtick in
+              # the value stays data. It exits non-zero on unmatched quotes; capturing it
+              # here rather than in a process substitution is what makes that visible,
+              # since inside `< <(...)` the status is lost and the plan would silently run
+              # without the arguments the caller asked for.
+              if ! parsed_extra_args=$(printf '%s' "${INPUTS_PLAN_EXTRA_ARGS}" | xargs -n1 printf '%s\n'); then
+                  echo "::error::plan-extra-args could not be tokenised, check for unmatched quotes: ${INPUTS_PLAN_EXTRA_ARGS}" >&2
+                  exit 1
+              fi
+
+              EXTRA_ARGS=()
+              while IFS= read -r arg; do
+                  [[ -n "$arg" ]] && EXTRA_ARGS+=("$arg")
+              done <<< "${parsed_extra_args}"
+
+              # This step now reads the plan back with `terraform show -json`, so it needs
+              # to know where terraform wrote it. A caller passing its own `-out` would
+              # redirect the plan and leave `$PLAN_BIN` stale or absent, and the drift
+              # check would then inspect the wrong file -- or silently treat a real drift
+              # as clean. Rejected rather than overridden, so the caller is told why.
+              for arg in ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}; do
+                  case "$arg" in
+                    -out|-out=*)
+                      echo "::error::plan-extra-args must not set -out; the drift check writes its own plan file and reads it back." >&2
+                      exit 1
+                      ;;
+                  esac
+              done
+
               # Run plan with detailed exit code. 0 = no changes, 2 = changes, 1 = error
               # `-out` is only there to let `terraform show -json` inspect what changed;
               # the plan is never applied.
               set +e
-              terraform plan -no-color -detailed-exitcode -out "$PLAN_BIN" ${{ inputs.plan-extra-args }} > "$PLAN_OUT" 2>&1
+              terraform plan -no-color -detailed-exitcode -out "$PLAN_BIN" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} > "$PLAN_OUT" 2>&1
               code=$?
               set -e
 
@@ -96,10 +131,13 @@ runs:
                 echo "drift_detected=false" >> "$GITHUB_OUTPUT"
               else
                 echo "drift_detected=true" >> "$GITHUB_OUTPUT"
-                if [[ "${{ inputs.fail-on-drift }}" == "true" ]]; then
+                if [[ "${INPUTS_FAIL_ON_DRIFT}" == "true" ]]; then
                   echo "::error::Drift detected immediately after apply (configuration flapping - exit code $code)."
                   exit 1
                 else
                   echo "::warning::Drift detected but not failing as per configuration."
                 fi
               fi
+          env:
+              INPUTS_PLAN_EXTRA_ARGS: ${{ inputs.plan-extra-args }}
+              INPUTS_FAIL_ON_DRIFT: ${{ inputs.fail-on-drift }}
