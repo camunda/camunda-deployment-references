@@ -55,6 +55,9 @@ run "realm_import_changes_startup_command" {
   command = plan
   variables {
     enable_realm_import = true
+    secrets = [
+      { name = "KEYCLOAK_REALM_IMPORT_JSON", valueFrom = "arn:aws:secretsmanager:us-east-1:000000000000:secret:realm-abc123" },
+    ]
   }
   assert {
     condition     = strcontains(aws_ecs_task_definition.keycloak.container_definitions, "--import-realm")
@@ -64,6 +67,17 @@ run "realm_import_changes_startup_command" {
     condition     = strcontains(aws_ecs_task_definition.keycloak.container_definitions, "KEYCLOAK_REALM_IMPORT_JSON")
     error_message = "With enable_realm_import, the startup command must consume KEYCLOAK_REALM_IMPORT_JSON"
   }
+}
+
+run "realm_import_requires_import_secret" {
+  command = plan
+  variables {
+    enable_realm_import = true
+    secrets             = []
+  }
+  # Enabling realm import without the KEYCLOAK_REALM_IMPORT_JSON secret must fail at
+  # plan time rather than at container startup (unbound variable under `set -u`).
+  expect_failures = [var.enable_realm_import]
 }
 
 run "extra_task_role_attachments_count_matches_var" {

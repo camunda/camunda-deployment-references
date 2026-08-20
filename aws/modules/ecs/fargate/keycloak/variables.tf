@@ -172,7 +172,14 @@ variable "task_desired_count" {
 }
 
 variable "enable_realm_import" {
-  description = "When true, Keycloak imports a realm on startup: the container writes the JSON provided via the KEYCLOAK_REALM_IMPORT_JSON environment variable (typically injected from a Secrets Manager secret) to the import directory and starts with `--import-realm`. Import is skipped for realms that already exist."
+  description = "When true, Keycloak imports a realm on startup: the container writes the JSON provided via the KEYCLOAK_REALM_IMPORT_JSON environment variable (typically injected from a Secrets Manager secret) to the import directory and starts with `--import-realm`. Import is skipped for realms that already exist. Requires a secret named KEYCLOAK_REALM_IMPORT_JSON in var.secrets."
   type        = bool
   default     = false
+
+  validation {
+    # The import entrypoint reads $KEYCLOAK_REALM_IMPORT_JSON under `set -u`, so the
+    # secret must be provided or the task fails at runtime with an unbound variable.
+    condition     = !var.enable_realm_import || contains([for s in var.secrets : s.name], "KEYCLOAK_REALM_IMPORT_JSON")
+    error_message = "enable_realm_import = true requires a secret named \"KEYCLOAK_REALM_IMPORT_JSON\" in var.secrets."
+  }
 }

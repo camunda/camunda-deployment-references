@@ -50,6 +50,25 @@ resource "terraform_data" "validate_authentication_mode" {
       condition     = var.external_oidc == null || var.authentication_mode == "oidc"
       error_message = "var.external_oidc is only valid when authentication_mode = \"oidc\" (in basic mode no OIDC provider is deployed)."
     }
+    # When an external provider is supplied, every field must be non-empty: these
+    # values flow straight into task env vars / secret ARNs, so an empty string
+    # would plan cleanly but fail confusingly at runtime.
+    precondition {
+      condition = var.external_oidc == null || alltrue([
+        for v in [
+          var.external_oidc.issuer_uri,
+          var.external_oidc.token_uri,
+          var.external_oidc.audience,
+          var.external_oidc.identity_client_id,
+          var.external_oidc.identity_client_secret_arn,
+          var.external_oidc.orchestration_client_id,
+          var.external_oidc.orchestration_client_secret_arn,
+          var.external_oidc.connectors_client_id,
+          var.external_oidc.connectors_client_secret_arn,
+        ] : trimspace(v) != ""
+      ])
+      error_message = "When var.external_oidc is set, all of its fields (issuer_uri, token_uri, audience, and each component's client_id and client_secret_arn) must be non-empty."
+    }
   }
 }
 
