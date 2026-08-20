@@ -58,26 +58,34 @@ func (e Env) Vars() []string {
 	clusterSize := e.BrokersPerRegion * e.RegionSlots
 
 	vars := map[string]string{
-		"CAMUNDA_REGION_SLOTS":        fmt.Sprint(e.RegionSlots),
-		"CAMUNDA_ACTIVE_REGIONS":      fmt.Sprint(e.ActiveRegions),
-		"CAMUNDA_BROKERS_PER_REGION":  fmt.Sprint(e.BrokersPerRegion),
-		"CAMUNDA_CLUSTER_SIZE":        fmt.Sprint(clusterSize),
-		"CAMUNDA_PARTITION_COUNT":     fmt.Sprint(clusterSize),
-		"CAMUNDA_REPLICATION_FACTOR":  fmt.Sprint(e.RegionSlots),
-		"CLUSTER_CONTEXTS":            strings.Join(e.ClusterContexts, " "),
-		"AWS_REGIONS":                 strings.Join(e.AWSRegions, " "),
-		"SUBMARINER_CLUSTER_IDS":      strings.Join(e.SubmarinerClusters, " "),
-		"CAMUNDA_ZONE_NAMES":          strings.Join(e.ZoneNames, " "),
-		"SUBMARINER_BROKER_SLOT":      fmt.Sprint(e.SubmarinerBrokerSlot),
-		"EKS_CLUSTER_NAMES":           strings.Join(e.ClusterNames, " "),
-		"REGION_VPC_CIDRS":            strings.Join(e.VPCCidrBlocks, " "),
-		"REGION_SERVICE_CIDRS":        strings.Join(e.ServiceCidrBlocks, " "),
-		"CAMUNDA_NAMESPACE":           e.Namespace,
-		"CAMUNDA_RELEASE_NAME":        e.ReleaseName,
-		"CAMUNDA_RDBMS_URL":           e.RdbmsURL,
-		"CAMUNDA_RDBMS_USERNAME":      e.RdbmsUsername,
-		"CAMUNDA_RDBMS_PASSWORD":      e.RdbmsPassword,
-		"AURORA_GLOBAL_CLUSTER_ID":    e.AuroraGlobalID,
+		"CAMUNDA_REGION_SLOTS":       fmt.Sprint(e.RegionSlots),
+		"CAMUNDA_ACTIVE_REGIONS":     fmt.Sprint(e.ActiveRegions),
+		"CAMUNDA_BROKERS_PER_REGION": fmt.Sprint(e.BrokersPerRegion),
+		"CAMUNDA_CLUSTER_SIZE":       fmt.Sprint(clusterSize),
+		"CAMUNDA_PARTITION_COUNT":    fmt.Sprint(clusterSize),
+		"CAMUNDA_REPLICATION_FACTOR": fmt.Sprint(e.RegionSlots),
+		"CLUSTER_CONTEXTS":           strings.Join(e.ClusterContexts, " "),
+		"AWS_REGIONS":                strings.Join(e.AWSRegions, " "),
+		"SUBMARINER_CLUSTER_IDS":     strings.Join(e.SubmarinerClusters, " "),
+		"CAMUNDA_ZONE_NAMES":         strings.Join(e.ZoneNames, " "),
+		"SUBMARINER_BROKER_SLOT":     fmt.Sprint(e.SubmarinerBrokerSlot),
+		"EKS_CLUSTER_NAMES":          strings.Join(e.ClusterNames, " "),
+		"REGION_VPC_CIDRS":           strings.Join(e.VPCCidrBlocks, " "),
+		"REGION_SERVICE_CIDRS":       strings.Join(e.ServiceCidrBlocks, " "),
+		"CAMUNDA_NAMESPACE":          e.Namespace,
+		"CAMUNDA_RELEASE_NAME":       e.ReleaseName,
+		"CAMUNDA_RDBMS_URL":          e.RdbmsURL,
+		"CAMUNDA_RDBMS_USERNAME":     e.RdbmsUsername,
+		"CAMUNDA_RDBMS_PASSWORD":     e.RdbmsPassword,
+		"AURORA_GLOBAL_CLUSTER_ID":   e.AuroraGlobalID,
+		// The chart is built from source, and zone awareness is not in a
+		// released chart yet. The harness builds this environment itself
+		// instead of sourcing export_environment_prerequisites.sh, so a ref set
+		// only there never reaches CI -- which is exactly what happened: the
+		// run built the released pin, silently ignored `mode: zoned`, and fell
+		// back to legacy numbering with every region numbering its brokers
+		// identically.
+		"CAMUNDA_HELM_CHART_GIT_REF":  GetEnv("CAMUNDA_HELM_CHART_GIT_REF", "cs/zoned-multiregion"),
 		"CAMUNDA_BASIC_AUTH_USER":     GetEnv("CAMUNDA_BASIC_AUTH_USER", "demo"),
 		"CAMUNDA_BASIC_AUTH_PASSWORD": GetEnv("CAMUNDA_BASIC_AUTH_PASSWORD", "demo"),
 		// Optional Helm overlay, e.g. the CI credentials values file. Empty

@@ -53,6 +53,21 @@ LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-cam
 BROKER_IMAGE="$(helm show values "$LOCAL_CHART" |
     yq -r '(.orchestration.image // .zeebe.image) | ([.registry, .repository] | map(. // "") | map(select(. != "")) | join("/")) + ":" + .tag')"
 
+# Fail fast when the values ask for zone awareness but the built chart cannot
+# deliver it. Without this the chart silently ignores the unknown values, falls
+# back to the legacy numbering, and every region numbers its brokers
+# identically -- which surfaces ninety minutes later as brokers that cannot
+# find each other, and reads like a networking problem.
+if grep -q "mode: zoned" "$SCRIPT_DIR/../helm-values/camunda-values.yml" 2>/dev/null; then
+    if ! grep -q "mode:" "$LOCAL_CHART/values.yaml" 2>/dev/null ||
+        ! grep -q "zones:" "$LOCAL_CHART/values.yaml" 2>/dev/null; then
+        echo "ERROR: the values request global.multiregion.mode=zoned, but the built chart does not support it." >&2
+        echo "       Built from ref: ${CAMUNDA_HELM_CHART_GIT_REF:-<default pin in build-camunda-chart.sh>}" >&2
+        echo "       Set CAMUNDA_HELM_CHART_GIT_REF to a ref carrying zoned mode; see camunda/camunda-platform-helm#6807." >&2
+        exit 1
+    fi
+fi
+
 broker_image_repo="${BROKER_IMAGE%:*}"
 broker_image_tag="${BROKER_IMAGE##*:}"
 if [ -z "$BROKER_IMAGE" ] || [ "$BROKER_IMAGE" = "$broker_image_tag" ] ||
