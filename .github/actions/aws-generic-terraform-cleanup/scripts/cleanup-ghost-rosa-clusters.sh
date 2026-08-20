@@ -96,41 +96,40 @@ rosa create account-roles --mode auto --yes
 echo "📦 Ensuring ocm-role exists..."
 rosa create ocm-role --mode auto --yes
 
-# installer_role_missing reports whether a cluster has lost the account role OCM
-# assumes to tear it down. Without it `rosa delete cluster` returns
-# CLUSTERS-MGMT-400 and terraform can never remove the VPC, so the cluster, its
-# subnets and its Elastic IPs stay allocated indefinitely.
+# The clusters this script repairs are the ones that lost the account role OCM
+# needs to tear them down: without it `rosa delete cluster` returns
+# CLUSTERS-MGMT-400, terraform can never remove the VPC, and the cluster keeps
+# its subnets, Elastic IPs and VPC endpoints until someone recreates the role.
+#
+# Snapshot every IAM role once rather than probing per cluster. A per-cluster
+# `aws iam get-role` scales with the cluster count and adds throttling pressure,
+# and a throttled lookup has to be read as "cannot tell", which degrades the
+# check precisely when there is most to clean up.
+echo "📇 Snapshotting IAM roles..."
+if ! EXISTING_ROLES=$(aws iam list-roles --query 'Roles[].RoleName' --output text 2>&1); then
+  echo "Error: could not list IAM roles, so no cluster can be judged orphaned:" >&2
+  echo "  ${EXISTING_ROLES}" >&2
+  exit 1
+fi
+EXISTING_ROLES=$(echo "$EXISTING_ROLES" | tr '\t' '\n')
+
+# installer_role_missing answers from that snapshot, using the role ARN OCM
+# recorded for the cluster rather than a reconstructed name: a cluster created
+# with a different account-role prefix would not match a name pattern, and the
+# list this feeds is a list of clusters to delete.
 installer_role_missing() {
   local cluster_name="$1"
   local role_arn="$2"
-  local role_name err
+  local role_name
 
-  # Read the role OCM actually recorded for this cluster rather than guessing
-  # its name. A cluster created outside this repository can use any
-  # account-role prefix, and reconstructing "${cluster_name}-account-..." would
-  # report it as orphaned and hand it to a loop that deletes clusters.
   if [[ -z "$role_arn" || "$role_arn" == "null" ]]; then
     echo "  ⚠️ ${cluster_name} reports no installer role ARN; leaving it alone." >&2
     return 1
   fi
   role_name="${role_arn##*/}"
 
-  # Keep stderr, discard the role document: only the failure reason matters.
-  if err=$(aws iam get-role --role-name "$role_name" 2>&1 >/dev/null); then
-    return 1
-  fi
-
-  # Answer "missing" only for an explicit NoSuchEntity. Any other failure —
-  # throttling, a network blip, AccessDenied — says nothing about the role, and
-  # feeding a healthy cluster into the loop below would delete it over an IAM
-  # hiccup. Treat those as present and let a later run decide.
-  if [[ "$err" == *NoSuchEntity* ]]; then
-    return 0
-  fi
-
-  echo "  ⚠️ Could not determine whether ${cluster_name} still has ${role_name}; assuming it does." >&2
-  echo "     ${err}" >&2
-  return 1
+  grep -qxF "$role_name" <<<"$EXISTING_ROLES" && return 1
+  return 0
 }
 
 all_clusters=$(rosa list cluster --output json)
