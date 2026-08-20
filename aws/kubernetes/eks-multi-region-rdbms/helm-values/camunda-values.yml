@@ -38,6 +38,16 @@ global:
         mode: zoned
         # The zone THIS deployment belongs to. The only per-region value here.
         zone: ${CAMUNDA_ZONE_NAME}
+        # Zoned mode does not use this to compute broker identity -- the zone
+        # name does that. It is still read by the StatefulSet template, which
+        # sizes itself as `div orchestration.clusterSize global.multiregion.regions`.
+        # Left unset it defaults to 1, so every region gets the WHOLE cluster
+        # size in pods: with clusterSize 6 that is 6 brokers per region instead
+        # of 2, and the cluster cannot form because there are more broker
+        # identities than members. Set it to the SLOT count, not the active
+        # region count, so the per-region pod count stays constant as zones are
+        # activated and no running StatefulSet is resized.
+        regions: ${CAMUNDA_REGION_SLOTS}
         # Every zone of the cluster, including any not deployed yet. Listing a
         # zone before it exists is deliberate: its replicas are reserved, so
         # each partition runs at N-1 of N until the zone is filled, which is a
