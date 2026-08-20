@@ -80,8 +80,18 @@ rosa create ocm-role --mode auto --yes
 # subnets and its Elastic IPs stay allocated indefinitely.
 installer_role_missing() {
   local cluster_name="$1"
-  local role_name="${cluster_name}-account-HCP-ROSA-Installer-Role"
-  local err
+  local role_arn="$2"
+  local role_name err
+
+  # Read the role OCM actually recorded for this cluster rather than guessing
+  # its name. A cluster created outside this repository can use any
+  # account-role prefix, and reconstructing "${cluster_name}-account-..." would
+  # report it as orphaned and hand it to a loop that deletes clusters.
+  if [[ -z "$role_arn" || "$role_arn" == "null" ]]; then
+    echo "  ⚠️ ${cluster_name} reports no installer role ARN; leaving it alone." >&2
+    return 1
+  fi
+  role_name="${role_arn##*/}"
 
   # Keep stderr, discard the role document: only the failure reason matters.
   if err=$(aws iam get-role --role-name "$role_name" 2>&1 >/dev/null); then
@@ -120,7 +130,8 @@ candidates=$(echo "$all_clusters" | jq -c '[.[] | select(
 # undeletable, and is the case this script exists to repair.
 orphaned=$(echo "$all_clusters" | jq -c '.[]' | while read -r cluster; do
   name=$(echo "$cluster" | jq -r '.name')
-  if installer_role_missing "$name"; then
+  role_arn=$(echo "$cluster" | jq -r '.aws.sts.role_arn // ""')
+  if installer_role_missing "$name" "$role_arn"; then
     echo "$cluster"
   fi
 done | jq -c -s '.')
