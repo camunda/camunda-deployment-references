@@ -7,12 +7,21 @@ set -euo pipefail
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 KEYCLOAK_CONFIG_FILE=${KEYCLOAK_CONFIG_FILE:-"keycloak-instance-no-domain.yml"}
 
-# This version pins the Keycloak operator manifests fetched below, which are
-# released from keycloak/keycloak-k8s-resources -- not the camunda/keycloak image
-# the Keycloak instance runs, which is annotated separately in
-# keycloak-instance-*.yml.
-# renovate: datasource=github-tags depName=keycloak/keycloak-k8s-resources
-KEYCLOAK_VERSION="26.3.2"
+# This version pins the Keycloak operator manifests fetched below. The operator and the
+# server it manages are released together and are expected to match, so it tracks the
+# Keycloak image Camunda distributes -- the one the Keycloak CRs in this directory run --
+# rather than keycloak/keycloak-k8s-resources on its own, which would let the operator
+# drift ahead of the server.
+#
+# camunda/keycloak tags carry a `quay-optimized-` prefix that the URLs below must not, so
+# extractVersion strips it: Renovate compares `quay-optimized-26.7.0` with the bare version
+# here and writes back the bare form. Rebuild and dated variants
+# (`quay-optimized-26.7.0-1`, `quay-optimized-26.7.1-2026-08-14-001`) are left out, since
+# keycloak-k8s-resources publishes no manifests under those -- the same set the CRs accept,
+# so the two always resolve to one version. `.github/renovate.json5` groups them into one
+# pull request so they also land together.
+# renovate: datasource=docker depName=camunda/keycloak extractVersion=^quay-optimized-(?<version>\d+\.\d+\.\d+)$
+KEYCLOAK_VERSION="26.7.0"
 
 # Install Keycloak operator CRDs
 kubectl apply --server-side -f \
