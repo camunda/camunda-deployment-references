@@ -100,6 +100,12 @@ diagnostics() {
     events="$(report_warning_events)"
 
     echo "--- why the deployment is not ready yet ---"
+    # An empty snapshot means the listing itself failed, not that everything is
+    # healthy. Say so, otherwise the report is an empty header/footer pair and
+    # the reader cannot tell a broken API call from a converging deployment.
+    if [ -z "$pods" ]; then
+        echo "Could not list pods in namespace '${namespace}'; the API call failed or the namespace does not exist."
+    fi
     [ -n "$non_running" ] && printf 'Pods not Running:\n%s\n' "$non_running"
     [ -n "$unready" ] && printf 'Containers not ready:\n%s\n' "$unready"
     if [ -n "$events" ]; then
