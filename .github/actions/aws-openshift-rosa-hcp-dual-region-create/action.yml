@@ -151,8 +151,10 @@ runs:
         - name: Install ROSA CLI
           shell: bash
           working-directory: /tmp
+          env:
+              INPUTS_ROSA_CLI_VERSION: ${{ inputs.rosa-cli-version }}
           run: |
-              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${INPUTS_ROSA_CLI_VERSION}/rosa-linux.tar.gz"
               tar -xvf rosa-linux.tar.gz
               sudo mv rosa /usr/local/bin/rosa
               chmod +x /usr/local/bin/rosa
@@ -160,14 +162,16 @@ runs:
               rosa version
 
         - name: Install CLI tools from OpenShift Mirror
-          uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+          uses: redhat-actions/openshift-tools-installer@ebd96c3fc72fc10a62663eac5e1421192152e6aa # v2
           with:
               oc: ${{ inputs.openshift-version-cluster-1 }}
 
         - name: Login to Red Hat Hybrid Cloud Console
           shell: bash
+          env:
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
           run: |
-              rosa login --token="${{ inputs.rh-token }}"
+              rosa login --token="${INPUTS_RH_TOKEN}"
               rosa whoami
 
         - name: Verify and enable HCP ROSA on AWS Marketplace
@@ -180,10 +184,16 @@ runs:
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
+          env:
+              INPUTS_CLUSTER_NAME_1: ${{ inputs.cluster-name-1 }}
+              INPUTS_CLUSTER_NAME_2: ${{ inputs.cluster-name-2 }}
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
           run: |
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}/"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME_1}-oOo-${INPUTS_CLUSTER_NAME_2}/"
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
@@ -202,18 +212,21 @@ runs:
         - name: Check if S3 bucket exists
           id: create-s3-bucket
           shell: bash
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              TFSTATE_REGION: ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
           run: |
-              if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
+              if aws s3api head-bucket --bucket "${INPUTS_S3_BACKEND_BUCKET}" --region "${TFSTATE_REGION}" 2>/dev/null; then
                 echo "Bucket already exists"
               else
                 echo "Bucket does not exist, creating..."
-                aws s3api create-bucket --bucket ${{ inputs.s3-backend-bucket }} \
-                    --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
-                    --create-bucket-configuration LocationConstraint=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
+                aws s3api create-bucket --bucket "${INPUTS_S3_BACKEND_BUCKET}" \
+                    --region "${TFSTATE_REGION}" \
+                    --create-bucket-configuration LocationConstraint="${TFSTATE_REGION}"
               fi
 
-              aws s3api put-public-access-block --bucket ${{ inputs.s3-backend-bucket }} \
-                --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
+              aws s3api put-public-access-block --bucket "${INPUTS_S3_BACKEND_BUCKET}" \
+                --region "${TFSTATE_REGION}" \
                 --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
 
       ### Clusters
@@ -222,24 +235,29 @@ runs:
           id: init-clusters
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
           env:
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
+              INPUTS_AWS_REGION_CLUSTER_2: ${{ inputs.aws-region-cluster-2 }}
+              TFSTATE_BASE_KEY: ${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}
+              TFSTATE_BUCKET: ${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}
+              TFSTATE_REGION: ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
               set -euo pipefail
 
-              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}clusters.tfstate"
-              terraform_state_url_clusters="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              terraform_state_key="${TFSTATE_BASE_KEY}clusters.tfstate"
+              terraform_state_url_clusters="s3://${TFSTATE_BUCKET}/$terraform_state_key"
               echo "terraform-state-url-clusters=${terraform_state_url_clusters}" | tee -a "$GITHUB_OUTPUT"
 
 
               terraform version
 
               terraform init \
-                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
-                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
+                -backend-config="bucket=${TFSTATE_BUCKET}" \
+                -backend-config="region=${TFSTATE_REGION}" \
                 -backend-config="key=$terraform_state_key" \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
+                -var="cluster_1_region=${INPUTS_AWS_REGION_CLUSTER_1}" \
+                -var="cluster_2_region=${INPUTS_AWS_REGION_CLUSTER_2}"
 
               terraform validate -no-color
 
@@ -253,13 +271,17 @@ runs:
           id: generate-tfvars-clusters
           shell: bash
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+          env:
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
+              INPUTS_AWS_REGION_CLUSTER_2: ${{ inputs.aws-region-cluster-2 }}
+              SANITIZED_TAGS: ${{ steps.sanitize-tags.outputs.sanitized_tags }}
           run: |
               set -euo pipefail
 
               cat > terraform.tfvars <<EOF
-              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              cluster_1_region="${{ inputs.aws-region-cluster-1 }}"
-              cluster_2_region="${{ inputs.aws-region-cluster-2 }}"
+              default_tags = ${SANITIZED_TAGS}
+              cluster_1_region="${INPUTS_AWS_REGION_CLUSTER_1}"
+              cluster_2_region="${INPUTS_AWS_REGION_CLUSTER_2}"
               EOF
 
         - name: Terraform Plan - Clusters
@@ -388,6 +410,7 @@ runs:
           id: apply-clusters
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
           env:
+              GITHUB_ACTION_PATH: ${{ github.action_path }}
               RHCS_TOKEN: ${{ inputs.rh-token }}
           shell: bash
           run: |
@@ -396,7 +419,7 @@ runs:
               # Convergent apply with retry for transient ROSA HCP compute-node
               # provisioning timeouts (see the shared helper for the rationale).
               # The helper manages `errexit` locally during its retries.
-              source "${{ github.action_path }}/../../scripts/rosa-hcp-convergent-apply.sh"
+              source "${GITHUB_ACTION_PATH}/../../scripts/rosa-hcp-convergent-apply.sh"
               rosa_hcp_convergent_apply clusters.plan terraform.tfvars
 
               export cluster_1_cluster_id="$(terraform output -raw cluster_1_cluster_id)"
@@ -493,21 +516,27 @@ runs:
           if: inputs.enable-vpc-peering == 'true'
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
           shell: bash
+          env:
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
+              INPUTS_AWS_REGION_CLUSTER_2: ${{ inputs.aws-region-cluster-2 }}
+              TFSTATE_BASE_KEY: ${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}
+              TFSTATE_BUCKET: ${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}
+              TFSTATE_REGION: ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
           run: |
               set -euo pipefail
 
-              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}peering.tfstate"
-              terraform_state_url_peering="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              terraform_state_key="${TFSTATE_BASE_KEY}peering.tfstate"
+              terraform_state_url_peering="s3://${TFSTATE_BUCKET}/$terraform_state_key"
               echo "terraform-state-url-peering=${terraform_state_url_peering}" | tee -a "$GITHUB_OUTPUT"
 
               terraform version
 
               terraform init \
-                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
-                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
+                -backend-config="bucket=${TFSTATE_BUCKET}" \
+                -backend-config="region=${TFSTATE_REGION}" \
                 -backend-config="key=$terraform_state_key"  \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
+                -var="cluster_1_region=${INPUTS_AWS_REGION_CLUSTER_1}" \
+                -var="cluster_2_region=${INPUTS_AWS_REGION_CLUSTER_2}"
 
               terraform validate -no-color
 
@@ -515,15 +544,21 @@ runs:
           id: generate-tfvars-peering
           shell: bash
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/
+          env:
+              CLUSTER_1_VPC_ID: ${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}
+              CLUSTER_2_VPC_ID: ${{ steps.apply-clusters.outputs.cluster_2_vpc_id }}
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
+              INPUTS_AWS_REGION_CLUSTER_2: ${{ inputs.aws-region-cluster-2 }}
+              SANITIZED_TAGS: ${{ steps.sanitize-tags.outputs.sanitized_tags }}
           run: |
               set -euo pipefail
 
               cat > terraform.tfvars <<EOF
-              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              cluster_1_region="${{ inputs.aws-region-cluster-1 }}"
-              cluster_2_region="${{ inputs.aws-region-cluster-2 }}"
-              cluster_1_vpc_id="${{ steps.apply-clusters.outputs.cluster_1_vpc_id }}"
-              cluster_2_vpc_id="${{ steps.apply-clusters.outputs.cluster_2_vpc_id }}"
+              default_tags = ${SANITIZED_TAGS}
+              cluster_1_region="${INPUTS_AWS_REGION_CLUSTER_1}"
+              cluster_2_region="${INPUTS_AWS_REGION_CLUSTER_2}"
+              cluster_1_vpc_id="${CLUSTER_1_VPC_ID}"
+              cluster_2_vpc_id="${CLUSTER_2_VPC_ID}"
               EOF
 
         - name: Terraform Plan - Peering
@@ -562,19 +597,22 @@ runs:
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
           shell: bash
           env:
+              TFSTATE_BASE_KEY: ${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}
+              TFSTATE_BUCKET: ${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}
+              TFSTATE_REGION: ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
               AWS_REGION: ${{ inputs.aws-region-cluster-1 }} # we store the backup bucket in the first region
           run: |
               set -euo pipefail
 
-              terraform_state_key="${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}backup_bucket.tfstate"
-              terraform_state_url_backup_bucket="s3://${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}/$terraform_state_key"
+              terraform_state_key="${TFSTATE_BASE_KEY}backup_bucket.tfstate"
+              terraform_state_url_backup_bucket="s3://${TFSTATE_BUCKET}/$terraform_state_key"
               echo "terraform-state-url-backup-bucket=${terraform_state_url_backup_bucket}" | tee -a "$GITHUB_OUTPUT"
 
               terraform version
 
               terraform init \
-                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
-                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
+                -backend-config="bucket=${TFSTATE_BUCKET}" \
+                -backend-config="region=${TFSTATE_REGION}" \
                 -backend-config="key=$terraform_state_key"
 
               terraform validate -no-color
@@ -583,13 +621,17 @@ runs:
           id: generate-tfvars-backup-bucket
           shell: bash
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/
+          env:
+              INPUTS_CLUSTER_NAME_1: ${{ inputs.cluster-name-1 }}
+              INPUTS_CLUSTER_NAME_2: ${{ inputs.cluster-name-2 }}
+              SANITIZED_TAGS: ${{ steps.sanitize-tags.outputs.sanitized_tags }}
           run: |
               set -euo pipefail
 
-              hash=$(echo -n "${{ inputs.cluster-name-1 }}-oOo-${{ inputs.cluster-name-2 }}" | sha256sum | cut -c1-8)
+              hash=$(echo -n "${INPUTS_CLUSTER_NAME_1}-oOo-${INPUTS_CLUSTER_NAME_2}" | sha256sum | cut -c1-8)
 
               cat > terraform.tfvars <<EOF
-              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              default_tags = ${SANITIZED_TAGS}
               bucket_name="cb-${hash}"
               EOF
 
@@ -639,5 +681,7 @@ runs:
         - name: Clean up cloned modules
           if: always() && inputs.cleanup-tf-modules-path == 'true'
           shell: bash
+          env:
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
           run: |
-              rm -rf "${{ inputs.tf-modules-path }}"
+              rm -rf "${INPUTS_TF_MODULES_PATH}"

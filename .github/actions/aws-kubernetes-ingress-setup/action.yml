@@ -74,17 +74,17 @@ runs:
               set -euo pipefail
 
               echo "Setting up ingress components for EKS cluster..."
-              echo "Cluster: ${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
-              echo "Region: ${{ inputs.aws-region }}"
-              echo "Mail: ${{ inputs.mail }}"
-              echo "TLD: ${{ inputs.tld }}"
-              echo "Ref-arch: ${{ inputs.ref-arch }}"
-              echo "Use wildcard cert: ${{ inputs.use-wildcard-cert }}"
+              echo "Cluster: ${INPUTS_CLUSTER_NAME}-${INPUTS_SCENARIO_SHORT_NAME}"
+              echo "Region: ${INPUTS_AWS_REGION}"
+              echo "Mail: ${INPUTS_MAIL}"
+              echo "TLD: ${INPUTS_TLD}"
+              echo "Ref-arch: ${INPUTS_REF_ARCH}"
+              echo "Use wildcard cert: ${INPUTS_USE_WILDCARD_CERT}"
 
               # Set required environment variables for ingress setup
-              export REGION="${{ inputs.aws-region }}"
-              export MAIL_OVERWRITE="${{ inputs.mail }}"
-              export TLD="${{ inputs.tld }}"
+              export REGION="${INPUTS_AWS_REGION}"
+              export MAIL_OVERWRITE="${INPUTS_MAIL}"
+              export TLD="${INPUTS_TLD}"
 
               # Source ingress setup variables
               source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
@@ -108,7 +108,7 @@ runs:
 
               # Install ingress-nginx
               echo "Installing ingress-nginx..."
-              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-ingress-nginx.sh
+              ./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-ingress-nginx.sh
 
               # Tag the ingress-nginx load balancer for the AWS MAP program.
               # The NLB is provisioned by the in-tree AWS cloud provider from the Service
@@ -122,20 +122,20 @@ runs:
 
               # Install external-dns
               echo "Installing external-dns..."
-              export EXTERNAL_DNS_OWNER_ID="external-dns-${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
-              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-external-dns.sh
+              export EXTERNAL_DNS_OWNER_ID="external-dns-${INPUTS_CLUSTER_NAME}-${INPUTS_SCENARIO_SHORT_NAME}"
+              ./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-external-dns.sh
 
               # Install cert-manager CRDs
               echo "Installing cert-manager CRDs..."
               ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
               echo "Installing cert-manager..."
-              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager.sh
+              ./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-cert-manager.sh
 
               echo "Installing ACME/Let's Encrypt issuer..."
-              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager-issuer.sh
+              ./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-cert-manager-issuer.sh
 
-              if [[ "${{ inputs.use-wildcard-cert }}" == "true" ]]; then
+              if [[ "${INPUTS_USE_WILDCARD_CERT}" == "true" ]]; then
                   echo "🩹 Wildcard cert in use — patching cert-manager to drop ingress-shim default issuer"
                   echo "   (keeps ClusterIssuer/letsencrypt installed but stops auto-Certificates from"
                   echo "    'kubernetes.io/tls-acme' annotations, so sub-charts cannot burn LE quota)"
@@ -155,6 +155,14 @@ runs:
               fi
 
               echo "✅ Ingress setup completed successfully for EKS cluster."
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_SCENARIO_SHORT_NAME: ${{ inputs.scenario-short-name }}
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+              INPUTS_MAIL: ${{ inputs.mail }}
+              INPUTS_TLD: ${{ inputs.tld }}
+              INPUTS_REF_ARCH: ${{ inputs.ref-arch }}
+              INPUTS_USE_WILDCARD_CERT: ${{ inputs.use-wildcard-cert }}
 
         - name: 🔐 Setup wildcard TLS certificate from Vault
           if: ${{ inputs.use-wildcard-cert == 'true' }}
