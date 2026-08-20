@@ -113,6 +113,13 @@ jobs:
                   max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: backup_bucket,peering,clusters
+                  # The ghost pass works from OCM's cluster list, not from terraform
+                  # state, so it is the only thing that reaches a cluster whose state
+                  # is already gone. Gating it on the retry step meant it never ran
+                  # for exactly those clusters: with no state left the first pass
+                  # succeeds, the retry is skipped, and nothing reclaims them. The
+                  # single-region workflow already sets it on both steps.
+                  delete-ghost-rosa-clusters: 'true'
 
             # The previous step has a continue-on-error set to true in case of schedule run.
             # This means that the workflow is not marked as failed, but the step is.
