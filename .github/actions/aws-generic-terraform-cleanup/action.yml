@@ -92,7 +92,7 @@ runs:
           if: ${{ inputs.openshift == 'true' }}
           uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
           with:
-              oc: ${INPUTS_OPENSHIFT_VERSION}
+              oc: ${{ inputs.openshift-version }}
 
         - name: Delete Resources
           id: delete_resources
@@ -104,7 +104,6 @@ runs:
               INPUTS_MAX_AGE_HOURS: ${{ inputs.max-age-hours }}
               INPUTS_MODULES_ORDER: ${{ inputs.modules-order }}
               INPUTS_OPENSHIFT: ${{ inputs.openshift }}
-              INPUTS_OPENSHIFT_VERSION: ${{ inputs.openshift-version }}
               INPUTS_TARGET: ${{ inputs.target }}
               INPUTS_TF_BUCKET: ${{ inputs.tf-bucket }}
               INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
