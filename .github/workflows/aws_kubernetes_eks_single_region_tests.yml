@@ -361,7 +361,12 @@ jobs:
     access-info:
         name: Read outputs from matrix
         runs-on: ubuntu-latest
-        if: always()
+        # always() so the downstream cleanup still gets its configuration when
+        # prepare-clusters FAILED, but not when it was SKIPPED: there is then no
+        # matrix artifact to read and the step dies with "no artifact named
+        # 'prepare-clusters' was found", turning a deliberately skipped run into
+        # a red check.
+        if: always() && needs.prepare-clusters.result != 'skipped'
         needs: prepare-clusters
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
