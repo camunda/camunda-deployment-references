@@ -105,12 +105,15 @@ runs:
               terraform version
 
               terraform init \
-                -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}${INPUTS_TF_MODULES_NAME}.tfstate" \
-                -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
+                -backend-config="bucket=${TFSTATE_BUCKET}" \
+                -backend-config="key=${TFSTATE_BASE_KEY}${INPUTS_TF_MODULES_NAME}.tfstate" \
+                -backend-config="region=${TFSTATE_REGION}"
 
               terraform validate -no-color
           env:
+              TFSTATE_BASE_KEY: ${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}
+              TFSTATE_BUCKET: ${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}
+              TFSTATE_REGION: ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
               INPUTS_TF_MODULES_NAME: ${{ inputs.tf-modules-name }}
 
         - name: Sanitize Tags
@@ -133,10 +136,11 @@ runs:
               PREFIX=$(echo "${INPUTS_CLUSTER_NAME}" | cut -c1-17)
 
               cat > terraform.tfvars <<EOF
-              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              default_tags = ${SANITIZED_TAGS}
               prefix       = "${PREFIX}"
               EOF
           env:
+              SANITIZED_TAGS: ${{ steps.sanitize-tags.outputs.sanitized_tags }}
               INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Terraform Plan
