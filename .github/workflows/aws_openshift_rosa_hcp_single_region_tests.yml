@@ -288,7 +288,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@ab273d2c32d820bdaae8662c5e9f8c1f5be07230 # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters

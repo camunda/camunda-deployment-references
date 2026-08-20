@@ -75,7 +75,7 @@ jobs:
               shell: bash
               env:
                   # renovate: datasource=github-releases depName=google/go-containerregistry
-                  CRANE_VERSION: v0.21.7
+                  CRANE_VERSION: v0.21.9
               run: |
                   set -euo pipefail
                   tmp="$(mktemp -d)"
