@@ -340,7 +340,21 @@ runs:
           run: |
               set -euo pipefail
               echo "🧪 Running preflight tests..."
-              go test ${INPUTS_GO_TEST_ARGS} ./preflight/...
+
+              # `go-test-args` is one string holding several arguments, so it has to be
+              # split. Expanding it unquoted splits on whitespace but leaves quotes as
+              # literal characters, so `-run 'TestA|TestB'` would reach `go test` as two
+              # broken tokens. Before this branch the value was substituted by GitHub
+              # straight into the command line and the shell did the grouping.
+              #
+              # `xargs` tokenises the way the shell would -- honouring quotes -- without
+              # evaluating anything, so a `;` or a backtick in the value stays data.
+              GO_TEST_ARGS=()
+              while IFS= read -r arg; do
+                  [[ -n "$arg" ]] && GO_TEST_ARGS+=("$arg")
+              done < <(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n' 2>/dev/null)
+
+              go test ${GO_TEST_ARGS[@]+"${GO_TEST_ARGS[@]}"} ./preflight/...
 
         # Warm up the Zeebe Gateway → Identity JWKS path on cold clusters
         # (notably ROSA HCP). The Spring OAuth resource server lazily fetches
@@ -468,7 +482,21 @@ runs:
           run: |
               set -euo pipefail
               echo "🧪 Running core tests..."
-              go test ${INPUTS_GO_TEST_ARGS} ./core/...
+
+              # `go-test-args` is one string holding several arguments, so it has to be
+              # split. Expanding it unquoted splits on whitespace but leaves quotes as
+              # literal characters, so `-run 'TestA|TestB'` would reach `go test` as two
+              # broken tokens. Before this branch the value was substituted by GitHub
+              # straight into the command line and the shell did the grouping.
+              #
+              # `xargs` tokenises the way the shell would -- honouring quotes -- without
+              # evaluating anything, so a `;` or a backtick in the value stays data.
+              GO_TEST_ARGS=()
+              while IFS= read -r arg; do
+                  [[ -n "$arg" ]] && GO_TEST_ARGS+=("$arg")
+              done < <(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n' 2>/dev/null)
+
+              go test ${GO_TEST_ARGS[@]+"${GO_TEST_ARGS[@]}"} ./core/...
 
         # ==============================================================
         # Cleanup port-forwards
