@@ -76,20 +76,20 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@26224a8e51a019dadec867d2c6413b81db1c4411 # 2.3.4
 
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
           run: |
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.resource-group-name }}/${{ inputs.resource-group-name }}.tfstate"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_RESOURCE_GROUP_NAME}/${INPUTS_RESOURCE_GROUP_NAME}.tfstate"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
@@ -99,7 +99,14 @@ runs:
               terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
               echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
 
-              echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}" >> "$GITHUB_ENV"
+              echo "TF_MODULE_DIR=${INPUTS_TF_MODULES_PATH}/azure/kubernetes/${INPUTS_REF_ARCH}" >> "$GITHUB_ENV"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
+              INPUTS_REF_ARCH: ${{ inputs.ref-arch }}
 
         - name: Copy config_override.tf to module root
           shell: bash
@@ -135,6 +142,8 @@ runs:
               RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
               LOCATION: ${{ inputs.location }}
               KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
+              INPUTS_RESOURCE_PREFIX: ${{ inputs.resource-prefix }}
+              INPUTS_TAGS: ${{ inputs.tags }}
           run: |
               set -euo pipefail
 
@@ -188,7 +197,7 @@ runs:
               jq '.' <<< "${overrides}" | tee ci_override.tf.json
 
               # Set resource_prefix_placeholder to an empty string if not provided
-              resource_prefix_placeholder="${{ inputs.resource-prefix }}"
+              resource_prefix_placeholder="${INPUTS_RESOURCE_PREFIX}"
               if [ -z "$resource_prefix_placeholder" ]; then
                 resource_prefix_placeholder=""
               fi
@@ -197,7 +206,7 @@ runs:
 
               # Default tags are not supported
               # https://github.com/hashicorp/terraform-provider-azurerm/issues/13776
-              raw_tags='${{ inputs.tags }}'
+              raw_tags="${INPUTS_TAGS}"
 
               # Default tags from azure/kubernetes/aks-single-region/variables.tf
               static_tags='{
@@ -237,7 +246,9 @@ runs:
                   -no-color \
                   -out tf.plan \
                   -var-file=terraform.tfvars \
-                  -var-file="${{ inputs.tfvars }}"
+                  -var-file="${INPUTS_TFVARS}"
+          env:
+              INPUTS_TFVARS: ${{ inputs.tfvars }}
 
         - name: Terraform Apply
           id: apply
@@ -261,10 +272,13 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              az aks get-credentials --resource-group ${{ inputs.resource-group-name }} --name ${{ inputs.cluster-name }} --overwrite-existing
+              az aks get-credentials --resource-group ${INPUTS_RESOURCE_GROUP_NAME} --name ${INPUTS_CLUSTER_NAME} --overwrite-existing
 
               kubectl config current-context
               kubectl get nodes
+          env:
+              INPUTS_RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Apply and verify storage class
           shell: bash

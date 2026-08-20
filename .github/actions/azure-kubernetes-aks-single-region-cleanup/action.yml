@@ -29,21 +29,27 @@ runs:
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@26224a8e51a019dadec867d2c6413b81db1c4411 # 2.3.4
 
         - name: Delete clusters
           id: delete_clusters
           shell: bash
           run: |
-              if [ -n "${{ inputs.tf-bucket-region }}" ]; then
-                export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
+              if [ -n "${INPUTS_TF_BUCKET_REGION}" ]; then
+                export AWS_S3_REGION="${INPUTS_TF_BUCKET_REGION}"
               fi
 
               # Use repo .tool-version as global version
               cp .tool-versions ~/.tool-versions
 
-              ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
-                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
+              ${{ github.action_path }}/scripts/destroy-clusters.sh "${INPUTS_TF_BUCKET}" \
+                ${INPUTS_MAX_AGE_HOURS_CLUSTER} ${INPUTS_TARGET} ${INPUTS_TF_BUCKET_KEY_PREFIX}
+          env:
+              INPUTS_TF_BUCKET_REGION: ${{ inputs.tf-bucket-region }}
+              INPUTS_TF_BUCKET: ${{ inputs.tf-bucket }}
+              INPUTS_MAX_AGE_HOURS_CLUSTER: ${{ inputs.max-age-hours-cluster }}
+              INPUTS_TARGET: ${{ inputs.target }}
+              INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
 
         # Required for matrix jobs: without it, every scenario would upload the same
         # artifact name and the upload would fail on conflict.
@@ -53,8 +59,10 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              SLUG=$(echo "${{ inputs.tf-bucket-key-prefix }}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              SLUG=$(echo "${INPUTS_TF_BUCKET_KEY_PREFIX}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
               echo "PREFIX_SLUG=${SLUG%-}" | tee -a "$GITHUB_OUTPUT"
+          env:
+              INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
 
         - name: Upload cleanup logs
           if: always()

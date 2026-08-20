@@ -127,8 +127,8 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              NS="${{ inputs.namespace }}"
-              RELEASE="${{ inputs.release-name }}"
+              NS="${INPUTS_NAMESPACE}"
+              RELEASE="${INPUTS_RELEASE_NAME}"
               SVC="${RELEASE}-zeebe-gateway"
 
               echo "Starting port-forward to ${SVC}..."
@@ -176,6 +176,9 @@ runs:
                   echo "  attempt ${i}/30 (HTTP ${CODE})"
                   sleep 2
               done
+          env:
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
+              INPUTS_RELEASE_NAME: ${{ inputs.release-name }}
 
         # ==============================================================
         # Port-forward Keycloak + extract credentials (K8s OIDC)
@@ -188,11 +191,11 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              NS="${{ inputs.namespace }}"
-              RELEASE="${{ inputs.release-name }}"
+              NS="${INPUTS_NAMESPACE}"
+              RELEASE="${INPUTS_RELEASE_NAME}"
 
-              CLIENT_ID="${{ inputs.oidc-client-id }}"
-              CLIENT_SECRET="${{ inputs.oidc-client-secret }}"
+              CLIENT_ID="${INPUTS_OIDC_CLIENT_ID}"
+              CLIENT_SECRET="${INPUTS_OIDC_CLIENT_SECRET}"
               if [[ -z "$CLIENT_ID" || -z "$CLIENT_SECRET" ]]; then
                   # Prefer the test-only 'venom' client (created via
                   # generic/kubernetes/single-region/tests/helm-values/identity.yml).
@@ -227,7 +230,7 @@ runs:
                   echo "Successfully extracted OIDC credentials (client_id=${CLIENT_ID})"
               fi
 
-              KC_URL="${{ inputs.keycloak-url }}"
+              KC_URL="${INPUTS_KEYCLOAK_URL}"
               if [[ -z "$KC_URL" ]]; then
                   KC_URL="http://keycloak-service:18080/auth"
               fi
@@ -297,6 +300,12 @@ runs:
                   echo "client_secret=${CLIENT_SECRET}"
                   echo "token_url=http://localhost:${LOCAL_KC_PORT}${KC_TOKEN_PATH}"
               } >> "$GITHUB_OUTPUT"
+          env:
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
+              INPUTS_RELEASE_NAME: ${{ inputs.release-name }}
+              INPUTS_OIDC_CLIENT_ID: ${{ inputs.oidc-client-id }}
+              INPUTS_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
+              INPUTS_KEYCLOAK_URL: ${{ inputs.keycloak-url }}
 
         # ==============================================================
         # Run HTTP smoke test
