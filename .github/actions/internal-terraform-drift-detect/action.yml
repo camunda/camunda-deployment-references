@@ -36,16 +36,60 @@ runs:
               echo "Running post-apply drift detection in $(pwd)..."
 
               PLAN_OUT="drift.plan.out"
+              PLAN_BIN="drift.plan.bin"
 
               # Run plan with detailed exit code. 0 = no changes, 2 = changes, 1 = error
+              # `-out` is only there to let `terraform show -json` inspect what changed;
+              # the plan is never applied.
               set +e
-              terraform plan -no-color -detailed-exitcode ${{ inputs.plan-extra-args }} > "$PLAN_OUT" 2>&1
+              terraform plan -no-color -detailed-exitcode -out "$PLAN_BIN" ${{ inputs.plan-extra-args }} > "$PLAN_OUT" 2>&1
               code=$?
               set -e
 
               echo '--- Drift Plan Output Start ---'
               cat "$PLAN_OUT"
               echo '--- Drift Plan Output End ---'
+
+              # The nightly cleanup tags every resource it has seen with
+              # `cloud-nuke-first-seen` (infraex-common-config, aws_regional_cleanup.sh).
+              # When it runs while a test is provisioning, terraform finds a tag its
+              # configuration does not declare and plans to remove it, so the post-apply
+              # check reports drift for a change our own tooling made a minute earlier.
+              #
+              # That is a false positive, and a timing-dependent one: it hits whichever
+              # pull request happens to overlap the cleanup window, which makes the check
+              # unusable as a signal. It is ignored here, and only here -- narrowly:
+              #
+              #   * every changed resource must differ in `tags`/`tags_all` and nothing
+              #     else, and
+              #   * within those, the only differing key must be `cloud-nuke-first-seen`.
+              #
+              # A resource that also changes a real attribute, or a second tag, still
+              # counts as drift. If `terraform show` cannot produce the JSON, the plan is
+              # treated as drift rather than waved through.
+              if [ "$code" -eq 2 ]; then
+                if terraform show -json "$PLAN_BIN" > drift.plan.json 2>/dev/null; then
+                  if jq -e '
+                        [ .resource_changes[]
+                          | select((.change.actions // []) != ["no-op"])
+                          | .change as $c
+                          | (($c.before // {}) | keys) + (($c.after // {}) | keys) | unique
+                          | map(select( ($c.before // {})[.] != ($c.after // {})[.] )) as $diff
+                          | if ($diff - ["tags","tags_all"]) != [] then "other-attribute"
+                            else ( $diff[] as $k
+                                   | ((($c.before[$k] // {}) | keys) + (($c.after[$k] // {}) | keys) | unique
+                                      | map(select( ($c.before[$k] // {})[.] != ($c.after[$k] // {})[.] ))) )
+                            end ]
+                        | flatten
+                        | (length > 0) and (all(. == "cloud-nuke-first-seen"))
+                      ' drift.plan.json > /dev/null; then
+                    echo "::notice::Ignoring drift: the only change is the cloud-nuke-first-seen tag, written by the nightly cleanup while this test was running."
+                    code=0
+                  fi
+                else
+                  echo "::warning::Could not read the plan as JSON; treating the plan as drift."
+                fi
+              fi
 
               if [ $code -eq 0 ]; then
                 echo "No drift detected after apply."
