@@ -822,7 +822,6 @@ runs:
               NAMESPACE: ${{ inputs.test-namespace }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
               INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
-              INPUTS_CAMUNDA_VERSION: ${{ inputs.camunda-version }}
               INPUTS_WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
           run: |
               set -euo pipefail
