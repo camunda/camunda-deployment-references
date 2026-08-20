@@ -739,6 +739,13 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  # `chart-env.sh` exports CAMUNDA_NAMESPACE_1, but it is only sourced by
+                  # "🏗️ Prepare the environment for the deployment". When the job fails before
+                  # that step (e.g. the Submariner setup times out), the variable is absent from
+                  # GITHUB_ENV and `set -u` kills this step, so the failure is reported with no
+                  # pod diagnostics at all. Re-derive it the same way chart-env.sh does.
+                  export CAMUNDA_NAMESPACE_1="${CAMUNDA_NAMESPACE_1:-camunda-$CLUSTER_1_NAME}"
+
                   echo "Debug MCH installation issues"
                   # https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.13/html/release_notes/acm-release-notes#upgrade-stuck
                   oc --context="$CLUSTER_1_NAME" get multiclusterhubs -n open-cluster-management -o yaml
@@ -755,8 +762,12 @@ jobs:
               run: |
                   set -euo pipefail
 
+                  # Same reasoning as cluster 1: re-derive the namespace so this step still
+                  # produces diagnostics when the job failed before chart-env.sh was sourced.
+                  export CAMUNDA_NAMESPACE_2="${CAMUNDA_NAMESPACE_2:-camunda-$CLUSTER_2_NAME}"
+
                   kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get po
-                  kubectl -n "$CAMUNDA_NAMESPACE_2" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                  kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
                     echo -e "\n### Failed Pod: ${pod_name} ###\n"
                     kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" describe po "$pod_name"
                     kubectl --context="$CLUSTER_2_NAME" -n "$CAMUNDA_NAMESPACE_2" logs "$pod_name"
