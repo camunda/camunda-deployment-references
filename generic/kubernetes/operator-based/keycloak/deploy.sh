@@ -13,12 +13,14 @@ KEYCLOAK_CONFIG_FILE=${KEYCLOAK_CONFIG_FILE:-"keycloak-instance-no-domain.yml"}
 # published upstream under the matching tag.
 #
 # The camunda/keycloak tags carry a `quay-optimized-` prefix that these URLs must not, so
-# extractVersion strips it: Renovate compares `quay-optimized-26.6.4` with the bare 26.3.2
-# below and writes back the bare version. Dated and rebuild variants
+# extractVersion strips it: Renovate compares `quay-optimized-26.6.4` with the bare version
+# here and writes back the bare form. Dated and rebuild variants
 # (`quay-optimized-26.6.4-1`, `quay-optimized-26.7.1-2026-08-14-001`) are left out on
-# purpose, since upstream publishes no manifests under those.
+# purpose, since upstream publishes no manifests under those -- the same set the CRs accept,
+# so the two always resolve to one version. `.github/renovate.json5` on main, which Renovate
+# reads for every base branch, groups them into one pull request so they also land together.
 # renovate: datasource=docker depName=camunda/keycloak extractVersion=^quay-optimized-(?<version>\d+\.\d+\.\d+)$
-KEYCLOAK_VERSION="26.3.2"
+KEYCLOAK_VERSION="26.6.4"
 
 # Install Keycloak operator CRDs
 kubectl apply --server-side -f \
