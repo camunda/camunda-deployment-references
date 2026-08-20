@@ -330,9 +330,11 @@ jobs:
                   # basic auth (auth-mode=basic)
                   basic-auth-user: admin
                   basic-auth-password: ${{ fromJson(steps.terraform-outputs.outputs.json_output).admin_user_password.value }}
-                  # oidc m2m via the bundled Keycloak (auth-mode=oidc)
-                  oidc-client-id: ${{ fromJson(steps.terraform-outputs.outputs.json_output).connectors_oidc_client_id.value }}
-                  oidc-client-secret: ${{ fromJson(steps.terraform-outputs.outputs.json_output).connectors_oidc_client_secret.value }}
+                  # oidc m2m via the bundled Keycloak (auth-mode=oidc). Uses the
+                  # admin orchestration client — the smoke test deploys/operates, which
+                  # the least-privilege connectors client is not authorized to do.
+                  oidc-client-id: ${{ fromJson(steps.terraform-outputs.outputs.json_output).orchestration_oidc_client_id.value }}
+                  oidc-client-secret: ${{ fromJson(steps.terraform-outputs.outputs.json_output).orchestration_oidc_client_secret.value }}
                   oidc-token-url: ${{ fromJson(steps.terraform-outputs.outputs.json_output).oidc_token_url.value }}
                   benchmark-duration: '300'
 

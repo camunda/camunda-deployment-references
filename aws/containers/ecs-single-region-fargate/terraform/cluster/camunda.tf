@@ -84,6 +84,10 @@ module "orchestration_cluster" {
       # Admin user identifier from the username claim (the bundled realm's 'admin';
       # for external OIDC set this to your admin's preferred_username).
       { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_USERS_0", value = "admin" },
+      # The orchestration client is also an admin m2m client (matches Camunda's
+      # reference admin.clients), so automation/CI can deploy and operate over
+      # client-credentials; the least-privilege connectors client cannot.
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_CLIENTS_0", value = local.oidc.orchestration.client_id },
       # Connectors authenticates as an OIDC client (m2m), mapped to the connectors role.
       { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_CONNECTORS_CLIENTS_0", value = local.oidc.connectors.client_id },
       ] : [

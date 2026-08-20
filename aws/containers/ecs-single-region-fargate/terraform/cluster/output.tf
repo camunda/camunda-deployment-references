@@ -32,3 +32,17 @@ output "connectors_oidc_client_secret" {
   description = "OIDC client secret for the connectors client (bundled Keycloak only; empty otherwise)."
   sensitive   = true
 }
+
+# Admin-capable m2m client (orchestration is mapped to the admin role), used for
+# automation/CI that must deploy and operate — the connectors client is
+# least-privilege and cannot. Empty in basic mode / for external providers.
+output "orchestration_oidc_client_id" {
+  value       = local.oidc_enabled ? local.oidc.orchestration.client_id : ""
+  description = "Admin OIDC client id for machine-to-machine automation (empty in basic mode)."
+}
+
+output "orchestration_oidc_client_secret" {
+  value       = try(random_password.orchestration_oidc_client_secret[0].result, "")
+  description = "OIDC client secret for the admin orchestration client (bundled Keycloak only; empty otherwise)."
+  sensitive   = true
+}

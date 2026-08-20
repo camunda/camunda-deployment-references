@@ -132,4 +132,6 @@ This directory contains the Terraform implementation for the ECS single-region (
 | <a name="output_connectors_oidc_client_secret"></a> [connectors\_oidc\_client\_secret](#output\_connectors\_oidc\_client\_secret) | OIDC client secret for the connectors client (bundled Keycloak only; empty otherwise). |
 | <a name="output_nlb_endpoint"></a> [nlb\_endpoint](#output\_nlb\_endpoint) | (Optional) The DNS name of the Network Load Balancer (NLB) to access the Camunda Core. |
 | <a name="output_oidc_token_url"></a> [oidc\_token\_url](#output\_oidc\_token\_url) | OIDC token endpoint for machine-to-machine authentication (empty in basic mode). |
+| <a name="output_orchestration_oidc_client_id"></a> [orchestration\_oidc\_client\_id](#output\_orchestration\_oidc\_client\_id) | Admin OIDC client id for machine-to-machine automation (empty in basic mode). |
+| <a name="output_orchestration_oidc_client_secret"></a> [orchestration\_oidc\_client\_secret](#output\_orchestration\_oidc\_client\_secret) | OIDC client secret for the admin orchestration client (bundled Keycloak only; empty otherwise). |
 <!-- END_TF_DOCS -->
