@@ -21,10 +21,10 @@
 # Browse them at:
 #   https://github.com/camunda/camunda-deployment-references/tree/gh-pages/docs
 #
-# Release duty: this workflow belongs on the default branch only. Delete it from a
-# freshly cut `stable/8.x` -- the artifact is global (one `gh-pages` branch, one URL
-# per artifact in the shared Renovate preset), so a copy on a maintenance branch can
-# only publish a staler version of it. See MAINTENANCE.md, "Release duty".
+# TODO: [release-duty] delete this workflow from the new `stable/8.x` when `main` is
+# cut. The artifact is global -- one `gh-pages` branch, one URL per artifact in the
+# shared Renovate preset -- so a copy on a maintenance branch can only publish a
+# staler version of it. See MAINTENANCE.md, "Release duty".
 name: Internal - Bitnami - Save vendor-ee image tags and digests as an artifact
 
 on:

@@ -95,7 +95,7 @@ When a new version is ready for release, we need to cut the `main` branch to cre
 
 8. **Delete the `gh-pages` publishers from the new branch**
 
-   On the freshly cut `stable/8.x`:
+   On the freshly cut `stable/8.x`, delete the five workflows carrying a `TODO: [release-duty]` marker that says so — `git grep -l 'TODO: \[release-duty\] delete this workflow'` lists them:
 
    ```sh
    git rm .github/workflows/internal_openshift_artifact_rosa_versions.yml \
