@@ -74,9 +74,10 @@
 | <a name="output_oidc_provider_arns"></a> [oidc\_provider\_arns](#output\_oidc\_provider\_arns) | OIDC provider ARN per region slot, used to bind IRSA roles |
 | <a name="output_private_subnet_ids"></a> [private\_subnet\_ids](#output\_private\_subnet\_ids) | Private subnet IDs per region slot, used by the database root module |
 | <a name="output_region_slot_count"></a> [region\_slot\_count](#output\_region\_slot\_count) | Number of region slots. Feeds `global.multiregion.regions` in the Camunda<br/>Helm values and therefore the Zeebe broker node ID stride. Immutable for<br/>the lifetime of the Camunda cluster. |
-| <a name="output_regions"></a> [regions](#output\_regions) | Region slot definitions, indexed by slot number |
+| <a name="output_regions"></a> [regions](#output\_regions) | Region slot definitions of the ACTIVE regions, indexed by slot number |
 | <a name="output_service_cidr_blocks"></a> [service\_cidr\_blocks](#output\_service\_cidr\_blocks) | Kubernetes service CIDR block per region slot |
 | <a name="output_transit_gateway_ids"></a> [transit\_gateway\_ids](#output\_transit\_gateway\_ids) | Transit Gateway ID per region slot |
 | <a name="output_vpc_cidr_blocks"></a> [vpc\_cidr\_blocks](#output\_vpc\_cidr\_blocks) | VPC CIDR block per region slot |
 | <a name="output_vpc_ids"></a> [vpc\_ids](#output\_vpc\_ids) | VPC ID per region slot |
+| <a name="output_zone_names"></a> [zone\_names](#output\_zone\_names) | Zone name per slot, in slot order, for EVERY slot including ones not<br/>deployed yet.<br/><br/>Deliberately not the same set as the active regions. The Camunda zone list<br/>describes the whole topology so that the replicas of an undeployed zone are<br/>reserved rather than redistributed; feeding it only the active regions<br/>would silently build a smaller cluster and lose the growth property. |
 <!-- END_TF_DOCS -->

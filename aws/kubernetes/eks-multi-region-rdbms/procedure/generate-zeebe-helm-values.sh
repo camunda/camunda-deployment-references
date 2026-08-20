@@ -36,6 +36,7 @@ set -euo pipefail
 
 : "${CAMUNDA_REGION_SLOTS:?CAMUNDA_REGION_SLOTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_BROKERS_PER_REGION:?CAMUNDA_BROKERS_PER_REGION must be set, source export_environment_prerequisites.sh}"
+: "${CAMUNDA_ZONE_NAMES:?CAMUNDA_ZONE_NAMES must be set, source export-terraform-outputs.sh}"
 
 INTERNAL_PORT="${CAMUNDA_CLUSTER_INTERNAL_PORT:-26502}"
 
@@ -52,6 +53,11 @@ ZONE_PRIORITY_BASE="${CAMUNDA_ZONE_PRIORITY_BASE:-1000}"
 ZONE_PRIORITY_STEP="${CAMUNDA_ZONE_PRIORITY_STEP:-100}"
 
 read -r -a cluster_ids <<<"$SUBMARINER_CLUSTER_IDS"
+# Every slot, including ones not deployed yet. SUBMARINER_CLUSTER_IDS covers the
+# ACTIVE regions only -- it names the clusters joined to the ClusterSet -- so
+# using it here builds a zone list one entry short and quietly drops the growth
+# property.
+read -r -a zone_names <<<"$CAMUNDA_ZONE_NAMES"
 
 contact_points=""
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
@@ -82,10 +88,11 @@ export CAMUNDA_CLUSTER_INITIALCONTACTPOINTS="$contact_points"
 
 zones_json=""
 for ((i = 0; i < CAMUNDA_REGION_SLOTS; i++)); do
-    zone_name="${cluster_ids[$i]:-}"
+    zone_name="${zone_names[$i]:-}"
     if [ -z "$zone_name" ]; then
-        echo "ERROR: SUBMARINER_CLUSTER_IDS has no entry for zone slot $i." >&2
+        echo "ERROR: CAMUNDA_ZONE_NAMES has no entry for zone slot $i." >&2
         echo "       It must name every one of the $CAMUNDA_REGION_SLOTS slots, not only the active ones." >&2
+        echo "       It comes from the zone_names Terraform output; re-source export-terraform-outputs.sh." >&2
         exit 1
     fi
 

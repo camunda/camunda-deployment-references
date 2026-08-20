@@ -21,8 +21,21 @@ output "active_region_count" {
 }
 
 output "regions" {
-  description = "Region slot definitions, indexed by slot number"
+  description = "Region slot definitions of the ACTIVE regions, indexed by slot number"
   value       = { for i in local.active_indices : i => var.regions[i] }
+}
+
+output "zone_names" {
+  description = <<-EOT
+    Zone name per slot, in slot order, for EVERY slot including ones not
+    deployed yet.
+
+    Deliberately not the same set as the active regions. The Camunda zone list
+    describes the whole topology so that the replicas of an undeployed zone are
+    reserved rather than redistributed; feeding it only the active regions
+    would silently build a smaller cluster and lose the growth property.
+  EOT
+  value       = [for r in var.regions : r.short_name]
 }
 
 output "cluster_names" {

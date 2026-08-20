@@ -24,6 +24,9 @@ export AWS_REGIONS="$(_tf_get '[.regions.value | to_entries | sort_by(.key | ton
 export SUBMARINER_CLUSTER_IDS="$(_tf_get '[.regions.value | to_entries | sort_by(.key | tonumber) | .[].value.short_name] | join(" ")')"
 export REGION_VPC_CIDRS="$(_tf_get '[.vpc_cidr_blocks.value | to_entries | sort_by(.key | tonumber) | .[].value] | join(" ")')"
 export REGION_SERVICE_CIDRS="$(_tf_get '[.service_cidr_blocks.value | to_entries | sort_by(.key | tonumber) | .[].value] | join(" ")')"
+# Every zone, not only the active ones: the Camunda zone list covers the whole
+# topology. SUBMARINER_CLUSTER_IDS is the active subset and is not a substitute.
+export CAMUNDA_ZONE_NAMES="$(_tf_get '.zone_names.value | join(" ")')"
 export EKS_CLUSTER_NAMES="$(_tf_get '[.cluster_names.value | to_entries | sort_by(.key | tonumber) | .[].value] | join(" ")')"
 
 export CAMUNDA_RDBMS_URL="$(_tf_get '.camunda_rdbms_url.value // empty')"
@@ -38,5 +41,6 @@ echo "  region slots   : $CAMUNDA_REGION_SLOTS (active: $CAMUNDA_ACTIVE_REGIONS)
 echo "  aws regions    : $AWS_REGIONS"
 echo "  eks clusters   : $EKS_CLUSTER_NAMES"
 echo "  submariner ids : $SUBMARINER_CLUSTER_IDS"
+echo "  zone names     : $CAMUNDA_ZONE_NAMES"
 echo "  vpc CIDRs      : $REGION_VPC_CIDRS"
 echo "  rdbms url      : ${CAMUNDA_RDBMS_URL:-<unset>}"

@@ -68,6 +68,7 @@ func testEnv(t *testing.T) helpers.Env {
 		ClusterContexts:    contexts,
 		AWSRegions:         outputs.AWSRegions,
 		SubmarinerClusters: outputs.ShortNames,
+		ZoneNames:          outputs.ZoneNames,
 		ClusterNames:       outputs.ClusterNames,
 		VPCCidrBlocks:      outputs.VPCCidrBlocks,
 		ServiceCidrBlocks:  outputs.ServiceCidrBlocks,
