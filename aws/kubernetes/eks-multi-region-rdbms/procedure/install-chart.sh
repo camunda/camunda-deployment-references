@@ -58,7 +58,8 @@ BROKER_IMAGE="$(helm show values "$LOCAL_CHART" |
 # back to the legacy numbering, and every region numbers its brokers
 # identically -- which surfaces ninety minutes later as brokers that cannot
 # find each other, and reads like a networking problem.
-if grep -q "mode: zoned" "$SCRIPT_DIR/../helm-values/camunda-values.yml" 2>/dev/null; then
+_values_template="$(cd "$(dirname "${BASH_SOURCE[0]}")/../helm-values" && pwd)/camunda-values.yml"
+if grep -q "mode: zoned" "$_values_template" 2>/dev/null; then
     if ! grep -q "mode:" "$LOCAL_CHART/values.yaml" 2>/dev/null ||
         ! grep -q "zones:" "$LOCAL_CHART/values.yaml" 2>/dev/null; then
         echo "ERROR: the values request global.multiregion.mode=zoned, but the built chart does not support it." >&2
