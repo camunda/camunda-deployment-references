@@ -144,7 +144,7 @@ runs:
           shell: bash
           env:
               INPUTS_AWS_REGION: ${{ inputs.aws-region }}
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               echo "AWS_REGION=${INPUTS_AWS_REGION}" | tee -a "$GITHUB_ENV"
