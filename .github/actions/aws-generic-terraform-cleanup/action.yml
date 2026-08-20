@@ -108,6 +108,7 @@ runs:
               cp .tool-versions ~/.tool-versions
 
               # First attempt without RETRY_DESTROY
+              destroy_status=0
               echo "🚀 First attempt: Running destroy without cloud-nuke retry..."
               if ${{ github.action_path }}/scripts/destroy-resources.sh "${{ inputs.tf-bucket }}" \
                 ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.modules-order }} ${{ inputs.tf-bucket-key-prefix }} \
@@ -120,11 +121,29 @@ runs:
                   export RETRY_DESTROY='true'
                   ${{ github.action_path }}/scripts/destroy-resources.sh "${{ inputs.tf-bucket }}" \
                     ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.modules-order }} ${{ inputs.tf-bucket-key-prefix }} \
-                    $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
+                    $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found") || destroy_status=$?
+                  unset RETRY_DESTROY
               fi
 
+              # The ghost pass repairs the very thing that makes the destroy above
+              # fail: a ROSA cluster whose installer role is gone cannot be deleted
+              # by OCM, so terraform cannot delete it either. Under `set -e` the
+              # unguarded retry used to end the step here, leaving the repair
+              # unreachable in exactly the situation it exists for. Record the
+              # status instead and report it once both passes have run.
+              ghost_status=0
               if [ "${{ inputs.delete-ghost-rosa-clusters }}" == "true" ]; then
-                ${{ github.action_path }}/scripts/cleanup-ghost-rosa-clusters.sh ${{ inputs.max-age-hours }}
+                ${{ github.action_path }}/scripts/cleanup-ghost-rosa-clusters.sh ${{ inputs.max-age-hours }} || ghost_status=$?
+              fi
+
+              if [ "$destroy_status" -ne 0 ]; then
+                echo "::error::Destroy failed (exit ${destroy_status}) even after the cloud-nuke retry."
+              fi
+              if [ "$ghost_status" -ne 0 ]; then
+                echo "::error::Ghost ROSA cluster cleanup failed (exit ${ghost_status})."
+              fi
+              if [ "$destroy_status" -ne 0 ] || [ "$ghost_status" -ne 0 ]; then
+                exit 1
               fi
 
         # Required for matrix jobs
