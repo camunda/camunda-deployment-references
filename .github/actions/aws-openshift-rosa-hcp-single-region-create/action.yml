@@ -134,14 +134,13 @@ runs:
           with:
               oc: ${{ inputs.openshift-version }}
 
-        - name: Set AWS Region and associated AZs
-          id: construct_azs
+        - name: Set AWS Region
+          id: set_aws_region
           shell: bash
           run: |
               set -euo pipefail
 
               echo "AWS_REGION=${{ inputs.aws-region }}" | tee -a "$GITHUB_ENV"
-
 
         - name: Login to Red Hat Hybrid Cloud Console
           shell: bash
