@@ -997,6 +997,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_ROSA_HCP_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   openshift: 'true'
                   delete-ghost-rosa-clusters: 'false'
@@ -1011,6 +1012,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX_EKS_SINGLE_REGION }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: vpn,cluster
 

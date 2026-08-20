@@ -312,6 +312,7 @@ jobs:
                   camunda-version: ${{ steps.target-branch.outputs.TARGET_BRANCH }}
                   max-age-hours: 0
                   target: ${{ steps.commit_info.outputs.cluster_name }}
+                  fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
 
             - name: Notify in Slack in case of failure
               id: slack-notification
