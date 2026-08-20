@@ -111,7 +111,7 @@ if ! EXISTING_ROLES=$(aws iam list-roles --query 'Roles[].RoleName' --output tex
   echo "  ${EXISTING_ROLES}" >&2
   exit 1
 fi
-EXISTING_ROLES=$(echo "$EXISTING_ROLES" | tr '\t' '\n')
+EXISTING_ROLES=$(printf '%s' "$EXISTING_ROLES" | tr '\t' '\n')
 
 # installer_role_missing answers from that snapshot, using the role ARN OCM
 # recorded for the cluster rather than a reconstructed name: a cluster created
