@@ -164,32 +164,6 @@ runs:
           with:
               oc: ${{ inputs.openshift-version-cluster-1 }}
 
-        - name: Set AWS Region and associated AZs
-          id: construct_azs
-          shell: bash
-          run: |
-              IFS=',' read -r -a az_cluster_1 <<< "${{ inputs.availability-zones-cluster-1 }}"
-              IFS=',' read -r -a az_cluster_2 <<< "${{ inputs.availability-zones-cluster-2 }}"
-
-              FULL_AZS_CLUSTER_1=()
-              FULL_AZS_CLUSTER_2=()
-
-              for az in "${az_cluster_1[@]}"; do
-                FULL_AZS_CLUSTER_1+=("\"${{ inputs.aws-region-cluster-1 }}${az}\"")
-              done
-
-              for az in "${az_cluster_2[@]}"; do
-                FULL_AZS_CLUSTER_2+=("\"${{ inputs.aws-region-cluster-2 }}${az}\"")
-              done
-
-              # Join the AZs with commas
-              FULL_AZS_CLUSTER_1_STRING=$(IFS=,; echo "${FULL_AZS_CLUSTER_1[*]}")
-              FULL_AZS_CLUSTER_2_STRING=$(IFS=,; echo "${FULL_AZS_CLUSTER_2[*]}")
-
-              echo "FULL_AZS_CLUSTER_1=$FULL_AZS_CLUSTER_1_STRING" | tee -a "$GITHUB_ENV"
-              echo "FULL_AZS_CLUSTER_2=$FULL_AZS_CLUSTER_2_STRING" | tee -a "$GITHUB_ENV"
-
-
         - name: Login to Red Hat Hybrid Cloud Console
           shell: bash
           run: |
@@ -275,11 +249,40 @@ runs:
           with:
               raw-tags: ${{ inputs.tags }}
 
+        - name: Generate tfvars file - Clusters
+          id: generate-tfvars-clusters
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+          run: |
+              set -euo pipefail
+
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              cluster_1_region="${{ inputs.aws-region-cluster-1 }}"
+              cluster_2_region="${{ inputs.aws-region-cluster-2 }}"
+              EOF
+
         - name: Terraform Plan - Clusters
           id: plan-clusters
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+          # Passed as env, never interpolated into the script: the values reach
+          # jq as data, so nothing below has to be quoted or escaped.
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
+              CLUSTER_1_NAME: ${{ inputs.cluster-name-1 }}
+              CLUSTER_2_NAME: ${{ inputs.cluster-name-2 }}
+              CLUSTER_1_ADMIN: ${{ inputs.admin-username-cluster-1 }}
+              CLUSTER_2_ADMIN: ${{ inputs.admin-username-cluster-2 }}
+              CLUSTER_1_PASSWORD: ${{ inputs.admin-password-cluster-1 }}
+              CLUSTER_2_PASSWORD: ${{ inputs.admin-password-cluster-2 }}
+              CLUSTER_1_REGION: ${{ inputs.aws-region-cluster-1 }}
+              CLUSTER_2_REGION: ${{ inputs.aws-region-cluster-2 }}
+              CLUSTER_1_ZONES: ${{ inputs.availability-zones-cluster-1 }}
+              CLUSTER_2_ZONES: ${{ inputs.availability-zones-cluster-2 }}
+              CLUSTER_1_VERSION: ${{ inputs.openshift-version-cluster-1 }}
+              CLUSTER_2_VERSION: ${{ inputs.openshift-version-cluster-2 }}
+              CLUSTER_1_REPLICAS: ${{ inputs.replicas-cluster-1 }}
+              CLUSTER_2_REPLICAS: ${{ inputs.replicas-cluster-2 }}
           shell: bash
           run: |
               set -euo pipefail
@@ -289,53 +292,97 @@ runs:
               ls
 
               # protect sensitive values
-              echo "::add-mask::${{ inputs.admin-password-cluster-1 }}"
-              echo "::add-mask::${{ inputs.admin-password-cluster-2 }}"
+              echo "::add-mask::${CLUSTER_1_PASSWORD}"
+              echo "::add-mask::${CLUSTER_2_PASSWORD}"
 
-              ## Cluster 1
+              # Terraform's own override mechanism, rather than rewriting in place
+              # the reference files we ship to users. Terraform *rejects* an
+              # override for a local that no longer exists ("An override file can
+              # only override a local value that was already defined in a primary
+              # configuration file"), so a rename in the reference architecture
+              # fails the plan loudly instead of silently testing the reference
+              # defaults.
+              #
+              # Both clusters live in the same Terraform directory, so a single
+              # override file carries them.
+              #
+              # Module arguments are merged rather than validated, so those get an
+              # explicit presence check below.
+              overrides='{"locals": {}, "module": {}}'
 
-              # We use sed instead of -var because the module presented to the user
-              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(rosa_cluster_1_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name-1 }}\2/' \
-                     -e 's/\(rosa_cluster_1_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password-cluster-1 }}\2/' \
-                     -e 's/\(rosa_cluster_1_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username-cluster-1 }}\2/' \
-                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version-cluster-1 }}\2/' \
-                     -e "s/\(rosa_cluster_1_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_1]/" \
-                     cluster_region_1.tf
+              add_cluster() {
+                  local idx="$1" name="$2" admin="$3" password="$4" region="$5" letters="$6" version="$7" replicas="$8"
+                  local file="cluster_region_${idx}.tf" module="rosa_cluster_${idx}" zones
 
-              if [ -n "${{ inputs.replicas-cluster-1 }}" ]; then
-                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas-cluster-1 }}/' cluster_region_1.tf
-              else
-                echo "No replicas value provided, skipping replica modification."
-              fi
+                  zones=$(jq -n --arg region "${region}" --arg letters "${letters}" \
+                      '[$letters | split(",") | .[] | sub("^\\s+";"") | sub("\\s+$";"") | select(length > 0) | $region + .]')
+                  if ! jq -e 'length > 0' <<< "${zones}" > /dev/null; then
+                      echo "::error::availability-zones-cluster-${idx} resolved to an empty list (got '${letters}')."
+                      exit 1
+                  fi
 
-              echo "Displaying templated cluster_cluster_1.tf file:"
-              cat cluster_region_1.tf
+                  overrides=$(jq \
+                      --arg name "${name}" \
+                      --arg admin "${admin}" \
+                      --arg password "${password}" \
+                      --argjson zones "${zones}" \
+                      --arg version "${version}" \
+                      --arg module "${module}" \
+                      --arg idx "${idx}" \
+                      '.locals["rosa_cluster_\($idx)_name"] = $name
+                       | .locals["rosa_cluster_\($idx)_admin_username"] = $admin
+                       | .locals["rosa_cluster_\($idx)_admin_password"] = $password
+                       | .locals["rosa_cluster_\($idx)_zones"] = $zones
+                       | .module[$module].openshift_version = $version' <<< "${overrides}")
 
-              ## Cluster 2
+                  if [ -n "${replicas}" ]; then
+                      # jq --argjson would reject a leading zero with an opaque
+                      # parse error, so constrain the shape and keep the message.
+                      if ! [[ "${replicas}" =~ ^[1-9][0-9]*$ ]]; then
+                          echo "::error::Invalid replicas-cluster-${idx} '${replicas}'; expected a positive integer."
+                          exit 1
+                      fi
+                      overrides=$(jq --arg module "${module}" --argjson v "${replicas}" \
+                          '.module[$module].replicas = $v' <<< "${overrides}")
+                  else
+                      echo "No replicas value provided for cluster ${idx}, keeping the reference default."
+                  fi
 
-              # We use sed instead of -var because the module presented to the user
-              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(rosa_cluster_2_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name-2 }}\2/' \
-                     -e 's/\(rosa_cluster_2_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password-cluster-2 }}\2/' \
-                     -e 's/\(rosa_cluster_2_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username-cluster-2 }}\2/' \
-                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version-cluster-2 }}\2/' \
-                     -e "s/\(rosa_cluster_2_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_2]/" \
-                     cluster_region_2.tf
+                  # Terraform silently ignores an unknown argument in a module
+                  # override block, so assert the ones we set are still there. The
+                  # search is scoped to the module block: the same key may
+                  # legitimately appear elsewhere and would otherwise mask a
+                  # removed argument.
+                  local block
+                  block=$(awk -v want="^module \"${module}\"" '$0 ~ want { inside = 1 }
+                              inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' "${file}")
+                  if [ -z "${block}" ]; then
+                      echo "::error::No 'module \"${module}\"' block found in ${file}; update this action."
+                      exit 1
+                  fi
+                  local key
+                  for key in $(jq -r --arg module "${module}" '.module[$module] | keys[]' <<< "${overrides}"); do
+                      if ! grep -qE "^[[:space:]]*${key}[[:space:]]*=" <<< "${block}"; then
+                          echo "::error::No '${key}' argument in the ${module} module block of ${file};" \
+                              "the CI override would be silently ignored. Update this action."
+                          exit 1
+                      fi
+                  done
+              }
 
-              if [ -n "${{ inputs.replicas-cluster-2 }}" ]; then
-                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas-cluster-2 }}/' cluster_region_2.tf
-              else
-                echo "No replicas value provided, skipping replica modification."
-              fi
+              add_cluster 1 "${CLUSTER_1_NAME}" "${CLUSTER_1_ADMIN}" "${CLUSTER_1_PASSWORD}" "${CLUSTER_1_REGION}" \
+                  "${CLUSTER_1_ZONES}" "${CLUSTER_1_VERSION}" "${CLUSTER_1_REPLICAS}"
+              add_cluster 2 "${CLUSTER_2_NAME}" "${CLUSTER_2_ADMIN}" "${CLUSTER_2_PASSWORD}" "${CLUSTER_2_REGION}" \
+                  "${CLUSTER_2_ZONES}" "${CLUSTER_2_VERSION}" "${CLUSTER_2_REPLICAS}"
 
-              echo "Displaying templated cluster_cluster_2.tf file:"
-              cat cluster_region_2.tf
+              jq '.' <<< "${overrides}" > ci_override.tf.json
+              # The admin passwords are overridden locals, so print a redacted
+              # copy rather than teeing the file into the log.
+              jq '.locals |= with_entries(if (.key | endswith("_admin_password")) then .value = "***" else . end)' \
+                  ci_override.tf.json
 
               terraform plan -no-color -out clusters.plan  \
-                -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}" \
-                -var="cluster_2_region=${{ inputs.aws-region-cluster-2 }}"
+                -var-file=terraform.tfvars
 
         - name: Terraform Apply - Clusters
           id: apply-clusters
