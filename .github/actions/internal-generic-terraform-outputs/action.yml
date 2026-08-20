@@ -33,25 +33,31 @@ runs:
         - name: Checkout Repository
           uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@26224a8e51a019dadec867d2c6413b81db1c4411 # 2.3.4
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
           run: |
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.tf-state-suffix }}/${{ inputs.tf-modules-name }}.tfstate"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_TF_STATE_SUFFIX}/${INPUTS_TF_MODULES_NAME}.tfstate"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_KEY=${TFSTATE_KEY}" >> "$GITHUB_OUTPUT"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_TF_STATE_SUFFIX: ${{ inputs.tf-state-suffix }}
+              INPUTS_TF_MODULES_NAME: ${{ inputs.tf-modules-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
 
         - name: Terraform Init
           id: init
