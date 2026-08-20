@@ -111,6 +111,15 @@ runs:
           run: |
               set -euo pipefail
 
+              # The ROSA CLI is only installed when openshift is true, so a caller
+              # asking for the ghost pass without it would fail on `rosa: command
+              # not found` after the destroy, or — the way it actually happened —
+              # never notice the repair was not wired up at all.
+              if [ "${INPUTS_DELETE_GHOST_ROSA_CLUSTERS}" == "true" ] && [ "${OPENSHIFT}" != "true" ]; then
+                echo "::error::delete-ghost-rosa-clusters needs openshift: 'true'; the ROSA CLI is only installed then."
+                exit 1
+              fi
+
               if [ -n "${INPUTS_TF_BUCKET_REGION}" ]; then
                 export AWS_S3_REGION="${INPUTS_TF_BUCKET_REGION}"
               fi
