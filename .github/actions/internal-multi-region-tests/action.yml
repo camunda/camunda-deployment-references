@@ -150,7 +150,8 @@ runs:
                 # A release tag carries the previous version in Chart.yaml (tag N ships
                 # version N-1), so the built chart is one prerelease behind CHART_GIT_REF (this
                 # is intentional — the known-good set the integration tests validate).
-                # renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$
+                # Parked: pre-GA alpha chart until 8.10 GA.
+                # renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$ renovate-inert-ok
                 CHART_GIT_REF="camunda-platform-8.10-15.0.0-alpha3"
                 CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
                 CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"
