@@ -7,7 +7,11 @@ set -euo pipefail
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 KEYCLOAK_CONFIG_FILE=${KEYCLOAK_CONFIG_FILE:-"keycloak-instance-no-domain.yml"}
 
-# renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-optimized-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+# This version pins the Keycloak operator manifests fetched below, which are
+# released from keycloak/keycloak-k8s-resources -- not the camunda/keycloak image
+# the Keycloak instance runs, which is annotated separately in
+# keycloak-instance-*.yml.
+# renovate: datasource=github-tags depName=keycloak/keycloak-k8s-resources
 KEYCLOAK_VERSION="26.3.2"
 
 # Install Keycloak operator CRDs
