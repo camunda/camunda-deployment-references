@@ -17,6 +17,11 @@ jobs:
         runs-on: ubuntu-latest
         # Run when pull request is merged or when a comment starting with `/backport`
         # Exclude the backport action bot (user ID 97796249) to prevent infinite loops
+        #
+        # `issue_comment` runs in the base repository with access to the secrets, and this
+        # job mints an App token from them, so the comment path is restricted to people who
+        # already have write access. Without that, any drive-by commenter on a public pull
+        # request could trigger a run that holds a token with the `workflows` scope.
         if: >
             (
               github.event_name == 'pull_request' &&
@@ -25,11 +30,10 @@ jobs:
               github.event_name == 'issue_comment' &&
               github.event.issue.pull_request &&
               github.event.comment.user.id != 97796249 &&
-              startsWith(github.event.comment.body, '/backport')
+              startsWith(github.event.comment.body, '/backport') &&
+              contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
             )
         steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
             # GITHUB_TOKEN cannot push anything under .github/workflows/, whatever permissions
             # the workflow declares -- `workflows` is an App/PAT scope, not a GITHUB_TOKEN one.
             # Every backport of a pull request that touched a workflow file was therefore
@@ -49,6 +53,15 @@ jobs:
                   vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   vault-url: ${{ secrets.VAULT_ADDR }}
+
+            # backport-action pushes with a bare `git push`, so the credential it uses is
+            # whatever checkout wrote into the git config -- not its `github_token` input,
+            # which only serves the API calls. The token therefore has to be in place
+            # before the checkout, and has to stay in the config for the push to use it.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  token: ${{ steps.generate-github-token.outputs.token }}
+                  persist-credentials: true
 
             - name: Create backport PRs
               uses: korthout/backport-action@2e830a1d0b8269505846ddd407a70876913ad1f8 # v4.6.0
