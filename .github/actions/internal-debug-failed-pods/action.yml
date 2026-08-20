@@ -29,12 +29,12 @@ runs:
           run: |
               set -euo pipefail
 
-              NAMESPACE="${{ inputs.namespace }}"
-              LOG_TAIL="${{ inputs.log-tail-lines }}"
-              ARTIFACT_TAIL="${{ inputs.artifact-log-tail-lines }}"
+              NAMESPACE="${INPUTS_NAMESPACE}"
+              LOG_TAIL="${INPUTS_LOG_TAIL_LINES}"
+              ARTIFACT_TAIL="${INPUTS_ARTIFACT_LOG_TAIL_LINES}"
               CTX_ARGS=()
-              if [[ -n "${{ inputs.context }}" ]]; then
-                CTX_ARGS=(--context="${{ inputs.context }}")
+              if [[ -n "${INPUTS_CONTEXT}" ]]; then
+                CTX_ARGS=(--context="${INPUTS_CONTEXT}")
               fi
 
               echo "::group::All pods in namespace ${NAMESPACE}"
@@ -140,6 +140,11 @@ runs:
                   echo "::endgroup::"
                 done
               done || true
+          env:
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
+              INPUTS_LOG_TAIL_LINES: ${{ inputs.log-tail-lines }}
+              INPUTS_ARTIFACT_LOG_TAIL_LINES: ${{ inputs.artifact-log-tail-lines }}
+              INPUTS_CONTEXT: ${{ inputs.context }}
 
         - name: 📦 Dump pod logs and cluster state for artifact
           shell: bash
@@ -148,10 +153,10 @@ runs:
               # The dump can contain sensitive cluster context — keep every file private.
               umask 077
 
-              NAMESPACE="${{ inputs.namespace }}"
+              NAMESPACE="${INPUTS_NAMESPACE}"
               DUMP_DIR="${RUNNER_TEMP:-/tmp}/pod-debug-dump-${NAMESPACE}"
               mkdir -p "$DUMP_DIR"
-              ARTIFACT_TAIL="${{ inputs.artifact-log-tail-lines }}"
+              ARTIFACT_TAIL="${INPUTS_ARTIFACT_LOG_TAIL_LINES}"
               # Stderr of the -o yaml dumps is routed here so the .yaml files stay valid YAML.
               DUMP_ERR="${DUMP_DIR}/_dump-stderr.log"
               # yq redaction: blank out common secret-bearing keys (+ the license key)
@@ -161,8 +166,8 @@ runs:
               REDACT_LICENSE='(.. | select(tag == "!!map" and has("license")).license | select(tag == "!!map" and has("key")).key) = "***REDACTED***"'
               REDACT="${REDACT_KEYS} | ${REDACT_LICENSE}"
               CTX_ARGS=()
-              if [[ -n "${{ inputs.context }}" ]]; then
-                CTX_ARGS=(--context="${{ inputs.context }}")
+              if [[ -n "${INPUTS_CONTEXT}" ]]; then
+                CTX_ARGS=(--context="${INPUTS_CONTEXT}")
               fi
 
               # Dump cluster-level context
@@ -235,6 +240,10 @@ runs:
 
               echo "dump-dir=${DUMP_DIR}" >> "$GITHUB_OUTPUT"
           id: dump
+          env:
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
+              INPUTS_ARTIFACT_LOG_TAIL_LINES: ${{ inputs.artifact-log-tail-lines }}
+              INPUTS_CONTEXT: ${{ inputs.context }}
 
         - name: 📤 Upload Pod debug dump
           uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
