@@ -251,7 +251,7 @@ runs:
 
         - name: Terraform Plan - Clusters
           id: plan-clusters
-          working-directory: ${{
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
           # Passed as env, never interpolated into the script: the values reach
           # jq as data, so nothing below has to be quoted or escaped.
           env:
