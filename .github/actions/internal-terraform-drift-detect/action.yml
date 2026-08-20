@@ -99,8 +99,10 @@ runs:
               # pull request happens to overlap the cleanup window, which makes the check
               # unusable as a signal. It is ignored here, and only here -- narrowly:
               #
-              #   * every changed resource must differ in `tags`/`tags_all` and nothing
-              #     else, and
+              #   * every changed resource must be a plain `update` -- a create, a
+              #     delete or a replace is never waved through, whatever it says it
+              #     changes,
+              #   * it must differ in `tags`/`tags_all` and nothing else, and
               #   * within those, the only differing key must be `cloud-nuke-first-seen`.
               #
               # A resource that also changes a real attribute, or a second tag, still
@@ -111,13 +113,15 @@ runs:
                   if jq -e '
                         [ .resource_changes[]
                           | select((.change.actions // []) != ["no-op"])
-                          | .change as $c
-                          | (($c.before // {}) | keys) + (($c.after // {}) | keys) | unique
-                          | map(select( ($c.before // {})[.] != ($c.after // {})[.] )) as $diff
-                          | if ($diff - ["tags","tags_all"]) != [] then "other-attribute"
-                            else ( $diff[] as $k
-                                   | ((($c.before[$k] // {}) | keys) + (($c.after[$k] // {}) | keys) | unique
-                                      | map(select( ($c.before[$k] // {})[.] != ($c.after[$k] // {})[.] ))) )
+                          | if (.change.actions // []) != ["update"] then "not-an-update"
+                            else ( .change as $c
+                                   | (($c.before // {}) | keys) + (($c.after // {}) | keys) | unique
+                                   | map(select( ($c.before // {})[.] != ($c.after // {})[.] )) as $diff
+                                   | if ($diff - ["tags","tags_all"]) != [] then "other-attribute"
+                                     else ( $diff[] as $k
+                                            | ((($c.before[$k] // {}) | keys) + (($c.after[$k] // {}) | keys) | unique
+                                               | map(select( ($c.before[$k] // {})[.] != ($c.after[$k] // {})[.] ))) )
+                                     end )
                             end ]
                         | flatten
                         | (length > 0) and (all(. == "cloud-nuke-first-seen"))
