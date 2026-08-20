@@ -349,10 +349,19 @@ runs:
               #
               # `xargs` tokenises the way the shell would -- honouring quotes -- without
               # evaluating anything, so a `;` or a backtick in the value stays data.
+              # `xargs` exits non-zero on unmatched quotes. Capturing it here rather than
+              # in a process substitution is what makes that failure visible: inside
+              # `< <(...)` the exit status is lost, the loop reads nothing, and the tests
+              # would run with none of the arguments the caller asked for.
+              if ! parsed_test_args=$(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n'); then
+                  echo "::error::go-test-args could not be tokenised, check for unmatched quotes: ${INPUTS_GO_TEST_ARGS}" >&2
+                  exit 1
+              fi
+
               GO_TEST_ARGS=()
               while IFS= read -r arg; do
                   [[ -n "$arg" ]] && GO_TEST_ARGS+=("$arg")
-              done < <(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n' 2>/dev/null)
+              done <<< "${parsed_test_args}"
 
               go test ${GO_TEST_ARGS[@]+"${GO_TEST_ARGS[@]}"} ./preflight/...
 
@@ -491,10 +500,19 @@ runs:
               #
               # `xargs` tokenises the way the shell would -- honouring quotes -- without
               # evaluating anything, so a `;` or a backtick in the value stays data.
+              # `xargs` exits non-zero on unmatched quotes. Capturing it here rather than
+              # in a process substitution is what makes that failure visible: inside
+              # `< <(...)` the exit status is lost, the loop reads nothing, and the tests
+              # would run with none of the arguments the caller asked for.
+              if ! parsed_test_args=$(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n'); then
+                  echo "::error::go-test-args could not be tokenised, check for unmatched quotes: ${INPUTS_GO_TEST_ARGS}" >&2
+                  exit 1
+              fi
+
               GO_TEST_ARGS=()
               while IFS= read -r arg; do
                   [[ -n "$arg" ]] && GO_TEST_ARGS+=("$arg")
-              done < <(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n' 2>/dev/null)
+              done <<< "${parsed_test_args}"
 
               go test ${GO_TEST_ARGS[@]+"${GO_TEST_ARGS[@]}"} ./core/...
 
