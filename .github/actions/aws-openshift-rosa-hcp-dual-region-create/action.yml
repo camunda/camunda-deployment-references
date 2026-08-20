@@ -249,6 +249,19 @@ runs:
           with:
               raw-tags: ${{ inputs.tags }}
 
+        - name: Generate tfvars file - Clusters
+          id: generate-tfvars-clusters
+          shell: bash
+          working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
+          run: |
+              set -euo pipefail
+
+              cat > terraform.tfvars <<EOF
+              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              cluster_1_region="${{ inputs.aws-region-cluster-1 }}"
+              cluster_2_region="${{ inputs.aws-region-cluster-2 }}"
+              EOF
+
         - name: Terraform Plan - Clusters
           id: plan-clusters
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/
