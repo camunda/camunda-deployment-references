@@ -2,8 +2,7 @@
 name: Tests - Integration - AWS EKS Cluster with an AuroraDB and OpenSearch creation and destruction
 
 permissions:
-    contents: read # don't allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     schedule:
@@ -86,6 +85,9 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
             - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
             - name: Check labels
@@ -97,6 +99,9 @@ jobs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
             - name: Checkout repository
               uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -112,36 +117,36 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  if [[ -n "${{ inputs.cluster_name }}" ]]; then
-                    cluster_name="${{ inputs.cluster_name }}"
+                  if [[ -n "${INPUTS_CLUSTER_NAME}" ]]; then
+                    cluster_name="${INPUTS_CLUSTER_NAME}"
                   else
                     cluster_name="cl-$(git rev-parse --short HEAD)-t"
                   fi
                   echo "cluster_name=$cluster_name" | tee -a "$GITHUB_OUTPUT"
 
-                  if [[ -n "${{ inputs.db_username }}" ]]; then
-                    db_username="${{ inputs.db_username }}"
+                  if [[ -n "${INPUTS_DB_USERNAME}" ]]; then
+                    db_username="${INPUTS_DB_USERNAME}"
                   else
                     db_username="user$(openssl rand -hex 4 | tr -d '/@" ')"
                   fi
                   echo "db_username=$db_username" | tee -a "$GITHUB_OUTPUT"
 
-                  if [[ -n "${{ inputs.db_password }}" ]]; then
-                    db_password="${{ inputs.db_password }}"
+                  if [[ -n "${INPUTS_DB_PASSWORD}" ]]; then
+                    db_password="${INPUTS_DB_PASSWORD}"
                   else
                     db_password="$(openssl rand -base64 12 | tr -d '/@" ')"
                   fi
                   echo "db_password=$db_password" | tee -a "$GITHUB_OUTPUT"
 
-                  if [[ -n "${{ inputs.opensearch_username }}" ]]; then
-                    opensearch_username="${{ inputs.opensearch_username }}"
+                  if [[ -n "${INPUTS_OPENSEARCH_USERNAME}" ]]; then
+                    opensearch_username="${INPUTS_OPENSEARCH_USERNAME}"
                   else
                     opensearch_username="user$(openssl rand -hex 4 | tr -d '/@" ')"
                   fi
                   echo "opensearch_username=$opensearch_username" | tee -a "$GITHUB_OUTPUT"
 
-                  if [[ -n "${{ inputs.opensearch_password }}" ]]; then
-                    opensearch_password="${{ inputs.opensearch_password }}"
+                  if [[ -n "${INPUTS_OPENSEARCH_PASSWORD}" ]]; then
+                    opensearch_password="${INPUTS_OPENSEARCH_PASSWORD}"
                   else
                     opensearch_password="$(openssl rand -base64 12 | tr -d '/@" ')"
                   fi
@@ -152,6 +157,12 @@ jobs:
                   # Get the current commit hash for the modules revision
                   tf_modules_revision=$(git rev-parse HEAD)
                   echo "tf_modules_revision=$tf_modules_revision" | tee -a "$GITHUB_OUTPUT"
+              env:
+                  INPUTS_CLUSTER_NAME: ${{ inputs.cluster_name }}
+                  INPUTS_DB_USERNAME: ${{ inputs.db_username }}
+                  INPUTS_DB_PASSWORD: ${{ inputs.db_password }}
+                  INPUTS_OPENSEARCH_USERNAME: ${{ inputs.opensearch_username }}
+                  INPUTS_OPENSEARCH_PASSWORD: ${{ inputs.opensearch_password }}
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
