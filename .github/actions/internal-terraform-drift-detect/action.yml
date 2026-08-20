@@ -46,10 +46,19 @@ runs:
               # `xargs` tokenises the way the shell would -- honouring quotes, joining
               # continuations -- without evaluating anything, so a `;` or a backtick in
               # the value stays data. Empty tokens are dropped; terraform rejects them.
+              # `xargs` exits non-zero on unmatched quotes. Capturing it here rather than in a
+              # process substitution is what makes that failure visible: inside `< <(...)` the
+              # exit status is lost, the loop reads nothing, and terraform would plan without
+              # the arguments the caller asked for.
+              if ! parsed_extra_args=$(printf '%s' "${INPUTS_PLAN_EXTRA_ARGS}" | xargs -n1 printf '%s\n'); then
+                  echo "::error::plan-extra-args could not be tokenised, check for unmatched quotes: ${INPUTS_PLAN_EXTRA_ARGS}" >&2
+                  exit 1
+              fi
+
               EXTRA_ARGS=()
               while IFS= read -r arg; do
                   [[ -n "$arg" ]] && EXTRA_ARGS+=("$arg")
-              done < <(printf '%s' "${INPUTS_PLAN_EXTRA_ARGS}" | xargs -n1 printf '%s\n' 2>/dev/null)
+              done <<< "${parsed_extra_args}"
 
               # Run plan with detailed exit code. 0 = no changes, 2 = changes, 1 = error
               # `${EXTRA_ARGS[@]+...}` guards the expansion: `set -u` treats an empty

@@ -467,7 +467,7 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              aws eks update-kubeconfig --region ${INPUTS_AWS_REGION} --name ${INPUTS_CLUSTER_NAME} --alias ${INPUTS_CLUSTER_NAME}
+              aws eks update-kubeconfig --region "${INPUTS_AWS_REGION}" --name "${INPUTS_CLUSTER_NAME}" --alias "${INPUTS_CLUSTER_NAME}"
 
               kubectl config current-context
               kubectl get nodes
