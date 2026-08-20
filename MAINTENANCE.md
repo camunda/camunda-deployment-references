@@ -107,7 +107,7 @@ When a new version is ready for release, we need to cut the `main` branch to cre
 
    These workflows publish version artifacts to this repository's single `gh-pages` branch, and the shared Renovate preset reads one URL per artifact for every repository and every branch. Whatever runs last wins, everywhere, so `main` is the only legitimate producer.
 
-   A copy left behind does not sit idle, it ages. By the time it was found on 2026-08-20, the `stable/8.7`, `8.8` and `8.9` copies published the ROSA classic list without the `--hosted-cp` merge `main` had since added, and the ACM and OpenSearch ones predated the guard that refuses to publish an empty artifact — so a run from a maintenance branch replaced the global artifact with a degraded one until `main` republished it the following night. Scheduled workflows only run on the default branch, so none of that was ever on purpose: a `pull_request` run did it until #3145, and a `workflow_dispatch` still could until #3153, #3154 and #3155.
+   A copy left behind does not sit idle, it ages. By the time it was found on 2026-08-20, the `stable/8.7`, `stable/8.8` and `stable/8.9` copies published the ROSA classic list without the `--hosted-cp` merge `main` had since added, and the ACM and OpenSearch ones predated the guard that refuses to publish an empty artifact — so a run from a maintenance branch replaced the global artifact with a degraded one until `main` republished it the following night. Scheduled workflows only run on the default branch, so none of that was ever on purpose: a `pull_request` run did it until #3145, and a `workflow_dispatch` still could until #3153, #3154 and #3155.
 
 ---
 
