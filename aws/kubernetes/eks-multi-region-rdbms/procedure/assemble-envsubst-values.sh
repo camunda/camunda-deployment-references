@@ -36,8 +36,7 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     zeebe_service_var="REGION_${i}_ZEEBE_SERVICE_NAME"
     : "${!zeebe_service_var:?${zeebe_service_var} must be set, source generate-zeebe-helm-values.sh}"
 
-    zone_name_var="SUBMARINER_CLUSTER_IDS"
-    read -r -a _zone_names <<<"${!zone_name_var}"
+    read -r -a _zone_names <<<"${CAMUNDA_ZONE_NAMES:?CAMUNDA_ZONE_NAMES must be set, source export-terraform-outputs.sh}"
 
     CAMUNDA_REGION_ID="$i" \
         CAMUNDA_ZONE_NAME="${_zone_names[$i]}" \

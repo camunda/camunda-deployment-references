@@ -39,6 +39,7 @@ type Env struct {
 	ClusterContexts      []string
 	AWSRegions           []string
 	SubmarinerClusters   []string
+	ZoneNames            []string
 	ClusterNames         []string
 	VPCCidrBlocks        []string
 	ServiceCidrBlocks    []string
@@ -66,6 +67,7 @@ func (e Env) Vars() []string {
 		"CLUSTER_CONTEXTS":            strings.Join(e.ClusterContexts, " "),
 		"AWS_REGIONS":                 strings.Join(e.AWSRegions, " "),
 		"SUBMARINER_CLUSTER_IDS":      strings.Join(e.SubmarinerClusters, " "),
+		"CAMUNDA_ZONE_NAMES":          strings.Join(e.ZoneNames, " "),
 		"SUBMARINER_BROKER_SLOT":      fmt.Sprint(e.SubmarinerBrokerSlot),
 		"EKS_CLUSTER_NAMES":           strings.Join(e.ClusterNames, " "),
 		"REGION_VPC_CIDRS":            strings.Join(e.VPCCidrBlocks, " "),

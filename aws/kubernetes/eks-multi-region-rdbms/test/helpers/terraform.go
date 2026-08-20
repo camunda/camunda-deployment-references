@@ -17,6 +17,7 @@ type TerraformOutputs struct {
 	ActiveRegionCount int
 	AWSRegions        []string
 	ShortNames        []string
+	ZoneNames         []string
 	ClusterNames      []string
 	VPCCidrBlocks     []string
 	ServiceCidrBlocks []string
@@ -92,6 +93,10 @@ func ReadTerraformOutputs(t *testing.T, terraformDir string) TerraformOutputs {
 
 	serviceCidrs := map[string]string{}
 	decode("service_cidr_blocks", &serviceCidrs)
+
+	// Every slot, not only the active ones: the Camunda zone list describes the
+	// whole topology so an undeployed zone still has its replicas reserved.
+	decode("zone_names", &result.ZoneNames)
 
 	for i := 0; i < result.ActiveRegionCount; i++ {
 		key := fmt.Sprint(i)
