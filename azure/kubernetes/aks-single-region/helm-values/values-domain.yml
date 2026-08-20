@@ -29,8 +29,6 @@ global:
     identity:
         auth:
             enabled: true
-            identity:
-                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
             webModeler:
                 redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
             optimize:
@@ -70,7 +68,6 @@ webModeler:
 
     restapi:
         externalDatabase:
-            enabled: true
             url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_WEBMODELER_NAME}?sslmode=require
             username: ${DB_WEBMODELER_USERNAME}
             secret:
@@ -81,7 +78,15 @@ webModeler:
             secret:
                 existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
-            fromAddress: changeme@example.com
+        # from-address is deprecated as a values key in chart 8.10 (removed in v16),
+        # so the sender address is supplied via unified configuration instead.
+        extraConfiguration:
+            - file: webmodeler-mail.yaml
+              content: |
+                  camunda:
+                    modeler:
+                      mail:
+                        from-address: changeme@example.com
 
 
 optimize:

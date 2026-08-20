@@ -8,6 +8,11 @@ Uses `helm get notes` to retrieve the release notes and scans for
 (removed configuration) messages.
 Optionally validates that deployed values do not contain unknown keys
 by checking against a strict version of the chart's JSON Schema.
+Objects the schema declares as free-form (an explicit
+`additionalProperties`, or no enumerated members at all — podAnnotations,
+commonLabels, nodeSelector, affinity, …) keep their own rule: their keys
+cannot be checked against anything, so they are accepted rather than
+reported.
 
 Findings are reported in an event-aware, non-blocking way:
   - pull_request / pull_request_target / workflow_run: posted to a
@@ -38,8 +43,8 @@ See: https://github.com/camunda/camunda-platform-helm/issues/4564
 | `release-name` | <p>The Helm release name to check</p> | `false` | `camunda` |
 | `namespace` | <p>The Kubernetes namespace where the release is deployed</p> | `false` | `camunda` |
 | `kube-context` | <p>The Kubernetes context to use (optional, defaults to current context)</p> | `false` | `""` |
-| `exclude-patterns` | <p>Newline-separated list of fixed strings (one pattern per line) to exclude from warnings and errors. Messages containing any of these strings are ignored. Patterns are matched per line, so a space-separated value is treated as a single pattern, not several.</p> | `false` | `webModeler.restapi.mail.fromAddress webModeler.restapi.mail.fromName orchestration.exporters.camunda.enabled` |
-| `check-unknown-keys` | <p>When set to 'true', deployed values are validated against a strict version of the chart's JSON Schema to detect unknown keys (typos, removed properties). The schema is automatically extracted from the deployed chart. See: https://github.com/camunda/camunda-platform-helm/issues/4564</p> | `false` | `true` |
+| `exclude-patterns` | <p>Newline-separated list of fixed strings (one pattern per line) to exclude from warnings and errors. Messages containing any of these strings are ignored. Patterns are matched per line, so a space-separated value is treated as a single pattern, not several.</p> | `false` | `""` |
+| `check-unknown-keys` | <p>When set to 'true', deployed values are validated against a strict version of the chart's JSON Schema to detect unknown keys (typos, removed properties). The schema is automatically extracted from the deployed chart. Objects the schema declares as free-form are exempt: their contents cannot be validated, so they are accepted rather than reported. See: https://github.com/camunda/camunda-platform-helm/issues/4564</p> | `false` | `true` |
 | `local-chart-path` | <p>Optional path to a locally source-built chart directory (one that contains values.schema.json). When set, the unknown-keys check reads the schema from there instead of pulling the chart from a registry, so the pre-release (dev) line needs no private OCI registry authentication.</p> | `false` | `""` |
 | `comment-section-key` | <p>Optional extra identifier mixed into the PR comment section ID. Use this when the same workflow + job + release-name + namespace tuple runs more than once (e.g. across matrix entries) and each run should produce its own section in the shared PR comment.</p> | `false` | `""` |
 | `github-token` | <p>Token used to read and update the shared PR comment. Defaults to the workflow-provided GITHUB_TOKEN. The token needs <code>pull-requests: write</code> permission for the comment to be posted.</p> | `false` | `${{ github.token }}` |
@@ -84,13 +89,15 @@ This action is a `composite` action.
     # space-separated value is treated as a single pattern, not several.
     #
     # Required: false
-    # Default: webModeler.restapi.mail.fromAddress webModeler.restapi.mail.fromName orchestration.exporters.camunda.enabled
+    # Default: ""
 
     check-unknown-keys:
     # When set to 'true', deployed values are validated against a strict
     # version of the chart's JSON Schema to detect unknown keys
     # (typos, removed properties).
     # The schema is automatically extracted from the deployed chart.
+    # Objects the schema declares as free-form are exempt: their contents
+    # cannot be validated, so they are accepted rather than reported.
     # See: https://github.com/camunda/camunda-platform-helm/issues/4564
     #
     # Required: false

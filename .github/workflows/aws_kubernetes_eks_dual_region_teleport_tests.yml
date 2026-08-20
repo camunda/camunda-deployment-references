@@ -2,9 +2,7 @@
 name: Tests - Integration - Teleport - AWS Kubernetes EKS Dual Region
 
 permissions:
-    contents: read # don't allow commits
-    id-token: write # for Teleport authentication
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     # Disabled: waiting for https://github.com/camunda/team-infrastructure-experience/issues/1052
@@ -76,6 +74,9 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
@@ -87,11 +88,15 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         needs:
             - triage
+        permissions:
+            contents: read
+            id-token: write # required for teleport-actions/auth-k8s
+            pull-requests: write # internal-multi-region-tests -> internal-helm-deprecation-check upserts a comment
         steps:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -349,6 +354,9 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - integration-tests
+        permissions:
+            contents: read
+            pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -368,7 +376,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

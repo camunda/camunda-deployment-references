@@ -20,8 +20,6 @@
 global:
     identity:
         auth:
-            identity:
-                redirectUrl: http://localhost:8085/auth/login-callback
             optimize:
                 redirectUrl: http://localhost:8083/api/authentication/callback
             webModeler:

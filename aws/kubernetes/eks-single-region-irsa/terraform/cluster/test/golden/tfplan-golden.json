@@ -948,6 +948,9 @@
                   }
                 ],
                 "identity": [],
+                "kube_api_server_config": [],
+                "kube_controller_manager_config": [],
+                "kube_scheduler_config": [],
                 "kubernetes_network_config": [
                   {
                     "elastic_load_balancing": []
@@ -3266,7 +3269,7 @@
                 "enabled": true
               }
             ],
-            "engine_version": "OpenSearch_3.5",
+            "engine_version": "OpenSearch_3.7",
             "identity_center_options": [],
             "ip_address_type": "ipv4",
             "log_publishing_options": [],
@@ -3652,7 +3655,7 @@
             "enabled_cloudwatch_logs_exports": null,
             "engine": "aurora-postgresql",
             "engine_mode": "provisioned",
-            "engine_version": "18.3",
+            "engine_version": "18.4",
             "final_snapshot_identifier": null,
             "global_cluster_identifier": null,
             "iam_database_authentication_enabled": true,
@@ -3695,7 +3698,7 @@
             "custom_iam_instance_profile": null,
             "db_subnet_group_name": "cluster-name-pg-irsa",
             "engine": "aurora-postgresql",
-            "engine_version": "18.3",
+            "engine_version": "18.4",
             "force_destroy": false,
             "identifier": "cluster-name-pg-irsa-0",
             "instance_class": "db.t3.medium",
