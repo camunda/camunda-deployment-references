@@ -21,6 +21,7 @@ resource "aws_ecs_task_definition" "keycloak" {
     has_secrets              = length(var.secrets) > 0
     secrets_json             = jsonencode(var.secrets)
     env_vars_json            = jsonencode(var.environment_variables)
+    realm_import             = var.enable_realm_import
   })
 
   task_role_arn = aws_iam_role.ecs_task_role.arn

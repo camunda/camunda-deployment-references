@@ -5,7 +5,12 @@
     "cpu": ${cpu},
     "memory": ${memory},
     "essential": true,
+    %{ if realm_import ~}
+    "entryPoint": ["/bin/bash", "-c"],
+    "command": ["set -euo pipefail; mkdir -p /opt/keycloak/data/import; printf '%s' \"$KEYCLOAK_REALM_IMPORT_JSON\" > /opt/keycloak/data/import/camunda-platform-realm.json; exec /opt/keycloak/bin/kc.sh start --import-realm"],
+    %{ else ~}
     "command": ["start"],
+    %{ endif ~}
     "healthCheck": {
       "command": [
         "CMD",

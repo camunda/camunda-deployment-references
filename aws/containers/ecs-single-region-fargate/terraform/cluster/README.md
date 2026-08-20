@@ -49,26 +49,24 @@ This directory contains the Terraform implementation for the ECS single-region (
 | [aws_s3_bucket_versioning.backup](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_versioning) | resource |
 | [aws_secretsmanager_secret.connectors_client_auth_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.connectors_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
-| [aws_secretsmanager_secret.console_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.db_admin_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.identity_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.identity_db_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.keycloak_admin_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.keycloak_db_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
-| [aws_secretsmanager_secret.optimize_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
+| [aws_secretsmanager_secret.keycloak_realm_import](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.orchestration_admin_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.orchestration_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.realm_admin_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.registry_credentials](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret_version.connectors_client_auth_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.connectors_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
-| [aws_secretsmanager_secret_version.console_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.db_admin_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.identity_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.identity_db_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.keycloak_admin_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.keycloak_db_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
-| [aws_secretsmanager_secret_version.optimize_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
+| [aws_secretsmanager_secret_version.keycloak_realm_import](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.orchestration_admin_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.orchestration_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.realm_admin_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
@@ -83,13 +81,11 @@ This directory contains the Terraform implementation for the ECS single-region (
 | [random_password.admin_user_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.connectors_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.connectors_user_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
-| [random_password.console_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.db_admin_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.identity_client_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.identity_db_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.keycloak_admin_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.keycloak_db_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
-| [random_password.optimize_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.orchestration_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.realm_admin_user_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [terraform_data.validate_authentication_mode](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
@@ -105,7 +101,7 @@ This directory contains the Terraform implementation for the ECS single-region (
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_alb_certificate_arn"></a> [alb\_certificate\_arn](#input\_alb\_certificate\_arn) | ACM certificate ARN for the shared ALB. When set, an HTTPS :443 listener is created, all web-app/OIDC traffic is served over TLS (and HTTP :80 redirects to it), and Keycloak trusts the ALB's X-Forwarded-Proto so the realm needs no sslRequired relaxation. Empty (default) keeps this reference on plain HTTP :80 for the demo. | `string` | `""` | no |
 | <a name="input_alb_ssl_policy"></a> [alb\_ssl\_policy](#input\_alb\_ssl\_policy) | SSL negotiation policy for the HTTPS ALB listener (used only when alb\_certificate\_arn is set). | `string` | `"ELBSecurityPolicy-TLS13-1-2-2021-06"` | no |
-| <a name="input_authentication_mode"></a> [authentication\_mode](#input\_authentication\_mode) | Platform authentication: 'basic' (built-in users, bundled Keycloak), 'keycloak' (OIDC via bundled Keycloak), or 'external' (bring-your-own OIDC, Keycloak skipped). | `string` | `"basic"` | no |
+| <a name="input_authentication_mode"></a> [authentication\_mode](#input\_authentication\_mode) | Platform authentication: 'basic' (built-in users, no IdP deployed) or 'oidc' (OIDC via the bundled Keycloak by default, or an external provider when var.external\_oidc is set). | `string` | `"basic"` | no |
 | <a name="input_cidr_blocks"></a> [cidr\_blocks](#input\_cidr\_blocks) | The CIDR block to use for the VPC | `string` | `"10.190.0.0/16"` | no |
 | <a name="input_db_admin_password"></a> [db\_admin\_password](#input\_db\_admin\_password) | Optional override for the Aurora PostgreSQL admin password. If empty, a random password is generated and stored in Secrets Manager. | `string` | `""` | no |
 | <a name="input_db_admin_username"></a> [db\_admin\_username](#input\_db\_admin\_username) | Admin username for the Aurora PostgreSQL cluster (demo default; use Secrets Manager in production) | `string` | `"camunda_admin"` | no |
@@ -114,12 +110,7 @@ This directory contains the Terraform implementation for the ECS single-region (
 | <a name="input_db_seed_enabled"></a> [db\_seed\_enabled](#input\_db\_seed\_enabled) | Run a one-time ECS task to create/grant IAM DB users (uses db\_admin\_username/password) | `bool` | `true` | no |
 | <a name="input_db_seed_iam_usernames"></a> [db\_seed\_iam\_usernames](#input\_db\_seed\_iam\_usernames) | Database users to create and grant rds\_iam + privileges for (used for IAM DB auth) | `list(string)` | <pre>[<br/>  "camunda"<br/>]</pre> | no |
 | <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
-| <a name="input_enable_connectors_oidc_client"></a> [enable\_connectors\_oidc\_client](#input\_enable\_connectors\_oidc\_client) | Create the connectors OIDC client in the Keycloak realm | `bool` | `true` | no |
-| <a name="input_enable_console_oidc_client"></a> [enable\_console\_oidc\_client](#input\_enable\_console\_oidc\_client) | Create the console OIDC client in the Keycloak realm | `bool` | `false` | no |
-| <a name="input_enable_optimize_oidc_client"></a> [enable\_optimize\_oidc\_client](#input\_enable\_optimize\_oidc\_client) | Create the optimize OIDC client in the Keycloak realm | `bool` | `false` | no |
-| <a name="input_enable_orchestration_oidc_client"></a> [enable\_orchestration\_oidc\_client](#input\_enable\_orchestration\_oidc\_client) | Create the orchestration OIDC client in the Keycloak realm | `bool` | `true` | no |
-| <a name="input_enable_web_modeler_oidc_client"></a> [enable\_web\_modeler\_oidc\_client](#input\_enable\_web\_modeler\_oidc\_client) | Create the web-modeler OIDC client in the Keycloak realm | `bool` | `false` | no |
-| <a name="input_external_oidc"></a> [external\_oidc](#input\_external\_oidc) | External OIDC provider config, required only when authentication\_mode = "external". One client per component (identity, orchestration, connectors); client secrets are passed as existing Secrets Manager ARNs (created out-of-band), never as raw values. | <pre>object({<br/>    issuer_uri                      = string<br/>    token_uri                       = string<br/>    audience                        = string<br/>    identity_client_id              = string<br/>    identity_client_secret_arn      = string<br/>    orchestration_client_id         = string<br/>    orchestration_client_secret_arn = string<br/>    connectors_client_id            = string<br/>    connectors_client_secret_arn    = string<br/>  })</pre> | `null` | no |
+| <a name="input_external_oidc"></a> [external\_oidc](#input\_external\_oidc) | External OIDC provider config. Optional and only honored when authentication\_mode = "oidc": when set, that provider is used and the bundled Keycloak is skipped; when null (default), a bundled Keycloak is deployed as the OIDC provider. One client per component (identity, orchestration, connectors); client secrets are existing Secrets Manager ARNs (created out-of-band), never raw values. | <pre>object({<br/>    issuer_uri                      = string<br/>    token_uri                       = string<br/>    audience                        = string<br/>    identity_client_id              = string<br/>    identity_client_secret_arn      = string<br/>    orchestration_client_id         = string<br/>    orchestration_client_secret_arn = string<br/>    connectors_client_id            = string<br/>    connectors_client_secret_arn    = string<br/>  })</pre> | `null` | no |
 | <a name="input_identity_db_name"></a> [identity\_db\_name](#input\_identity\_db\_name) | Dedicated database name for Management Identity on the shared Aurora cluster | `string` | `"identity"` | no |
 | <a name="input_identity_db_username"></a> [identity\_db\_username](#input\_identity\_db\_username) | Password-authenticated database role for Management Identity (Identity does not support IAM DB auth) | `string` | `"identity"` | no |
 | <a name="input_keycloak_admin_username"></a> [keycloak\_admin\_username](#input\_keycloak\_admin\_username) | Keycloak bootstrap admin username | `string` | `"admin"` | no |
@@ -137,5 +128,10 @@ This directory contains the Terraform implementation for the ECS single-region (
 | ---- | ----------- |
 | <a name="output_admin_user_password"></a> [admin\_user\_password](#output\_admin\_user\_password) | The admin password for Camunda. Easy access purposes, saved in Secrets Manager. |
 | <a name="output_alb_endpoint"></a> [alb\_endpoint](#output\_alb\_endpoint) | (Optional) The DNS name of the Application Load Balancer (ALB) to access the Camunda Webapp. |
+| <a name="output_connectors_oidc_client_id"></a> [connectors\_oidc\_client\_id](#output\_connectors\_oidc\_client\_id) | OIDC client id used for machine-to-machine authentication (empty in basic mode). |
+| <a name="output_connectors_oidc_client_secret"></a> [connectors\_oidc\_client\_secret](#output\_connectors\_oidc\_client\_secret) | OIDC client secret for the connectors client (bundled Keycloak only; empty otherwise). |
 | <a name="output_nlb_endpoint"></a> [nlb\_endpoint](#output\_nlb\_endpoint) | (Optional) The DNS name of the Network Load Balancer (NLB) to access the Camunda Core. |
+| <a name="output_oidc_token_url"></a> [oidc\_token\_url](#output\_oidc\_token\_url) | OIDC token endpoint for machine-to-machine authentication (empty in basic mode). |
+| <a name="output_orchestration_oidc_client_id"></a> [orchestration\_oidc\_client\_id](#output\_orchestration\_oidc\_client\_id) | Admin OIDC client id for machine-to-machine automation (empty in basic mode). |
+| <a name="output_orchestration_oidc_client_secret"></a> [orchestration\_oidc\_client\_secret](#output\_orchestration\_oidc\_client\_secret) | OIDC client secret for the admin orchestration client (bundled Keycloak only; empty otherwise). |
 <!-- END_TF_DOCS -->
