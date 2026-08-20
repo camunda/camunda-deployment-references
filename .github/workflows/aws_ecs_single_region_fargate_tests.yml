@@ -171,12 +171,11 @@ jobs:
               if: failure()
               shell: bash
               # Mirrors the prefix logic in aws-containers-ecs-single-region-fargate-create:
-              # cluster-name input → cut to 14 chars → strip trailing dash → "${prefix}-cluster"
+              # prefix = "ecs-" + first 9 hex of sha1(cluster-name); ECS cluster is "${prefix}-cluster"
               run: |
                   set -euo pipefail
                   RAW="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}"
-                  PREFIX=$(echo "$RAW" | cut -c1-14)
-                  PREFIX=${PREFIX%-}
+                  PREFIX="ecs-$(printf '%s' "$RAW" | sha1sum | cut -c1-9)"
                   echo "ecs-cluster=${PREFIX}-cluster" | tee -a "$GITHUB_OUTPUT"
 
             - name: 🔬🚨 Get failed ECS tasks info
@@ -339,12 +338,11 @@ jobs:
               if: failure()
               shell: bash
               # Mirrors the prefix logic in aws-containers-ecs-single-region-fargate-create:
-              # cluster-name input → cut to 14 chars → strip trailing dash → "${prefix}-cluster"
+              # prefix = "ecs-" + first 9 hex of sha1(cluster-name); ECS cluster is "${prefix}-cluster"
               run: |
                   set -euo pipefail
                   RAW="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}"
-                  PREFIX=$(echo "$RAW" | cut -c1-14)
-                  PREFIX=${PREFIX%-}
+                  PREFIX="ecs-$(printf '%s' "$RAW" | sha1sum | cut -c1-9)"
                   echo "ecs-cluster=${PREFIX}-cluster" | tee -a "$GITHUB_OUTPUT"
 
             - name: 🔬🚨 Get failed ECS tasks info

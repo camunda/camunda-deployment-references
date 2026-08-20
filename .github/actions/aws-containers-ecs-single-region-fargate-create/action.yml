@@ -124,14 +124,13 @@ runs:
           run: |
               set -euo pipefail
 
-              # cut name as some resources have a character limit that we may run into
-              # e.g. target groups have a max length of 32 characters
-              # with 14 characters we're adding in Terraform
-              # + 4 from suffixes when calling the module
-              # therefore cut to 14 characters to be on the safe side
-              PREFIX=$(echo "${{ inputs.cluster-name }}" | cut -c1-14)
-              # Remove trailing dash if present
-              PREFIX=${PREFIX%-}
+              # Some resources cap names at 32 chars (e.g. target groups), and we add
+              # ~16 chars of Terraform/module suffixes, so the prefix must stay short.
+              # Truncating the cluster name to 14 chars would drop the scenario suffix
+              # and collide when several scenarios share a cluster-name base, so derive
+              # a short, deterministic, per-(run,scenario)-unique prefix by hashing the
+              # full cluster name (which already includes the scenario shortName).
+              PREFIX="ecs-$(printf '%s' "${{ inputs.cluster-name }}" | sha1sum | cut -c1-9)"
 
               cat > terraform.tfvars <<EOF
               default_tags        = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
