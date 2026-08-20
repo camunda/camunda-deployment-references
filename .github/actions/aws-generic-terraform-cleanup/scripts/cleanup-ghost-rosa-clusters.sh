@@ -34,6 +34,15 @@ FAILED=0
 DEREGISTER_MAX_ATTEMPTS="${DEREGISTER_MAX_ATTEMPTS:-30}"
 DEREGISTER_INTERVAL="${DEREGISTER_INTERVAL:-30}"
 
+# Validate here rather than letting `seq` or `sleep` fail mid-teardown, where
+# `set -e` would abort with no indication that the cause is a bad setting.
+for knob in DEREGISTER_MAX_ATTEMPTS DEREGISTER_INTERVAL; do
+  if ! [[ "${!knob}" =~ ^[0-9]+$ ]]; then
+    echo "Error: ${knob} must be a non-negative integer, got '${!knob}'." >&2
+    exit 1
+  fi
+done
+
 
 # cleanup_iam_roles_with_prefix removes all IAM roles whose name starts with the
 # given prefix, including detaching/deleting their policies first.
@@ -131,6 +140,16 @@ candidates=$(echo "$all_clusters" | jq -c '[.[] | select(
 # undeletable, and is the case this script exists to repair.
 orphaned=$(echo "$all_clusters" | jq -c '.[]' | while read -r cluster; do
   name=$(echo "$cluster" | jq -r '.name')
+
+  # Clusters below the age gate are skipped by the teardown loop anyway, so
+  # probing them only spends IAM calls and raises the throttling that would
+  # make the probe inconclusive for the clusters that do matter.
+  created=$(echo "$cluster" | jq -r '.creation_timestamp')
+  age_hours=$(( (CURRENT_TIME - $("$date_command" -d "$created" +%s)) / 3600 ))
+  if [ "$age_hours" -lt "$MIN_AGE_HOURS" ]; then
+    continue
+  fi
+
   role_arn=$(echo "$cluster" | jq -r '.aws.sts.role_arn // ""')
   if installer_role_missing "$name" "$role_arn"; then
     echo "$cluster"
