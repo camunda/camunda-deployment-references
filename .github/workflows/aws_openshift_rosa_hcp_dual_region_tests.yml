@@ -122,7 +122,7 @@ jobs:
                   # Vars are exported to pass them to yq instead of local inline syntax.
                   # shellcheck disable=SC2086
                   for distro_index in ${distro_indexes}; do
-                    cluster_name_input="${{ inputs.cluster_name }}"
+                    cluster_name_input="${INPUTS_CLUSTER_NAME}"
                     cluster_name_fallback="hci-$(uuidgen | head -c 8)"
                     export cluster_name="${cluster_name_input:-${cluster_name_fallback}}"
 
@@ -143,6 +143,8 @@ jobs:
 
                   echo "${platform_matrix}" | jq
                   echo "platform-matrix=${platform_matrix}" > "$GITHUB_OUTPUT"
+              env:
+                  INPUTS_CLUSTER_NAME: ${{ inputs.cluster_name }}
 
     prepare-clusters:
         name: Prepare clusters

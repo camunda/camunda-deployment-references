@@ -35,15 +35,21 @@ runs:
           id: delete_clusters
           shell: bash
           run: |
-              if [ -n "${{ inputs.tf-bucket-region }}" ]; then
-                export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
+              if [ -n "${INPUTS_TF_BUCKET_REGION}" ]; then
+                export AWS_S3_REGION="${INPUTS_TF_BUCKET_REGION}"
               fi
 
               # Use repo .tool-version as global version
               cp .tool-versions ~/.tool-versions
 
-              ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
-                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
+              ${{ github.action_path }}/scripts/destroy-clusters.sh "${INPUTS_TF_BUCKET}" \
+                ${INPUTS_MAX_AGE_HOURS_CLUSTER} ${INPUTS_TARGET} ${INPUTS_TF_BUCKET_KEY_PREFIX}
+          env:
+              INPUTS_TF_BUCKET_REGION: ${{ inputs.tf-bucket-region }}
+              INPUTS_TF_BUCKET: ${{ inputs.tf-bucket }}
+              INPUTS_MAX_AGE_HOURS_CLUSTER: ${{ inputs.max-age-hours-cluster }}
+              INPUTS_TARGET: ${{ inputs.target }}
+              INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
 
         - name: Upload cleanup logs
           if: always()

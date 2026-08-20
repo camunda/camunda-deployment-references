@@ -168,19 +168,28 @@ runs:
               set -euo pipefail
 
               # protect sensitive values
-              echo "::add-mask::${{ inputs.password }}"
+              echo "::add-mask::${INPUTS_PASSWORD}"
 
-              echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
+              printf '%s\n' "${INPUTS_ADDITIONAL_TERRAFORM_VARS}" > /tmp/var.tfvars.json
               terraform plan -no-color -out aurora.plan \
                 -var 'default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var-file=/tmp/var.tfvars.json \
-                -var "cluster_name=${{ inputs.cluster-name }}" \
-                -var "username=${{ inputs.username }}" \
-                -var "password=${{ inputs.password }}" \
-                -var 'availability_zones=${{ inputs.availability-zones }}' \
-                -var "vpc_id=${{ inputs.vpc-id }}" \
-                -var 'subnet_ids=${{ inputs.subnet-ids }}' \
-                -var 'cidr_blocks=${{ inputs.cidr-blocks }}'
+                -var "cluster_name=${INPUTS_CLUSTER_NAME}" \
+                -var "username=${INPUTS_USERNAME}" \
+                -var "password=${INPUTS_PASSWORD}" \
+                -var "availability_zones=${INPUTS_AVAILABILITY_ZONES}" \
+                -var "vpc_id=${INPUTS_VPC_ID}" \
+                -var "subnet_ids=${INPUTS_SUBNET_IDS}" \
+                -var "cidr_blocks=${INPUTS_CIDR_BLOCKS}"
+          env:
+              INPUTS_PASSWORD: ${{ inputs.password }}
+              INPUTS_ADDITIONAL_TERRAFORM_VARS: ${{ inputs.additional-terraform-vars }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_USERNAME: ${{ inputs.username }}
+              INPUTS_AVAILABILITY_ZONES: ${{ inputs.availability-zones }}
+              INPUTS_VPC_ID: ${{ inputs.vpc-id }}
+              INPUTS_SUBNET_IDS: ${{ inputs.subnet-ids }}
+              INPUTS_CIDR_BLOCKS: ${{ inputs.cidr-blocks }}
 
         - name: Terraform Apply
           shell: bash

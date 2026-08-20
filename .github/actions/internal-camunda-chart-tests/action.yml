@@ -105,14 +105,17 @@ runs:
               WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
               CONSOLE_ENABLED: ${{ inputs.console-enabled }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
-          run: |
+              INPUTS_TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              INPUTS_TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
+              INPUTS_TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ${{ inputs.tests-camunda-helm-chart-repo-path }}
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               # export test variables to be used in other steps
-              echo "TEST_NAMESPACE=${{ inputs.test-namespace }}" | tee -a "$GITHUB_ENV"
-              echo "TEST_CHART_NAME=${{ inputs.test-release-name }}" | tee -a "$GITHUB_ENV"
+              echo "TEST_NAMESPACE=${INPUTS_TEST_NAMESPACE}" | tee -a "$GITHUB_ENV"
+              echo "TEST_CHART_NAME=${INPUTS_TEST_RELEASE_NAME}" | tee -a "$GITHUB_ENV"
               echo "TEST_CLUSTER_TYPE=$TEST_CLUSTER_TYPE" | tee -a "$GITHUB_ENV"
-              export TESTS_CAMUNDA_HELM_CHART_REPO_PATH="${{ inputs.tests-camunda-helm-chart-repo-path }}"
+              export TESTS_CAMUNDA_HELM_CHART_REPO_PATH="${INPUTS_TESTS_CAMUNDA_HELM_CHART_REPO_PATH}"
               echo "TESTS_CAMUNDA_HELM_CHART_REPO_PATH=$TESTS_CAMUNDA_HELM_CHART_REPO_PATH" | tee -a "$GITHUB_ENV"
 
               export TEST_CHART_DIR_STATIC="$TESTS_CAMUNDA_HELM_CHART_REPO_PATH/charts/camunda-platform-$CAMUNDA_VERSION"
@@ -262,12 +265,15 @@ runs:
               CAMUNDA_NAMESPACE_2: ${{ inputs.camunda-namespace-2 || '' }}
               CAMUNDA_NAMESPACE_1: ${{ inputs.camunda-namespace-1 || '' }}
               CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name || '' }}
+              INPUTS_ZEEBE_TOPOLOGY_GOLDEN_FILE: ${{ inputs.zeebe-topology-golden-file }}
+              INPUTS_ZEEBE_TOPOLOGY_CHECK_SCRIPT: ${{ inputs.zeebe-topology-check-script }}
+              INPUTS_ZEEBE_AUTHENTICATED: ${{ inputs.zeebe-authenticated }}
           run: |
               set -euo pipefail
 
-              reference_file="${{ inputs.zeebe-topology-golden-file }}"
-              topology_check_script="${{ inputs.zeebe-topology-check-script }}"
-              zeebe_authenticated="${{ inputs.zeebe-authenticated }}"
+              reference_file="${INPUTS_ZEEBE_TOPOLOGY_GOLDEN_FILE}"
+              topology_check_script="${INPUTS_ZEEBE_TOPOLOGY_CHECK_SCRIPT}"
+              zeebe_authenticated="${INPUTS_ZEEBE_AUTHENTICATED}"
 
               echo "Using golden reference file to compare against: $reference_file"
               echo "Using topology check script: $topology_check_script"
