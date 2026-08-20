@@ -175,6 +175,11 @@ runs:
               # Scoped to the module block: aks_cluster_name also appears as an
               # output name in outputs.tf, and searching the whole tree would let
               # that mask a removed argument.
+              if [ ! -f aks.tf ]; then
+                  echo "::error::No aks.tf in $(pwd); this action only knows how to override" \
+                      "the aks-single-region layout. Check the ref-arch input."
+                  exit 1
+              fi
               aks_block=$(awk '/^module "aks"/ { inside = 1 }
                                  inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' aks.tf)
               if ! grep -qE '^[[:space:]]*aks_cluster_name[[:space:]]*=' <<< "${aks_block}"; then
@@ -183,7 +188,13 @@ runs:
                   exit 1
               fi
 
-              jq '.' <<< "${overrides}" | tee ci_override.tf.json
+              # Terraform merges override files in lexicographical order by filename, and
+              # the last one wins. On this branch the fixtures copied above are the flat
+              # `test/fixtures/fixture_*` set, whose fixture_main_override.tf also pins
+              # resource_group_name, location and kubernetes_version -- the three locals
+              # set here. A name sorting before `fixture_` would therefore be discarded,
+              # so this file has to sort after it.
+              jq '.' <<< "${overrides}" | tee zz_ci_override.tf.json
 
               # Set resource_prefix_placeholder to an empty string if not provided
               resource_prefix_placeholder="${{ inputs.resource-prefix }}"
