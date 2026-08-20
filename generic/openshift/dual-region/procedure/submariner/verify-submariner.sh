@@ -16,11 +16,21 @@ TIMEOUT_SECONDS="${SUBMARINER_ADDON_TIMEOUT_SECONDS:-600}"
 POLL_INTERVAL_SECONDS="${SUBMARINER_ADDON_POLL_INTERVAL_SECONDS:-5}"
 deadline=$((SECONDS + TIMEOUT_SECONDS))
 
+# Support both the 0-indexed (CLUSTER_0) and 1-indexed (CLUSTER_1_NAME)
+# cluster-context naming conventions, as diagnose-submariner.sh does. Without
+# this, `set -u` aborts the script on the first `oc` call on every branch that
+# uses the 1-indexed names, before a single addon has been polled.
+HUB_CONTEXT="${CLUSTER_0:-${CLUSTER_1_NAME:-}}"
+if [ -z "$HUB_CONTEXT" ]; then
+    echo "Neither CLUSTER_0 nor CLUSTER_1_NAME is set; cannot reach the hub cluster." >&2
+    exit 1
+fi
+
 while true; do
-    oc_output=$(oc --context "$CLUSTER_0" get managedclusteraddon -A)
+    oc_output=$(oc --context "$HUB_CONTEXT" get managedclusteraddon -A)
     STATUS=$(echo "$oc_output" | grep 'submariner' || true)
     # display the status
-    oc --context "$CLUSTER_0" -n "oc-clusters-broker" describe Broker
+    oc --context "$HUB_CONTEXT" -n "oc-clusters-broker" describe Broker
     echo "$oc_output" | grep -E 'NAME|submariner' || true
 
     if [ -z "$STATUS" ]; then
