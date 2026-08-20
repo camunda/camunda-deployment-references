@@ -1,6 +1,11 @@
 ---
 # This workflow updates an artifact containing the ROSA versions,
 # it's used by renovate and published at https://camunda.github.io/camunda-deployment-references/rosa_versions.txt
+#
+# TODO: [release-duty] delete this workflow from the new `stable/8.x` when `main` is
+# cut. The artifact is global -- one `gh-pages` branch, one URL per artifact in the
+# shared Renovate preset -- so a copy on a maintenance branch can only publish a
+# staler version of it. See MAINTENANCE.md, "Release duty".
 name: Internal - OpenShift - Save ROSA Versions as an artifact
 
 on:
