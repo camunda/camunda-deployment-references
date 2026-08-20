@@ -150,7 +150,7 @@ runs:
               echo "  - Namespace: ${INPUTS_TEST_NAMESPACE}"
               echo "  - Release Name: ${INPUTS_TEST_RELEASE_NAME}"
               echo "  - Cluster Type: ${INPUTS_TEST_CLUSTER_TYPE}"
-              echo "  - Domain: ${INPUTS_CAMUNDA_DOMAIN}"
+              echo "  - Domain: ${INPUTS_CAMUNDA_DOMAIN:-(not configured)}"
               echo "  - Camunda Hub Enabled: ${INPUTS_HUB_ENABLED}"
               echo "  - Elasticsearch Enabled: ${INPUTS_ELASTICSEARCH_ENABLED}"
               echo ""
@@ -164,7 +164,7 @@ runs:
               INPUTS_TEST_NAMESPACE: ${{ inputs.test-namespace }}
               INPUTS_TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
               INPUTS_TEST_CLUSTER_TYPE: ${{ inputs.test-cluster-type }}
-              INPUTS_CAMUNDA_DOMAIN: ${{ inputs.camunda-domain || '(not configured)' }}
+              INPUTS_CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
               INPUTS_HUB_ENABLED: ${{ inputs.hub-enabled }}
               INPUTS_ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
 

@@ -340,7 +340,30 @@ runs:
           run: |
               set -euo pipefail
               echo "🧪 Running preflight tests..."
-              go test ${INPUTS_GO_TEST_ARGS} ./preflight/...
+
+              # `go-test-args` is one string holding several arguments, so it has to be
+              # split. Expanding it unquoted splits on whitespace but leaves quotes as
+              # literal characters, so `-run 'TestA|TestB'` would reach `go test` as two
+              # broken tokens. Before this branch the value was substituted by GitHub
+              # straight into the command line and the shell did the grouping.
+              #
+              # `xargs` tokenises the way the shell would -- honouring quotes -- without
+              # evaluating anything, so a `;` or a backtick in the value stays data.
+              # `xargs` exits non-zero on unmatched quotes. Capturing it here rather than
+              # in a process substitution is what makes that failure visible: inside
+              # `< <(...)` the exit status is lost, the loop reads nothing, and the tests
+              # would run with none of the arguments the caller asked for.
+              if ! parsed_test_args=$(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n'); then
+                  echo "::error::go-test-args could not be tokenised, check for unmatched quotes: ${INPUTS_GO_TEST_ARGS}" >&2
+                  exit 1
+              fi
+
+              GO_TEST_ARGS=()
+              while IFS= read -r arg; do
+                  [[ -n "$arg" ]] && GO_TEST_ARGS+=("$arg")
+              done <<< "${parsed_test_args}"
+
+              go test ${GO_TEST_ARGS[@]+"${GO_TEST_ARGS[@]}"} ./preflight/...
 
         # Warm up the Zeebe Gateway → Identity JWKS path on cold clusters
         # (notably ROSA HCP). The Spring OAuth resource server lazily fetches
@@ -468,7 +491,30 @@ runs:
           run: |
               set -euo pipefail
               echo "🧪 Running core tests..."
-              go test ${INPUTS_GO_TEST_ARGS} ./core/...
+
+              # `go-test-args` is one string holding several arguments, so it has to be
+              # split. Expanding it unquoted splits on whitespace but leaves quotes as
+              # literal characters, so `-run 'TestA|TestB'` would reach `go test` as two
+              # broken tokens. Before this branch the value was substituted by GitHub
+              # straight into the command line and the shell did the grouping.
+              #
+              # `xargs` tokenises the way the shell would -- honouring quotes -- without
+              # evaluating anything, so a `;` or a backtick in the value stays data.
+              # `xargs` exits non-zero on unmatched quotes. Capturing it here rather than
+              # in a process substitution is what makes that failure visible: inside
+              # `< <(...)` the exit status is lost, the loop reads nothing, and the tests
+              # would run with none of the arguments the caller asked for.
+              if ! parsed_test_args=$(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n'); then
+                  echo "::error::go-test-args could not be tokenised, check for unmatched quotes: ${INPUTS_GO_TEST_ARGS}" >&2
+                  exit 1
+              fi
+
+              GO_TEST_ARGS=()
+              while IFS= read -r arg; do
+                  [[ -n "$arg" ]] && GO_TEST_ARGS+=("$arg")
+              done <<< "${parsed_test_args}"
+
+              go test ${GO_TEST_ARGS[@]+"${GO_TEST_ARGS[@]}"} ./core/...
 
         # ==============================================================
         # Cleanup port-forwards

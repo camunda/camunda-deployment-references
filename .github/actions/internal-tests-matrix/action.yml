@@ -43,7 +43,7 @@ runs:
               for distro_index in ${distro_indexes}; do
                 # limiting factor are OpenSearch domains of maximum 28 characters
                 cluster_name_fallback="${INPUTS_CLUSTER_PREFIX}$(cat /proc/sys/kernel/random/uuid | head -c 5)"
-                export cluster_name="${INPUTS_CLUSTER_NAME}"
+                export cluster_name="${INPUTS_CLUSTER_NAME:-}"
                 if [[ -z "$cluster_name" ]]; then
                   cluster_name="$cluster_name_fallback"
                 fi
@@ -90,8 +90,8 @@ runs:
               echo "platform_matrix=${platform_matrix}" >> "$GITHUB_OUTPUT"
           env:
               INPUTS_CI_MATRIX_FILE: ${{ inputs.ci_matrix_file }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster_name }}
               INPUTS_CLUSTER_PREFIX: ${{ inputs.cluster_prefix }}
-              INPUTS_CLUSTER_NAME: ${{ inputs.cluster_name || '' }}
               INPUTS_IS_SCHEDULE: ${{ inputs.is_schedule }}
               INPUTS_IS_RENOVATE_PR: ${{ inputs.is_renovate_pr }}
               INPUTS_REF_ARCH: ${{ inputs.ref_arch }}

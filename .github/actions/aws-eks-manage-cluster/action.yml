@@ -192,7 +192,7 @@ runs:
           run: |
               set -euo pipefail
 
-              aws eks --region ${INPUTS_AWS_REGION} update-kubeconfig --name ${INPUTS_CLUSTER_NAME}
+              aws eks --region "${INPUTS_AWS_REGION}" update-kubeconfig --name "${INPUTS_CLUSTER_NAME}"
           env:
               INPUTS_AWS_REGION: ${{ inputs.aws-region }}
               INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
