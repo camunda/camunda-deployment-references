@@ -50,10 +50,12 @@ runs:
                 export AWS_S3_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
-              ${{ github.action_path }}/scripts/destroy.sh "${INPUTS_S3_BACKEND_BUCKET}" ${{ github.action_path }}/../../../aws/modules/ \
-                "${INPUTS_TEMP_DIR}" ${INPUTS_MAX_AGE_HOURS} ${INPUTS_TARGET} ${INPUTS_MODULE_NAME} ${INPUTS_CAMUNDA_VERSION} \
+              # The optional flag stays unquoted so that an empty expansion adds no argument.
+              "${ACTION_PATH}/scripts/destroy.sh" "${INPUTS_S3_BACKEND_BUCKET}" "${ACTION_PATH}/../../../aws/modules/" \
+                "${INPUTS_TEMP_DIR}" "${INPUTS_MAX_AGE_HOURS}" "${INPUTS_TARGET}" "${INPUTS_MODULE_NAME}" "${INPUTS_CAMUNDA_VERSION}" \
                 $([[ "${INPUTS_FAIL_ON_NOT_FOUND}" == "true" ]] && echo "--fail-on-not-found")
           env:
+              ACTION_PATH: ${{ github.action_path }}
               INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
               INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
               INPUTS_TEMP_DIR: ${{ inputs.temp-dir }}
