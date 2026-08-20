@@ -553,8 +553,13 @@ EOF
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
 aws_exit_code=$?
 
-# Don't fail on missing folder
-if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
+# `aws s3 ls` exits 1 when the prefix holds no object, which is not an error
+# here, and 255 when the call itself fails: expired credentials, no network, a
+# denied bucket. The previous condition only tripped when stdout was non-empty,
+# but a failed call writes to stderr and leaves stdout empty, so it was
+# indistinguishable from an empty prefix and would be reported below as
+# "nothing to destroy" — a green run that reclaimed nothing.
+if [ $aws_exit_code -ne 0 ] && [ $aws_exit_code -ne 1 ]; then
   echo "Error executing aws s3 ls (Exit Code: $aws_exit_code)." >&2
   exit 1
 fi
@@ -567,6 +572,13 @@ else
     echo "Error: No object found for ID '$ID_OR_ALL'"
     exit 1
   fi
+fi
+
+# Without this the loop below iterates zero times and the script still reports
+# "All operations completed successfully", which reads as a successful destroy.
+if [ -z "$groups" ]; then
+  echo "No terraform state found for target '$ID_OR_ALL' under s3://$BUCKET/$KEY_PREFIX; nothing to destroy."
+  exit 0
 fi
 
 current_timestamp=$($date_command +%s)
