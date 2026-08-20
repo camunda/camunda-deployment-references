@@ -34,25 +34,18 @@ FAILED=0
 DEREGISTER_MAX_ATTEMPTS="${DEREGISTER_MAX_ATTEMPTS:-60}"
 DEREGISTER_INTERVAL="${DEREGISTER_INTERVAL:-30}"
 
-# Validate here rather than letting `seq` or `sleep` fail mid-teardown, where
-# `set -e` would abort with no indication that the cause is a bad setting.
-for knob in DEREGISTER_MAX_ATTEMPTS DEREGISTER_INTERVAL; do
-  if ! [[ "${!knob}" =~ ^[0-9]+$ ]]; then
-    echo "Error: ${knob} must be a non-negative integer, got '${!knob}'." >&2
-    exit 1
-  fi
-done
-
 # Checked here rather than at first use: the wait loop only runs after
-# `rosa delete cluster`, so a non-numeric override would fail with a deletion
-# already in flight — `seq` would print an error and skip the wait entirely, or
-# `sleep` would abort the script halfway through a cluster.
+# `rosa delete cluster`, so a bad value would surface with a deletion already in
+# flight — `seq` would print an error and skip the wait entirely, or `sleep`
+# would abort the script halfway through a cluster.
 if [[ ! "$DEREGISTER_MAX_ATTEMPTS" =~ ^[1-9][0-9]*$ ]]; then
-  echo "❌ DEREGISTER_MAX_ATTEMPTS must be a positive integer, got '${DEREGISTER_MAX_ATTEMPTS}'."
+  echo "❌ DEREGISTER_MAX_ATTEMPTS must be a positive integer, got '${DEREGISTER_MAX_ATTEMPTS}'." >&2
   exit 1
 fi
+# 0 is allowed here: it turns the wait into a pure poll, which is how the loop
+# gets exercised without spending half an hour asleep.
 if [[ ! "$DEREGISTER_INTERVAL" =~ ^[0-9]+$ ]]; then
-  echo "❌ DEREGISTER_INTERVAL must be a number of seconds, got '${DEREGISTER_INTERVAL}'."
+  echo "❌ DEREGISTER_INTERVAL must be a number of seconds, got '${DEREGISTER_INTERVAL}'." >&2
   exit 1
 fi
 
@@ -159,16 +152,6 @@ candidates=$(echo "$all_clusters" | jq -c '[.[] | select(
 # undeletable, and is the case this script exists to repair.
 orphaned=$(echo "$all_clusters" | jq -c '.[]' | while read -r cluster; do
   name=$(echo "$cluster" | jq -r '.name')
-
-  # Clusters below the age gate are skipped by the teardown loop anyway, so
-  # probing them only spends IAM calls and raises the throttling that would
-  # make the probe inconclusive for the clusters that do matter.
-  created=$(echo "$cluster" | jq -r '.creation_timestamp')
-  age_hours=$(( (CURRENT_TIME - $("$date_command" -d "$created" +%s)) / 3600 ))
-  if [ "$age_hours" -lt "$MIN_AGE_HOURS" ]; then
-    continue
-  fi
-
   role_arn=$(echo "$cluster" | jq -r '.aws.sts.role_arn // ""')
   created_at=$(echo "$cluster" | jq -r '.creation_timestamp')
 
