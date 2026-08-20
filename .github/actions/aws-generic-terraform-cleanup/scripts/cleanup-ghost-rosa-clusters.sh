@@ -68,8 +68,28 @@ rosa create account-roles --mode auto --yes
 echo "📦 Ensuring ocm-role exists..."
 rosa create ocm-role --mode auto --yes
 
-# Fetch clusters matching the criteria (if no node pool and error reported)
-raw_clusters=$(rosa list cluster --output json | jq '[.[] | select((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1 or .status.state == "error")]')
+# Fetch clusters matching the criteria (if no node pool and error reported).
+#
+# `stranded` covers a state this script used to create itself: a cluster whose
+# <name>-account-HCP-ROSA-Installer-Role no longer exists. ROSA needs that role
+# to delete a cluster, so such a cluster can never be removed and its VPC keeps
+# consuming quota -- and because it stays `ready`, none of the other criteria
+# below would ever select it. The per-cluster handling recreates the account
+# roles before deleting, which is exactly what unblocks it.
+existing_installer_roles=$(aws iam list-roles \
+  --query "Roles[?contains(RoleName, 'account-HCP-ROSA-Installer-Role')].RoleName" --output text \
+  | tr '\t' '\n' | sed 's/-account-HCP-ROSA-Installer-Role$//')
+
+raw_clusters=$(rosa list cluster --output json \
+  | jq --arg roles "$existing_installer_roles" '
+      ($roles | split("\n") | map(select(length > 0))) as $with_role
+      | [ .[]
+          | select(
+              ((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1)
+              or .status.state == "error"
+              or ((.name | IN($with_role[])) | not)
+            )
+        ]')
 
 # Check if there are any clusters
 cluster_count=$(echo "$raw_clusters" | jq 'length')
