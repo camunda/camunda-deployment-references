@@ -68,6 +68,26 @@ Skip labels are auto-created by the action (color `#1D76DB`). Apply them at PR c
 | Daily cleanup | Scheduled destroy jobs to prevent orphaned cloud resources |
 | Module unit tests | Go-based Terratest for `modules/` — fast, no real infra |
 
+### Re-running a failed cloud workflow
+
+Use a **full** re-run, not `gh run rerun --failed`.
+
+The cloud integration workflows pass cluster coordinates from the `Prepare clusters` job to the test jobs as an encrypted artifact, decrypted downstream with `openssl enc -d`. A partial re-run does not regenerate that artifact consistently: the intermediate matrix-output job can succeed while carrying an empty payload from the previous attempt, and every downstream job then fails with
+
+```
+error reading input file
+##[error]Process completed with exit code 1
+```
+
+followed by `kubernetes cluster unreachable`, which looks like a broken deployment but is a re-run artifact. Prefer:
+
+```bash
+gh run rerun <run-id>          # full re-run, regenerates every artifact
+gh run rerun <run-id> --failed # avoid on cloud workflows
+```
+
+A full re-run reprovisions the clusters, so check the cloud quotas first when several runs are in flight.
+
 ## CI Status Reporting
 
 CI emits complementary operational signals:
