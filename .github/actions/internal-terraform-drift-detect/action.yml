@@ -52,7 +52,16 @@ runs:
               # exit status is lost, the loop reads nothing, and terraform would plan without
               # the arguments the caller asked for.
               if ! parsed_extra_args=$(printf '%s' "${INPUTS_PLAN_EXTRA_ARGS}" | xargs -n1 printf '%s\n'); then
-                  echo "::error::plan-extra-args could not be tokenised, check for unmatched quotes: ${INPUTS_PLAN_EXTRA_ARGS}" >&2
+                  # The value is echoed back so the failure names it, and callers write it
+                  # as a multiline block. A raw newline ends the `::error::` annotation, so
+                  # the message would be truncated at the first line and the rest emitted
+                  # as plain log output -- where a line starting with `::` would be read as
+                  # a workflow command. Percent-encoded the way the toolkit does it, `%`
+                  # first so the escapes are not re-escaped.
+                  reported=${INPUTS_PLAN_EXTRA_ARGS//'%'/%25}
+                  reported=${reported//$'\r'/%0D}
+                  reported=${reported//$'\n'/%0A}
+                  echo "::error::plan-extra-args could not be tokenised, check for unmatched quotes: ${reported}" >&2
                   exit 1
               fi
 
