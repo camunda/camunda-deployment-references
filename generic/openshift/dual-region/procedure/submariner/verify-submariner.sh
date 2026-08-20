@@ -27,10 +27,14 @@ if [ -z "$HUB_CONTEXT" ]; then
 fi
 
 while true; do
-    oc_output=$(oc --context "$HUB_CONTEXT" get managedclusteraddon -A)
+    # Both calls are best-effort: this script polls while the addons are still
+    # being reconciled, so the resources may not exist yet and the API may answer
+    # transiently. Before this file gained `set -e` they could fail freely; keep
+    # that tolerance rather than aborting the whole wait.
+    oc_output=$(oc --context "$HUB_CONTEXT" get managedclusteraddon -A || true)
     STATUS=$(echo "$oc_output" | grep 'submariner' || true)
     # display the status
-    oc --context "$HUB_CONTEXT" -n "oc-clusters-broker" describe Broker
+    oc --context "$HUB_CONTEXT" -n "oc-clusters-broker" describe Broker || true
     echo "$oc_output" | grep -E 'NAME|submariner' || true
 
     if [ -z "$STATUS" ]; then
