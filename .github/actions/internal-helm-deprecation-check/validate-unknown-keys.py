@@ -5,6 +5,10 @@ Validate deployed Helm values against a strict version of the chart schema.
 Detects unknown keys (typos, removed properties) by checking that every key
 in the values exists in the chart's JSON Schema definition.
 
+Objects the schema declares as free-form (explicit additionalProperties, or no
+enumerated members at all) are exempt: their keys cannot be checked against
+anything, so they are accepted instead of being reported as unknown.
+
 Only uses Python standard library modules (json, sys, re).
 
 Usage:
@@ -22,7 +26,21 @@ import sys
 
 
 def make_schema_strict(schema):
-    """Recursively add additionalProperties: false to all object schemas."""
+    """
+    Recursively add additionalProperties: false to object schemas that enumerate
+    their members and do not already say what to do with extra keys.
+
+    Two kinds of node are left alone, because forcing them strict turns valid
+    configuration into unknown-key reports:
+
+    - Nodes with an explicit additionalProperties. `true` (or a subschema) is
+      how a schema author declares a free-form map; overwriting it discards
+      that intent. `false` is already what we want.
+    - Nodes with neither properties nor patternProperties. Nothing is
+      enumerated, so every key the user sets would be reported. Chart schemas
+      use this shape for podAnnotations, commonLabels, nodeSelector, affinity
+      and friends.
+    """
     if not isinstance(schema, dict):
         return schema
 
@@ -32,8 +50,9 @@ def make_schema_strict(schema):
         or "properties" in schema
         or "patternProperties" in schema
     )
+    enumerates_members = "properties" in schema or "patternProperties" in schema
 
-    if is_object:
+    if is_object and enumerates_members and "additionalProperties" not in schema:
         schema["additionalProperties"] = False
 
     # Recursively process known subschema locations

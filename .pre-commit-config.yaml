@@ -3,7 +3,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
     - repo: https://github.com/camunda/infraex-common-config
-      rev: 2.0.1 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
+      rev: 2.3.4 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
       hooks:
           - id: update-action-readmes-docker
 
@@ -77,6 +77,14 @@ repos:
             entry: python3 -m unittest discover -s .lint/cleanup-coverage -p 'test_*.py'
             language: system
             files: ^\.lint/cleanup-coverage/.*\.py$
+            pass_filenames: false
+
+          - id: python-unittest-actions
+            name: Python unit tests (composite actions)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .github/actions/internal-helm-deprecation-check -p 'test_*.py'
+            language: system
+            files: ^\.github/actions/internal-helm-deprecation-check/.*\.py$
             pass_filenames: false
 
     - repo: https://github.com/tekwizely/pre-commit-golang
