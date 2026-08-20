@@ -212,7 +212,7 @@ runs:
               CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name }}
               INPUTS_KEYCLOAK_SERVICE_NAME: ${{ inputs.keycloak-service-name }}
               INPUTS_ELASTICSEARCH_SERVICE_NAME: ${{ inputs.elasticsearch-service-name }}
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               # Configure Keycloak service reference
@@ -243,7 +243,7 @@ runs:
               INPUTS_ENABLE_HELM_CHART_TESTS: ${{ inputs.enable-helm-chart-tests }}
               INPUTS_TEST_CLIENT_ID: ${{ inputs.test-client-id }}
               INPUTS_TEST_CLIENT_SECRET: ${{ inputs.test-client-secret }}
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               # export test variables to be used in other steps
