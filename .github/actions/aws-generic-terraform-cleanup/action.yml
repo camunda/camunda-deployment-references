@@ -32,6 +32,17 @@ inputs:
         description: Destruction order of modules, e.g. "vpn,cluster" or "cluster,vpn"
         required: true
 
+    tf-config-template:
+        description: |
+            Name of the provider template under scripts/ to destroy the state with, e.g.
+            `config-multi-region`. Leave empty to let the script infer it from the module
+            name, which only distinguishes a single-region state from a dual-region one.
+
+            Set it for any architecture whose state references provider aliases the
+            inferred template does not declare: `terraform destroy` then fails with
+            "Provider configuration not present" and leaves the infrastructure behind.
+        default: ''
+
     openshift:
         description: Whether to install OpenShift tooling (ROSA CLI + oc)
         default: 'false'
@@ -98,6 +109,7 @@ runs:
           env:
               OPENSHIFT: ${{ inputs.openshift }}   # as an indicator in the script whether EKS vs ROSA
               DISABLE_TELEMETRY: true # Disable telemetry for cloud-nuke
+              TF_CONFIG_TEMPLATE: ${{ inputs.tf-config-template }}
           run: |
               set -euo pipefail
 

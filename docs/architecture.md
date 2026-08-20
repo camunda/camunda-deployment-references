@@ -28,7 +28,7 @@ The official Camunda docs for these references live at:
 
 | Folder    | Contents |
 |-----------|----------|
-| `aws/`    | EKS (single/dual region, IRSA variant), ROSA HCP (single/dual region), ECS Fargate, EC2. Modules: `eks-cluster`, `aurora`, `opensearch`, `rosa-hcp`, `ecs`, `vpn` |
+| `aws/`    | EKS (single/dual/multi region, IRSA variant), ROSA HCP (single/dual region), ECS Fargate, EC2. Modules: `eks-cluster`, `aurora`, `aurora-global`, `aurora-global-member`, `opensearch`, `rosa-hcp`, `ecs`, `vpn`, `transit-gateway`, `transit-gateway-hub`, `transit-gateway-peering` |
 | `azure/`  | AKS (single region, with RDBMS variant). Modules: `aks`, `network`, `kms`, `postgres-db` |
 | `generic/`| Cloud-agnostic Kubernetes (single/dual region), OpenShift, operator-based (CNPG, ECK, Keycloak), Debian bare metal |
 | `local/`  | Kind (Kubernetes in Docker) for local development |
@@ -57,6 +57,15 @@ Camunda 8 deployments consist of two logical clusters:
 
 RDBMS secondary storage is available since 8.9 for the Orchestration Cluster (Operate, Tasklist, v2 REST API). For backend trade-offs and benchmarks, see [secondary storage architecture](https://docs.camunda.io/docs/self-managed/reference-architecture/reference-architecture/#secondary-storage-architecture) and [RDBMS benchmark results](https://docs.camunda.io/docs/self-managed/concepts/secondary-storage/rdbms-benchmark-results/) in the product documentation. Reference implementations with a dedicated RDBMS variant: `azure/kubernetes/aks-single-region-rdbms` (the `*-rdbms` declination of a ref-arch uses a relational database instead of a document store).
 
+**Multi-region topologies:**
+
+| Feature | Regions | Secondary storage | Region loss |
+|---------|---------|-------------------|-------------|
+| `dual-region` | 2 | One Elasticsearch per region, two Camunda exporters | Quorum lost, manual failover then failback with an ES snapshot restore |
+| `multi-region` | N (3 by default) | One RDBMS, replication delegated to the database | Quorum preserved, the engine keeps processing |
+
+The RDBMS exporter has [no multi-region mode](https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support): a single JDBC connection exists per Orchestration Cluster. `multi-region` turns that into the design by making replication the database's responsibility (Aurora Global Database in the AWS reference, any single-writer endpoint elsewhere). Reference implementation: `aws/kubernetes/eks-multi-region-rdbms` — **experimental**; the product documents and supports two regions.
+
 **Production baseline:** Minimum 3 Zeebe brokers across 3 availability zones.
 
 ## Naming Convention
@@ -68,6 +77,7 @@ RDBMS secondary storage is available since 8.9 for the Orchestration Cluster (Op
 Examples:
 - `aws/kubernetes/eks-single-region`
 - `aws/kubernetes/eks-dual-region`
+- `aws/kubernetes/eks-multi-region-rdbms`
 - `aws/openshift/rosa-hcp-single-region`
 - `aws/containers/ecs-single-region-fargate`
 - `azure/kubernetes/aks-single-region-rdbms`

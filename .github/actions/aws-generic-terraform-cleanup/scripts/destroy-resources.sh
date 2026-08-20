@@ -353,6 +353,20 @@ destroy_module() {
     fi
   fi
 
+  # An explicit template wins over the heuristics above. The module name alone
+  # cannot tell a two-region state from an N-region one -- both call their
+  # module `clusters` -- and picking the wrong provider set makes the destroy
+  # fail with "Provider configuration not present", leaving a whole regional
+  # deployment behind.
+  if [[ -n "${TF_CONFIG_TEMPLATE:-}" ]]; then
+    if [[ ! -f "$SCRIPT_DIR/$TF_CONFIG_TEMPLATE" ]]; then
+      echo "Error: TF_CONFIG_TEMPLATE '$TF_CONFIG_TEMPLATE' not found in $SCRIPT_DIR"
+      exit 1
+    fi
+    echo "[$group_id][$module_name] Using the provider template $TF_CONFIG_TEMPLATE"
+    tf_config_file="$SCRIPT_DIR/$TF_CONFIG_TEMPLATE"
+  fi
+
   mkdir -p "$temp_dir"
   cp "$tf_config_file" "$temp_dir/config.tf" || return 1
   cd "$temp_dir" || return 1
