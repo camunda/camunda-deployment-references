@@ -104,8 +104,9 @@ runs:
         - name: Copy config_override.tf to module root
           shell: bash
           run: |
-              cp -r ${INPUTS_TF_MODULES_PATH}/azure/kubernetes/${INPUTS_REF_ARCH}/test/fixtures/ci/fixture_* \
-              ${INPUTS_TF_MODULES_PATH}/azure/kubernetes/${INPUTS_REF_ARCH}/
+              # Only the glob is left unquoted; the path is data.
+              cp -r "${INPUTS_TF_MODULES_PATH}/azure/kubernetes/${INPUTS_REF_ARCH}/test/fixtures/ci/"fixture_* \
+              "${INPUTS_TF_MODULES_PATH}/azure/kubernetes/${INPUTS_REF_ARCH}/"
           env:
               INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
               INPUTS_REF_ARCH: ${{ inputs.ref-arch }}
