@@ -248,7 +248,7 @@ runs:
         - name: Get the current workflow filename and check for skip labels
           id: check_labels
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               if [[ "${{ github.event_name }}" != "pull_request" ]]; then

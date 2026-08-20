@@ -108,7 +108,7 @@ runs:
               INPUTS_TEST_NAMESPACE: ${{ inputs.test-namespace }}
               INPUTS_TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
               INPUTS_TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ${{ inputs.tests-camunda-helm-chart-repo-path }}
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               # export test variables to be used in other steps
