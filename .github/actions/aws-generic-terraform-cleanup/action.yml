@@ -120,9 +120,15 @@ runs:
                   # RETRY_DESTROY enables cloud-nuke to clean up resources created outside of Terraform
                   # such as Load Balancers created by ingress-nginx, EBS volumes, etc.
                   export RETRY_DESTROY='true'
+<<<<<<< HEAD
                   ${{ github.action_path }}/scripts/destroy-resources.sh "${{ inputs.tf-bucket }}" \
                     ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.modules-order }} ${{ inputs.tf-bucket-key-prefix }} \
                     $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found") || destroy_status=$?
+=======
+                  ${{ github.action_path }}/scripts/destroy-resources.sh "${INPUTS_TF_BUCKET}" \
+                    ${INPUTS_MAX_AGE_HOURS} ${INPUTS_TARGET} ${INPUTS_MODULES_ORDER} ${INPUTS_TF_BUCKET_KEY_PREFIX} \
+                    $([[ "${INPUTS_FAIL_ON_NOT_FOUND}" == "true" ]] && echo "--fail-on-not-found") || destroy_status=$?
+>>>>>>> 9b8659f (fix(ci): let the ROSA repair pass run when the destroy it repairs has failed [ready] (#3136))
                   unset RETRY_DESTROY
               fi
 
@@ -133,8 +139,13 @@ runs:
               # unreachable in exactly the situation it exists for. Record the
               # status instead and report it once both passes have run.
               ghost_status=0
+<<<<<<< HEAD
               if [ "${{ inputs.delete-ghost-rosa-clusters }}" == "true" ]; then
                 ${{ github.action_path }}/scripts/cleanup-ghost-rosa-clusters.sh ${{ inputs.max-age-hours }} || ghost_status=$?
+=======
+              if [ "${INPUTS_DELETE_GHOST_ROSA_CLUSTERS}" == "true" ]; then
+                ${{ github.action_path }}/scripts/cleanup-ghost-rosa-clusters.sh ${INPUTS_MAX_AGE_HOURS} || ghost_status=$?
+>>>>>>> 9b8659f (fix(ci): let the ROSA repair pass run when the destroy it repairs has failed [ready] (#3136))
               fi
 
               if [ "$destroy_status" -ne 0 ]; then
