@@ -224,12 +224,16 @@ runs:
           shell: bash
           env:
               FINDINGS_DIR: ${{ runner.temp }}/helm-deprecation-check
+              INPUTS_RELEASE_NAME: ${{ inputs.release-name }}
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
+              INPUTS_KUBE_CONTEXT: ${{ inputs.kube-context }}
+              INPUTS_EXCLUDE_PATTERNS: ${{ inputs.exclude-patterns }}
           run: |
               set -euo pipefail
 
-              RELEASE_NAME="${{ inputs.release-name }}"
-              NAMESPACE="${{ inputs.namespace }}"
-              KUBE_CONTEXT="${{ inputs.kube-context }}"
+              RELEASE_NAME="${INPUTS_RELEASE_NAME}"
+              NAMESPACE="${INPUTS_NAMESPACE}"
+              KUBE_CONTEXT="${INPUTS_KUBE_CONTEXT}"
 
               mkdir -p "${FINDINGS_DIR}"
               FINDINGS_FILE="${FINDINGS_DIR}/findings.md"
@@ -258,7 +262,7 @@ runs:
               ERRORS=$(echo "${NOTES}" | grep -i '\[camunda\]\[error\]' || true)
 
               # Exclude warnings matching provided patterns (fixed-string match)
-              EXCLUDE_PATTERNS="${{ inputs.exclude-patterns }}"
+              EXCLUDE_PATTERNS="${INPUTS_EXCLUDE_PATTERNS}"
               if [[ -n "${EXCLUDE_PATTERNS}" && -n "${WARNINGS}" ]]; then
                   while IFS= read -r pattern; do
                       [[ -z "${pattern}" ]] && continue
@@ -348,9 +352,9 @@ runs:
           run: |
               set -euo pipefail
 
-              RELEASE_NAME="${{ inputs.release-name }}"
-              NAMESPACE="${{ inputs.namespace }}"
-              KUBE_CONTEXT="${{ inputs.kube-context }}"
+              RELEASE_NAME="${INPUTS_RELEASE_NAME}"
+              NAMESPACE="${INPUTS_NAMESPACE}"
+              KUBE_CONTEXT="${INPUTS_KUBE_CONTEXT}"
 
               CONTEXT_ARGS=()
               if [[ -n "${KUBE_CONTEXT}" ]]; then
@@ -409,7 +413,7 @@ runs:
               # .camunda-platform-helm (single-region/generic/kind). Fall back to the
               # public Helm repo for released charts. The private OCI registry is
               # intentionally no longer used here.
-              LOCAL_CHART_PATH="${{ inputs.local-chart-path }}"
+              LOCAL_CHART_PATH="${INPUTS_LOCAL_CHART_PATH}"
               SCHEMA_PATH=""
               # Autodetect the source-build checkout produced by the shared
               # build-camunda-chart.sh helper. It clones the whole
@@ -498,6 +502,11 @@ runs:
                       echo ""
                   } >> "${FINDINGS_FILE}"
               fi
+          env:
+              INPUTS_RELEASE_NAME: ${{ inputs.release-name }}
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
+              INPUTS_KUBE_CONTEXT: ${{ inputs.kube-context }}
+              INPUTS_LOCAL_CHART_PATH: ${{ inputs.local-chart-path }}
 
         - name: 💬 Report findings (PR comment, log, or Slack)
           id: report-findings

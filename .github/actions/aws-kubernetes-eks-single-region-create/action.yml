@@ -114,22 +114,29 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME}/"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
 
-              echo "TF_DIR_CLUSTER=${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/cluster/" >> "$GITHUB_ENV"
-              echo "TF_DIR_VPN=${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/terraform/vpn/" >> "$GITHUB_ENV"
-              echo "TF_REF_ARCH_DIR=${{ inputs.tf-modules-path }}/aws/kubernetes/${{ inputs.ref-arch }}/" >> "$GITHUB_ENV"
+              echo "TF_DIR_CLUSTER=${INPUTS_TF_MODULES_PATH}/aws/kubernetes/${INPUTS_REF_ARCH}/terraform/cluster/" >> "$GITHUB_ENV"
+              echo "TF_DIR_VPN=${INPUTS_TF_MODULES_PATH}/aws/kubernetes/${INPUTS_REF_ARCH}/terraform/vpn/" >> "$GITHUB_ENV"
+              echo "TF_REF_ARCH_DIR=${INPUTS_TF_MODULES_PATH}/aws/kubernetes/${INPUTS_REF_ARCH}/" >> "$GITHUB_ENV"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
+              INPUTS_REF_ARCH: ${{ inputs.ref-arch }}
 
 
         - name: Sanitize Tags
@@ -460,10 +467,13 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              aws eks update-kubeconfig --region ${{ inputs.aws-region }} --name ${{ inputs.cluster-name }} --alias ${{ inputs.cluster-name }}
+              aws eks update-kubeconfig --region "${INPUTS_AWS_REGION}" --name "${INPUTS_CLUSTER_NAME}" --alias "${INPUTS_CLUSTER_NAME}"
 
               kubectl config current-context
               kubectl get nodes
+          env:
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Apply and verify storage class
           shell: bash
