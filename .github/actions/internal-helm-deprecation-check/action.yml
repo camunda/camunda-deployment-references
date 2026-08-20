@@ -185,7 +185,7 @@ runs:
               GH_ARCH: ${{ steps.gh-cli.outputs.arch }}
               INSTALL_DIR: ${{ steps.gh-cli.outputs.install-dir }}
               BIN_DIR: ${{ steps.gh-cli.outputs.bin-dir }}
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               if [[ "${CACHE_HIT}" == "true" && -x "${BIN_DIR}/gh" ]]; then
@@ -218,7 +218,7 @@ runs:
               INPUTS_NAMESPACE: ${{ inputs.namespace }}
               INPUTS_KUBE_CONTEXT: ${{ inputs.kube-context }}
               INPUTS_EXCLUDE_PATTERNS: ${{ inputs.exclude-patterns }}
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               RELEASE_NAME="${INPUTS_RELEASE_NAME}"

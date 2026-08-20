@@ -179,7 +179,7 @@ runs:
               CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name }}
               INPUTS_KEYCLOAK_SERVICE_NAME: ${{ inputs.keycloak-service-name }}
               INPUTS_ELASTICSEARCH_SERVICE_NAME: ${{ inputs.elasticsearch-service-name }}
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               # Configure Keycloak service reference
