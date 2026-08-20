@@ -87,7 +87,14 @@ raw_clusters=$(rosa list cluster --output json \
           | select(
               ((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1)
               or .status.state == "error"
-              or ((.name | IN($with_role[])) | not)
+              or (
+                   # Scoped to HCP clusters: the per-cluster handling below is
+                   # entirely --hosted-cp and consumes .aws.sts.oidc_config.id,
+                   # so a classic ROSA cluster -- which never has an HCP
+                   # installer role -- must not be swept up as "stranded".
+                   ((.aws.sts.oidc_config.id // "") != "")
+                   and ((.name | IN($with_role[])) | not)
+                 )
             )
         ]')
 
