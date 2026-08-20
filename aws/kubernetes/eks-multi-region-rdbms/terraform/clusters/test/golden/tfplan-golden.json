@@ -3218,6 +3218,9 @@
                   }
                 ],
                 "identity": [],
+                "kube_api_server_config": [],
+                "kube_controller_manager_config": [],
+                "kube_scheduler_config": [],
                 "kubernetes_network_config": [
                   {
                     "elastic_load_balancing": []
@@ -6236,6 +6239,9 @@
                   }
                 ],
                 "identity": [],
+                "kube_api_server_config": [],
+                "kube_controller_manager_config": [],
+                "kube_scheduler_config": [],
                 "kubernetes_network_config": [
                   {
                     "elastic_load_balancing": []
@@ -9254,6 +9260,9 @@
                   }
                 ],
                 "identity": [],
+                "kube_api_server_config": [],
+                "kube_controller_manager_config": [],
+                "kube_scheduler_config": [],
                 "kubernetes_network_config": [
                   {
                     "elastic_load_balancing": []
