@@ -69,6 +69,11 @@ resource "terraform_data" "validate_authentication_mode" {
       ])
       error_message = "When var.external_oidc is set, all of its fields (issuer_uri, token_uri, audience, and each component's client_id and client_secret_arn) must be non-empty."
     }
+    # Camunda Hub (Web Modeler) authenticates via OIDC and cannot use basic auth.
+    precondition {
+      condition     = !var.enable_camunda_hub || local.oidc_enabled
+      error_message = "enable_camunda_hub requires authentication_mode = \"oidc\" (Camunda Hub / Web Modeler cannot use basic auth)."
+    }
   }
 }
 
@@ -112,6 +117,16 @@ locals {
       client_secret_arn = local.use_external ? try(var.external_oidc.identity_client_secret_arn, "") : try(aws_secretsmanager_secret.identity_client_secret[0].arn, "")
       # Management Identity's own resource-server audience (mandatory in generic OIDC).
       audience = local.use_external ? try(var.external_oidc.audience, "") : "camunda-identity-resource-server"
+    }
+
+    # Camunda Hub (Web Modeler) is a public OIDC client (browser PKCE); the restapi
+    # is a resource server validating these two audiences. App-contract identifiers,
+    # so they are fixed for the bundled realm. For an external IdP, register a
+    # matching public client + audiences out of band.
+    webmodeler = {
+      client_id         = "web-modeler"
+      audience_internal = "web-modeler-api"
+      audience_public   = "web-modeler-public-api"
     }
   }
 }

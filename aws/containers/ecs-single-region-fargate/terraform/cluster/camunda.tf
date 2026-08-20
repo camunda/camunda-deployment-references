@@ -310,3 +310,101 @@ module "management_identity" {
 
   wait_for_steady_state = true
 }
+
+################################################################
+#              Camunda Hub (Web Modeler) - optional            #
+################################################################
+# Camunda Hub bundles Web Modeler (+ Console). It authenticates via OIDC against
+# the same provider-agnostic local.oidc interface as every other component, so it
+# is only valid when authentication_mode = "oidc" (guarded in auth_mode.tf).
+# Enabling it also registers the web-modeler client in the bundled Keycloak realm
+# (keycloak_realm.tf).
+
+locals {
+  # Single source of truth for the Hub URL context path: passed to the module and
+  # reused for the OIDC redirect (keycloak_realm.tf), server URL and websocket path.
+  camunda_hub_context_path = "/hub"
+}
+
+module "camunda_hub" {
+  count  = var.enable_camunda_hub ? 1 : 0
+  source = "../../../../modules/ecs/fargate/camunda-hub"
+
+  depends_on = [null_resource.run_camunda_hub_db_seed, module.management_identity]
+
+  prefix                               = "${var.prefix}-oc1"
+  ecs_cluster_id                       = aws_ecs_cluster.ecs.id
+  vpc_id                               = module.vpc.vpc_id
+  vpc_private_subnets                  = module.vpc.private_subnets
+  aws_region                           = data.aws_region.current.region
+  s2s_cloudmap_namespace               = module.orchestration_cluster.s2s_cloudmap_namespace
+  alb_listener_http_webapp_arn         = local.webapp_listener_arn
+  enable_alb_http_webapp_listener_rule = true
+  log_group_name                       = module.orchestration_cluster.log_group_name
+
+  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
+
+  restapi_image    = var.camunda_hub_restapi_image
+  websockets_image = var.camunda_hub_websockets_image
+  context_path     = local.camunda_hub_context_path
+
+  # Only attach registry credentials for the private Camunda registry; public
+  # Docker Hub images (the trial-capable defaults) pull without credentials, and
+  # passing docker.io creds confuses ECS. Mirrors the ecs-dual-region pattern.
+  registry_credentials_arn = (
+    startswith(var.camunda_hub_restapi_image, "registry.camunda.cloud/") ||
+    startswith(var.camunda_hub_websockets_image, "registry.camunda.cloud/")
+  ) ? join("", aws_secretsmanager_secret.registry_credentials[*].arn) : ""
+
+  service_security_group_ids = [
+    aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
+    aws_security_group.allow_package_80_443.id,
+  ]
+
+  # Shared Pusher secret + optional license (root-owned in Secrets Manager).
+  pusher_app_key_secret_arn    = aws_secretsmanager_secret.pusher_app_key[0].arn
+  pusher_app_secret_secret_arn = aws_secretsmanager_secret.pusher_app_secret[0].arn
+  license_secret_arn           = join("", aws_secretsmanager_secret.camunda_license_key[*].arn)
+
+  environment_variables = [
+    # --- Database (dedicated camunda-hub database, IAM auth via AWS JDBC wrapper) ---
+    { name = "SPRING_DATASOURCE_URL", value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/camunda-hub?wrapperPlugins=iam" },
+    { name = "SPRING_DATASOURCE_USERNAME", value = "camunda-hub" },
+    { name = "SPRING_DATASOURCE_DRIVER_CLASS_NAME", value = "software.amazon.jdbc.Driver" },
+
+    # --- Console feature (Camunda Hub consolidation) ---
+    { name = "CAMUNDA_MODELER_FEATURE_CONSOLE_ENABLED", value = "true" },
+
+    # --- Mail (from-address is required by the app; SMTP host left unset => invites won't send) ---
+    { name = "CAMUNDA_MODELER_MAIL_FROMADDRESS", value = "changeme@example.com" },
+
+    # --- OIDC / Management Identity (provider-agnostic local.oidc interface) ---
+    { name = "CAMUNDA_IDENTITY_TYPE", value = local.use_external ? "GENERIC" : "KEYCLOAK" },
+    { name = "CAMUNDA_IDENTITY_BASEURL", value = local.identity_public_base },
+    { name = "CAMUNDA_IDENTITY_ISSUER", value = local.oidc.issuer_uri },
+    { name = "CAMUNDA_IDENTITY_ISSUERBACKENDURL", value = local.oidc.issuer_uri },
+    { name = "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI", value = local.oidc.issuer_uri },
+    { name = "CAMUNDA_MODELER_OAUTH2_CLIENT_ID", value = local.oidc.webmodeler.client_id },
+    { name = "CAMUNDA_MODELER_SECURITY_JWT_AUDIENCE_INTERNAL_API", value = local.oidc.webmodeler.audience_internal },
+    { name = "CAMUNDA_MODELER_SECURITY_JWT_AUDIENCE_PUBLIC_API", value = local.oidc.webmodeler.audience_public },
+    # Public root URL for OAuth redirects (matches the web-modeler client's ALB redirect-uri).
+    { name = "CAMUNDA_MODELER_SERVER_URL", value = "${local.alb_base_url}${local.camunda_hub_context_path}" },
+
+    # --- Browser-side Pusher (public ALB host + <context>-ws route) ---
+    { name = "CAMUNDA_MODELER_PUSHER_CLIENT_HOST", value = aws_lb.main.dns_name },
+    { name = "CAMUNDA_MODELER_PUSHER_CLIENT_PORT", value = local.alb_https_enabled ? "443" : "80" },
+    { name = "CAMUNDA_MODELER_PUSHER_CLIENT_PATH", value = "${local.camunda_hub_context_path}-ws" },
+    { name = "CAMUNDA_MODELER_PUSHER_CLIENT_FORCETLS", value = local.alb_https_enabled ? "true" : "false" },
+
+    # --- Orchestration cluster wiring (internal Service Connect; user bearer token) ---
+    { name = "CAMUNDA_MODELER_CLUSTERS_0_ID", value = "default-cluster" },
+    { name = "CAMUNDA_MODELER_CLUSTERS_0_NAME", value = "default-cluster" },
+    { name = "CAMUNDA_MODELER_CLUSTERS_0_URL_REST", value = "http://${module.orchestration_cluster.rest_service_connect}:8080" },
+    { name = "CAMUNDA_MODELER_CLUSTERS_0_URL_GRPC", value = "http://${module.orchestration_cluster.grpc_service_connect}:26500" },
+    { name = "CAMUNDA_MODELER_CLUSTERS_0_AUTHENTICATION", value = "BEARER_TOKEN" },
+  ]
+
+  extra_task_role_attachments = [
+    aws_iam_policy.rds_db_connect_camunda_hub[0].arn,
+  ]
+}

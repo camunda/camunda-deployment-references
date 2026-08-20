@@ -220,3 +220,150 @@ resource "null_resource" "run_db_seed_task" {
     aws_ecs_task_definition.db_seed,
   ]
 }
+
+################################################################
+#                   Camunda Hub DB seeding                     #
+################################################################
+# Separate from the shared db_seed on purpose: kept fully flag-gated so the
+# flag-off plan stays a zero-delta. Creates the IAM-auth 'camunda-hub' role and
+# its dedicated 'camunda-hub' database (Web Modeler runs Flyway on boot).
+
+resource "aws_cloudwatch_log_group" "camunda_hub_db_seed" {
+  count             = var.enable_camunda_hub ? 1 : 0
+  name              = "/ecs/${var.prefix}-camunda-hub-db-seed"
+  retention_in_days = 7
+}
+
+resource "aws_ecs_task_definition" "camunda_hub_db_seed" {
+  count                    = var.enable_camunda_hub ? 1 : 0
+  family                   = "${var.prefix}-camunda-hub-db-seed"
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+
+  cpu    = 256
+  memory = 512
+
+  container_definitions = jsonencode([
+    {
+      name       = "camunda-hub-db-seed"
+      image      = "public.ecr.aws/docker/library/postgres:17-alpine"
+      essential  = true
+      entryPoint = ["/bin/sh", "-lc"]
+      command = [
+        <<-EOT
+          set -euo pipefail
+
+          ADMIN="host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_ADMIN_DB} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require"
+
+          echo "Ensuring role exists: $${HUB_USER}"
+          psql "$${ADMIN}" -v ON_ERROR_STOP=1 \
+            -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${HUB_USER}') THEN CREATE ROLE \"$${HUB_USER}\" WITH LOGIN; END IF; END \$\$;" \
+            -c "ALTER ROLE \"$${HUB_USER}\" WITH LOGIN;" \
+            -c "GRANT rds_iam TO \"$${HUB_USER}\";"
+
+          echo "Ensuring database exists: $${HUB_DB}"
+          if ! psql "$${ADMIN}" -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname = '$${HUB_DB}'" | grep -q 1; then
+            psql "$${ADMIN}" -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$${HUB_DB}\" OWNER \"$${HUB_USER}\";"
+          fi
+
+          echo "Granting privileges on $${HUB_DB} to $${HUB_USER}"
+          psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${HUB_DB} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" -v ON_ERROR_STOP=1 \
+            -c "GRANT ALL PRIVILEGES ON DATABASE \"$${HUB_DB}\" TO \"$${HUB_USER}\";" \
+            -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${HUB_USER}\";"
+
+          echo "Camunda Hub DB seeding complete."
+        EOT
+      ]
+
+      environment = [
+        { name = "AURORA_ENDPOINT", value = module.postgresql.aurora_endpoint },
+        { name = "AURORA_PORT", value = "5432" },
+        { name = "AURORA_ADMIN_DB", value = var.db_name },
+        { name = "AURORA_ADMIN_USERNAME", value = var.db_admin_username },
+        { name = "HUB_USER", value = "camunda-hub" },
+        { name = "HUB_DB", value = "camunda-hub" }
+      ]
+
+      secrets = [
+        {
+          name      = "AURORA_ADMIN_PASSWORD"
+          valueFrom = aws_secretsmanager_secret.db_admin_password.arn
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = aws_cloudwatch_log_group.camunda_hub_db_seed[0].name
+          awslogs-region        = data.aws_region.current.region
+          awslogs-stream-prefix = "camunda-hub-db-seed"
+        }
+      }
+    }
+  ])
+
+  depends_on = [module.postgresql]
+}
+
+resource "null_resource" "run_camunda_hub_db_seed" {
+  count = var.enable_camunda_hub ? 1 : 0
+
+  triggers = {
+    aurora_endpoint = module.postgresql.aurora_endpoint
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["/bin/bash", "-lc"]
+    command     = <<-EOT
+      set -euo pipefail
+
+      NETWORK_CONF='{"awsvpcConfiguration":{"subnets":${jsonencode(module.vpc.private_subnets)},"securityGroups":${jsonencode([aws_security_group.allow_necessary_camunda_ports_within_vpc.id, aws_security_group.allow_package_80_443.id])},"assignPublicIp":"DISABLED"}}'
+
+      echo "Running one-time Camunda Hub DB seed task..."
+      TASK_ARN=$(aws ecs run-task \
+        --region "${data.aws_region.current.region}" \
+        --cluster "${aws_ecs_cluster.ecs.arn}" \
+        --launch-type FARGATE \
+        --task-definition "${aws_ecs_task_definition.camunda_hub_db_seed[0].arn}" \
+        --network-configuration "$NETWORK_CONF" \
+        --query 'tasks[0].taskArn' \
+        --output text)
+
+      echo "Task started: $TASK_ARN"
+
+      aws ecs wait tasks-stopped \
+        --region "${data.aws_region.current.region}" \
+        --cluster "${aws_ecs_cluster.ecs.arn}" \
+        --tasks "$TASK_ARN"
+
+      EXIT_CODE=$(aws ecs describe-tasks \
+        --region "${data.aws_region.current.region}" \
+        --cluster "${aws_ecs_cluster.ecs.arn}" \
+        --tasks "$TASK_ARN" \
+        --query 'tasks[0].containers[0].exitCode' \
+        --output text)
+
+      STOP_REASON=$(aws ecs describe-tasks \
+        --region "${data.aws_region.current.region}" \
+        --cluster "${aws_ecs_cluster.ecs.arn}" \
+        --tasks "$TASK_ARN" \
+        --query 'tasks[0].stoppedReason' \
+        --output text)
+
+      if [ "$EXIT_CODE" != "0" ]; then
+        echo "Camunda Hub DB seed task failed with exit code $EXIT_CODE. stoppedReason=$STOP_REASON"
+        echo "Check logs in CloudWatch log group: /ecs/${var.prefix}-camunda-hub-db-seed"
+        exit 1
+      fi
+
+      echo "Camunda Hub DB seed task succeeded."
+    EOT
+  }
+
+  depends_on = [
+    module.postgresql,
+    aws_ecs_cluster.ecs,
+    aws_ecs_task_definition.camunda_hub_db_seed,
+  ]
+}
