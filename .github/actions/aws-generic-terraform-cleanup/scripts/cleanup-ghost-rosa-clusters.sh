@@ -34,14 +34,27 @@ FAILED=0
 DEREGISTER_MAX_ATTEMPTS="${DEREGISTER_MAX_ATTEMPTS:-30}"
 DEREGISTER_INTERVAL="${DEREGISTER_INTERVAL:-30}"
 
-# Validate here rather than letting `seq` or `sleep` fail mid-teardown, where
-# `set -e` would abort with no indication that the cause is a bad setting.
-for knob in DEREGISTER_MAX_ATTEMPTS DEREGISTER_INTERVAL; do
-  if ! [[ "${!knob}" =~ ^[0-9]+$ ]]; then
-    echo "Error: ${knob} must be a non-negative integer, got '${!knob}'." >&2
-    exit 1
-  fi
-done
+# Checked here rather than at first use: the wait loop only runs after
+# `rosa delete cluster`, so a bad value would surface with a deletion already in
+# flight — `seq` would print an error and skip the wait entirely, or `sleep`
+# would abort the script halfway through a cluster.
+if [[ ! "$DEREGISTER_MAX_ATTEMPTS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "❌ DEREGISTER_MAX_ATTEMPTS must be a positive integer, got '${DEREGISTER_MAX_ATTEMPTS}'." >&2
+  exit 1
+fi
+# 0 is allowed here: it turns the wait into a pure poll, which is how the loop
+# gets exercised without spending half an hour asleep.
+if [[ ! "$DEREGISTER_INTERVAL" =~ ^[0-9]+$ ]]; then
+  echo "❌ DEREGISTER_INTERVAL must be a number of seconds, got '${DEREGISTER_INTERVAL}'." >&2
+  exit 1
+fi
+
+# age_in_hours prints the whole hours elapsed since a cluster was created.
+age_in_hours() {
+  local created_at
+  created_at=$($date_command -d "$1" +%s)
+  echo $(( (CURRENT_TIME - created_at) / 3600 ))
+}
 
 
 # cleanup_iam_roles_with_prefix removes all IAM roles whose name starts with the
@@ -140,17 +153,17 @@ candidates=$(echo "$all_clusters" | jq -c '[.[] | select(
 # undeletable, and is the case this script exists to repair.
 orphaned=$(echo "$all_clusters" | jq -c '.[]' | while read -r cluster; do
   name=$(echo "$cluster" | jq -r '.name')
+  role_arn=$(echo "$cluster" | jq -r '.aws.sts.role_arn // ""')
+  created_at=$(echo "$cluster" | jq -r '.creation_timestamp')
 
-  # Clusters below the age gate are skipped by the teardown loop anyway, so
-  # probing them only spends IAM calls and raises the throttling that would
-  # make the probe inconclusive for the clusters that do matter.
-  created=$(echo "$cluster" | jq -r '.creation_timestamp')
-  age_hours=$(( (CURRENT_TIME - $("$date_command" -d "$created" +%s)) / 3600 ))
-  if [ "$age_hours" -lt "$MIN_AGE_HOURS" ]; then
+  # Apply the age gate before the lookup, not only in the loop below: the probe
+  # would otherwise call get-role once per cluster in the account, including the
+  # ones just created by a running test, which is how an account with many
+  # clusters starts getting IAM throttling errors instead of answers.
+  if [ "$(age_in_hours "$created_at")" -lt "$MIN_AGE_HOURS" ]; then
     continue
   fi
 
-  role_arn=$(echo "$cluster" | jq -r '.aws.sts.role_arn // ""')
   if installer_role_missing "$name" "$role_arn"; then
     echo "$cluster"
   fi
@@ -177,9 +190,7 @@ while read -r cluster; do
   oidc_config_id=$(echo "$cluster" | jq -r '.aws.sts.oidc_config.id')
   creation_timestamp=$(echo "$cluster" | jq -r '.creation_timestamp')
 
-  # Convert creation timestamp to UNIX time
-  cluster_created_time=$($date_command -d "$creation_timestamp" +%s)
-  cluster_age_hours=$(( (CURRENT_TIME - cluster_created_time) / 3600 ))
+  cluster_age_hours=$(age_in_hours "$creation_timestamp")
 
   if [ "$cluster_age_hours" -lt "$MIN_AGE_HOURS" ]; then
     echo "⏳ Cluster $cluster_name is too recent (${cluster_age_hours}h < ${MIN_AGE_HOURS}h). Skipping."
@@ -271,4 +282,4 @@ if [ "$FAILED" -ne 0 ]; then
   exit 1
 fi
 
-echo "✅ All clusters have been deleted!"
+echo "✅ Ghost ROSA cluster cleanup finished."
