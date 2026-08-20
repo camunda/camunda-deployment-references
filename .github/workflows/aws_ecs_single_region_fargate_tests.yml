@@ -247,18 +247,21 @@ jobs:
                   else
                     echo "🔍 Testing ALB endpoint: http://${ALB_DNS}"
 
-                    # Wait for ALB to be healthy
+                    # Wait for the ALB to route to a live web app. In basic auth mode
+                    # /operate returns 200; in oidc mode an unauthenticated request is
+                    # redirected to the identity provider (302), which equally proves
+                    # the ALB is serving the app, so both codes count as healthy.
                     for i in {1..30}; do
                       HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${ALB_DNS}/operate" || echo "000")
-                      if [[ "$HTTP_CODE" == "200" ]]; then
-                        echo "✅ ALB health check passed"
+                      if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "302" ]]; then
+                        echo "✅ ALB health check passed (HTTP $HTTP_CODE)"
                         break
                       fi
                       echo "⏳ Waiting for ALB to be healthy (attempt $i/30, got HTTP $HTTP_CODE)..."
                       sleep 10
                     done
 
-                    if [[ "$HTTP_CODE" != "200" ]]; then
+                    if [[ "$HTTP_CODE" != "200" && "$HTTP_CODE" != "302" ]]; then
                       echo "❌ ALB health check failed after 30 attempts"
                       exit 1
                     fi
