@@ -61,7 +61,19 @@ read -r -a zone_names <<<"$CAMUNDA_ZONE_NAMES"
 
 contact_points=""
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
-    fqdn="${cluster_ids[$i]}.${CAMUNDA_RELEASE_NAME}-zeebe.${CAMUNDA_NAMESPACE}.svc.clusterset.local"
+    # Trailing dot: this is a fully-qualified name, and saying so matters.
+    #
+    # Without it the resolver walks the pod's search domains first, and on a
+    # cold multi-region start a broker whose peer is not yet published spends
+    # its DNS budget on those attempts, parks during startup and never binds
+    # 9600 -- permanently, the pod has to be deleted to recover. That is
+    # camunda/camunda#55038, which upstream closed as fixed downstream: the fix
+    # is exactly this dot, applied to the dual-region references in #2793 and
+    # never carried over here.
+    #
+    # The cross-region DNS gate in ../helm-values/camunda-values.yml derives its
+    # per-pod hostnames from these contact points, so it inherits the dot too.
+    fqdn="${cluster_ids[$i]}.${CAMUNDA_RELEASE_NAME}-zeebe.${CAMUNDA_NAMESPACE}.svc.clusterset.local."
 
     export "REGION_${i}_ZEEBE_SERVICE_NAME=$fqdn"
 
