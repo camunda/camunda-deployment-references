@@ -69,8 +69,11 @@ runs:
           run: |
               set -euo pipefail
 
-              diff_comment_url=$(gh pr view "${{ github.event.pull_request.number }}" --json comments \
-                  --jq ".comments[] | select(.body | contains(\"## Module ${INPUTS_MODULE_DIR} - Terraform Golden Plan Diff\")) | .url")
+              # The module directory is passed to jq as data, so the program stays a
+              # constant and a quote or a backslash in the path cannot rewrite it.
+              diff_comment_url=$(gh pr view "${PR_NUMBER}" --json comments \
+                  | jq -r --arg marker "## Module ${INPUTS_MODULE_DIR} - Terraform Golden Plan Diff" \
+                      '.comments[] | select(.body | contains($marker)) | .url')
 
               has_diff_comment=false
               has_diff=false
@@ -79,14 +82,14 @@ runs:
                   has_diff_comment=true
               fi
 
-              if [[ "${{ env.delta_exit_code }}" != "0" ]]; then
+              if [[ "${delta_exit_code:-}" != "0" ]]; then
                   has_diff=true
               fi
 
               if [[ "$has_diff_comment" == "true" && "$has_diff" == "false" ]]; then
                   comment_id=$(echo "$diff_comment_url" | sed 's/.*#issuecomment-\([^ ]*\)/\1/')
                   echo "Deleting diff comment $diff_comment_url (#$comment_id)"
-                  gh api --method DELETE -H "Accept: application/vnd.github+json" "/repos/${{ github.repository }}/issues/comments/$comment_id"
+                  gh api --method DELETE -H "Accept: application/vnd.github+json" "/repos/${GITHUB_REPOSITORY}/issues/comments/$comment_id"
                   echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
               elif [[ "$has_diff" == "true" ]]; then
                   echo "Diff exists, keeping or updating the comment."
@@ -97,6 +100,7 @@ runs:
               fi
           env:
               INPUTS_MODULE_DIR: ${{ inputs.module-dir }}
+              PR_NUMBER: ${{ github.event.pull_request.number }}
 
         - name: Compute diff
           id: diff
