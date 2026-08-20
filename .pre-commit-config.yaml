@@ -79,6 +79,14 @@ repos:
             files: ^\.lint/cleanup-coverage/.*\.py$
             pass_filenames: false
 
+          - id: python-unittest-actions
+            name: Python unit tests (composite actions)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .github/actions/internal-helm-deprecation-check -p 'test_*.py'
+            language: system
+            files: ^\.github/actions/internal-helm-deprecation-check/.*\.py$
+            pass_filenames: false
+
     - repo: https://github.com/tekwizely/pre-commit-golang
       rev: v1.0.0-rc.4
       hooks:
