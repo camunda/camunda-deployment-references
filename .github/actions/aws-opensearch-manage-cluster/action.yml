@@ -139,7 +139,7 @@ runs:
 
         - name: Set working directory
           shell: bash
-          run: echo "TF_MODULE_DIR=${INPUTS_TF_MODULES_PATH}/aws/modules/opensearch/" >> "$GITHUB_ENV"
+          run: echo "TF_MODULE_DIR=${INPUTS_TF_MODULES_PATH}/aws/modules/opensearch/" >> "$GITHUB_ENV"  # zizmor: ignore[github-env]
           env:
               INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
 

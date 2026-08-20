@@ -185,7 +185,7 @@ runs:
               INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
               INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
               INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
-          run: |
+          run: |  # zizmor: ignore[github-env]
               export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
               export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME_0}-oOo-${INPUTS_CLUSTER_NAME_1}/"

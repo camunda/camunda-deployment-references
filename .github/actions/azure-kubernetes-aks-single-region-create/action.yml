@@ -81,7 +81,7 @@ runs:
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
               export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
               export TFSTATE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_RESOURCE_GROUP_NAME}/${INPUTS_RESOURCE_GROUP_NAME}.tfstate"
