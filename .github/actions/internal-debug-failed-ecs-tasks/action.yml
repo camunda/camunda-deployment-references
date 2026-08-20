@@ -39,11 +39,11 @@ runs:
           run: |
               set -euo pipefail
 
-              CLUSTER_INPUT="${{ inputs.cluster-name }}"
+              CLUSTER_INPUT="${INPUTS_CLUSTER_NAME}"
               # Accept either a name or an ARN; extract the bare name for prefix derivation
               CLUSTER_NAME="${CLUSTER_INPUT##*/}"
 
-              LOG_PREFIX="${{ inputs.log-group-prefix }}"
+              LOG_PREFIX="${INPUTS_LOG_GROUP_PREFIX}"
               if [[ -z "$LOG_PREFIX" ]]; then
                 # Default: strip a trailing "-cluster" suffix and look under /ecs/<base>
                 LOG_PREFIX="/ecs/${CLUSTER_NAME%-cluster}"
@@ -60,6 +60,9 @@ runs:
                 echo "log-prefix=${LOG_PREFIX}"
                 echo "dump-dir=${DUMP_DIR}"
               } | tee -a "$GITHUB_OUTPUT"
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_LOG_GROUP_PREFIX: ${{ inputs.log-group-prefix }}
 
         - name: 🔬🚨 Get cluster overview
           shell: bash
