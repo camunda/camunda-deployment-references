@@ -252,7 +252,7 @@ runs:
           shell: bash
           env:
               GH_TOKEN: ${{ github.token }}
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               if [[ "${{ github.event_name }}" != "pull_request" ]]; then
