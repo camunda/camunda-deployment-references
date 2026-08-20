@@ -92,14 +92,28 @@ report_warning_events() {
 
 diagnostics() {
     local pods unready non_running events
+    local listing_failed=false
     # One snapshot for the whole report: two independent calls could describe
-    # different moments and contradict each other in the same output.
-    pods="$(pods_json)"
+    # different moments and contradict each other in the same output. Key the
+    # failure message off the exit status rather than off an empty result: with
+    # `-o json` an empty namespace still yields a parseable List, so emptiness
+    # alone would not tell the two apart.
+    pods="$(pods_json)" || listing_failed=true
     unready="$(report_unready_containers "$pods")"
     non_running="$(report_non_running_pods "$pods")"
     events="$(report_warning_events)"
 
     echo "--- why the deployment is not ready yet ---"
+    # A failed listing means the tool saw nothing at all. Say so, otherwise the
+    # report is an empty header/footer pair and the reader cannot tell a broken
+    # API call from a converging deployment.
+    if [ "$listing_failed" = "true" ]; then
+        echo "Could not list pods in namespace '${namespace}'; the API call failed or the namespace does not exist."
+    elif [ -z "$non_running" ] && [ -z "$unready" ] && [ -z "$events" ]; then
+        # Reached only when the readiness check refused an otherwise clean
+        # snapshot, which in practice means the namespace holds no pod yet.
+        echo "No unready pod and no warning event found; the namespace holds no pod yet, or its workloads are still being created."
+    fi
     [ -n "$non_running" ] && printf 'Pods not Running:\n%s\n' "$non_running"
     [ -n "$unready" ] && printf 'Containers not ready:\n%s\n' "$unready"
     if [ -n "$events" ]; then
@@ -113,7 +127,7 @@ all_pods_ready() {
     # Evaluate both conditions from a single snapshot: two independent `kubectl`
     # calls could disagree, and a failing call used to yield an empty result that
     # was counted as "nothing unhealthy" and reported the install as complete.
-    pods="$(pods_json)"
+    pods="$(pods_json)" || return 1
     [ -n "$pods" ] || return 1
 
     total="$(printf '%s' "$pods" | jq -r '.items | length' 2>/dev/null)"
