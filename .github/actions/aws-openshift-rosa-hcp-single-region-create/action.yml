@@ -406,6 +406,10 @@ runs:
               # module block, so the same key elsewhere cannot mask its removal.
               vpn_block=$(awk '/^module "vpn"/ { inside = 1 }
                                  inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' vpn.tf)
+              if [ -z "${vpn_block}" ]; then
+                  echo "::error::No 'module \\"vpn\\"' block found in vpn.tf; update this action."
+                  exit 1
+              fi
               if ! grep -qE '^[[:space:]]*vpn_name[[:space:]]*=' <<< "${vpn_block}"; then
                   echo "::error::No 'vpn_name' argument in the vpn module block of vpn.tf;" \
                       "the CI override would be silently ignored. Update this action."
