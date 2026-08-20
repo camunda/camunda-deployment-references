@@ -7,10 +7,17 @@ set -euo pipefail
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 KEYCLOAK_CONFIG_FILE=${KEYCLOAK_CONFIG_FILE:-"keycloak-instance-no-domain.yml"}
 
-# This is the version of the Keycloak operator manifests fetched below, published as tags of
-# keycloak/keycloak-k8s-resources -- not the camunda/keycloak image, which the Keycloak CRs
-# in this directory pin separately.
-# renovate: datasource=github-tags depName=keycloak/keycloak-k8s-resources
+# Version of the Keycloak operator and CRDs fetched below. It tracks the Keycloak that
+# Camunda distributes -- the same image the Keycloak CRs in this directory pin -- so the
+# operator and the instance it manages never drift apart; the manifests themselves are
+# published upstream under the matching tag.
+#
+# The camunda/keycloak tags carry a `quay-optimized-` prefix that these URLs must not, so
+# extractVersion strips it: Renovate compares `quay-optimized-26.7.1` with the bare 26.3.2
+# below and writes back the bare version. Dated and rebuild variants
+# (`quay-optimized-26.7.0-1`, `quay-optimized-26.7.1-2026-08-14-001`) are left out on
+# purpose, since upstream publishes no manifests under those.
+# renovate: datasource=docker depName=camunda/keycloak extractVersion=^quay-optimized-(?<version>\d+\.\d+\.\d+)$
 KEYCLOAK_VERSION="26.3.2"
 
 # Install Keycloak operator CRDs
