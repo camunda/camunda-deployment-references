@@ -79,7 +79,7 @@ env:
     CAMUNDA_RELEASE_NAME: camunda
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 14.8.0
+    CAMUNDA_HELM_CHART_VERSION: 14.8.3
 
 jobs:
     triage:
@@ -106,7 +106,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -136,7 +136,7 @@ jobs:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -233,7 +233,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@787bec31b4ae6b70702321d0331676e88cfea9c5 # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -275,7 +275,7 @@ jobs:
                   } >> "$GITHUB_ENV"
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -510,7 +510,7 @@ jobs:
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -591,6 +591,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: clusters
               env:
@@ -623,7 +624,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@4e5ecdb4100b2a50e46b3517cc8c285c80f7ccd5 # 2.0.1
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
