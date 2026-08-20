@@ -80,6 +80,11 @@ module "orchestration_cluster" {
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_CLIENTID", value = local.oidc.orchestration.client_id },
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_REDIRECTURI", value = local.oidc.redirect_uri },
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_USERNAMECLAIM", value = "preferred_username" },
+      # Detect m2m (client-credentials) callers by the client_id claim; without this,
+      # a service-account token is treated as a user (preferred_username =
+      # service-account-<client>) and never matches the admin/connectors client
+      # mappings below, so deployments are rejected 403. The realm emits client_id.
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_CLIENTIDCLAIM", value = "client_id" },
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_AUDIENCE", value = local.oidc.audience },
       # Admin user identifier from the username claim (the bundled realm's 'admin';
       # for external OIDC set this to your admin's preferred_username).
