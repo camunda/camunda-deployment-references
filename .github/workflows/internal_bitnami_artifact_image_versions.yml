@@ -30,12 +30,14 @@ on:
         paths:
             - .github/workflows/internal_bitnami_artifact_image_versions.yml
 
-# Publish events (schedule / manual dispatch) share one lock so they never race
-# on the gh-pages push, and a publish is never cancelled midway. pull_request
-# validation runs never push, so they get their own per-ref group (and may cancel
-# superseded runs) to avoid delaying a publish.
+# The five workflows that publish to `gh-pages` share one lock, so a publish never
+# races another publish -- `! [rejected] ... (fetch first)` happened three times on
+# 2026-08-20 -- and is never cancelled midway. A per-workflow group was not enough:
+# the collisions were between different workflows pushing the same branch. A pull
+# request run validates the generation without publishing, so it keeps its own
+# per-ref group and may be superseded.
 concurrency:
-    group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
+    group: ${{ github.event_name == 'pull_request' && format('{0}-{1}', github.workflow, github.ref) || 'gh-pages-publish' }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -236,7 +238,15 @@ jobs:
                   else
                     echo "Changes detected, committing and pushing to gh-pages"
                     git commit -m "Update Bitnami vendor-ee image tags"
-                    git push origin gh-pages
+                    for attempt in 1 2 3; do
+                      if git push origin gh-pages; then
+                        exit 0
+                      fi
+                      echo "::warning::gh-pages rejected the push (attempt ${attempt}/3); rebasing onto the remote and retrying."
+                      git pull --rebase origin gh-pages
+                    done
+                    echo "::error::could not push to gh-pages after three attempts."
+                    exit 1
                   fi
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
