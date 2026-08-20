@@ -145,16 +145,6 @@ runs:
 
               echo "AWS_REGION=${{ inputs.aws-region }}" | tee -a "$GITHUB_ENV"
 
-              IFS=',' read -r -a az_letters <<< "${{ inputs.availability-zones }}"
-              FULL_AZS=()
-              for az in "${az_letters[@]}"; do
-                FULL_AZS+=("\"${AWS_REGION}${az}\"")  # Add double quotes around each AZ
-              done
-
-              # Join the AZs with commas
-              FULL_AZS_STRING=$(IFS=,; echo "${FULL_AZS[*]}")
-              echo "FULL_AZS=$FULL_AZS_STRING" | tee -a "$GITHUB_ENV"
-
 
         - name: Login to Red Hat Hybrid Cloud Console
           shell: bash
@@ -242,8 +232,17 @@ runs:
         - name: Terraform Plan - Cluster
           id: plan-cluster
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/
+          # Passed as env, never interpolated into the script: the values reach
+          # jq as data, so nothing below has to be quoted or escaped.
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
+              CLUSTER_NAME: ${{ inputs.cluster-name }}
+              ADMIN_USERNAME: ${{ inputs.admin-username }}
+              OPENSHIFT_VERSION: ${{ inputs.openshift-version }}
+              AVAILABILITY_ZONES: ${{ inputs.availability-zones }}
+              ADMIN_PASSWORD: ${{ inputs.admin-password }}
+              REPLICAS: ${{ inputs.replicas }}
+              PRIVATE_VPC: ${{ inputs.private-vpc }}
           shell: bash
           run: |
               set -euo pipefail
@@ -253,31 +252,92 @@ runs:
               ls
 
               # protect sensitive values
-              echo "::add-mask::${{ inputs.admin-password }}"
+              echo "::add-mask::${ADMIN_PASSWORD}"
 
-              # We use sed instead of -var because the module presented to the user
-              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(rosa_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
-                     -e 's/\(rosa_admin_password\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-password }}\2/' \
-                     -e 's/\(rosa_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username }}\2/' \
-                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version }}\2/' \
-                     -e "s/\(rosa_cluster_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS]/" \
-                     cluster.tf
-
-              if [ -n "${{ inputs.replicas }}" ]; then
-                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas }}/' cluster.tf
-              else
-                echo "No replicas value provided, skipping replica modification."
+              # Terraform's own override mechanism, rather than rewriting in place
+              # the reference files we ship to users. Terraform *rejects* an
+              # override for a local that no longer exists ("An override file can
+              # only override a local value that was already defined in a primary
+              # configuration file"), so a rename in the reference architecture
+              # fails the plan loudly instead of silently testing the reference
+              # defaults.
+              #
+              # Module arguments are merged rather than validated, so those get an
+              # explicit presence check below.
+              #
+              # Building the file with jq keeps every value literal: no quoting,
+              # no regex, no shell interpolation.
+              zones=$(jq -n --arg region "${AWS_REGION}" --arg letters "${AVAILABILITY_ZONES}" \
+                  '[$letters | split(",") | .[] | sub("^\\s+";"") | sub("\\s+$";"") | select(length > 0) | $region + .]')
+              if ! jq -e 'length > 0' <<< "${zones}" > /dev/null; then
+                  echo "::error::availability-zones resolved to an empty list (got '${AVAILABILITY_ZONES}')."
+                  exit 1
               fi
 
-              if [ -n "${{ inputs.private-vpc }}" ]; then
-                sed -i -E "s/(^\s*rosa_private_cluster\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
+              overrides=$(jq -n \
+                  --arg name "${CLUSTER_NAME}" \
+                  --arg admin "${ADMIN_USERNAME}" \
+                  --arg password "${ADMIN_PASSWORD}" \
+                  --argjson zones "${zones}" \
+                  --arg version "${OPENSHIFT_VERSION}" \
+                  '{
+                      locals: {
+                          rosa_cluster_name: $name,
+                          rosa_admin_username: $admin,
+                          rosa_admin_password: $password,
+                          rosa_cluster_zones: $zones
+                      },
+                      module: { rosa_cluster: { openshift_version: $version } }
+                  }')
+
+              if [ -n "${REPLICAS}" ]; then
+                  # jq --argjson would reject a leading zero with an opaque parse
+                  # error, so constrain the shape here and keep the clear message.
+                  if ! [[ "${REPLICAS}" =~ ^[1-9][0-9]*$ ]]; then
+                      echo "::error::Invalid replicas '${REPLICAS}'; expected a positive integer."
+                      exit 1
+                  fi
+                  overrides=$(jq --argjson v "${REPLICAS}" '.module.rosa_cluster.replicas = $v' <<< "${overrides}")
               else
-                echo "No private-vpc value provided, skipping private modification."
+                  echo "No replicas value provided, keeping the reference default."
               fi
 
-              echo "Displaying templated cluster.tf file:"
-              cat cluster.tf
+              if [ -n "${PRIVATE_VPC}" ]; then
+                  case "${PRIVATE_VPC}" in
+                    true|false) ;;
+                    *)
+                      echo "::error::Invalid private-vpc '${PRIVATE_VPC}'; expected the boolean true or false."
+                      exit 1
+                      ;;
+                  esac
+                  overrides=$(jq --argjson v "${PRIVATE_VPC}" '.locals.rosa_private_cluster = $v' <<< "${overrides}")
+              else
+                  echo "No private-vpc value provided, keeping the reference default."
+              fi
+
+              # Terraform silently ignores an unknown argument in a module
+              # override block, so assert the ones we set are still there. The
+              # search is scoped to the module block: the same key may legitimately
+              # appear elsewhere in the file (a local, another module) and would
+              # otherwise mask a removed argument.
+              module_block=$(awk '/^module "rosa_cluster"/ { inside = 1 }
+                                 inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' cluster.tf)
+              if [ -z "${module_block}" ]; then
+                  echo "::error::No 'module \\"rosa_cluster\\"' block found in cluster.tf; update this action."
+                  exit 1
+              fi
+              for key in $(jq -r '.module.rosa_cluster | keys[]' <<< "${overrides}"); do
+                  if ! grep -qE "^[[:space:]]*${key}[[:space:]]*=" <<< "${module_block}"; then
+                      echo "::error::No '${key}' argument in the rosa_cluster module block of cluster.tf;" \
+                          "the CI override would be silently ignored. Update this action."
+                      exit 1
+                  fi
+              done
+
+              jq '.' <<< "${overrides}" > ci_override.tf.json
+              # The admin password is one of the overridden locals, so print a
+              # redacted copy rather than teeing the file into the log.
+              jq '.locals.rosa_admin_password |= "***"' ci_override.tf.json
 
               terraform plan -no-color -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' -out rosa.plan
 
@@ -328,6 +388,10 @@ runs:
           if: inputs.vpn-enabled == 'true'
           working-directory: ${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/
           shell: bash
+          # Passed as env, never interpolated into the script, as in the cluster
+          # plan step above.
+          env:
+              CLUSTER_NAME: ${{ inputs.cluster-name }}
           run: |
               set -euo pipefail
 
@@ -335,12 +399,25 @@ runs:
               pwd
               ls
 
-              sed -i -E \
-                -e "s/(^\s*vpn_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.cluster-name }}-vpn\2/" \
-                vpn.tf
+              # Same approach as the cluster plan step: override rather than edit
+              # the reference file. vpn_name is a literal module argument, and
+              # Terraform silently ignores an unknown argument in a module
+              # override block, so check it is still there first — scoped to the
+              # module block, so the same key elsewhere cannot mask its removal.
+              vpn_block=$(awk '/^module "vpn"/ { inside = 1 }
+                                 inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' vpn.tf)
+              if [ -z "${vpn_block}" ]; then
+                  echo "::error::No 'module \\"vpn\\"' block found in vpn.tf; update this action."
+                  exit 1
+              fi
+              if ! grep -qE '^[[:space:]]*vpn_name[[:space:]]*=' <<< "${vpn_block}"; then
+                  echo "::error::No 'vpn_name' argument in the vpn module block of vpn.tf;" \
+                      "the CI override would be silently ignored. Update this action."
+                  exit 1
+              fi
 
-              echo "Displaying templated vpn.tf file:"
-              cat vpn.tf
+              jq -n --arg name "${CLUSTER_NAME}-vpn" \
+                  '{module: {vpn: {vpn_name: $name}}}' | tee ci_override.tf.json
 
               terraform plan -no-color \
                 -var='default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
