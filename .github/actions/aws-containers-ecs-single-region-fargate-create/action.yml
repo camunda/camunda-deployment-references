@@ -140,17 +140,18 @@ runs:
               # and collide when several scenarios share a cluster-name base, so derive
               # a short, deterministic, per-(run,scenario)-unique prefix by hashing the
               # full cluster name (which already includes the scenario shortName).
-              PREFIX="ecs-$(printf '%s' "${{ inputs.cluster-name }}" | sha1sum | cut -c1-9)"
+              PREFIX="ecs-$(printf '%s' "$INPUTS_CLUSTER_NAME" | sha1sum | cut -c1-9)"
               # Remove trailing dash if present
               PREFIX=${PREFIX%-}
 
               cat > terraform.tfvars <<EOF
               default_tags        = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
               prefix              = "${PREFIX}"
-              authentication_mode = "${{ inputs.authentication-mode }}"
+              authentication_mode = "${INPUTS_AUTHENTICATION_MODE}"
               EOF
           env:
               INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_AUTHENTICATION_MODE: ${{ inputs.authentication-mode }}
 
         - name: Terraform Plan
           id: plan
