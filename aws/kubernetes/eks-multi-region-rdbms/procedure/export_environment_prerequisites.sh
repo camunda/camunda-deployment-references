@@ -56,11 +56,14 @@ export CAMUNDA_BROKERS_PER_REGION="${CAMUNDA_BROKERS_PER_REGION:-2}"
 export CAMUNDA_CLUSTER_SIZE="${CAMUNDA_CLUSTER_SIZE:-$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_REGION_SLOTS))}"
 export CAMUNDA_PARTITION_COUNT="${CAMUNDA_PARTITION_COUNT:-$CAMUNDA_CLUSTER_SIZE}"
 
-# One replica per zone, so the replication factor equals the zone count. With
-# zone awareness the chart derives both from the zone list rather than from this
-# value; it is kept because the topology check asserts against it.
+# One replica per zone, so the replication factor equals the number of DEPLOYED
+# zones. The configuration reference requires the sum of the zone list's
+# numberOfReplicas to equal the replication factor, and the zone list carries
+# only deployed zones -- see generate-zeebe-helm-values.sh for why. Deriving
+# this from the slot count instead would assert a replication factor the
+# cluster can never reach while a slot is empty.
 export CAMUNDA_REPLICAS_PER_ZONE="${CAMUNDA_REPLICAS_PER_ZONE:-1}"
-export CAMUNDA_REPLICATION_FACTOR="${CAMUNDA_REPLICATION_FACTOR:-$((CAMUNDA_REPLICAS_PER_ZONE * CAMUNDA_REGION_SLOTS))}"
+export CAMUNDA_REPLICATION_FACTOR="${CAMUNDA_REPLICATION_FACTOR:-$((CAMUNDA_REPLICAS_PER_ZONE * CAMUNDA_ACTIVE_REGIONS))}"
 
 # Zone awareness is not in a released chart yet. The reference architecture
 # builds the chart from source, so it is pinned to the branch implementing
