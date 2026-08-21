@@ -2,8 +2,7 @@
 name: Tests - Integration - AWS EKS/RDS/OS Modules
 
 permissions:
-    contents: read # don't allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     schedule:
@@ -46,6 +45,9 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
             - name: Check labels
@@ -162,9 +164,9 @@ jobs:
                   ci_metadata=$(jq -c -n \
                     --arg run_id "${{ github.run_id }}" \
                     --arg run_number "${{ github.run_number }}" \
-                    --arg workflow "${{ github.workflow }}" \
-                    --arg actor "${{ github.actor }}" \
-                    --arg ref "${{ github.ref }}" \
+                    --arg workflow "${GITHUB_WORKFLOW}" \
+                    --arg actor "${GITHUB_ACTOR}" \
+                    --arg ref "${GITHUB_REF}" \
                     --arg sha "${{ github.sha }}" \
                     --arg repository "${{ github.repository }}" \
                     --arg event_name "${{ github.event_name }}" \
@@ -295,6 +297,9 @@ jobs:
             - integration-tests
             - test-report
             - cleanup-resources
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 

@@ -2,8 +2,7 @@
 name: Tests - Integration - AWS Compute EC2 Single Region
 
 permissions:
-    contents: read # don't allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     schedule:
@@ -79,6 +78,9 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
             - name: Check labels
@@ -425,6 +427,9 @@ jobs:
             - integration-tests
             - cleanup-clusters
             - test-report
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 

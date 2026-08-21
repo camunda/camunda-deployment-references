@@ -2,8 +2,7 @@
 name: Tests - Integration - AWS OpenShift ROSA HCP Single Region
 
 permissions:
-    contents: read # don't allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     schedule:
@@ -98,6 +97,9 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
             - name: Check labels
@@ -313,6 +315,9 @@ jobs:
         env:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: openshift
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
@@ -320,7 +325,7 @@ jobs:
               uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Install CLI tools from OpenShift Mirror
-              uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+              uses: redhat-actions/openshift-tools-installer@ebd96c3fc72fc10a62663eac5e1421192152e6aa # v2
               with:
                   oc: ${{ matrix.distro.version }}
 
@@ -921,6 +926,9 @@ jobs:
         needs:
             - integration-tests
             - cleanup-clusters
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
