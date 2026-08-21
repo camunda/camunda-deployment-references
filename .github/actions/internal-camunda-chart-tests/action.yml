@@ -618,7 +618,6 @@ runs:
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
               KEYCLOAK_SERVICE_NAME: ${{ inputs.keycloak-service-name }}
               INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
-              INPUTS_CAMUNDA_VERSION: ${{ inputs.camunda-version }}
               INPUTS_OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               INPUTS_WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
           run: |
