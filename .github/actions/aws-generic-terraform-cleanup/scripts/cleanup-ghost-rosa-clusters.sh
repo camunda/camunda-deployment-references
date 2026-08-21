@@ -27,6 +27,34 @@ fi
 
 MIN_AGE_HOURS=$1
 CURRENT_TIME=$($date_command +%s)
+FAILED=0
+
+# How long to wait for OCM to deregister a cluster before giving up on it.
+# Overridable so the behaviour can be exercised without a 30 minute wait.
+DEREGISTER_MAX_ATTEMPTS="${DEREGISTER_MAX_ATTEMPTS:-60}"
+DEREGISTER_INTERVAL="${DEREGISTER_INTERVAL:-30}"
+
+# Checked here rather than at first use: the wait loop only runs after
+# `rosa delete cluster`, so a bad value would surface with a deletion already in
+# flight — `seq` would print an error and skip the wait entirely, or `sleep`
+# would abort the script halfway through a cluster.
+if [[ ! "$DEREGISTER_MAX_ATTEMPTS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "❌ DEREGISTER_MAX_ATTEMPTS must be a positive integer, got '${DEREGISTER_MAX_ATTEMPTS}'." >&2
+  exit 1
+fi
+# 0 is allowed here: it turns the wait into a pure poll, which is how the loop
+# gets exercised without spending half an hour asleep.
+if [[ ! "$DEREGISTER_INTERVAL" =~ ^[0-9]+$ ]]; then
+  echo "❌ DEREGISTER_INTERVAL must be a number of seconds, got '${DEREGISTER_INTERVAL}'." >&2
+  exit 1
+fi
+
+# age_in_hours prints the whole hours elapsed since a cluster was created.
+age_in_hours() {
+  local created_at
+  created_at=$($date_command -d "$1" +%s)
+  echo $(( (CURRENT_TIME - created_at) / 3600 ))
+}
 
 
 # cleanup_iam_roles_with_prefix removes all IAM roles whose name starts with the
@@ -68,8 +96,78 @@ rosa create account-roles --mode auto --yes
 echo "📦 Ensuring ocm-role exists..."
 rosa create ocm-role --mode auto --yes
 
-# Fetch clusters matching the criteria (if no node pool and error reported)
-raw_clusters=$(rosa list cluster --output json | jq '[.[] | select((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1 or .status.state == "error")]')
+# The clusters this script repairs are the ones that lost the account role OCM
+# needs to tear them down: without it `rosa delete cluster` returns
+# CLUSTERS-MGMT-400, terraform can never remove the VPC, and the cluster keeps
+# its subnets, Elastic IPs and VPC endpoints until someone recreates the role.
+#
+# Snapshot every IAM role once rather than probing per cluster. A per-cluster
+# `aws iam get-role` scales with the cluster count and adds throttling pressure,
+# and a throttled lookup has to be read as "cannot tell", which degrades the
+# check precisely when there is most to clean up.
+echo "📇 Snapshotting IAM roles..."
+if ! EXISTING_ROLES=$(aws iam list-roles --query 'Roles[].RoleName' --output text 2>&1); then
+  echo "Error: could not list IAM roles, so no cluster can be judged orphaned:" >&2
+  echo "  ${EXISTING_ROLES}" >&2
+  exit 1
+fi
+EXISTING_ROLES=$(printf '%s' "$EXISTING_ROLES" | tr '\t' '\n')
+
+# installer_role_missing answers from that snapshot, using the role ARN OCM
+# recorded for the cluster rather than a reconstructed name: a cluster created
+# with a different account-role prefix would not match a name pattern, and the
+# list this feeds is a list of clusters to delete.
+installer_role_missing() {
+  local cluster_name="$1"
+  local role_arn="$2"
+  local role_name
+
+  if [[ -z "$role_arn" || "$role_arn" == "null" ]]; then
+    echo "  ⚠️ ${cluster_name} reports no installer role ARN; leaving it alone." >&2
+    return 1
+  fi
+  role_name="${role_arn##*/}"
+
+  grep -qxF "$role_name" <<<"$EXISTING_ROLES" && return 1
+  return 0
+}
+
+all_clusters=$(rosa list cluster --output json)
+
+# A cluster is a candidate when it shows one of the shapes a failed teardown
+# leaves behind:
+#   - a ghost: no node pool left and a single limited-support reason;
+#   - error;
+#   - uninstalling, i.e. a deletion that started and never finished.
+# The age gate in the loop below still applies to all of them.
+candidates=$(echo "$all_clusters" | jq -c '[.[] | select(
+     ((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1)
+  or (.status.state == "error")
+  or (.status.state == "uninstalling")
+)]')
+
+# The fourth shape cannot be expressed in jq because it needs an IAM lookup: a
+# cluster in any state whose installer role has gone missing is already
+# undeletable, and is the case this script exists to repair.
+orphaned=$(echo "$all_clusters" | jq -c '.[]' | while read -r cluster; do
+  name=$(echo "$cluster" | jq -r '.name')
+  role_arn=$(echo "$cluster" | jq -r '.aws.sts.role_arn // ""')
+  created_at=$(echo "$cluster" | jq -r '.creation_timestamp')
+
+  # Apply the age gate before the lookup, not only in the loop below: the probe
+  # would otherwise call get-role once per cluster in the account, including the
+  # ones just created by a running test, which is how an account with many
+  # clusters starts getting IAM throttling errors instead of answers.
+  if [ "$(age_in_hours "$created_at")" -lt "$MIN_AGE_HOURS" ]; then
+    continue
+  fi
+
+  if installer_role_missing "$name" "$role_arn"; then
+    echo "$cluster"
+  fi
+done | jq -c -s '.')
+
+raw_clusters=$(jq -c -n --argjson a "$candidates" --argjson b "$orphaned" '$a + $b | unique_by(.id)')
 
 # Check if there are any clusters
 cluster_count=$(echo "$raw_clusters" | jq 'length')
@@ -79,16 +177,17 @@ if [ "$cluster_count" -eq 0 ]; then
   exit 0
 fi
 
-echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
+# Fed through process substitution rather than a pipe: a piped `while` runs in a
+# subshell, where the FAILED flag set below would be discarded at the end of the
+# loop and the script would exit 0 despite leaving roles behind.
+while read -r cluster; do
   cluster_id=$(echo "$cluster" | jq -r '.id')
   cluster_name=$(echo "$cluster" | jq -r '.name')
   region_id=$(echo "$cluster" | jq -r '.region.id')
   oidc_config_id=$(echo "$cluster" | jq -r '.aws.sts.oidc_config.id')
   creation_timestamp=$(echo "$cluster" | jq -r '.creation_timestamp')
 
-  # Convert creation timestamp to UNIX time
-  cluster_created_time=$($date_command -d "$creation_timestamp" +%s)
-  cluster_age_hours=$(( (CURRENT_TIME - cluster_created_time) / 3600 ))
+  cluster_age_hours=$(age_in_hours "$creation_timestamp")
 
   if [ "$cluster_age_hours" -lt "$MIN_AGE_HOURS" ]; then
     echo "⏳ Cluster $cluster_name is too recent (${cluster_age_hours}h < ${MIN_AGE_HOURS}h). Skipping."
@@ -121,7 +220,7 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   # which causes operator-roles deletion to fail with "clusters using Operator Roles Prefix"
   echo "⏳ Waiting for cluster $cluster_name to be fully deregistered..."
   cluster_deregistered=false
-  for i in $(seq 1 60); do
+  for i in $(seq 1 "$DEREGISTER_MAX_ATTEMPTS"); do
     # Capture `rosa list clusters` separately so we can distinguish a
     # transient failure (API/network hiccup) from a true "cluster not found".
     # Treating a non-zero `rosa list` as deregistered would let role deletion
@@ -129,9 +228,9 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
     # "clusters using Operator Roles Prefix".
     if cluster_list=$(rosa list clusters 2>/dev/null); then
       if echo "$cluster_list" | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
-        if [ "$i" -lt 60 ]; then
-          echo "⏳ Cluster still registered, waiting 30s... (attempt $i/60)"
-          sleep 30
+        if [ "$i" -lt "$DEREGISTER_MAX_ATTEMPTS" ]; then
+          echo "⏳ Cluster still registered, waiting ${DEREGISTER_INTERVAL}s... (attempt $i/${DEREGISTER_MAX_ATTEMPTS})"
+          sleep "$DEREGISTER_INTERVAL"
         else
           echo "❌ Cluster $cluster_name is still registered after $i attempts"
         fi
@@ -141,54 +240,41 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
         break
       fi
     else
-      echo "⚠️ rosa list clusters failed transiently, retrying in 30s... (attempt $i/60)"
-      sleep 30
+      echo "⚠️ rosa list clusters failed transiently, retrying in ${DEREGISTER_INTERVAL}s... (attempt $i/${DEREGISTER_MAX_ATTEMPTS})"
+      sleep "$DEREGISTER_INTERVAL"
     fi
   done
 
   if [ "$cluster_deregistered" != true ]; then
-    echo "⚠️ Cluster $cluster_name did not deregister in time. Proceeding with direct IAM cleanup..."
+    # Deleting the IAM roles now would strip the installer role OCM needs to
+    # finish the deletion, turning a cluster that is merely slow into one that
+    # can never be removed: `rosa delete cluster` then returns
+    # CLUSTERS-MGMT-400, terraform can never delete the VPC, and its Elastic IPs
+    # stay allocated until someone recreates the roles by hand. Leave them and
+    # let the next run try again, once the cluster has finished uninstalling.
+    echo "⚠️ Cluster $cluster_name is still registered; leaving its IAM roles in place."
+    echo "   Removing them while OCM still owns the cluster is what makes a cluster undeletable."
+    FAILED=1
+    continue
   fi
 
   echo "🧹 Deleting operator roles with prefix ${cluster_name}-operator"
-  if [ "$cluster_deregistered" == true ]; then
-    # Only try rosa CLI if the cluster is fully deregistered, otherwise it will fail
-    # with "clusters using Operator Roles Prefix"
-    if ! AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto; then
-      echo "⚠️ rosa delete operator-roles failed, falling back to direct AWS IAM cleanup"
-      cleanup_iam_roles_with_prefix "${cluster_name}-operator"
-    fi
-  else
-    echo "⚠️ Cluster still registered, falling back to direct AWS IAM cleanup for operator roles"
+  # Safe to use the rosa CLI here: the cluster is deregistered, so it cannot fail
+  # with "clusters using Operator Roles Prefix".
+  if ! AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto; then
+    echo "⚠️ rosa delete operator-roles failed, falling back to direct AWS IAM cleanup"
     cleanup_iam_roles_with_prefix "${cluster_name}-operator"
   fi
 
   echo "🧹 Deleting account roles with prefix ${cluster_name}-account"
-  if [ "$cluster_deregistered" == true ]; then
-    if ! AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto; then
-      echo "⚠️ rosa delete account-roles failed, falling back to direct AWS IAM cleanup"
-      cleanup_iam_roles_with_prefix "${cluster_name}-account"
-    fi
-  else
-    echo "⚠️ Cluster still registered, falling back to direct AWS IAM cleanup for account roles"
+  if ! AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto; then
+    echo "⚠️ rosa delete account-roles failed, falling back to direct AWS IAM cleanup"
     cleanup_iam_roles_with_prefix "${cluster_name}-account"
   fi
 
   echo "🧹 Deleting OIDC provider ${oidc_config_id}"
-  if [ "$cluster_deregistered" == true ]; then
-    if ! AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}" --yes --mode auto; then
-      echo "⚠️ rosa delete oidc-provider failed, falling back to direct AWS IAM cleanup"
-      oidc_provider_arn=$(aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?ends_with(Arn, '/${oidc_config_id}')].Arn" --output text)
-      if [[ -n "$oidc_provider_arn" && "$oidc_provider_arn" != "None" ]]; then
-        echo "  🗑️ Deleting OIDC provider: $oidc_provider_arn"
-        aws iam delete-open-id-connect-provider --open-id-connect-provider-arn "$oidc_provider_arn"
-        echo "  ✅ Deleted OIDC provider: $oidc_provider_arn"
-      else
-        echo "  ℹ️ No OIDC provider found for config ID ${oidc_config_id}, already cleaned up"
-      fi
-    fi
-  else
-    echo "⚠️ Cluster still registered, falling back to direct AWS IAM cleanup for OIDC provider"
+  if ! AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}" --yes --mode auto; then
+    echo "⚠️ rosa delete oidc-provider failed, falling back to direct AWS IAM cleanup"
     oidc_provider_arn=$(aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?ends_with(Arn, '/${oidc_config_id}')].Arn" --output text)
     if [[ -n "$oidc_provider_arn" && "$oidc_provider_arn" != "None" ]]; then
       echo "  🗑️ Deleting OIDC provider: $oidc_provider_arn"
@@ -199,6 +285,11 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
     fi
   fi
 
-done
+done < <(echo "$raw_clusters" | jq -c '.[]')
 
-echo "✅ All clusters have been deleted!"
+if [ "$FAILED" -ne 0 ]; then
+  echo "❌ At least one cluster could not be fully cleaned up; its IAM roles were left in place."
+  exit 1
+fi
+
+echo "✅ Ghost ROSA cluster cleanup finished."

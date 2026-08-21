@@ -97,7 +97,7 @@ runs:
     steps:
         - name: Set working directory
           shell: bash
-          run: echo "TEST_DIR=${TEST_DIR:-./aws/kubernetes/eks-dual-region/test}" >> "$GITHUB_ENV"
+          run: echo "TEST_DIR=${TEST_DIR:-./aws/kubernetes/eks-dual-region/test}" >> "$GITHUB_ENV"  # zizmor: ignore[github-env]
 
         # Explicitly set up Go for caching of packages
         - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
