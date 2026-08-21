@@ -118,17 +118,27 @@ while read -r cluster; do
   echo "⏳ Waiting for cluster $cluster_name to be fully deregistered..."
   cluster_deregistered=false
   for i in $(seq 1 30); do
-    if rosa list clusters 2>/dev/null | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
-      if [ "$i" -lt 30 ]; then
-        echo "⏳ Cluster still registered, waiting 30s... (attempt $i/30)"
-        sleep 30
+    # Capture `rosa list clusters` separately so a transient failure (API or
+    # auth hiccup) is not read as "cluster not found". Piping it straight into
+    # grep loses the exit status: a failed list produces no output, grep does
+    # not match, and the cluster would be declared deregistered -- which is
+    # exactly the path that deletes the installer role of a live cluster.
+    if cluster_list=$(rosa list clusters 2>/dev/null); then
+      if echo "$cluster_list" | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
+        if [ "$i" -lt 30 ]; then
+          echo "⏳ Cluster still registered, waiting 30s... (attempt $i/30)"
+          sleep 30
+        else
+          echo "❌ Cluster $cluster_name is still registered after $i attempts"
+        fi
       else
-        echo "❌ Cluster $cluster_name is still registered after $i attempts"
+        echo "✅ Cluster $cluster_name is fully deregistered"
+        cluster_deregistered=true
+        break
       fi
     else
-      echo "✅ Cluster $cluster_name is fully deregistered"
-      cluster_deregistered=true
-      break
+      echo "⚠️ rosa list clusters failed transiently, retrying in 30s... (attempt $i/30)"
+      sleep 30
     fi
   done
 
