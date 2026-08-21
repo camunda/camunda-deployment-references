@@ -8,7 +8,13 @@ identityKeycloak:
     image:
         # Mirror chart defaults so c8-sm-checks aws-irsa.sh can match the
         # 'camunda/keycloak' substring in helm get values output.
-        # renovate: datasource=docker depName=camunda/keycloak
+        #
+        # Not annotated for Renovate on purpose: this has to equal whatever the chart
+        # ships as its default, and Renovate would track the registry instead, moving the
+        # tag ahead of the chart and breaking the mirror it exists for. It follows the
+        # chart version above it, by hand. The annotation that used to sit here read the
+        # `repository:` line below rather than the tag, so it extracted 'camunda/keycloak'
+        # as a version and updated nothing anyway.
         repository: camunda/keycloak
         tag: 26.3.3
         pullSecrets:
