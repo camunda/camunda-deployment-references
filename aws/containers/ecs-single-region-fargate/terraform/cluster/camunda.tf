@@ -247,7 +247,7 @@ module "management_identity" {
     aws_security_group.allow_package_80_443.id,
   ]
 
-  environment_variables = [
+  environment_variables = concat([
     # --- Database (password auth to a dedicated Aurora database) ---
     {
       name  = "IDENTITY_DATABASE_HOST"
@@ -285,9 +285,13 @@ module "management_identity" {
     },
     # --- Identity provider: generic OIDC (bundled Keycloak or external), no realm
     #     bootstrap. The IdP owns clients/users; Identity is a resource server here.
-    #     In generic OIDC mode Identity handles login/token validation only (role and
-    #     group sync, user-profile management and RP-initiated logout are not
-    #     available); all role-to-principal mapping is done Camunda-side.
+    #     In generic OIDC mode Identity handles login and token validation only:
+    #     user-profile management, RP-initiated logout and role/group sync *from the
+    #     IdP* are not available. Authorization is therefore split — the Orchestration
+    #     Cluster is seeded Camunda-side (CAMUNDA_SECURITY_INITIALIZATION_* above),
+    #     while the components that resolve permissions through Identity (Web Modeler /
+    #     Camunda Hub) need Identity's own roles declared and granted by claim; see
+    #     identity_authorization.tf and var.enable_web_modeler_authorization.
     { name = "SPRING_PROFILES_ACTIVE", value = "oidc" },
     { name = "CAMUNDA_IDENTITY_TYPE", value = "GENERIC" },
     { name = "CAMUNDA_IDENTITY_BASE_URL", value = local.identity_public_base },
@@ -296,9 +300,16 @@ module "management_identity" {
     { name = "CAMUNDA_IDENTITY_CLIENT_ID", value = local.oidc.identity.client_id },
     { name = "CAMUNDA_IDENTITY_AUDIENCE", value = local.oidc.identity.audience },
     # First admin is granted by matching this claim/value (write-once at first boot).
-    { name = "IDENTITY_INITIAL_CLAIM_NAME", value = "preferred_username" },
-    { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = "admin" },
-  ]
+    { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
+    { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
+    ],
+    # Identity's own authorization model (roles + claim-based grants). Opt-in, because
+    # it only matters once a component that resolves permissions through Identity is
+    # deployed; see identity_authorization.tf.
+    local.webmodeler_authorization_enabled ? [
+      { name = "SPRING_APPLICATION_JSON", value = local.identity_authorization_json },
+    ] : [],
+  )
 
   secrets = [
     { name = "IDENTITY_DATABASE_PASSWORD", valueFrom = aws_secretsmanager_secret.identity_db_password[0].arn },
