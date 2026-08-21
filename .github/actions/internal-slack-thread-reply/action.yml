@@ -1,0 +1,115 @@
+---
+name: Internal — Slack thread reply
+description: |
+    DRAFT / PUBLIC PREVIEW — Posts a reply into an existing Slack alert thread.
+
+    The repository's failure alerts are posted by `report-failure-on-slack`
+    (camunda/infraex-common-config) directly inside each test workflow, so the
+    parent message `ts` is not available to the decoupled `workflow_run` watcher.
+    This action bridges that gap: given the failed run URL (which the alert text
+    contains), it locates the parent alert in the channel history and replies in
+    its thread. Callers that already know the `thread-ts` (e.g. a resolution
+    handler reading it back from the issue) can pass it directly to skip the
+    lookup.
+
+    Used to thread the auto-created CI-failure issue — and later its resolution —
+    onto the original Slack alert, so a reader sees what failed and whether it was
+    fixed without leaving the thread.
+
+inputs:
+    slack-bot-token:
+        description: Slack bot token with `conversations.history` (lookup) and `chat:write` (reply) scopes.
+        required: true
+    channel-id:
+        description: Slack channel id the alert was posted to.
+        required: true
+    message:
+        description: Markdown text of the reply to post in the thread.
+        required: true
+    thread-ts:
+        description: >
+            Parent message timestamp to reply to. When empty, the action looks it
+            up by searching recent channel history for `match-text`.
+        required: false
+        default: ''
+    match-text:
+        description: >
+            Substring used to locate the parent message when `thread-ts` is empty
+            (typically the failed run URL, which the alert text contains).
+        required: false
+        default: ''
+    history-limit:
+        description: How many recent channel messages to scan when looking up the thread.
+        required: false
+        default: '200'
+
+outputs:
+    thread-ts:
+        description: Timestamp of the parent message the reply was threaded onto ('' if not found).
+        value: ${{ steps.reply.outputs.thread-ts }}
+    posted:
+        description: '"true" when a message was posted to Slack.'
+        value: ${{ steps.reply.outputs.posted }}
+
+runs:
+    using: composite
+    steps:
+        - name: Reply in Slack thread
+          id: reply
+          shell: bash
+          env:
+              SLACK_BOT_TOKEN: ${{ inputs.slack-bot-token }}
+              CHANNEL_ID: ${{ inputs.channel-id }}
+              MESSAGE: ${{ inputs.message }}
+              THREAD_TS: ${{ inputs.thread-ts }}
+              MATCH_TEXT: ${{ inputs.match-text }}
+              HISTORY_LIMIT: ${{ inputs.history-limit }}
+          run: |
+              set -euo pipefail
+
+              ts="${THREAD_TS}"
+
+              # Locate the parent alert by scanning recent history for the run URL.
+              if [ -z "$ts" ] && [ -n "$MATCH_TEXT" ]; then
+                history=$(curl -sS -G "https://slack.com/api/conversations.history" \
+                  -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+                  --data-urlencode "channel=${CHANNEL_ID}" \
+                  --data-urlencode "limit=${HISTORY_LIMIT}")
+                if [ "$(echo "$history" | jq -r '.ok')" != "true" ]; then
+                  echo "Slack conversations.history failed: $(echo "$history" | jq -r '.error // "unknown"')"
+                  echo "thread-ts=" | tee -a "$GITHUB_OUTPUT"
+                  echo "posted=false" | tee -a "$GITHUB_OUTPUT"
+                  exit 0
+                fi
+                ts=$(echo "$history" | jq -r --arg u "$MATCH_TEXT" \
+                  'first(.messages[] | select((.text // "") | contains($u)) | .ts) // ""')
+              fi
+
+              if [ -z "$ts" ]; then
+                echo "No parent Slack message found; skipping threaded reply."
+                echo "thread-ts=" | tee -a "$GITHUB_OUTPUT"
+                echo "posted=false" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              payload=$(jq -nc \
+                --arg channel "$CHANNEL_ID" \
+                --arg ts "$ts" \
+                --arg text "$MESSAGE" \
+                '{channel:$channel, thread_ts:$ts, text:$text, unfurl_links:false}')
+
+              resp=$(curl -sS -X POST "https://slack.com/api/chat.postMessage" \
+                -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+                -H "Content-Type: application/json; charset=utf-8" \
+                --data "$payload")
+
+              if [ "$(echo "$resp" | jq -r '.ok')" != "true" ]; then
+                echo "Slack chat.postMessage failed: $(echo "$resp" | jq -r '.error // "unknown"')"
+                echo "thread-ts=$ts" | tee -a "$GITHUB_OUTPUT"
+                echo "posted=false" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              echo "Posted threaded reply to ${CHANNEL_ID} (thread ${ts})."
+              echo "thread-ts=$ts" | tee -a "$GITHUB_OUTPUT"
+              echo "posted=true" | tee -a "$GITHUB_OUTPUT"

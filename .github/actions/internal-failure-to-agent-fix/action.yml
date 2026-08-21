@@ -1,0 +1,853 @@
+---
+name: Internal — Workflow failure to agent fix
+description: |
+    DRAFT / PUBLIC PREVIEW — Opens (or de-duplicates) a GitHub issue describing a
+    failed CI run and assigns it to a coding agent so a fix is drafted
+    automatically as a draft pull request.
+
+    A single mechanism is used for every backend: the issue is assigned to a
+    coding-agent actor via GitHub's issue-assignment API. Three agents are
+    assignable this way and selected through `agent`:
+
+    - `anthropic` (default) → `anthropic-code-agent`
+    - `copilot`             → `copilot-swe-agent`
+    - `openai`              → `openai-code-agent`
+
+    The assigned agent works asynchronously and opens its own draft PR. These
+    assignment APIs reject server-to-server tokens, so a USER-to-server token
+    (`agent-token`, a fine-grained PAT) is required for the assignment; the GitHub
+    App installation token (`github-token`) is only used for the issue bookkeeping.
+
+    Human review stays mandatory: the PR is opened in draft, its workflow runs
+    require maintainer approval, and it still goes through the normal review + CI
+    gates before merge. This action only bootstraps the loop and never merges
+    anything.
+
+inputs:
+    agent:
+        description: >
+            Coding agent to assign: "anthropic" (anthropic-code-agent, default),
+            "copilot" (copilot-swe-agent) or "openai" (openai-code-agent). The full
+            actor login is also accepted.
+        required: false
+        default: anthropic
+    model:
+        description: >
+            Optional model identifier passed to the assignment API
+            (coding_agent_model_selection). Leave empty to use the agent default.
+        required: false
+        default: ''
+    github-token:
+        description: >
+            Token with `issues: write` used to search/create/comment on the issue.
+            A GitHub App installation token (from Vault) is recommended — no human
+            PAT needed for the issue bookkeeping.
+        required: true
+    agent-token:
+        description: >
+            User-to-server token (fine-grained PAT) entitled to assign the coding
+            agent. Required: the assignment API rejects GitHub App installation
+            tokens. The token owner must have the coding agent enabled and the PAT
+            must grant Read metadata + Read/write actions, contents, issues and
+            pull requests.
+        required: true
+    workflow-name:
+        description: Display name of the failed workflow.
+        required: true
+    run-url:
+        description: html_url of the failed workflow run.
+        required: true
+    run-id:
+        description: Numeric id of the failed workflow run.
+        required: true
+    head-branch:
+        description: Branch the failed run was executed on.
+        required: true
+    head-sha:
+        description: Commit SHA the failed run was executed on.
+        required: true
+    base-ref:
+        description: Branch the agent should base its fix branch on.
+        required: false
+        default: ${{ github.event.repository.default_branch }}
+    labels:
+        description: Comma-separated labels to apply to the created issue.
+        required: false
+        default: ci-failure,automation
+    mention:
+        description: Team/handle to ping when no agent could pick up the issue (e.g. "@org/infraex").
+        required: false
+        default: ''
+    slack-bot-token:
+        description: >
+            Slack bot token used to thread the created issue onto the original
+            failure alert. Leave empty to disable Slack threading.
+        required: false
+        default: ''
+    slack-channel-id:
+        description: Slack channel id the failure alert was posted to (required when threading).
+        required: false
+        default: ''
+    enable-log-analysis:
+        description: >
+            When "true", fetch the failed run logs and run a GitHub Models analysis
+            whose root-cause summary is embedded in the issue, handed to the agent
+            and threaded onto the Slack alert. Set "false" to skip the AI analysis.
+        required: false
+        default: 'true'
+    models-token:
+        description: >
+            Token entitled to GitHub Models (`models: read`) and to read the run
+            logs (`actions: read`). The workflow `GITHUB_TOKEN` is enough. Required
+            only when `enable-log-analysis` is "true".
+        required: false
+        default: ''
+    analyzer-model:
+        description: >
+            GitHub Models model id used for the failure analysis. Defaults to the
+            strongest available code model (Opus is not offered on GitHub Models).
+        required: false
+        default: openai/gpt-4o
+    analyzer-max-tokens:
+        description: Maximum tokens for the analysis model response.
+        required: false
+        default: '800'
+    group-across-branches:
+        description: >
+            When "true" (default), failures of the same workflow are treated as one
+            failure class and collapse into a single issue regardless of the branch
+            they happened on: subsequent branches are grouped with a comment instead
+            of opening a new issue. Set "false" to keep one issue per workflow+branch.
+        required: false
+        default: 'true'
+    classification-key:
+        description: >
+            Optional explicit signature used to classify/group failures. When set,
+            failures sharing this key collapse into the same issue (use it to group
+            by a job name or an error fingerprint rather than the workflow name).
+            Defaults to the workflow name.
+        required: false
+        default: ''
+    notify-bot-on-group:
+        description: >
+            When "true" (default), a grouping comment @-mentions the coding-agent bot
+            so it is notified of the new occurrence and can re-evaluate the issue.
+        required: false
+        default: 'true'
+    bot-handle:
+        description: >
+            Handle mentioned to re-engage the coding agent when a new occurrence is
+            grouped onto an existing issue. Defaults to "@copilot", the GitHub
+            Copilot cloud agent's platform trigger handle — the only mention that
+            re-starts a work session, regardless of the backing model. The bot login
+            the agent commits under ("@Claude", "@codex") and the suggestedActors
+            assignment slug ("anthropic-code-agent" etc.) do NOT re-trigger it.
+        required: false
+        default: '@copilot'
+
+outputs:
+    issue-number:
+        description: Number of the created (or already existing) issue.
+        value: ${{ steps.ensure-issue.outputs.issue-number }}
+    issue-url:
+        description: URL of the created (or already existing) issue.
+        value: ${{ steps.ensure-issue.outputs.issue-url }}
+    agent-dispatched:
+        description: '"true" when an agent was handed the issue.'
+        value: ${{ steps.dispatch.outputs.dispatched }}
+    grouped:
+        description: '"true" when the failure was grouped onto an existing issue instead of opening a new one.'
+        value: ${{ steps.find.outputs.found }}
+    analysis:
+        description: Root-cause analysis produced for the failure ('' when disabled or unavailable).
+        value: ${{ steps.analyze.outputs.response }}
+
+runs:
+    using: composite
+    steps:
+        # A stable, hidden marker so repeated failures of the SAME class collapse
+        # into a single open issue instead of spamming a new one. The class is the
+        # workflow (or an explicit `classification-key`); by default it ignores the
+        # branch so the same failure hitting several branches groups together.
+        - name: Compute dedupe marker
+          id: marker
+          shell: bash
+          env:
+              WORKFLOW_NAME: ${{ inputs.workflow-name }}
+              HEAD_BRANCH: ${{ inputs.head-branch }}
+              CLASSIFICATION_KEY: ${{ inputs.classification-key }}
+              GROUP_ACROSS_BRANCHES: ${{ inputs.group-across-branches }}
+              BOT_HANDLE: ${{ inputs.bot-handle }}
+          run: |
+              set -euo pipefail
+
+              norm() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'; }
+
+              # The classification signature: explicit key if given, else workflow.
+              sig="$(norm "${CLASSIFICATION_KEY:-$WORKFLOW_NAME}")"
+              branch_slug="$(norm "$HEAD_BRANCH")"
+
+              # Group key: workflow-class only (cross-branch) unless grouping is off.
+              if [ "${GROUP_ACROSS_BRANCHES}" = "true" ]; then
+                group_slug="$sig"
+              else
+                group_slug="${sig}--${branch_slug}"
+              fi
+
+              echo "sig=$sig"                 | tee -a "$GITHUB_OUTPUT"
+              echo "branch-slug=$branch_slug" | tee -a "$GITHUB_OUTPUT"
+              echo "key=ci-failure:${group_slug}"        | tee -a "$GITHUB_OUTPUT"
+              echo "marker=<!-- ci-failure:${group_slug} -->" | tee -a "$GITHUB_OUTPUT"
+
+              # Resolve the handle used to re-engage the cloud agent on grouping.
+              # The GitHub Copilot cloud agent re-engages ONLY via "@copilot",
+              # regardless of the backing model (anthropic/openai/copilot): the bot
+              # login it commits under and the suggestedActors assignment slug are
+              # not re-trigger handles. Allow an explicit override via bot-handle.
+              handle="${BOT_HANDLE:-@copilot}"
+              echo "bot-handle=$handle" | tee -a "$GITHUB_OUTPUT"
+
+        - name: Find existing open issue
+          id: find
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              MARKER_KEY: ${{ steps.marker.outputs.key }}
+          run: |
+              set -euo pipefail
+              # Search the hidden marker in the body of open, automation-labelled issues.
+              existing=$(gh issue list \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --state open \
+                  --label automation \
+                  --search "\"$MARKER_KEY\" in:body" \
+                  --json number,url \
+                  --jq 'first | .number // empty')
+              if [ -n "${existing:-}" ]; then
+                url=$(gh issue view "$existing" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')
+                echo "found=true"  | tee -a "$GITHUB_OUTPUT"
+                echo "number=$existing" | tee -a "$GITHUB_OUTPUT"
+                echo "url=$url"     | tee -a "$GITHUB_OUTPUT"
+              else
+                echo "found=false" | tee -a "$GITHUB_OUTPUT"
+              fi
+
+        # Existing issue -> group this occurrence onto it instead of opening a new
+        # one. Record the new branch/sha in the timeline, track the set of affected
+        # branches in a hidden body marker, and (optionally) @-mention the agent bot
+        # so it is notified of the new occurrence. Do NOT re-dispatch a fresh agent
+        # run — one is already assigned and the mention re-engages it.
+        - name: Group onto existing issue
+          if: steps.find.outputs.found == 'true'
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              AGENT_TOKEN: ${{ inputs.agent-token }}
+              ISSUE_NUMBER: ${{ steps.find.outputs.number }}
+              WORKFLOW_NAME: ${{ inputs.workflow-name }}
+              RUN_URL: ${{ inputs.run-url }}
+              HEAD_BRANCH: ${{ inputs.head-branch }}
+              HEAD_SHA: ${{ inputs.head-sha }}
+              NOTIFY_BOT: ${{ inputs.notify-bot-on-group }}
+              BOT_HANDLE: ${{ steps.marker.outputs.bot-handle }}
+          run: |
+              set -euo pipefail
+
+              # The bookkeeping calls (read body, edit the hidden marker, resolve the
+              # bot assignee / linked PR) use the GitHub App installation token
+              # (GH_TOKEN). The notification COMMENTS, however, are posted with the
+              # personal PAT (COMMENT_TOKEN): a mention authored by the App bot does
+              # not re-engage the coding agent, whereas a mention authored by a real
+              # user account does. Fall back to the App token only if no PAT is set.
+              COMMENT_TOKEN="${AGENT_TOKEN:-$GH_TOKEN}"
+
+              # Read the current body to learn which branches are already tracked.
+              body=$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')
+
+              # Hidden marker that records the affected branches, e.g.
+              #   <!-- branches: main,release/8.7 -->
+              tracked=$(printf '%s\n' "$body" \
+                  | sed -nE 's/.*<!-- branches:[[:space:]]*([^>]*[^[:space:]>])[[:space:]]*-->.*/\1/p' \
+                  | head -n1)
+
+              is_new_branch=true
+              if [ -n "$tracked" ]; then
+                # Exact match against the comma-separated list.
+                case ",${tracked}," in
+                  *",${HEAD_BRANCH},"*) is_new_branch=false ;;
+                esac
+              fi
+
+              # Build the grouping comment.
+              comment_file="$(mktemp)"
+              if [ "$is_new_branch" = "true" ]; then
+                if [ -n "$tracked" ]; then
+                  updated="${tracked},${HEAD_BRANCH}"
+                else
+                  updated="$HEAD_BRANCH"
+                fi
+                count=$(printf '%s' "$updated" | tr ',' '\n' | grep -c .)
+                {
+                  printf '🌿 **%s** failed on a **new branch** \`%s\` at \`%s\` — [run log](%s).\n\n' \
+                    "$WORKFLOW_NAME" "$HEAD_BRANCH" "$HEAD_SHA" "$RUN_URL"
+                  printf 'This failure class now impacts **%s branch(es)**: %s.\n' \
+                    "$count" "$(printf '%s' "$updated" | sed 's/,/, /g')"
+                } > "$comment_file"
+
+                # Persist the updated branch set in the hidden marker (add or replace).
+                if [ -n "$tracked" ]; then
+                  printf '%s\n' "$body" \
+                    | sed -E "s|<!-- branches:[[:space:]]*[^>]*-->|<!-- branches: ${updated} -->|" \
+                    > "$RUNNER_TEMP/grouped-body.md"
+                else
+                  printf '%s\n\n<!-- branches: %s -->\n' "$body" "$updated" \
+                    > "$RUNNER_TEMP/grouped-body.md"
+                fi
+                gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+                    --body-file "$RUNNER_TEMP/grouped-body.md"
+              else
+                printf '🔁 **%s** failed again on \`%s\` at \`%s\` — [run log](%s).\n' \
+                  "$WORKFLOW_NAME" "$HEAD_BRANCH" "$HEAD_SHA" "$RUN_URL" > "$comment_file"
+              fi
+
+              # Notify the agent so it picks up the new occurrence (re-engages the
+              # already-assigned cloud agent on its draft PR).
+              #
+              # IMPORTANT: the GitHub Copilot cloud agent only re-engages when a
+              # comment mentions "@copilot" — the platform trigger handle. This holds
+              # regardless of the backing model: the bot account the agent commits
+              # under ("Claude", "codex", ...) and the suggestedActors slug used to
+              # assign it ("anthropic-code-agent", ...) are NOT re-trigger handles.
+              # Verified empirically: mentioning the bot login only emits
+              # "mentioned"/"subscribed" events, whereas "@copilot" yields a 👀
+              # reaction and a fresh "copilot_work_started" session.
+              mention_handle="$BOT_HANDLE"
+
+              if [ "$NOTIFY_BOT" = "true" ] && [ -n "$mention_handle" ]; then
+                printf '\n%s a new occurrence was grouped here — please re-check whether the open fix still covers it.\n' \
+                  "$mention_handle" >> "$comment_file"
+              fi
+
+              GH_TOKEN="$COMMENT_TOKEN" gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$comment_file"
+
+              # Also post the same notice on the agent's draft PR. The agent watches
+              # its own PR more closely than the issue, so a comment there is the most
+              # reliable way to re-engage it on a new occurrence. Resolve the open PR
+              # that is linked to this issue (the agent opens one that "closes" it)
+              # via GraphQL closedByPullRequestsReferences, then mirror the comment.
+              if [ "$NOTIFY_BOT" = "true" ]; then
+                owner="${GITHUB_REPOSITORY%/*}"
+                repo="${GITHUB_REPOSITORY#*/}"
+                linked_pr=$(gh api graphql -f query='
+                  query($owner:String!,$repo:String!,$number:Int!){
+                    repository(owner:$owner,name:$repo){
+                      issue(number:$number){
+                        closedByPullRequestsReferences(first:10, includeClosedPrs:false){
+                          nodes{ number state }
+                        }
+                      }
+                    }
+                  }' -F owner="$owner" -F repo="$repo" -F number="$ISSUE_NUMBER" \
+                  --jq '[.data.repository.issue.closedByPullRequestsReferences.nodes[]
+                         | select(.state=="OPEN") | .number] | first // empty' 2>/dev/null || true)
+                if [ -n "${linked_pr:-}" ]; then
+                  if GH_TOKEN="$COMMENT_TOKEN" gh pr comment "$linked_pr" --repo "$GITHUB_REPOSITORY" --body-file "$comment_file"; then
+                    echo "Mirrored grouping notice onto PR #${linked_pr}."
+                  else
+                    echo "::warning::Could not comment on the linked PR #${linked_pr} (token permissions?)."
+                  fi
+                else
+                  echo "No open linked PR found for issue #${ISSUE_NUMBER}; commented on the issue only."
+                fi
+              fi
+
+        # Fetch the failed logs and run a GitHub Models analysis once, only when we
+        # are about to open a fresh issue. The summary is reused in the issue body,
+        # the agent prompt and the Slack thread.
+        - name: Analyze failure logs
+          id: analyze
+          if: steps.find.outputs.found == 'false' && inputs.enable-log-analysis == 'true' && inputs.models-token != ''
+          uses: ./.github/actions/internal-failure-log-analyzer
+          with:
+              run-url: ${{ inputs.run-url }}
+              gh-token: ${{ inputs.models-token }}
+              model: ${{ inputs.analyzer-model }}
+              max-tokens: ${{ inputs.analyzer-max-tokens }}
+
+        - name: Create issue
+          id: create
+          if: steps.find.outputs.found == 'false'
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              WORKFLOW_NAME: ${{ inputs.workflow-name }}
+              RUN_URL: ${{ inputs.run-url }}
+              HEAD_BRANCH: ${{ inputs.head-branch }}
+              HEAD_SHA: ${{ inputs.head-sha }}
+              LABELS: ${{ inputs.labels }}
+              MARKER: ${{ steps.marker.outputs.marker }}
+              ANALYSIS: ${{ steps.analyze.outputs.response }}
+          run: |
+              set -euo pipefail
+
+              body_file="$(mktemp)"
+              cat > "$body_file" <<EOF
+              ${MARKER}
+
+              ## Automated CI failure report
+
+              The workflow **${WORKFLOW_NAME}** failed on branch \`${HEAD_BRANCH}\`.
+
+              | | |
+              |---|---|
+              | Workflow | ${WORKFLOW_NAME} |
+              | Branch | \`${HEAD_BRANCH}\` |
+              | Commit | \`${HEAD_SHA}\` |
+              | Run | ${RUN_URL} |
+
+              ### What is expected from the assigned coding agent
+
+              1. Open the failing run log above and identify the root cause of the failure.
+              2. Propose the **smallest** change that fixes the failure, following the
+                 repository conventions in \`AGENTS.md\` / \`docs/development.md\`.
+              3. Do **not** weaken or skip tests to make CI pass.
+              4. Open a **draft** pull request targeting \`${HEAD_BRANCH}\` and summarise
+                 the root cause + fix in the PR description.
+
+              > A human maintainer must review and approve the resulting pull request and
+              > its workflow runs before anything is merged. This issue only bootstraps the
+              > automated fix loop.
+              EOF
+
+              # Append the AI root-cause analysis when one was produced.
+              if [ -n "${ANALYSIS:-}" ]; then
+                {
+                  printf '\n'
+                  printf '<details><summary>🤖 AI root-cause analysis (auto-generated, verify before trusting)</summary>\n\n'
+                  printf '%s\n' "$ANALYSIS"
+                  printf '\n</details>\n'
+                } >> "$body_file"
+              fi
+
+              # Seed the hidden branch tracker so later failures of the same class on
+              # other branches are grouped here (and counted) instead of opening a new
+              # issue.
+              printf '\n<!-- branches: %s -->\n' "$HEAD_BRANCH" >> "$body_file"
+
+              # Ensure labels exist (idempotent) so --label never fails the run.
+              IFS=',' read -ra _labels <<< "$LABELS"
+              for l in "${_labels[@]}"; do
+                l="$(echo "$l" | xargs)"
+                [ -z "$l" ] && continue
+                gh label create "$l" --repo "$GITHUB_REPOSITORY" --color BFD4F2 --force >/dev/null 2>&1 || true
+              done
+
+              url=$(gh issue create \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --title "CI failure: ${WORKFLOW_NAME} on ${HEAD_BRANCH}" \
+                  --body-file "$body_file" \
+                  --label "$LABELS")
+              number=$(basename "$url")
+              echo "number=$number" | tee -a "$GITHUB_OUTPUT"
+              echo "url=$url"       | tee -a "$GITHUB_OUTPUT"
+
+        # ---------------------------------------------------------------------
+        # Assign the coding agent to the fresh issue. Every backend uses the same
+        # issue-assignment API; the agent actor is selected from `agent`. The API
+        # requires a USER-to-server token (agent-token); GITHUB_TOKEN and GitHub
+        # App installation tokens are rejected.
+        # ---------------------------------------------------------------------
+        - name: Assign coding agent
+          id: assign
+          if: steps.find.outputs.found == 'false'
+          shell: bash
+          env:
+              # Prefer the user-to-server PAT; fall back to the GitHub App token so
+              # the assignment is at least attempted with the credentials at hand. If
+              # the endpoint rejects the token the step reports it without failing the
+              # run.
+              GH_TOKEN: ${{ inputs.agent-token != '' && inputs.agent-token || inputs.github-token }}
+              AGENT: ${{ inputs.agent }}
+              ISSUE_NUMBER: ${{ steps.create.outputs.number }}
+              BASE_REF: ${{ inputs.base-ref }}
+              MODEL: ${{ inputs.model }}
+              ANALYSIS: ${{ steps.analyze.outputs.response }}
+              REVIEWER: ${{ inputs.mention }}
+              GH_FEATURES: issues_copilot_assignment_api_support,coding_agent_model_selection
+          run: |
+              set -euo pipefail
+              owner="${GITHUB_REPOSITORY%/*}"
+              repo="${GITHUB_REPOSITORY#*/}"
+
+              # Map the friendly agent name to its assignable actor login.
+              case "$AGENT" in
+                copilot|copilot-swe-agent)      actor_login="copilot-swe-agent" ;;
+                anthropic|anthropic-code-agent) actor_login="anthropic-code-agent" ;;
+                openai|openai-code-agent)       actor_login="openai-code-agent" ;;
+                *)                              actor_login="$AGENT" ;;
+              esac
+              echo "Target coding-agent actor: ${actor_login}"
+
+              # Discover the assignable actor. Run tolerantly: an expired or invalid
+              # token makes this query return an auth error, which we want to surface
+              # as a clean "rotate the token" signal (and Slack alert) rather than a
+              # hard, red step failure.
+              if ! actors=$(gh api graphql -f query='
+                query($owner:String!,$repo:String!){
+                  repository(owner:$owner,name:$repo){
+                    suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100){
+                      nodes{ login __typename ... on Bot{ id } ... on User{ id } }
+                    }
+                  }
+                }' -F owner="$owner" -F repo="$repo" 2>"$RUNNER_TEMP/discover-err.txt"); then
+                echo "::warning::Could not query assignable actors for the coding agent."
+                sed 's/^/  /' "$RUNNER_TEMP/discover-err.txt" || true
+                echo "This typically means the 'agent-token' (Vault key COPILOT_AGENT_PAT) is"
+                echo "expired, revoked or invalid and must be regenerated:"
+                echo "  1. GitHub → Settings → Developer settings → Fine-grained personal access"
+                echo "     tokens, as the account that owns the PAT (must have the coding agent enabled)."
+                echo "  2. Regenerate a token for this repo with Metadata: Read-only and"
+                echo "     Actions/Contents/Issues/Pull requests: Read and write."
+                echo "  3. Store it in Vault at secret/data/products/infrastructure-experience/ci/common"
+                echo "     under key COPILOT_AGENT_PAT, then re-run the workflow."
+                echo "Why a user PAT: the assignment API rejects GitHub App installation tokens, so a"
+                echo "user-to-server fine-grained PAT is required. The issue is left open for manual"
+                echo "assignment in the meantime."
+                echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
+                echo "reason=token-invalid" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              bot_id=$(printf '%s' "$actors" | jq -r --arg login "$actor_login" \
+                '.data.repository.suggestedActors.nodes[] | select(.login==$login) | .id' \
+                | head -n1)
+
+              if [ -z "${bot_id:-}" ]; then
+                echo "::warning::The '${actor_login}' coding agent did not appear as an assignable actor for the token in use."
+                echo "The token authenticated successfully, so it is not expired/invalid — GitHub"
+                echo "only lists the agent in suggestedActors(CAN_BE_ASSIGNED) when the coding"
+                echo "agent is enabled FOR THE TOKEN'S OWNER. Most likely the agent-token belongs"
+                echo "to an account that does not have this coding agent enabled, or it is a"
+                echo "GitHub App installation token (not accepted). Also confirm the fine-grained"
+                echo "PAT grants: Read metadata, and Read+write actions, contents, issues and"
+                echo "pull requests. The issue is left open for manual assignment."
+                echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
+                echo "reason=not-assignable" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              repo_id=$(gh api graphql -f query='
+                query($owner:String!,$repo:String!){ repository(owner:$owner,name:$repo){ id } }' \
+                -F owner="$owner" -F repo="$repo" --jq '.data.repository.id')
+
+              issue_id=$(gh api graphql -f query='
+                query($owner:String!,$repo:String!,$num:Int!){
+                  repository(owner:$owner,name:$repo){ issue(number:$num){ id } }
+                }' -F owner="$owner" -F repo="$repo" -F num="$ISSUE_NUMBER" \
+                --jq '.data.repository.issue.id')
+
+              instructions="You are working on issue #${ISSUE_NUMBER} in the "
+              instructions+="${GITHUB_REPOSITORY} repository. First decide if the failing "
+              instructions+="CI run is FLAKY (a transient infra/network/timeout issue "
+              instructions+="unrelated to the commit) or a REAL failure. "
+              instructions+="ALWAYS write your verdict to the single tracked file "
+              instructions+="\`.github/agent-verdicts/issue-${ISSUE_NUMBER}.md\` and commit "
+              instructions+="it on your PR branch — a commit in your own branch is the only "
+              instructions+="channel your token is guaranteed to control, so this file is "
+              instructions+="mandatory in every case (open a draft PR even when no code "
+              instructions+="change is needed, carrying only that verdict file) and it "
+              instructions+="shows up in the PR diff for a human to read. Do NOT scatter "
+              instructions+="extra notes/markdown elsewhere in the tree — that one file is "
+              instructions+="the only place for your write-up. "
+              instructions+="As a best effort also mirror the verdict into the PR "
+              instructions+="description and as a comment on issue #${ISSUE_NUMBER} "
+              instructions+="(\`gh issue comment ${ISSUE_NUMBER} --repo "
+              instructions+="${GITHUB_REPOSITORY} --body \"...\"\`), but do not worry if "
+              instructions+="those calls are denied by token permissions — the committed "
+              instructions+="verdict file is what matters. "
+              instructions+="If it looks flaky, do not change code: the verdict file "
+              instructions+="must explain why it is flaky and that maintainers should "
+              instructions+="re-run the failed workflow. "
+              instructions+="Otherwise fix the failing CI run linked in the issue and "
+              instructions+="summarise the root cause and your fix in the verdict file. "
+              instructions+="Make the smallest change that addresses the root cause, "
+              instructions+="follow AGENTS.md and docs/development.md, and never weaken "
+              instructions+="or skip tests. Open the PR as a draft."
+              if [ -n "${REVIEWER:-}" ]; then
+                # Strip a leading '@' so the org/team slug is usable for review requests.
+                reviewer_slug="${REVIEWER#@}"
+                instructions+=" Once the draft PR is open, request a review from the "
+                instructions+="${reviewer_slug} team on it (e.g. add ${reviewer_slug} as a "
+                instructions+="reviewer / \`gh pr edit <pr> --add-reviewer ${reviewer_slug}\`) "
+                instructions+="so a maintainer is notified."
+              fi
+              instructions+=" Also request a review from GitHub Copilot on the PR "
+              instructions+="(add Copilot as a reviewer / \`gh pr edit <pr> "
+              instructions+="--add-reviewer copilot-pull-request-reviewer[bot]\`)."
+              if [ -n "${ANALYSIS:-}" ]; then
+                instructions+=" An automated (unverified) root-cause analysis of the "
+                instructions+="failing logs follows — treat it as a hint, not ground truth: "
+                instructions+="${ANALYSIS}"
+              fi
+
+              if gh api graphql \
+                -H "GraphQL-Features: ${GH_FEATURES}" \
+                -f query='
+                mutation($issueId:ID!,$botId:ID!,$repoId:ID!,$baseRef:String!,$model:String!,$instructions:String!){
+                  replaceActorsForAssignable(input:{
+                    assignableId:$issueId,
+                    actorIds:[$botId],
+                    agentAssignment:{
+                      targetRepositoryId:$repoId,
+                      baseRef:$baseRef,
+                      customInstructions:$instructions,
+                      customAgent:"",
+                      model:$model
+                    }
+                  }){ assignable{ ... on Issue{ number } } }
+                }' \
+                -F issueId="$issue_id" -F botId="$bot_id" -F repoId="$repo_id" \
+                -F baseRef="$BASE_REF" -F model="$MODEL" -F instructions="$instructions" \
+                >/dev/null 2>"$RUNNER_TEMP/assign-err.txt"; then
+                echo "Assigned the ${actor_login} coding agent to issue #${ISSUE_NUMBER}."
+                echo "dispatched=true" | tee -a "$GITHUB_OUTPUT"
+              else
+                echo "::warning::Could not assign the ${actor_login} coding agent to issue #${ISSUE_NUMBER}."
+                sed 's/^/  /' "$RUNNER_TEMP/assign-err.txt" || true
+                echo "The assignment API needs a user-to-server token entitled to the coding"
+                echo "agent; provide one via 'agent-token' (Vault key COPILOT_AGENT_PAT). The"
+                echo "issue is still open for manual triage/assignment."
+                echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
+                # An auth/permission error here usually means the token expired or lost
+                # entitlement between discovery and assignment; flag it for the alert.
+                if grep -qiE 'unauthorized|bad credentials|401|403|forbidden|expired' "$RUNNER_TEMP/assign-err.txt"; then
+                  echo "reason=token-invalid" | tee -a "$GITHUB_OUTPUT"
+                else
+                  echo "reason=assignment-rejected" | tee -a "$GITHUB_OUTPUT"
+                fi
+              fi
+
+        # ---------------------------------------------------------------------
+        # Surface the dispatch state under a stable output for downstream steps.
+        # ---------------------------------------------------------------------
+        - name: Aggregate dispatch state
+          id: dispatch
+          shell: bash
+          env:
+              ASSIGN_DISPATCHED: ${{ steps.assign.outputs.dispatched }}
+          run: |
+              set -euo pipefail
+              if [ "${ASSIGN_DISPATCHED:-}" = "true" ]; then
+                echo "dispatched=true" | tee -a "$GITHUB_OUTPUT"
+              else
+                echo "dispatched=false" | tee -a "$GITHUB_OUTPUT"
+              fi
+
+        # The agent was assigned and will open a draft PR. GitHub gates every
+        # Actions workflow run on agent-authored PRs behind a manual "Approve and
+        # run workflows" click, and there is no API (REST or the web frontend
+        # endpoint) to grant it with a token — only a human with write access can.
+        # Ping the configured team so a maintainer approves the runs once the PR
+        # opens, otherwise the proposed fix never gets CI feedback.
+        - name: Ask team to approve the agent PR workflows
+          if: steps.find.outputs.found == 'false' && steps.dispatch.outputs.dispatched == 'true' && inputs.mention != ''
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              ISSUE_NUMBER: ${{ steps.create.outputs.number }}
+              MENTION: ${{ inputs.mention }}
+              AGENT: ${{ inputs.agent }}
+          run: |
+              set -euo pipefail
+              comment="${MENTION} the **${AGENT}** coding agent is drafting a fix and "
+              comment+="will open a draft PR. GitHub blocks Actions workflow runs on "
+              comment+="agent-authored PRs until a maintainer approves them, and this "
+              comment+="cannot be automated. Once the PR is open, please click "
+              comment+="**Approve and run workflows** in its merge box so CI can "
+              comment+="validate the fix."
+              gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$comment"
+
+        # No agent could pick the issue up (missing token/key or backend
+        # unavailable): keep a human in the loop by pinging the configured team.
+        - name: Ping team when no agent picked up the issue
+          if: steps.find.outputs.found == 'false' && steps.dispatch.outputs.dispatched != 'true' && inputs.mention != ''
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              ISSUE_NUMBER: ${{ steps.create.outputs.number }}
+              MENTION: ${{ inputs.mention }}
+              AGENT: ${{ inputs.agent }}
+          run: |
+              set -euo pipefail
+              gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body \
+              "${MENTION} the **${AGENT}** coding agent could not be dispatched for this CI failure — please triage manually."
+
+        # Loud, top-level Slack alert when the coding agent could not be assigned
+        # because its token is missing/expired/invalid (or lost entitlement).
+        # Unlike the threaded issue/analysis replies, this is posted as a standalone
+        # message so the on-call sees a credential problem even if the original
+        # failure alert has scrolled away. Fires on a fresh issue, when dispatch did
+        # not happen.
+        - name: Alert Slack when the agent token is unusable
+          if: >-
+              steps.find.outputs.found == 'false' &&
+              steps.dispatch.outputs.dispatched != 'true' &&
+              inputs.slack-bot-token != '' &&
+              inputs.slack-channel-id != ''
+          shell: bash
+          env:
+              SLACK_BOT_TOKEN: ${{ inputs.slack-bot-token }}
+              CHANNEL_ID: ${{ inputs.slack-channel-id }}
+              MENTION: ${{ inputs.mention }}
+              AGENT: ${{ inputs.agent }}
+              REASON: ${{ steps.assign.outputs.reason }}
+              ISSUE_URL: ${{ steps.create.outputs.url }}
+              WORKFLOW_NAME: ${{ inputs.workflow-name }}
+          run: |
+              set -euo pipefail
+
+              # Newline helper: $'...' does not expand variables, so keep the
+              # newline in its own var and build the message with normal quoting
+              # (Slack renders these \n as line breaks once JSON-encoded by jq).
+              nl=$'\n'
+              # Shared Vault coordinates for the user PAT, repeated in each hint.
+              vault_path="secret/data/products/infrastructure-experience/ci/common"
+
+              case "$REASON" in
+                token-invalid)
+                  # The token no longer authenticates: it must be regenerated.
+                  # Spell out the exact rotation procedure AND why a user PAT is
+                  # required, so the on-call can fix it without prior context.
+                  headline="🔑 *Coding-agent token looks expired or invalid*"
+                  detail="The CI auto-fix loop could not authenticate to assign the \`${AGENT}\` coding agent."
+                  detail+=" The \`COPILOT_AGENT_PAT\` is expired, revoked or invalid and must be regenerated."
+                  detail+="${nl}${nl}*How to regenerate it*"
+                  detail+="${nl}1. Sign in to GitHub as the service account that owns the PAT (a human"
+                  detail+=" account that has the coding agent enabled — see why below), then open"
+                  detail+=" Settings → Developer settings → Fine-grained personal access tokens."
+                  detail+="${nl}2. Regenerate (or recreate) a token scoped to this repository with"
+                  detail+=" Repository permissions: Metadata: Read-only; Actions, Contents, Issues and"
+                  detail+=" Pull requests: Read and write."
+                  detail+="${nl}3. Store the new value in Vault at \`${vault_path}\`, key \`COPILOT_AGENT_PAT\`."
+                  detail+="${nl}4. Re-run the failed workflow (or wait for the next failure) to dispatch the agent again."
+                  detail+="${nl}${nl}*Why a user PAT and not the GitHub App token:* the assignment API"
+                  detail+=" (\`replaceActorsForAssignable\`) rejects server-to-server / GitHub App"
+                  detail+=" installation tokens, so only a user-to-server fine-grained PAT owned by an"
+                  detail+=" account with the coding agent enabled is accepted. The App token"
+                  detail+=" (\`github-token\`) is kept for issue bookkeeping only." ;;
+                not-assignable)
+                  # The token is valid but the agent is not offered to its owner.
+                  # This is an entitlement problem, not an expiry — explain the
+                  # distinction and how to make the agent assignable.
+                  headline="🔑 *Coding agent is not assignable with the current token*"
+                  detail="The \`COPILOT_AGENT_PAT\` authenticated but GitHub does not expose the"
+                  detail+=" \`${AGENT}\` coding agent to its owner."
+                  detail+="${nl}${nl}*How to fix*"
+                  detail+="${nl}1. Confirm the PAT belongs to an account that has the \`${AGENT}\` coding"
+                  detail+=" agent enabled for this org/repo (enable it in the account's Copilot settings)."
+                  detail+="${nl}2. Regenerate the fine-grained PAT with Repository permissions: Metadata:"
+                  detail+=" Read-only; Actions, Contents, Issues and Pull requests: Read and write, then"
+                  detail+=" store it in Vault at \`${vault_path}\`, key \`COPILOT_AGENT_PAT\`."
+                  detail+="${nl}${nl}*Why this differs from an expired token:* GitHub only lists the agent"
+                  detail+=" in \`suggestedActors(CAN_BE_ASSIGNED)\` when it is enabled for the token"
+                  detail+=" *owner*, so a valid-but-unentitled token authenticates yet still cannot assign." ;;
+                assignment-rejected)
+                  headline="⚠️ *Coding-agent assignment was rejected*"
+                  detail="Authentication looked OK but GitHub rejected the \`${AGENT}\` assignment."
+                  detail+=" Check the run logs and the \`COPILOT_AGENT_PAT\` permissions"
+                  detail+=" (Metadata: Read-only; Actions, Contents, Issues, Pull requests: Read and write)."
+                  detail+=" If the permissions are correct, regenerate the PAT and store it in Vault at"
+                  detail+=" \`${vault_path}\`, key \`COPILOT_AGENT_PAT\`." ;;
+                *)
+                  headline="⚠️ *Coding agent could not be dispatched*"
+                  detail="The auto-fix loop opened an issue but could not assign the \`${AGENT}\` coding agent."
+                  detail+=" Check \`COPILOT_AGENT_PAT\` in Vault (\`${vault_path}\`) and the run logs." ;;
+              esac
+
+              text="${MENTION:+${MENTION} }${headline}"
+              text=$(printf '%s\n%s\n\n• Workflow: *%s*\n• Issue (open for manual assignment): %s' \
+                "$text" "$detail" "$WORKFLOW_NAME" "$ISSUE_URL")
+
+              payload=$(jq -nc \
+                --arg channel "$CHANNEL_ID" \
+                --arg text "$text" \
+                '{channel:$channel, text:$text, unfurl_links:false}')
+
+              resp=$(curl -sS -X POST "https://slack.com/api/chat.postMessage" \
+                -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+                -H "Content-Type: application/json; charset=utf-8" \
+                --data "$payload")
+
+              if [ "$(echo "$resp" | jq -r '.ok')" != "true" ]; then
+                echo "::warning::Slack credential alert failed: $(echo "$resp" | jq -r '.error // "unknown"')"
+              else
+                echo "Posted agent-token alert to ${CHANNEL_ID}."
+              fi
+
+        # ---------------------------------------------------------------------
+        # Thread the freshly created issue onto the original Slack failure alert
+        # so the alert reader sees what was opened and (later) whether it was
+        # resolved, without leaving the thread.
+        # ---------------------------------------------------------------------
+        - name: Reply to Slack alert with the created issue
+          id: slack-thread
+          if: steps.find.outputs.found == 'false' && inputs.slack-bot-token != '' && inputs.slack-channel-id != ''
+          uses: ./.github/actions/internal-slack-thread-reply
+          with:
+              slack-bot-token: ${{ inputs.slack-bot-token }}
+              channel-id: ${{ inputs.slack-channel-id }}
+              match-text: ${{ inputs.run-url }}
+              message: >-
+                  🤖 Auto-fix loop: opened ${{ steps.create.outputs.url }} and dispatched
+                  the ${{ inputs.agent }} coding agent to draft a fix (human review required).
+
+        # Post the AI root-cause analysis as a follow-up in the same Slack thread so
+        # alert readers get the gist without opening the issue.
+        - name: Thread the AI analysis onto the Slack alert
+          if: steps.slack-thread.outputs.posted == 'true' && steps.analyze.outputs.response != ''
+          uses: ./.github/actions/internal-slack-thread-reply
+          with:
+              slack-bot-token: ${{ inputs.slack-bot-token }}
+              channel-id: ${{ inputs.slack-channel-id }}
+              thread-ts: ${{ steps.slack-thread.outputs.thread-ts }}
+              message: |-
+                  🧠 _AI root-cause analysis (auto-generated, verify before trusting):_
+
+                  ${{ steps.analyze.outputs.response }}
+
+        # Persist the Slack thread coordinates inside the issue body (hidden marker)
+        # so the resolution handler can reply in the same thread when it is closed.
+        - name: Stamp Slack thread reference on the issue
+          if: steps.slack-thread.outputs.posted == 'true'
+          shell: bash
+          env:
+              GH_TOKEN: ${{ inputs.github-token }}
+              ISSUE_NUMBER: ${{ steps.create.outputs.number }}
+              CHANNEL_ID: ${{ inputs.slack-channel-id }}
+              THREAD_TS: ${{ steps.slack-thread.outputs.thread-ts }}
+          run: |
+              set -euo pipefail
+              body=$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json body --jq '.body')
+              marker="<!-- slack-thread: channel=${CHANNEL_ID} ts=${THREAD_TS} -->"
+              printf '%s\n\n%s\n' "$body" "$marker" > "$RUNNER_TEMP/issue-body.md"
+              gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+                  --body-file "$RUNNER_TEMP/issue-body.md"
+
+        - name: Expose issue reference
+          id: ensure-issue
+          shell: bash
+          env:
+              FOUND: ${{ steps.find.outputs.found }}
+              EXISTING_NUMBER: ${{ steps.find.outputs.number }}
+              EXISTING_URL: ${{ steps.find.outputs.url }}
+              NEW_NUMBER: ${{ steps.create.outputs.number }}
+              NEW_URL: ${{ steps.create.outputs.url }}
+          run: |
+              set -euo pipefail
+              if [ "$FOUND" = "true" ]; then
+                echo "issue-number=$EXISTING_NUMBER" | tee -a "$GITHUB_OUTPUT"
+                echo "issue-url=$EXISTING_URL"       | tee -a "$GITHUB_OUTPUT"
+              else
+                echo "issue-number=$NEW_NUMBER" | tee -a "$GITHUB_OUTPUT"
+                echo "issue-url=$NEW_URL"       | tee -a "$GITHUB_OUTPUT"
+              fi
