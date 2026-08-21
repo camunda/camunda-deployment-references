@@ -105,6 +105,22 @@ repos:
             files: ^\.lint/cleanup-coverage/.*\.py$
             pass_filenames: false
 
+          - id: action-vars
+            name: Action variables resolve where they are written
+            entry: .lint/action-vars/check-action-vars.py
+            language: script
+            # yamllint disable-line rule:line-length
+            files: ^\.github/(workflows|actions)/.*\.ya?ml$|^\.lint/action-vars/
+            pass_filenames: false
+
+          - id: python-unittest-action-vars
+            name: Python unit tests (action variables)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/action-vars -p 'test_*.py'
+            language: system
+            files: ^\.lint/action-vars/.*\.py$
+            pass_filenames: false
+
     - repo: https://github.com/dnephin/pre-commit-golang
       rev: v0.5.1
       hooks:
