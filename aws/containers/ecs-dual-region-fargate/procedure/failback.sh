@@ -147,7 +147,7 @@ if [ "${MEMBER_COUNT}" = "1" ]; then
         --region "${REGION_0}" \
         --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
         --db-cluster-identifier "$(echo "${REGION_0_CLUSTER_ARN}" | awk -F':' '{print $7}')" \
-        --engine aurora-postgresql \
+        --engine "${AURORA_ENGINE:?AURORA_ENGINE is required — source procedure/export_environment_prerequisites.sh}" \
         --no-cli-pager 2>/dev/null || {
             err "Failed to re-add region 0 cluster. It may need to be recreated via Terraform."
             err "Run: terraform -chdir=${TF_DIR} apply"

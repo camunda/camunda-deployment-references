@@ -224,7 +224,7 @@ output "aurora_global_writer_endpoint" {
 
 output "aurora_primary_cluster_endpoint" {
   value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].primary_cluster_endpoint : null
-  description = "The regional writer endpoint of the primary Aurora cluster (region 0). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper."
+  description = "The regional writer endpoint of the primary Aurora cluster (region 0)."
 }
 
 output "aurora_primary_cluster_identifier" {
@@ -237,7 +237,22 @@ output "aurora_secondary_cluster_identifier" {
 
 output "aurora_secondary_cluster_endpoint" {
   value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].secondary_cluster_endpoint : null
-  description = "The regional endpoint of the secondary Aurora cluster (region 1). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper."
+  description = "The regional endpoint of the secondary Aurora cluster (region 1)."
+}
+
+output "aurora_engine" {
+  value       = var.secondary_storage_type == "rdbms" ? local.aurora_engine : null
+  description = "The Aurora engine backing secondary storage ('aurora-postgresql' or 'aurora-mysql'). Exported by procedure/export_environment_prerequisites.sh so the failover/failback scripts re-create clusters with the right engine."
+}
+
+output "aurora_jdbc_url" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_url : null
+  description = "Ready-to-use AWS Advanced JDBC Wrapper URL for the Aurora Global writer (engine-aware, iam+failover plugins, globalClusterInstanceHostPatterns embedded, TLS pinned). Consumed by the app layer."
+}
+
+output "aurora_db_port" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].db_port : null
+  description = "The Aurora database port for the selected engine (5432 PostgreSQL, 3306 MySQL). Exported by procedure/export_environment_prerequisites.sh for manual psql/mysql sessions."
 }
 
 ################################################################

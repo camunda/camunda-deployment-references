@@ -77,12 +77,17 @@ locals {
     registry_credentials_region_0_arn       = ""
     registry_credentials_region_1_arn       = ""
 
-    # Aurora (rdbms mode)
+    # Aurora (rdbms mode). aurora_jdbc_url is the engine-aware URL the infra
+    # layer builds from the module output; the app layer consumes it directly
+    # rather than assembling one from the endpoints below.
     aurora_global_writer_endpoint       = "camunda-global.cluster-r00000000000.eu-west-2.rds.amazonaws.com"
     aurora_primary_cluster_endpoint     = "camunda-primary.cluster-r00000000000.eu-west-2.rds.amazonaws.com"
     aurora_primary_cluster_identifier   = "camunda-primary"
     aurora_secondary_cluster_identifier = "camunda-secondary"
     aurora_secondary_cluster_endpoint   = "camunda-secondary.cluster-r11111111111.eu-west-3.rds.amazonaws.com"
+    aurora_engine                       = "aurora-postgresql"
+    aurora_db_port                      = 5432
+    aurora_jdbc_url                     = "jdbc:aws-wrapper:postgresql://camunda-global.cluster-r00000000000.eu-west-2.rds.amazonaws.com:5432/camunda?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=?.r00000000000.eu-west-2.rds.amazonaws.com,?.r11111111111.eu-west-3.rds.amazonaws.com&sslmode=require"
 
     # OpenSearch (null in rdbms mode)
     opensearch_region_0_endpoint = null

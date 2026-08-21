@@ -11,9 +11,23 @@ This folder describes the IaC of Camunda on AWS ECS Fargate in a dual-region act
 - **8 Zeebe brokers** — 4 per region with asymmetric initial contact points (Service Connect locally, NLB cross-region)
 - **Aurora Global Database** — single writer endpoint with [AWS JDBC Wrapper](https://github.com/aws/aws-advanced-jdbc-wrapper) `failover` plugin for automatic reconnection
 - **Route 53 Resolver** — forwards Cloud Map DNS queries cross-region for service discovery
-- **RDBMS secondary storage** — uses PostgreSQL (Aurora) instead of Elasticsearch/OpenSearch
+- **RDBMS secondary storage** — uses Aurora (PostgreSQL by default, or MySQL via `db_engine`) instead of Elasticsearch/OpenSearch
 
 Cluster configuration: `cluster_size=8`, `replication_factor=4`, `partition_count=8`.
+
+### Choosing the RDBMS engine
+
+`db_engine` on the `infra` state selects the Aurora engine for RDBMS secondary storage. It drives the cluster, the security-group rules, the IAM DB-user seeding, and the generated JDBC URL. The engine cannot be changed on an existing deployment — Camunda does not support in-place migration between secondary-storage backends.
+
+| `db_engine` | Aurora engine | Port |
+|---|---|---|
+| `postgresql` (default) | `aurora-postgresql` | 5432 |
+| `mysql` | `aurora-mysql` | 3306 |
+
+**This reference architecture is built and validated on PostgreSQL.** `db_engine = "mysql"` exists so the underlying `aurora-global` module can *provision* an Aurora Global MySQL cluster — useful for evaluating Aurora MySQL — but running Camunda on MySQL is not covered here.
+
+> [!NOTE]
+> Camunda supports MySQL 8.4 as a secondary-storage engine, but the MySQL JDBC driver is never shipped inside the Camunda container image: licensing prevents bundling it, so it must always be supplied at runtime. That is a property of the Camunda distribution, not of this Terraform code, and this reference architecture does not provide it. Consult [JDBC driver management](https://docs.camunda.io/docs/next/self-managed/deployment/helm/configure/database/rdbms-jdbc-drivers/) and the [RDBMS support policy](https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/rdbms-support-policy/) for the authoritative guidance on supported engines, versions, managed services, and driver provisioning.
 
 ## Prerequisites
 

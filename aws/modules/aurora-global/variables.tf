@@ -6,14 +6,39 @@ variable "global_cluster_identifier" {
 variable "engine" {
   type        = string
   default     = "aurora-postgresql"
-  description = "The engine type e.g. aurora-postgresql"
+  description = "The Aurora engine type: 'aurora-postgresql' or 'aurora-mysql'"
+
+  validation {
+    condition     = contains(["aurora-postgresql", "aurora-mysql"], var.engine)
+    error_message = "engine must be either 'aurora-postgresql' or 'aurora-mysql'."
+  }
 }
 
 variable "engine_version" {
+  type        = string
+  default     = null
+  description = "Exact engine version override. When null, the module selects the per-engine default (postgresql_engine_version or mysql_engine_version) based on var.engine."
+}
+
+variable "postgresql_engine_version" {
   type = string
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
   default     = "18.4"
-  description = "The DB engine version for Postgres to use"
+  description = "Default Aurora PostgreSQL engine version, used when engine = aurora-postgresql and engine_version is not set."
+}
+
+variable "mysql_engine_version" {
+  type = string
+  # Aurora MySQL versions are compound (8.4.mysql_aurora.8.4.7), so `loose`
+  # cannot order them — it would sort 8.4.10 below 8.4.7. An explicit regex is
+  # required.
+  # TODO: the custom.aurora-mysql-camunda datasource is not registered yet — it
+  # needs a customDatasources entry in camunda/infraex-common-config plus a
+  # workflow publishing aurora_mysql_versions.txt. Until then this annotation is
+  # inert. See camunda/team-infrastructure-experience#1209.
+  # renovate: datasource=custom.aurora-mysql-camunda depName=aurora-mysql versioning=regex:^(?<major>\d+)\.(?<minor>\d+)\.mysql_aurora\.(?<compatibility>\d+)\.(?<patch>\d+)\.(?<build>\d+)$
+  default     = "8.4.mysql_aurora.8.4.7"
+  description = "Default Aurora MySQL engine version, used when engine = aurora-mysql and engine_version is not set."
 }
 
 variable "auto_minor_version_upgrade" {
@@ -30,13 +55,13 @@ variable "database_name" {
 
 variable "master_username" {
   type        = string
-  description = "The username for the postgres admin user"
+  description = "The username for the database admin user"
   sensitive   = true
 }
 
 variable "master_password" {
   type        = string
-  description = "The password for the postgres admin user"
+  description = "The password for the database admin user"
   sensitive   = true
 }
 
@@ -44,6 +69,17 @@ variable "iam_auth_enabled" {
   type        = bool
   default     = true
   description = "Enable IAM database authentication"
+}
+
+variable "extra_wrapper_plugins" {
+  type        = list(string)
+  default     = []
+  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the jdbc_url. The module always sets 'failover' (and 'iam' when iam_auth_enabled), so list only the extras here, e.g. ['efm2', 'readWriteSplitting']. Order is preserved and duplicates of the built-in plugins are ignored."
+
+  validation {
+    condition     = alltrue([for p in var.extra_wrapper_plugins : can(regex("^[A-Za-z][A-Za-z0-9]*$", p))])
+    error_message = "extra_wrapper_plugins entries must be bare plugin codes (alphanumeric, no commas or spaces) — pass each plugin as its own list element."
+  }
 }
 
 variable "instance_class" {

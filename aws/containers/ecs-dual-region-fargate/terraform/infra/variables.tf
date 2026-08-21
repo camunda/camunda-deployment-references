@@ -49,6 +49,17 @@ variable "secondary_storage_type" {
   }
 }
 
+variable "db_engine" {
+  type        = string
+  default     = "postgresql"
+  description = "Aurora RDBMS engine for secondary storage: 'postgresql' or 'mysql'. Only applies when secondary_storage_type = 'rdbms' (inert otherwise). This reference architecture is validated on PostgreSQL; 'mysql' provisions an Aurora Global MySQL cluster for evaluation but running Camunda on MySQL is not covered here — the MySQL JDBC driver is never bundled in the Camunda image (licensing) and must be supplied at runtime, see https://docs.camunda.io/docs/next/self-managed/deployment/helm/configure/database/rdbms-jdbc-drivers/."
+
+  validation {
+    condition     = contains(["postgresql", "mysql"], var.db_engine)
+    error_message = "db_engine must be either 'postgresql' or 'mysql'."
+  }
+}
+
 ################################
 # Variables                    #
 ################################
@@ -83,7 +94,6 @@ variable "limit_access_to_cidrs" {
 variable "ports" {
   type = map(number)
   default = {
-    postgresql                            = 5432
     camunda_web_ui                        = 8080
     camunda_metrics_endpoint              = 9600
     zeebe_gateway_cluster_port            = 26502
@@ -105,16 +115,22 @@ variable "db_name" {
 
 variable "db_admin_username" {
   type        = string
-  description = "Admin username for the Aurora PostgreSQL cluster"
+  description = "Admin username for the Aurora cluster"
   default     = "camunda_admin"
   sensitive   = true
 }
 
 variable "db_admin_password" {
   type        = string
-  description = "Optional override for the Aurora PostgreSQL admin password. If empty, a random password is generated."
+  description = "Optional override for the Aurora admin password. If empty, a random password is generated."
   default     = ""
   sensitive   = true
+}
+
+variable "db_extra_wrapper_plugins" {
+  type        = list(string)
+  default     = []
+  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the generated JDBC URL. 'failover' (and 'iam' when db_iam_auth_enabled) are always set, so list only the extras, e.g. ['efm2']. Only applies when secondary_storage_type = 'rdbms'."
 }
 
 variable "db_iam_auth_enabled" {
