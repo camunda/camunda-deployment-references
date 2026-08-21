@@ -60,6 +60,8 @@ ANY_REF = re.compile(r"\$\{?(?P<name>INPUTS_[A-Z0-9_]+)\}?")
 
 MAPPING_KEY = re.compile(r"^(?P<indent> *)(?P<key>[A-Za-z_][\w.-]*):(?P<rest>.*)$")
 LIST_ITEM = re.compile(r"^(?P<indent> *)- (?P<rest>\S.*)$")
+# The `#` that ends a plain scalar: the start of the line, or after a space.
+COMMENT = re.compile(r"(?:^|(?<=\s))#")
 
 # `with:` inputs whose value is a script, so a shell reference is legitimate
 # there. Not a licence for an `env:` variable that happens to bear the name.
@@ -81,22 +83,39 @@ def is_structural(line: str) -> bool:
 def strip_comment(value: str) -> str:
     """Drop the trailing YAML comment, so a reference inside it is not a value.
 
-    YAML opens a comment on a `#` that starts a word outside quotes, so
-    `token: real-value # ${INPUTS_TOKEN}` carries no reference at all. Quoting
-    is tracked well enough for the values this repository writes; an escaped
-    quote inside a double-quoted scalar is not, and at worst ends the value
-    early, which only ever hides a finding.
+    A comment opens on a `#` that follows a space, so `token: real-value #
+    ${INPUTS_TOKEN}` carries no reference at all. Only a scalar that *starts*
+    with a quote is quoted, and there the comment can only follow the closing
+    quote; a quote met inside a plain scalar is an ordinary character and opens
+    nothing. An unterminated quote is a shape this check does not read, and the
+    value is left alone.
     """
-    quote = ""
-    for index, char in enumerate(value):
-        if quote:
-            if char == quote:
-                quote = ""
-        elif char in "\"'":
-            quote = char
-        elif char == "#" and (index == 0 or value[index - 1] in " \t"):
-            return value[:index].rstrip()
-    return value
+    if value[:1] in ('"', "'"):
+        end = closing_quote(value)
+        return value if end is None else value[: end + 1]
+    hit = COMMENT.search(value)
+    return value if hit is None else value[: hit.start()].rstrip()
+
+
+def closing_quote(value: str) -> int | None:
+    """The index of the quote that closes the scalar `value` opens with.
+
+    `\\"` escapes inside a double-quoted scalar, `''` inside a single-quoted one.
+    """
+    quote = value[0]
+    index = 1
+    while index < len(value):
+        char = value[index]
+        if quote == '"' and char == "\\":
+            index += 2
+            continue
+        if char == quote:
+            if quote == "'" and value[index + 1 : index + 2] == "'":
+                index += 2
+                continue
+            return index
+        index += 1
+    return None
 
 
 def block_body(lines: list[str], start: int, outer_indent: int) -> tuple[list[str], int]:

@@ -173,6 +173,46 @@ class TestLiteralValues(unittest.TestCase):
         )
         self.assertEqual(len(problems), 1)
 
+    def test_an_escaped_quote_does_not_reopen_the_value_over_the_comment(self):
+        self.assertEqual(
+            findings(
+                composite(
+                    """        - name: Plan
+          uses: ./.github/actions/other
+          with:
+              message: "say \\"hello\\"" # was ${INPUTS_RH_TOKEN}
+"""
+                )
+            ),
+            [],
+        )
+
+    def test_a_comment_after_a_plain_scalar_is_not_part_of_the_script(self):
+        self.assertEqual(
+            findings(
+                composite(
+                    """        - name: Plan
+          shell: bash
+          run: echo hello # once read ${INPUTS_RH_TOKEN}
+"""
+                )
+            ),
+            [],
+        )
+
+    def test_a_hash_inside_a_quoted_scalar_belongs_to_the_value(self):
+        problems = findings(
+            composite(
+                """        - name: Plan
+          uses: ./.github/actions/other
+          with:
+              message: "planning # with ${INPUTS_RH_TOKEN}"
+"""
+            )
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("literal string '${INPUTS_RH_TOKEN}'", problems[0])
+
     def test_the_script_exemption_does_not_extend_to_env(self):
         problems = findings(
             composite(
