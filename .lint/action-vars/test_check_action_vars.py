@@ -232,6 +232,48 @@ jobs:
             [],
         )
 
+    def test_accepts_a_job_level_declaration_inside_that_job(self):
+        self.assertEqual(
+            findings(
+                """---
+name: Test
+jobs:
+    build:
+        env:
+            INPUTS_AWS_REGION: eu-west-1
+        steps:
+            - name: Reader
+              run: |
+                  echo "${INPUTS_AWS_REGION}"
+"""
+            ),
+            [],
+        )
+
+    def test_one_job_env_does_not_reach_the_next_job(self):
+        problems = findings(
+            """---
+name: Test
+jobs:
+    build:
+        env:
+            INPUTS_AWS_REGION: eu-west-1
+        steps:
+            - name: Reader
+              run: |
+                  echo "${INPUTS_AWS_REGION}"
+
+    publish:
+        steps:
+            - name: Outsider
+              run: |
+                  echo "${INPUTS_AWS_REGION}"
+"""
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("Outsider", problems[0])
+        self.assertIn("reads ${INPUTS_AWS_REGION}", problems[0])
+
 
 class TestDeadDeclarations(unittest.TestCase):
     def test_rejects_a_declaration_the_step_never_reads(self):

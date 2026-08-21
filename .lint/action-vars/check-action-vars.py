@@ -197,19 +197,37 @@ def read_step(body: list[str], offset: int) -> Step:
 
 
 def outer_env_names(lines: list[str], step: Step) -> set[str]:
-    """Names from `env:` blocks shallower than the step: workflow and job level."""
+    """Names from `env:` blocks shallower than the step: workflow and job level.
+
+    A block counts only while the mapping that holds it is still open at the
+    step, so one job's `env:` never lends its names to the next job's steps.
+    """
     names: set[str] = set()
+    step_index = step.line - 1
     for number, line in enumerate(lines):
         match = MAPPING_KEY.match(line)
         if match is None or match.group("key") != "env" or match.group("rest").strip():
             continue
         block_indent = len(match.group("indent"))
-        if block_indent >= step.indent:
+        if block_indent >= step.indent or number > step_index:
+            continue
+        if not still_open(lines, number, step_index, block_indent):
             continue
         names.update(
             entry.key for entry in read_mapping(lines, number + 1, block_indent, 0)
         )
     return names
+
+
+def still_open(lines: list[str], start: int, target: int, indent: int) -> bool:
+    """True while the mapping holding `lines[start]` has not been closed by `target`.
+
+    A sibling key one level out — the next job under `jobs:` — ends it.
+    """
+    return not any(
+        is_structural(line) and indent_of(line) < indent
+        for line in lines[start + 1 : target + 1]
+    )
 
 
 def check_file(path: Path) -> list[str]:
