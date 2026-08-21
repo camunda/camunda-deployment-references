@@ -220,17 +220,36 @@ while read -r cluster; do
   echo "⏳ Waiting for cluster $cluster_name to be fully deregistered..."
   cluster_deregistered=false
   for i in $(seq 1 "$DEREGISTER_MAX_ATTEMPTS"); do
-    if rosa list clusters 2>/dev/null | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
-      if [ "$i" -lt "$DEREGISTER_MAX_ATTEMPTS" ]; then
-        echo "⏳ Cluster still registered, waiting ${DEREGISTER_INTERVAL}s... (attempt $i/${DEREGISTER_MAX_ATTEMPTS})"
-        sleep "$DEREGISTER_INTERVAL"
+    # Capture `rosa list clusters` separately so we can distinguish a
+    # transient failure (API/network hiccup) from a true "cluster not found".
+    # Piping it straight into grep loses the exit status: a failed list
+    # produces no output, grep does not match, and the cluster is declared
+    # deregistered -- which bypasses the guard below and deletes the installer
+    # role of a still-live cluster.
+    if cluster_list=$(rosa list clusters 2>/dev/null); then
+      # Here-string, not `echo ... | grep`: with pipefail a `grep -q` that
+      # matches early can kill the producer with SIGPIPE, making the pipeline
+      # exit 141 on a *successful* match -- which would take the "deregistered"
+      # branch for a cluster that is still there.
+      if grep -q "[[:space:]]${cluster_name}[[:space:]]" <<<"$cluster_list"; then
+        if [ "$i" -lt "$DEREGISTER_MAX_ATTEMPTS" ]; then
+          echo "⏳ Cluster still registered, waiting ${DEREGISTER_INTERVAL}s... (attempt $i/${DEREGISTER_MAX_ATTEMPTS})"
+          sleep "$DEREGISTER_INTERVAL"
+        else
+          echo "❌ Cluster $cluster_name is still registered after $i attempts"
+        fi
       else
-        echo "❌ Cluster $cluster_name is still registered after $i attempts"
+        echo "✅ Cluster $cluster_name is fully deregistered"
+        cluster_deregistered=true
+        break
       fi
+    elif [ "$i" -lt "$DEREGISTER_MAX_ATTEMPTS" ]; then
+      echo "⚠️ rosa list clusters failed transiently, retrying in ${DEREGISTER_INTERVAL}s... (attempt $i/${DEREGISTER_MAX_ATTEMPTS})"
+      sleep "$DEREGISTER_INTERVAL"
     else
-      echo "✅ Cluster $cluster_name is fully deregistered"
-      cluster_deregistered=true
-      break
+      # Last attempt: sleeping would delay every cluster for nothing, and
+      # claiming a retry that cannot happen misreads the log.
+      echo "❌ rosa list clusters still failing after $i attempts; cannot confirm deregistration."
     fi
   done
 
