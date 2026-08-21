@@ -227,7 +227,11 @@ while read -r cluster; do
     # deregistered -- which bypasses the guard below and deletes the installer
     # role of a still-live cluster.
     if cluster_list=$(rosa list clusters 2>/dev/null); then
-      if echo "$cluster_list" | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
+      # Here-string, not `echo ... | grep`: with pipefail a `grep -q` that
+      # matches early can kill the producer with SIGPIPE, making the pipeline
+      # exit 141 on a *successful* match -- which would take the "deregistered"
+      # branch for a cluster that is still there.
+      if grep -q "[[:space:]]${cluster_name}[[:space:]]" <<<"$cluster_list"; then
         if [ "$i" -lt "$DEREGISTER_MAX_ATTEMPTS" ]; then
           echo "⏳ Cluster still registered, waiting ${DEREGISTER_INTERVAL}s... (attempt $i/${DEREGISTER_MAX_ATTEMPTS})"
           sleep "$DEREGISTER_INTERVAL"
@@ -239,9 +243,13 @@ while read -r cluster; do
         cluster_deregistered=true
         break
       fi
-    else
+    elif [ "$i" -lt "$DEREGISTER_MAX_ATTEMPTS" ]; then
       echo "⚠️ rosa list clusters failed transiently, retrying in ${DEREGISTER_INTERVAL}s... (attempt $i/${DEREGISTER_MAX_ATTEMPTS})"
       sleep "$DEREGISTER_INTERVAL"
+    else
+      # Last attempt: sleeping would delay every cluster for nothing, and
+      # claiming a retry that cannot happen misreads the log.
+      echo "❌ rosa list clusters still failing after $i attempts; cannot confirm deregistration."
     fi
   done
 
