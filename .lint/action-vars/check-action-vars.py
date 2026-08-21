@@ -22,7 +22,8 @@ leaves the reader with the variable unset and the declaration dead. Under
 
 Three rules, all cheap to state:
 
-1. no shell-style `${UPPER_CASE}` in an `env:` or `with:` value;
+1. no shell-style `${UPPER_CASE}` in an `env:` or `with:` value — at any level,
+   a workflow- or job-wide `env:` stores the literal just as a step's does;
 2. every `INPUTS_*` a step reads is declared in scope;
 3. every `INPUTS_*` a step declares is read by that step.
 
@@ -51,15 +52,17 @@ TARGETS = (Path(".github/workflows"), Path(".github/actions"))
 
 # `oc: ${INPUTS_OPENSHIFT_VERSION}` but not `oc: ${{ inputs.openshift-version }}`
 SHELL_VAR = re.compile(r"\$\{(?!\{)(?P<name>[A-Z_][A-Z0-9_]*)\}")
-# `"$INPUTS_TAGS"` — the unbraced form, only when it is the whole value.
-BARE_VAR = re.compile(r"^\"?\$(?P<name>[A-Z_][A-Z0-9_]*)\"?$")
+# `"$INPUTS_TAGS"` — the unbraced form, only when it is the whole value. Either
+# YAML quote style, or none; a lone quote is a shape this check does not read.
+BARE_VAR = re.compile(r"^(?P<quote>[\"']?)\$(?P<name>[A-Z_][A-Z0-9_]*)(?P=quote)$")
 # Any reference, braced or not, as a script reads it.
 ANY_REF = re.compile(r"\$\{?(?P<name>INPUTS_[A-Z0-9_]+)\}?")
 
 MAPPING_KEY = re.compile(r"^(?P<indent> *)(?P<key>[A-Za-z_][\w.-]*):(?P<rest>.*)$")
 LIST_ITEM = re.compile(r"^(?P<indent> *)- (?P<rest>\S.*)$")
 
-# Inputs whose value is a script, so a shell-style reference is legitimate.
+# `with:` inputs whose value is a script, so a shell reference is legitimate
+# there. Not a licence for an `env:` variable that happens to bear the name.
 SCRIPT_KEYS = frozenset({"run", "command", "script"})
 
 LITERAL_ESCAPE = "lint: literal-var"
@@ -73,6 +76,27 @@ def indent_of(line: str) -> int:
 def is_structural(line: str) -> bool:
     stripped = line.strip()
     return bool(stripped) and not stripped.startswith("#")
+
+
+def strip_comment(value: str) -> str:
+    """Drop the trailing YAML comment, so a reference inside it is not a value.
+
+    YAML opens a comment on a `#` that starts a word outside quotes, so
+    `token: real-value # ${INPUTS_TOKEN}` carries no reference at all. Quoting
+    is tracked well enough for the values this repository writes; an escaped
+    quote inside a double-quoted scalar is not, and at worst ends the value
+    early, which only ever hides a finding.
+    """
+    quote = ""
+    for index, char in enumerate(value):
+        if quote:
+            if char == quote:
+                quote = ""
+        elif char in "\"'":
+            quote = char
+        elif char == "#" and (index == 0 or value[index - 1] in " \t"):
+            return value[:index].rstrip()
+    return value
 
 
 def block_body(lines: list[str], start: int, outer_indent: int) -> tuple[list[str], int]:
@@ -133,6 +157,8 @@ def read_mapping(lines: list[str], start: int, outer_indent: int, offset: int) -
         if rest.startswith("|") or rest.startswith(">"):
             scalar, index = block_body(body, index, inner_indent)
             rest = "\n".join(scalar)
+        else:
+            rest = strip_comment(rest)
         entries.append(Entry(match.group("key"), rest, offset + here + 1, line))
     return entries
 
@@ -192,15 +218,17 @@ def read_step(body: list[str], offset: int) -> Step:
                 scalar, index = block_body(flattened, index, key_indent)
                 step.scripts.append("\n".join(scalar))
             else:
-                step.scripts.append(rest)
+                step.scripts.append(strip_comment(rest))
     return step
 
 
 def outer_env_names(lines: list[str], step: Step) -> set[str]:
     """Names from `env:` blocks shallower than the step: workflow and job level.
 
-    A block counts only while the mapping that holds it is still open at the
-    step, so one job's `env:` never lends its names to the next job's steps.
+    Scope is structural, not positional: the block counts when the mapping that
+    holds it also holds the step, whether it is written above `steps:` or below
+    it — both are in scope for GitHub. One job's `env:` still never lends its
+    names to the next job's steps, because a dedent closes the mapping first.
     """
     names: set[str] = set()
     step_index = step.line - 1
@@ -209,9 +237,10 @@ def outer_env_names(lines: list[str], step: Step) -> set[str]:
         if match is None or match.group("key") != "env" or match.group("rest").strip():
             continue
         block_indent = len(match.group("indent"))
-        if block_indent >= step.indent or number > step_index:
+        if block_indent >= step.indent:
             continue
-        if not still_open(lines, number, step_index, block_indent):
+        start, end = mapping_region(lines, number, block_indent)
+        if not start <= step_index < end:
             continue
         names.update(
             entry.key for entry in read_mapping(lines, number + 1, block_indent, 0)
@@ -219,43 +248,88 @@ def outer_env_names(lines: list[str], step: Step) -> set[str]:
     return names
 
 
-def still_open(lines: list[str], start: int, target: int, indent: int) -> bool:
-    """True while the mapping holding `lines[start]` has not been closed by `target`.
+def outer_env_entries(lines: list[str], owned: set[int]) -> list[Entry]:
+    """Every `env:` entry no step owns — the workflow- and job-level blocks.
 
-    A sibling key one level out — the next job under `jobs:` — ends it.
+    `owned` holds the line of each entry already read as part of a step, so an
+    entry is reported once and against the step it belongs to.
     """
-    return not any(
-        is_structural(line) and indent_of(line) < indent
-        for line in lines[start + 1 : target + 1]
+    entries: list[Entry] = []
+    for number, line in enumerate(lines):
+        match = MAPPING_KEY.match(line)
+        if match is None or match.group("key") != "env" or match.group("rest").strip():
+            continue
+        block_indent = len(match.group("indent"))
+        entries.extend(
+            entry
+            for entry in read_mapping(lines, number + 1, block_indent, 0)
+            if entry.line not in owned
+        )
+    return entries
+
+
+def mapping_region(lines: list[str], index: int, indent: int) -> tuple[int, int]:
+    """The span of the mapping holding `lines[index]`, as `[start, end)`.
+
+    The mapping ends wherever a structural line dedents out of it — the next job
+    under `jobs:`, say — looking in both directions from the key.
+    """
+    start = index
+    while start > 0:
+        previous = lines[start - 1]
+        if is_structural(previous) and indent_of(previous) < indent:
+            break
+        start -= 1
+    end = index + 1
+    while end < len(lines):
+        line = lines[end]
+        if is_structural(line) and indent_of(line) < indent:
+            break
+        end += 1
+    return start, end
+
+
+def literal_value(path: Path, entry: Entry, where: str) -> str | None:
+    """Rule 1: the value GitHub stores verbatim instead of expanding."""
+    if LITERAL_ESCAPE in entry.raw:
+        return None
+    hit = SHELL_VAR.search(entry.value) or BARE_VAR.match(entry.value.strip())
+    if hit is None:
+        return None
+    return (
+        f"{path}:{entry.line}: {where}: '{entry.key}' is set to "
+        f"the literal string '${{{hit.group('name')}}}'. GitHub only "
+        f"expands ${{{{ ... }}}} here; use the expression, or add "
+        f"'# {LITERAL_ESCAPE}' if the literal is intended."
     )
 
 
 def check_file(path: Path) -> list[str]:
     lines = path.read_text().splitlines()
-    problems: list[str] = []
-    for step in read_steps(lines):
+    found: list[tuple[int, str]] = []
+    steps = read_steps(lines)
+    for step in steps:
         declared = {entry.key for entry in step.env} | outer_env_names(lines, step)
         script = "\n".join(step.scripts)
 
-        for entry in step.env + step.with_:
-            if entry.key in SCRIPT_KEYS or LITERAL_ESCAPE in entry.raw:
-                continue
-            hit = SHELL_VAR.search(entry.value) or BARE_VAR.match(entry.value.strip())
-            if hit is None:
-                continue
-            problems.append(
-                f"{path}:{entry.line}: step '{step.name}': '{entry.key}' is set to "
-                f"the literal string '${{{hit.group('name')}}}'. GitHub only "
-                f"expands ${{{{ ... }}}} here; use the expression, or add "
-                f"'# {LITERAL_ESCAPE}' if the literal is intended."
-            )
+        # `with:` carries the scripts of the actions this repository calls, and a
+        # shell reference is what those are meant to hold; `env:` never is.
+        for entry in step.env + [
+            entry for entry in step.with_ if entry.key not in SCRIPT_KEYS
+        ]:
+            problem = literal_value(path, entry, f"step '{step.name}'")
+            if problem is not None:
+                found.append((entry.line, problem))
 
         for name in sorted(set(ANY_REF.findall(script))):
             if name not in declared:
-                problems.append(
-                    f"{path}:{step.line}: step '{step.name}': reads ${{{name}}} but "
-                    f"no env in scope declares it. An env block that belongs to "
-                    f"this step is probably attached to another one."
+                found.append(
+                    (
+                        step.line,
+                        f"{path}:{step.line}: step '{step.name}': reads ${{{name}}} "
+                        f"but no env in scope declares it. An env block that belongs "
+                        f"to this step is probably attached to another one.",
+                    )
                 )
 
         for entry in step.env:
@@ -263,12 +337,21 @@ def check_file(path: Path) -> list[str]:
                 continue
             if re.search(rf"\$\{{?{re.escape(entry.key)}\b}}?", script):
                 continue
-            problems.append(
-                f"{path}:{entry.line}: step '{step.name}': declares {entry.key} but "
-                f"never reads it. Move it to the step that does, or add "
-                f"'# {EXTERNAL_ESCAPE}' if a script it calls consumes it."
+            found.append(
+                (
+                    entry.line,
+                    f"{path}:{entry.line}: step '{step.name}': declares {entry.key} "
+                    f"but never reads it. Move it to the step that does, or add "
+                    f"'# {EXTERNAL_ESCAPE}' if a script it calls consumes it.",
+                )
             )
-    return problems
+
+    owned = {entry.line for step in steps for entry in step.env}
+    for entry in outer_env_entries(lines, owned):
+        problem = literal_value(path, entry, "env block")
+        if problem is not None:
+            found.append((entry.line, problem))
+    return [problem for _, problem in sorted(found, key=lambda item: item[0])]
 
 
 def main() -> int:
