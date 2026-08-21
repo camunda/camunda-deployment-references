@@ -136,7 +136,11 @@ while read -r cluster; do
     # not match, and the cluster would be declared deregistered -- which is
     # exactly the path that deletes the installer role of a live cluster.
     if cluster_list=$(rosa list clusters 2>/dev/null); then
-      if echo "$cluster_list" | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
+      # Here-string, not `echo ... | grep`: with pipefail a `grep -q` that
+      # matches early can kill the producer with SIGPIPE, making the pipeline
+      # exit 141 on a *successful* match -- which would take the "deregistered"
+      # branch for a cluster that is still there.
+      if grep -q "[[:space:]]${cluster_name}[[:space:]]" <<<"$cluster_list"; then
         if [ "$i" -lt 30 ]; then
           echo "⏳ Cluster still registered, waiting 30s... (attempt $i/30)"
           sleep 30
@@ -148,9 +152,13 @@ while read -r cluster; do
         cluster_deregistered=true
         break
       fi
-    else
+    elif [ "$i" -lt 30 ]; then
       echo "⚠️ rosa list clusters failed transiently, retrying in 30s... (attempt $i/30)"
       sleep 30
+    else
+      # Last attempt: sleeping would delay every cluster for nothing, and
+      # claiming a retry that cannot happen misreads the log.
+      echo "❌ rosa list clusters still failing after $i attempts; cannot confirm deregistration."
     fi
   done
 
