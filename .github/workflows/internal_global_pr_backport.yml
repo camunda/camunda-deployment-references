@@ -72,6 +72,7 @@ jobs:
             # they trigger the usual `pull_request` workflows, so a backport whose paths
             # match an integration test suite will now run it.
             - name: Create backport PRs
+              id: backport
               uses: korthout/backport-action@2e830a1d0b8269505846ddd407a70876913ad1f8 # v4.6.0
               with:
                   github_token: ${{ steps.generate-github-token.outputs.token }}
@@ -89,6 +90,32 @@ jobs:
                       Backport of #${pull_number} to `${target_branch}`.
 
                       relates to ${issue_refs}
+
+            # The title of a backport is the source title verbatim, so a source merged
+            # with the ` [ready]` tag this repository appends to a validated pull request
+            # hands that tag to a backport nobody has looked at: conflict markers
+            # committed by `draft_commit_conflicts`, no review, and a title claiming the
+            # opposite. The tag cannot be filtered inside `pull_title` -- it is a template
+            # over the raw title -- so it is dropped here, before anyone reads it.
+            - name: Drop the readiness tag from the backport titles
+              if: steps.backport.outputs.created_pull_numbers != ''
+              env:
+                  CREATED_PULL_NUMBERS: ${{ steps.backport.outputs.created_pull_numbers }}
+                  GH_TOKEN: ${{ steps.generate-github-token.outputs.token }}
+                  REPOSITORY: ${{ github.repository }}
+              run: |
+                  set -euo pipefail
+
+                  read -ra numbers <<< "${CREATED_PULL_NUMBERS}"
+                  for number in "${numbers[@]}"; do
+                      title=$(gh pr view "${number}" --repo "${REPOSITORY}" --json title --jq .title)
+                      untagged=${title%" [ready]"}
+                      if [ "${untagged}" = "${title}" ]; then
+                          continue
+                      fi
+                      echo "Retitling #${number}: ${title} -> ${untagged}"
+                      gh pr edit "${number}" --repo "${REPOSITORY}" --title "${untagged}"
+                  done
 
             - name: Notify in Slack in case of failure
               id: slack-notification
