@@ -59,6 +59,8 @@ BARE_VAR = re.compile(r"^(?P<quote>[\"']?)\$(?P<name>[A-Z_][A-Z0-9_]*)(?P=quote)
 ANY_REF = re.compile(r"\$\{?(?P<name>INPUTS_[A-Z0-9_]+)\}?")
 
 MAPPING_KEY = re.compile(r"^(?P<indent> *)(?P<key>[A-Za-z_][\w.-]*):(?P<rest>.*)$")
+# The same, list item included, to find where a block scalar opens.
+SCALAR_KEY = re.compile(r"^(?P<indent> *)(?P<dash>- )?(?P<key>[A-Za-z_][\w.-]*):(?P<rest>.*)$")
 LIST_ITEM = re.compile(r"^(?P<indent> *)- (?P<rest>\S.*)$")
 # The `#` that ends a plain scalar: the start of the line, or after a space.
 COMMENT = re.compile(r"(?:^|(?<=\s))#")
@@ -182,11 +184,51 @@ def read_mapping(lines: list[str], start: int, outer_indent: int, offset: int) -
     return entries
 
 
-def read_steps(lines: list[str]) -> list[Step]:
+def block_key(line: str, name: str) -> re.Match | None:
+    """The `name:` that opens a block on this line, a trailing comment aside.
+
+    `env: # set by the caller` opens a mapping exactly as a bare `env:` does;
+    `env: |` does not, and neither does any key of another name.
+    """
+    match = MAPPING_KEY.match(line)
+    if match is None or match.group("key") != name:
+        return None
+    if strip_comment(match.group("rest").strip()):
+        return None
+    return match
+
+
+def scalar_lines(lines: list[str]) -> set[int]:
+    """The indices inside a block scalar, where YAML-looking text is only text.
+
+    A `run: |` that writes a manifest holds `env:` and `steps:` lines that
+    belong to the manifest, not to the workflow, and reading them as structure
+    is how a scanner invents a finding.
+    """
+    inside: set[int] = set()
+    index = 0
+    while index < len(lines):
+        match = SCALAR_KEY.match(lines[index])
+        index += 1
+        if match is None:
+            continue
+        rest = match.group("rest").strip()
+        if not rest.startswith("|") and not rest.startswith(">"):
+            continue
+        key_indent = len(match.group("indent")) + (2 if match.group("dash") else 0)
+        _, end = block_body(lines, index, key_indent)
+        inside.update(range(index, end))
+        index = end
+    return inside
+
+
+def read_steps(lines: list[str], inside: set[int] | None = None) -> list[Step]:
+    if inside is None:
+        inside = scalar_lines(lines)
     steps: list[Step] = []
     for number, line in enumerate(lines):
-        match = MAPPING_KEY.match(line)
-        if match is None or match.group("key") != "steps" or match.group("rest").strip():
+        match = block_key(line, "steps")
+        if match is None or number in inside:
             continue
         body, _ = block_body(lines, number + 1, len(match.group("indent")))
         steps.extend(read_step_block(body, number + 1))
@@ -223,7 +265,7 @@ def read_step(body: list[str], offset: int) -> Step:
         rest = match.group("rest").strip()
         if key == "name":
             step.name = rest.strip("'\"")
-        elif key in ("env", "with") and not rest:
+        elif key in ("env", "with") and not strip_comment(rest):
             entries = read_mapping(flattened, index, key_indent, offset)
             if key == "env":
                 step.env = entries
@@ -241,7 +283,7 @@ def read_step(body: list[str], offset: int) -> Step:
     return step
 
 
-def outer_env_names(lines: list[str], step: Step) -> set[str]:
+def outer_env_names(lines: list[str], step: Step, inside: set[int]) -> set[str]:
     """Names from `env:` blocks shallower than the step: workflow and job level.
 
     Scope is structural, not positional: the block counts when the mapping that
@@ -252,8 +294,8 @@ def outer_env_names(lines: list[str], step: Step) -> set[str]:
     names: set[str] = set()
     step_index = step.line - 1
     for number, line in enumerate(lines):
-        match = MAPPING_KEY.match(line)
-        if match is None or match.group("key") != "env" or match.group("rest").strip():
+        match = block_key(line, "env")
+        if match is None or number in inside:
             continue
         block_indent = len(match.group("indent"))
         if block_indent >= step.indent:
@@ -267,7 +309,7 @@ def outer_env_names(lines: list[str], step: Step) -> set[str]:
     return names
 
 
-def outer_env_entries(lines: list[str], owned: set[int]) -> list[Entry]:
+def outer_env_entries(lines: list[str], owned: set[int], inside: set[int]) -> list[Entry]:
     """Every `env:` entry no step owns — the workflow- and job-level blocks.
 
     `owned` holds the line of each entry already read as part of a step, so an
@@ -275,8 +317,8 @@ def outer_env_entries(lines: list[str], owned: set[int]) -> list[Entry]:
     """
     entries: list[Entry] = []
     for number, line in enumerate(lines):
-        match = MAPPING_KEY.match(line)
-        if match is None or match.group("key") != "env" or match.group("rest").strip():
+        match = block_key(line, "env")
+        if match is None or number in inside:
             continue
         block_indent = len(match.group("indent"))
         entries.extend(
@@ -326,9 +368,10 @@ def literal_value(path: Path, entry: Entry, where: str) -> str | None:
 def check_file(path: Path) -> list[str]:
     lines = path.read_text().splitlines()
     found: list[tuple[int, str]] = []
-    steps = read_steps(lines)
+    inside = scalar_lines(lines)
+    steps = read_steps(lines, inside)
     for step in steps:
-        declared = {entry.key for entry in step.env} | outer_env_names(lines, step)
+        declared = {entry.key for entry in step.env} | outer_env_names(lines, step, inside)
         script = "\n".join(step.scripts)
 
         # `with:` carries the scripts of the actions this repository calls, and a
@@ -366,7 +409,7 @@ def check_file(path: Path) -> list[str]:
             )
 
     owned = {entry.line for step in steps for entry in step.env}
-    for entry in outer_env_entries(lines, owned):
+    for entry in outer_env_entries(lines, owned, inside):
         problem = literal_value(path, entry, "env block")
         if problem is not None:
             found.append((entry.line, problem))

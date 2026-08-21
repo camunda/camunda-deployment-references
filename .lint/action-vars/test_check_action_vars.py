@@ -76,6 +76,38 @@ class TestParsing(unittest.TestCase):
         offending = source.splitlines().index("              oc: ${INPUTS_OPENSHIFT_VERSION}") + 1
         self.assertIn(f":{offending}:", problem)
 
+    def test_a_commented_key_still_opens_its_block(self):
+        problems = findings(
+            composite(
+                """        - name: Plan
+          shell: bash
+          env: # the caller sets these
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
+          run: |
+              echo hello
+"""
+            )
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("declares INPUTS_RH_TOKEN but never reads it", problems[0])
+
+    def test_yaml_written_by_a_script_is_text_and_not_structure(self):
+        source = composite(
+            """        - name: Apply
+          shell: bash
+          run: |
+              cat <<'EOF' | kubectl apply -f -
+              spec:
+                  steps:
+                      - name: Ghost
+                        env:
+                            BAD: ${SOME_VALUE}
+              EOF
+"""
+        )
+        self.assertEqual(findings(source), [])
+        self.assertEqual([step.name for step in read_steps(source.splitlines())], ["Apply"])
+
 
 class TestLiteralValues(unittest.TestCase):
     def test_rejects_a_shell_variable_under_with(self):
