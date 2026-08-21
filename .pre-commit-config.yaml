@@ -105,10 +105,6 @@ repos:
             files: ^\.lint/cleanup-coverage/.*\.py$
             pass_filenames: false
 
-<<<<<<< HEAD
-    - repo: https://github.com/dnephin/pre-commit-golang
-      rev: v0.5.1
-=======
           - id: action-vars
             name: Action variables resolve where they are written
             entry: .lint/action-vars/check-action-vars.py
@@ -125,9 +121,8 @@ repos:
             files: ^\.lint/action-vars/.*\.py$
             pass_filenames: false
 
-    - repo: https://github.com/tekwizely/pre-commit-golang
-      rev: v1.0.0-rc.4
->>>>>>> 513b5b0 (ci(lint): fail on a variable that cannot resolve where it is written [ready] (#3195))
+    - repo: https://github.com/dnephin/pre-commit-golang
+      rev: v0.5.1
       hooks:
           - id: go-fmt
           - id: no-go-testing
