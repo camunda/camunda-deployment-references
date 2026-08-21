@@ -8,10 +8,11 @@ on:
         inputs:
             active_region_count:
                 description: |
-                    Number of region slots to deploy. 2 exercises the growth path (a spare slot
-                    is activated during the run), 3 deploys everything up front.
+                    Number of region slots to deploy. 3 deploys every slot up front, which is the
+                    default. 2 leaves a slot empty so the run exercises the growth path, which is
+                    what TestMultiRegionActivateRegion is there to prove.
                 required: false
-                default: '2'
+                default: '3'
             debug_tmate:
                 description: |
                     Hold the runner open on an SSH session once the tests are done, before the
@@ -74,8 +75,13 @@ env:
     # declared in camunda/infraex-common-config before this workflow can pass.
     REF_ARCH: eks-multi-region-rdbms
 
-    # Bootstrap with one spare region slot so the run exercises the online growth path.
-    ACTIVE_REGION_COUNT: ${{ github.event.inputs.active_region_count || '2' }}
+    # Deploy every region slot. A listed zone that is not deployed leaves its
+    # partition replicas reserved against a member that cannot answer, and the
+    # cluster stalls configuring partitions on it instead of settling at N-1 of
+    # N. Growing a cluster online is a real capability, but it is what
+    # TestMultiRegionActivateRegion has to prove -- it is not a precondition for
+    # everything else, so the default run no longer depends on it.
+    ACTIVE_REGION_COUNT: ${{ github.event.inputs.active_region_count || '3' }}
 
     CAMUNDA_NAMESPACE: camunda
     CAMUNDA_RELEASE_NAME: camunda

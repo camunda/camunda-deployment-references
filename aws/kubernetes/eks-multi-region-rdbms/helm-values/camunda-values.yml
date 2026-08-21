@@ -42,11 +42,16 @@ global:
         # them in zoned mode -- constraints.tpl fails the render with
         # "cannot be used with zoned mode" -- because the StatefulSet sizes
         # itself from this zone's own numberOfBrokers, not from a division.
-        # Every zone of the cluster, including any not deployed yet. Listing a
-        # zone before it exists is deliberate: its replicas are reserved, so
-        # each partition runs at N-1 of N until the zone is filled, which is a
-        # majority and therefore a working cluster. See "Zones vs active
-        # regions" in ../README.md.
+        # Every zone of the cluster. List only zones that are actually
+        # deployed: a listed zone that does not exist has its partition
+        # replicas reserved against a member nothing can reach, and the cluster
+        # stalls configuring partitions on it rather than settling at N-1 of N.
+        # Observed as brokers that never join, with
+        #   Expected to send a message with subject 'default-partition-1-configure'
+        #   to member 'zurich_0', but member is not known.
+        # Growing the cluster means extending this list when a zone is
+        # activated, which is what procedure/activate-region.sh does and what
+        # TestMultiRegionActivateRegion is there to prove.
         #
         # Priority skews Raft leadership. Zone 0 gets the highest because it
         # hosts the Aurora writer, and keeping leaders next to the writer is

@@ -89,17 +89,33 @@ export CAMUNDA_CLUSTER_INITIALCONTACTPOINTS="$contact_points"
 ###############################################################################
 # Zone list                                                                   #
 #                                                                             #
-# Every SLOT is listed, including one not deployed yet. That is what makes the #
-# growth path non-disruptive: the partition layout already reserves the        #
-# missing zone's replicas, so each partition runs at N-1 of N -- a majority -- #
-# and activating the zone fills them in without redistributing anything.       #
+# Only DEPLOYED zones are listed. Listing a zone that does not exist yet was   #
+# assumed to reserve its replicas and leave each partition running at N-1 of   #
+# N -- a majority, so a working cluster. That is not what happens: the cluster #
+# stalls configuring partitions on the absent member and never converges.      #
+#                                                                             #
+#   Expected to send a message with subject 'default-partition-1-configure'    #
+#   to member 'zurich_0', but member is not known.                             #
+#                                                                             #
+# Growth therefore means EXTENDING this list when a zone is activated, and     #
+# telling the RUNNING cluster about it: rendering the longer list only reaches #
+# the region being installed. ./activate-region.sh does the first half and not #
+# yet the second: it has no POST /actuator/cluster/zones/<zone>, so a newly    #
+# activated zone stays unknown to the regions already up. failback.sh already  #
+# carries the primitive that closes this. Until it lands, the growth test      #
+# TestMultiRegionActivateRegion is expected to fail, which is the other reason #
+# active_region_count now defaults to every slot: the growth path becomes      #
+# opt-in instead of sitting on the way to every other scenario.                #
+#                                                                             #
+# The direction matches how the zone-aware documentation frames it: zones are  #
+# added dynamically, rather than pre-declared and filled in.                   #
 #                                                                             #
 # Emitted as JSON so that ../helm-values/camunda-values.yml stays valid YAML   #
 # as a template, rather than only after substitution.                          #
 ###############################################################################
 
 zones_json=""
-for ((i = 0; i < CAMUNDA_REGION_SLOTS; i++)); do
+for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     zone_name="${zone_names[$i]:-}"
     if [ -z "$zone_name" ]; then
         echo "ERROR: CAMUNDA_ZONE_NAMES has no entry for zone slot $i." >&2
