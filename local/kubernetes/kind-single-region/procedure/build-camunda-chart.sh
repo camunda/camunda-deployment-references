@@ -66,7 +66,8 @@ _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda
 # override wrapper is not cleanly matchable). A camunda-platform-helm release tag carries
 # the previous version in its Chart.yaml (tag N ships version N-1), so the built chart is
 # one prerelease behind the tag name — intentional; it's the known-good set the tests validate.
-# renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$
+# Parked: pre-GA alpha chart until 8.10 GA.
+# renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$ renovate-inert-ok
 _chart_default_git_ref="camunda-platform-8.10-15.0.0-alpha3"
 # TODO: [release-duty] bump the 8.10 pin above as the 15.x line advances (keep in sync with CAMUNDA_HELM_CHART_VERSION and the helm-values).
 _chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-$_chart_default_git_ref}"
