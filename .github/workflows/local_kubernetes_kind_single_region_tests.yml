@@ -3,6 +3,10 @@ name: Tests - Integration - Local Kubernetes Kind Single Region
 
 permissions:
     contents: read
+<<<<<<< HEAD
+=======
+    pull-requests: write # allow PR comments and labels
+>>>>>>> 3824d93 (ci: onboard Kind integration tests for build monitoring (#2975))
 
 on:
     schedule:
@@ -15,7 +19,15 @@ on:
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-camunda-chart-tests/**
+<<<<<<< HEAD
             - .github/actions/observe-build-status/**
+=======
+            - .github/actions/internal-helm-deprecation-check/**
+            - .github/actions/camunda-smoke-test/**
+            - .github/actions/internal-integration-tests/**
+            - .github/actions/observe-build-status/**
+            - generic/kubernetes/single-region/tests/integration/**
+>>>>>>> 3824d93 (ci: onboard Kind integration tests for build monitoring (#2975))
             - .tool-versions
             - local/kubernetes/kind-single-region/**
     workflow_dispatch:
@@ -93,7 +105,11 @@ jobs:
             CAMUNDA_RELEASE_NAME: camunda
             TEST_CLUSTER_TYPE: kubernetes
         steps:
+<<<<<<< HEAD
             - uses: camunda/infra-global-github-actions/start-build-monitor@787bec31b4ae6b70702321d0331676e88cfea9c5 # main
+=======
+            - uses: camunda/infra-global-github-actions/start-build-monitor@02b3f0e49b00b98fffc76af690ebc83c28f24dae # main
+>>>>>>> 3824d93 (ci: onboard Kind integration tests for build monitoring (#2975))
 
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
