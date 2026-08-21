@@ -513,6 +513,10 @@
     {
       "version": "9.5.1-debian-12-r1",
       "newDigest": "sha256:e0aed2bcf92ad3edd02db11c6d1a0175a50ef4df351b130aec3a9594b562e197"
+    },
+    {
+      "version": "9.5.2-debian-12-r0",
+      "newDigest": "sha256:f533f7b5bd3c1b44feb06002c7764e8176f928b8e37eaa6af0960533ea753400"
     }
   ]
 }
