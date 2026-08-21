@@ -1,0 +1,1 @@
+../../eks-single-region/procedure/install-ingress-nginx.sh

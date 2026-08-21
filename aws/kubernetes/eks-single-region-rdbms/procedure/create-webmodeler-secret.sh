@@ -1,0 +1,1 @@
+../../eks-single-region/procedure/create-webmodeler-secret.sh
