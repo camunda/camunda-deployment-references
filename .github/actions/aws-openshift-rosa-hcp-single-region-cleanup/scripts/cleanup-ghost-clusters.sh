@@ -69,7 +69,19 @@ echo "📦 Ensuring ocm-role exists..."
 rosa create ocm-role --mode auto --yes
 
 # Fetch clusters matching the criteria (if no node pool and error reported)
-raw_clusters=$(rosa list cluster --output json | jq '[.[] | select((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1 or .status.state == "error")]')
+# A cluster is a candidate when it shows one of the shapes a failed teardown
+# leaves behind:
+#   - a ghost: no node pool left and a single limited-support reason;
+#   - error;
+#   - uninstalling, i.e. a deletion that started and never finished.
+# `uninstalling` matters because the guard below defers a still-registered
+# cluster to "the next run": without this shape that run would never select it
+# again, and the deferral would silently mean "never".
+raw_clusters=$(rosa list cluster --output json | jq '[.[] | select(
+     ((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1)
+  or (.status.state == "error")
+  or (.status.state == "uninstalling")
+)]')
 
 # Check if there are any clusters
 cluster_count=$(echo "$raw_clusters" | jq 'length')
