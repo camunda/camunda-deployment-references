@@ -69,7 +69,19 @@ echo "📦 Ensuring ocm-role exists..."
 rosa create ocm-role --mode auto --yes
 
 # Fetch clusters matching the criteria (if no node pool and error reported)
-raw_clusters=$(rosa list cluster --output json | jq '[.[] | select((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1 or .status.state == "error")]')
+# A cluster is a candidate when it shows one of the shapes a failed teardown
+# leaves behind:
+#   - a ghost: no node pool left and a single limited-support reason;
+#   - error;
+#   - uninstalling, i.e. a deletion that started and never finished.
+# `uninstalling` matters because the guard below defers a still-registered
+# cluster to "the next run": without this shape that run would never select it
+# again, and the deferral would silently mean "never".
+raw_clusters=$(rosa list cluster --output json | jq '[.[] | select(
+     ((.node_pools.items | length == 0) and .status.limited_support_reason_count == 1)
+  or (.status.state == "error")
+  or (.status.state == "uninstalling")
+)]')
 
 # Check if there are any clusters
 cluster_count=$(echo "$raw_clusters" | jq 'length')
@@ -79,7 +91,8 @@ if [ "$cluster_count" -eq 0 ]; then
   exit 0
 fi
 
-echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
+FAILED=0
+while read -r cluster; do
   cluster_id=$(echo "$cluster" | jq -r '.id')
   cluster_name=$(echo "$cluster" | jq -r '.name')
   region_id=$(echo "$cluster" | jq -r '.region.id')
@@ -117,61 +130,58 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
   echo "⏳ Waiting for cluster $cluster_name to be fully deregistered..."
   cluster_deregistered=false
   for i in $(seq 1 30); do
-    if rosa list clusters 2>/dev/null | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
-      if [ "$i" -lt 30 ]; then
-        echo "⏳ Cluster still registered, waiting 30s... (attempt $i/30)"
-        sleep 30
+    # Capture `rosa list clusters` separately so a transient failure (API or
+    # auth hiccup) is not read as "cluster not found". Piping it straight into
+    # grep loses the exit status: a failed list produces no output, grep does
+    # not match, and the cluster would be declared deregistered -- which is
+    # exactly the path that deletes the installer role of a live cluster.
+    if cluster_list=$(rosa list clusters 2>/dev/null); then
+      if echo "$cluster_list" | grep -q "[[:space:]]${cluster_name}[[:space:]]"; then
+        if [ "$i" -lt 30 ]; then
+          echo "⏳ Cluster still registered, waiting 30s... (attempt $i/30)"
+          sleep 30
+        else
+          echo "❌ Cluster $cluster_name is still registered after $i attempts"
+        fi
       else
-        echo "❌ Cluster $cluster_name is still registered after $i attempts"
+        echo "✅ Cluster $cluster_name is fully deregistered"
+        cluster_deregistered=true
+        break
       fi
     else
-      echo "✅ Cluster $cluster_name is fully deregistered"
-      cluster_deregistered=true
-      break
+      echo "⚠️ rosa list clusters failed transiently, retrying in 30s... (attempt $i/30)"
+      sleep 30
     fi
   done
 
   if [ "$cluster_deregistered" != true ]; then
-    echo "⚠️ Cluster $cluster_name did not deregister in time. Proceeding with direct IAM cleanup..."
+    # Deleting the IAM roles now would strip the installer role OCM needs to
+    # finish the deletion, turning a cluster that is merely slow into one that
+    # can never be removed: `rosa delete cluster` then returns
+    # CLUSTERS-MGMT-400, terraform can never delete the VPC, and its Elastic IPs
+    # stay allocated until someone recreates the roles by hand. Leave them and
+    # let the next run try again, once the cluster has finished uninstalling.
+    echo "⚠️ Cluster $cluster_name is still registered; leaving its IAM roles in place."
+    echo "   Removing them while OCM still owns the cluster is what makes a cluster undeletable."
+    FAILED=1
+    continue
   fi
 
   echo "🧹 Deleting operator roles with prefix ${cluster_name}-operator"
-  if [ "$cluster_deregistered" == true ]; then
-    if ! AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto; then
-      echo "⚠️ rosa delete operator-roles failed, falling back to direct AWS IAM cleanup"
-      cleanup_iam_roles_with_prefix "${cluster_name}-operator"
-    fi
-  else
-    echo "⚠️ Cluster still registered, falling back to direct AWS IAM cleanup for operator roles"
+  if ! AWS_REGION="$region_id" rosa delete operator-roles --prefix "${cluster_name}-operator" --yes --mode auto; then
+    echo "⚠️ rosa delete operator-roles failed, falling back to direct AWS IAM cleanup"
     cleanup_iam_roles_with_prefix "${cluster_name}-operator"
   fi
 
   echo "🧹 Deleting account roles with prefix ${cluster_name}-account"
-  if [ "$cluster_deregistered" == true ]; then
-    if ! AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto; then
-      echo "⚠️ rosa delete account-roles failed, falling back to direct AWS IAM cleanup"
-      cleanup_iam_roles_with_prefix "${cluster_name}-account"
-    fi
-  else
-    echo "⚠️ Cluster still registered, falling back to direct AWS IAM cleanup for account roles"
+  if ! AWS_REGION="$region_id" rosa delete account-roles --prefix "${cluster_name}-account" --yes --mode auto; then
+    echo "⚠️ rosa delete account-roles failed, falling back to direct AWS IAM cleanup"
     cleanup_iam_roles_with_prefix "${cluster_name}-account"
   fi
 
   echo "🧹 Deleting OIDC provider ${oidc_config_id}"
-  if [ "$cluster_deregistered" == true ]; then
-    if ! AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}" --yes --mode auto; then
-      echo "⚠️ rosa delete oidc-provider failed, falling back to direct AWS IAM cleanup"
-      oidc_provider_arn=$(aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?ends_with(Arn, '/${oidc_config_id}')].Arn" --output text)
-      if [[ -n "$oidc_provider_arn" && "$oidc_provider_arn" != "None" ]]; then
-        echo "  🗑️ Deleting OIDC provider: $oidc_provider_arn"
-        aws iam delete-open-id-connect-provider --open-id-connect-provider-arn "$oidc_provider_arn"
-        echo "  ✅ Deleted OIDC provider: $oidc_provider_arn"
-      else
-        echo "  ℹ️ No OIDC provider found for config ID ${oidc_config_id}, already cleaned up"
-      fi
-    fi
-  else
-    echo "⚠️ Cluster still registered, falling back to direct AWS IAM cleanup for OIDC provider"
+  if ! AWS_REGION="$region_id" rosa delete oidc-provider --oidc-config-id "${oidc_config_id}" --yes --mode auto; then
+    echo "⚠️ rosa delete oidc-provider failed, falling back to direct AWS IAM cleanup"
     oidc_provider_arn=$(aws iam list-open-id-connect-providers --query "OpenIDConnectProviderList[?ends_with(Arn, '/${oidc_config_id}')].Arn" --output text)
     if [[ -n "$oidc_provider_arn" && "$oidc_provider_arn" != "None" ]]; then
       echo "  🗑️ Deleting OIDC provider: $oidc_provider_arn"
@@ -182,6 +192,11 @@ echo "$raw_clusters" | jq -c '.[]' | while read -r cluster; do
     fi
   fi
 
-done
+done < <(echo "$raw_clusters" | jq -c '.[]')
+
+if [ "$FAILED" -ne 0 ]; then
+  echo "❌ At least one cluster could not be fully cleaned up; its IAM roles were left in place."
+  exit 1
+fi
 
 echo "✅ All clusters have been deleted!"
