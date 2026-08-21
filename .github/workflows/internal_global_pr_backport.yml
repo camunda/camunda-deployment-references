@@ -19,9 +19,12 @@ jobs:
         # Exclude the backport action bot (user ID 97796249) to prevent infinite loops
         #
         # `issue_comment` runs in the base repository with access to the secrets, and this
-        # job mints an App token from them, so the comment path is restricted to people who
-        # already have write access. Without that, any drive-by commenter on a public pull
-        # request could trigger a run that holds a token with the `workflows` scope.
+        # job mints an App token from them, so the comment path is restricted by the
+        # commenter's `author_association`: the repository owner, a member of the owning
+        # organisation, or an invited collaborator. That is a statement about the
+        # relationship to the repository, not a permission level -- a member with read-only
+        # access still passes -- but it keeps a drive-by commenter on a public pull request
+        # from starting a run that holds a token with the `workflows` scope.
         if: >
             (
               github.event_name == 'pull_request' &&
@@ -63,6 +66,11 @@ jobs:
                   token: ${{ steps.generate-github-token.outputs.token }}
                   persist-credentials: true
 
+            # A side effect worth knowing about: GitHub suppresses workflow runs for anything
+            # created with GITHUB_TOKEN, so backport pull requests currently open with no
+            # checks on them at all and get merged unvalidated. Opened by the App instead,
+            # they trigger the usual `pull_request` workflows, so a backport whose paths
+            # match an integration test suite will now run it.
             - name: Create backport PRs
               uses: korthout/backport-action@2e830a1d0b8269505846ddd407a70876913ad1f8 # v4.6.0
               with:
