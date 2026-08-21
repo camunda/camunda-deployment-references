@@ -15,7 +15,20 @@
   // three now use. See MAINTENANCE.md, "Release duty".
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["github>camunda/infraex-common-config:default.json5"],
-  packageRules: [],
+  packageRules: [
+    {
+      // The Keycloak operator manifests and the Keycloak server image have to be the same
+      // version: Keycloak releases them together and expects them to match. Both are
+      // annotated against camunda/keycloak -- the CRs in
+      // generic/kubernetes/operator-based/keycloak/keycloak-instance-*.yml carry the
+      // prefixed tag, deploy.sh carries the bare version the manifest URLs need -- so they
+      // already resolve to the same release. Grouping makes them land in the same pull
+      // request too, instead of leaving the pair split across two merges.
+      matchDatasources: ['docker'],
+      matchPackageNames: ['camunda/keycloak'],
+      groupName: 'camunda keycloak operator and image',
+    },
+  ],
   baseBranchPatterns: [
     'main',
     // TODO: [release-duty] remove branches whose maintenance period has ended and add the new stable branch
