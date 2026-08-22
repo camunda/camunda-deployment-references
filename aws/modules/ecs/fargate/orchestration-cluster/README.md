@@ -106,6 +106,7 @@ No modules.
 | <a name="output_dns_a_record"></a> [dns\_a\_record](#output\_dns\_a\_record) | n/a |
 | <a name="output_grpc_service_connect"></a> [grpc\_service\_connect](#output\_grpc\_service\_connect) | The Service Connect discovery name for the orchestration cluster ECS service targeting gRPC |
 | <a name="output_log_group_name"></a> [log\_group\_name](#output\_log\_group\_name) | The name of the CloudWatch log group for the orchestration cluster |
+| <a name="output_management_service_connect"></a> [management\_service\_connect](#output\_management\_service\_connect) | The Service Connect discovery name for the orchestration cluster management/actuator port (reachable at http://<this>:9600 within the ECS cluster) |
 | <a name="output_rest_service_connect"></a> [rest\_service\_connect](#output\_rest\_service\_connect) | The Service Connect discovery name for the orchestration cluster ECS service targeting REST |
 | <a name="output_s2s_cloudmap_namespace"></a> [s2s\_cloudmap\_namespace](#output\_s2s\_cloudmap\_namespace) | The ARN of the Service Connect namespace for service-to-service communication |
 | <a name="output_s3_bucket_name"></a> [s3\_bucket\_name](#output\_s3\_bucket\_name) | The name of the S3 bucket |

@@ -271,6 +271,21 @@ resource "aws_ecs_service" "orchestration_cluster" {
         dns_name = "orchestration-cluster-rest"
       }
     }
+
+    # Management/actuator port. Kept internal-only (the ALB rule for 9600 is opt-in and
+    # off by default) but exposed over Service Connect so in-cluster consumers can reach
+    # the unauthenticated health endpoints: Camunda Hub's Console reads cluster health
+    # from `/actuator/health/readiness`, which is not served on the API port (8080
+    # returns 404) and cannot use the v2 API (it requires a bearer token no background
+    # probe holds). Appended last on purpose — the outputs above index into this list.
+    service {
+      port_name      = "management"
+      discovery_name = "orchestration-cluster-management"
+      client_alias {
+        port     = 9600
+        dns_name = "orchestration-cluster-management"
+      }
+    }
   }
 
   # Dynamic load balancer configuration

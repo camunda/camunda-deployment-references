@@ -296,7 +296,8 @@ module "management_identity" {
     { name = "CAMUNDA_IDENTITY_TYPE", value = "GENERIC" },
     { name = "CAMUNDA_IDENTITY_BASE_URL", value = local.identity_public_base },
     { name = "CAMUNDA_IDENTITY_ISSUER", value = local.oidc.issuer_uri },
-    { name = "CAMUNDA_IDENTITY_ISSUER_BACKEND_URL", value = local.oidc.issuer_uri },
+    # Backend metadata/JWKS fetches use the in-VPC address; see local.oidc_issuer_backend_uri.
+    { name = "CAMUNDA_IDENTITY_ISSUER_BACKEND_URL", value = local.oidc_issuer_backend_uri },
     { name = "CAMUNDA_IDENTITY_CLIENT_ID", value = local.oidc.identity.client_id },
     { name = "CAMUNDA_IDENTITY_AUDIENCE", value = local.oidc.identity.audience },
     ],
@@ -346,6 +347,54 @@ locals {
   # Single source of truth for the Hub URL context path: passed to the module and
   # reused for the OIDC redirect (keycloak_realm.tf), server URL and websocket path.
   camunda_hub_context_path = "/hub"
+
+  # Cluster generation reported to Camunda Hub. Values >= 8.8 select the REST/gRPC
+  # cluster API (and drop the legacy url.zeebe requirement); a blank value makes the
+  # app fail to start on `camunda.modeler.clusters[0].version`.
+  # TODO: [release-duty] keep in sync with the orchestration cluster image tag.
+  camunda_hub_cluster_version = "8.10.0"
+
+  # Orchestration cluster registration for Camunda Hub, in the `components[]` schema
+  # introduced by 8.10 (camundaPlatform.defaultWebModelerCluster in the reference chart).
+  #
+  # The pre-8.10 flat form (clusters[0].url.{rest,grpc}) still boots, but it carries no
+  # readiness URL, so Console cannot resolve cluster health and renders the cluster as
+  # "Unhealthy" with status UNKNOWN even while it is fully operational. Health is probed
+  # on the *management* port: the API port serves no actuator (8080/actuator/health is a
+  # 404) and the v2 API needs a bearer token that a background probe does not hold.
+  #
+  # Nested lists cannot be expressed as relaxed-binding environment variables, so the
+  # whole block is handed to the task as a single SPRING_APPLICATION_JSON value (same
+  # approach as identity_authorization.tf). Defined here in full rather than alongside
+  # flat CAMUNDA_MODELER_CLUSTERS_0_* vars: SPRING_APPLICATION_JSON outranks OS env vars
+  # in Spring's property order, and list properties are not merged across sources.
+  camunda_hub_clusters_json = jsonencode({
+    camunda = {
+      modeler = {
+        clusters = [
+          {
+            id             = "default-cluster"
+            name           = "default-cluster"
+            version        = local.camunda_hub_cluster_version
+            authentication = "BEARER_TOKEN"
+            authorizations = { enabled = local.oidc_enabled }
+            components = [
+              {
+                name    = "Orchestration Cluster"
+                type    = "orchestration"
+                version = local.camunda_hub_cluster_version
+                urls = {
+                  grpc      = "grpc://${module.orchestration_cluster.grpc_service_connect}:26500"
+                  rest      = "http://${module.orchestration_cluster.rest_service_connect}:8080"
+                  readiness = "http://${module.orchestration_cluster.management_service_connect}:9600/actuator/health/readiness"
+                }
+              },
+            ]
+          },
+        ]
+      }
+    }
+  })
 }
 
 module "camunda_hub" {
@@ -414,7 +463,10 @@ module "camunda_hub" {
     # off by default, so the public /identity path is not reachable.
     { name = "CAMUNDA_IDENTITY_BASEURL", value = "http://${module.management_identity[0].identity_service_connect}:8084" },
     { name = "CAMUNDA_IDENTITY_ISSUER", value = local.oidc.issuer_uri },
-    { name = "CAMUNDA_IDENTITY_ISSUERBACKENDURL", value = local.oidc.issuer_uri },
+    # Backend metadata/JWKS fetches use the in-VPC address, which is what makes
+    # authorization work on a freshly started task; see local.oidc_issuer_backend_uri.
+    { name = "CAMUNDA_IDENTITY_ISSUERBACKENDURL", value = local.oidc_issuer_backend_uri },
+    # Spring's resource server keeps the public issuer: it validates the token's `iss`.
     { name = "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI", value = local.oidc.issuer_uri },
     { name = "CAMUNDA_MODELER_OAUTH2_CLIENT_ID", value = local.oidc.webmodeler.client_id },
     { name = "CAMUNDA_MODELER_SECURITY_JWT_AUDIENCE_INTERNAL_API", value = local.oidc.webmodeler.audience_internal },
@@ -432,13 +484,9 @@ module "camunda_hub" {
     { name = "CAMUNDA_MODELER_PUSHER_CLIENT_FORCETLS", value = local.alb_https_enabled ? "true" : "false" },
 
     # --- Orchestration cluster wiring (internal Service Connect; user bearer token) ---
-    { name = "CAMUNDA_MODELER_CLUSTERS_0_ID", value = "default-cluster" },
-    { name = "CAMUNDA_MODELER_CLUSTERS_0_NAME", value = "default-cluster" },
-    # Version >= 8.8 selects the REST/gRPC cluster API (and drops the legacy url.zeebe requirement).
-    { name = "CAMUNDA_MODELER_CLUSTERS_0_VERSION", value = "8.10.0" },
-    { name = "CAMUNDA_MODELER_CLUSTERS_0_URL_REST", value = "http://${module.orchestration_cluster.rest_service_connect}:8080" },
-    { name = "CAMUNDA_MODELER_CLUSTERS_0_URL_GRPC", value = "http://${module.orchestration_cluster.grpc_service_connect}:26500" },
-    { name = "CAMUNDA_MODELER_CLUSTERS_0_AUTHENTICATION", value = "BEARER_TOKEN" },
+    # Whole cluster definition including the Console health (readiness) URL; see the
+    # local above for why this is JSON rather than flat CAMUNDA_MODELER_CLUSTERS_0_* vars.
+    { name = "SPRING_APPLICATION_JSON", value = local.camunda_hub_clusters_json },
   ]
 
   extra_task_role_attachments = [
