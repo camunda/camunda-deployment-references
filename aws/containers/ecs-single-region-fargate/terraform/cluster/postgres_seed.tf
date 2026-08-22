@@ -48,11 +48,17 @@ resource "aws_ecs_task_definition" "db_seed" {
           if [ -n "$${IDENTITY_DB_NAME}" ]; then
             echo "Provisioning Management Identity database '$${IDENTITY_DB_NAME}' and role '$${IDENTITY_DB_USERNAME}' (password auth)"
 
-            # Create/refresh the password-authenticated role
+            # Create/refresh the role and enable IAM auth on it. The Management Identity
+            # image ships the AWS Advanced JDBC wrapper (BOOT-INF/lib/aws-advanced-jdbc-
+            # wrapper-*.jar), so it authenticates with a short-lived IAM token like the
+            # orchestration cluster and Camunda Hub do. The password is still set: it is
+            # what bootstraps the role here, and it keeps a fallback available if the
+            # datasource is switched back to plain PostgreSQL.
             psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
               -v ON_ERROR_STOP=1 \
               -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${IDENTITY_DB_USERNAME}') THEN CREATE ROLE \"$${IDENTITY_DB_USERNAME}\" WITH LOGIN PASSWORD '$${IDENTITY_DB_PASSWORD}'; END IF; END \$\$;" \
-              -c "ALTER ROLE \"$${IDENTITY_DB_USERNAME}\" WITH LOGIN PASSWORD '$${IDENTITY_DB_PASSWORD}';"
+              -c "ALTER ROLE \"$${IDENTITY_DB_USERNAME}\" WITH LOGIN PASSWORD '$${IDENTITY_DB_PASSWORD}';" \
+              -c "GRANT rds_iam TO \"$${IDENTITY_DB_USERNAME}\";"
 
             # Create the dedicated database if it does not exist. No OWNER is set
             # (the RDS master role cannot create a database owned by another role);
@@ -155,6 +161,14 @@ resource "null_resource" "run_db_seed_task" {
     keycloak_db_name     = local.deploy_bundled_keycloak ? var.keycloak_db_name : ""
     keycloak_db_username = var.keycloak_db_username
     keycloak_db_secret   = local.deploy_bundled_keycloak ? aws_secretsmanager_secret_version.keycloak_db_password[0].version_id : ""
+
+    # Re-run when the seed task definition changes, which is what happens when the SQL
+    # itself is edited. Without this the task definition is replaced but never executed,
+    # so a change to the script (adding a GRANT, say) silently never reaches the database
+    # on an existing deployment. Safe to re-run: every statement in it is idempotent.
+    # The revision is used rather than a hash of container_definitions because the latter
+    # carries sensitive values, which the null provider rejects in triggers.
+    seed_revision = aws_ecs_task_definition.db_seed[0].revision
   }
 
   provisioner "local-exec" {

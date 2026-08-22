@@ -248,22 +248,27 @@ module "management_identity" {
   ]
 
   environment_variables = concat([
-    # --- Database (password auth to a dedicated Aurora database) ---
+    # --- Database (dedicated Aurora database, IAM auth via the AWS JDBC wrapper) ---
+    #
+    # The image ships the AWS Advanced JDBC wrapper (BOOT-INF/lib/aws-advanced-jdbc-
+    # wrapper-*.jar), and the datasource is built by Spring Boot from the standard
+    # spring.datasource.* properties, so pointing them at the wrapper switches the
+    # component to short-lived IAM tokens — the same mechanism the orchestration cluster
+    # and Camunda Hub use. Environment variables outrank the image's bundled
+    # application.yaml, whose defaults (IDENTITY_DATABASE_* + org.postgresql.Driver) are
+    # plain password auth; those defaults are what make it look like the wrapper is
+    # unavailable. No static database password is handed to the task.
     {
-      name  = "IDENTITY_DATABASE_HOST"
-      value = module.postgresql.aurora_endpoint
+      name  = "SPRING_DATASOURCE_URL"
+      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.identity_db_name}?wrapperPlugins=iam"
     },
     {
-      name  = "IDENTITY_DATABASE_PORT"
-      value = "5432"
-    },
-    {
-      name  = "IDENTITY_DATABASE_NAME"
-      value = var.identity_db_name
-    },
-    {
-      name  = "IDENTITY_DATABASE_USERNAME"
+      name  = "SPRING_DATASOURCE_USERNAME"
       value = var.identity_db_username
+    },
+    {
+      name  = "SPRING_DATASOURCE_DRIVER_CLASS_NAME"
+      value = "software.amazon.jdbc.Driver"
     },
     # --- Server / management ports ---
     {
@@ -323,13 +328,15 @@ module "management_identity" {
     ] : [],
   )
 
+  # No IDENTITY_DATABASE_PASSWORD: the task authenticates to Aurora with an IAM token.
+  # The password still exists in Secrets Manager because the DB seed uses it to bootstrap
+  # the role (see postgres_seed.tf).
   secrets = [
-    { name = "IDENTITY_DATABASE_PASSWORD", valueFrom = aws_secretsmanager_secret.identity_db_password[0].arn },
     { name = "CAMUNDA_IDENTITY_CLIENT_SECRET", valueFrom = local.oidc.identity.client_secret_arn },
   ]
 
   task_desired_count          = 1
-  extra_task_role_attachments = []
+  extra_task_role_attachments = [aws_iam_policy.rds_db_connect_identity[0].arn]
 
   wait_for_steady_state = true
 }
