@@ -34,9 +34,14 @@ locals {
   webmodeler_audience_internal = "web-modeler-api"
   webmodeler_audience_public   = "web-modeler-public-api"
 
-  # The principal that receives the roles below. Shared with the IDENTITY_INITIAL_CLAIM_*
-  # env vars in camunda.tf so the claim that bootstraps the first admin and the claim the
-  # mapping rule matches on cannot drift apart.
+  # The principal that receives the roles below. This is the same claim that
+  # IDENTITY_INITIAL_CLAIM_NAME / _VALUE would bootstrap the first admin from, and the two
+  # are mutually exclusive: Identity de-duplicates mapping rules on the (claim-name,
+  # claim-value, rule-type) triple rather than on the rule name, so whichever initializer
+  # runs first wins and the other is skipped without error. The auto-created rule only
+  # ever grants ManagementIdentity, so when this model is seeded camunda.tf drops the
+  # IDENTITY_INITIAL_CLAIM_* vars and the rule below bootstraps the admin instead —
+  # granting ManagementIdentity plus the Web Modeler roles.
   identity_admin_claim_name  = "preferred_username"
   identity_admin_claim_value = "admin"
 

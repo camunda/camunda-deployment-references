@@ -189,6 +189,12 @@ locals {
       local.oidc.connectors.client_secret_arn,
       local.oidc.identity.client_secret_arn,
     ]) : [],
+    # Camunda Hub: shared Pusher secret (always created with the Hub) + optional license.
+    var.enable_camunda_hub ? [
+      aws_secretsmanager_secret.pusher_app_key[0].arn,
+      aws_secretsmanager_secret.pusher_app_secret[0].arn,
+    ] : [],
+    var.enable_camunda_hub && var.camunda_license_key != "" ? [aws_secretsmanager_secret.camunda_license_key[0].arn] : [],
   )
 }
 
@@ -246,6 +252,52 @@ resource "aws_iam_policy" "rds_db_connect_camunda" {
         ]
         Resource = [
           "arn:aws:rds-db:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:dbuser:${module.postgresql.aurora_cluster_resource_id}/camunda"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "rds_db_connect_camunda_hub" {
+  count = var.enable_camunda_hub ? 1 : 0
+
+  name        = "${var.prefix}-rds-db-connect-camunda-hub"
+  description = "Allow ECS tasks to connect to Aurora PostgreSQL as the IAM DB user 'camunda-hub'"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowRDSDBConnect"
+        Effect = "Allow"
+        Action = [
+          "rds-db:connect"
+        ]
+        Resource = [
+          "arn:aws:rds-db:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:dbuser:${module.postgresql.aurora_cluster_resource_id}/camunda-hub"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "rds_db_connect_identity" {
+  count = local.oidc_enabled ? 1 : 0
+
+  name        = "${var.prefix}-rds-db-connect-identity"
+  description = "Allow ECS tasks to connect to Aurora PostgreSQL as the IAM DB user '${var.identity_db_username}'"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowRDSDBConnect"
+        Effect = "Allow"
+        Action = [
+          "rds-db:connect"
+        ]
+        Resource = [
+          "arn:aws:rds-db:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:dbuser:${module.postgresql.aurora_cluster_resource_id}/${var.identity_db_username}"
         ]
       }
     ]

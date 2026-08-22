@@ -67,6 +67,56 @@ locals {
     local.kc_client_id_mapper,
   ]
 
+  # Camunda Hub (Web Modeler) audience mappers: the restapi validates both the
+  # internal and public API audiences, so the public client's tokens must carry them.
+  kc_webmodeler_mappers = [
+    {
+      name            = "web-modeler-api-audience"
+      protocol        = "openid-connect"
+      protocolMapper  = "oidc-audience-mapper"
+      consentRequired = false
+      config = {
+        "included.custom.audience"  = local.oidc.webmodeler.audience_internal
+        "access.token.claim"        = "true"
+        "id.token.claim"            = "false"
+        "introspection.token.claim" = "true"
+        "lightweight.claim"         = "false"
+      }
+    },
+    {
+      name            = "web-modeler-public-api-audience"
+      protocol        = "openid-connect"
+      protocolMapper  = "oidc-audience-mapper"
+      consentRequired = false
+      config = {
+        "included.custom.audience"  = local.oidc.webmodeler.audience_public
+        "access.token.claim"        = "true"
+        "id.token.claim"            = "false"
+        "introspection.token.claim" = "true"
+        "lightweight.claim"         = "false"
+      }
+    },
+    local.kc_client_id_mapper,
+  ]
+
+  # The Web Modeler client is registered only when Camunda Hub is deployed.
+  webmodeler_client_enabled = var.enable_camunda_hub
+  webmodeler_client = {
+    clientId                  = local.oidc.webmodeler.client_id
+    name                      = "Web Modeler"
+    enabled                   = true
+    protocol                  = "openid-connect"
+    publicClient              = true # browser PKCE; the restapi is a resource server
+    standardFlowEnabled       = true
+    serviceAccountsEnabled    = false
+    directAccessGrantsEnabled = false
+    rootUrl                   = local.alb_base_url
+    redirectUris              = ["${local.alb_base_url}${local.camunda_hub_context_path}/login-callback"]
+    webOrigins                = ["+"]
+    attributes                = { "post.logout.redirect.uris" = "${local.alb_base_url}/*" }
+    protocolMappers           = local.kc_webmodeler_mappers
+  }
+
   keycloak_realm = {
     realm   = "camunda-platform"
     enabled = true
@@ -77,7 +127,7 @@ locals {
     loginWithEmailAllowed = true
     accessTokenLifespan   = 300
 
-    clients = [
+    clients = concat([
       {
         clientId                  = "orchestration"
         name                      = "Orchestration"
@@ -121,7 +171,9 @@ locals {
         webOrigins                = ["+"]
         protocolMappers           = local.kc_identity_resource_server_mappers
       },
-    ]
+      ],
+      local.webmodeler_client_enabled ? [local.webmodeler_client] : [],
+    )
 
     users = [
       {

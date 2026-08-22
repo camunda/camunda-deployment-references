@@ -10,6 +10,7 @@ This directory contains the Terraform implementation for the ECS single-region (
 
 | Name | Source | Version |
 | ---- | ------ | ------- |
+| <a name="module_camunda_hub"></a> [camunda\_hub](#module\_camunda\_hub) | ../../../../modules/ecs/fargate/camunda-hub | n/a |
 | <a name="module_connectors"></a> [connectors](#module\_connectors) | ../../../../modules/ecs/fargate/connectors | n/a |
 | <a name="module_keycloak"></a> [keycloak](#module\_keycloak) | ../../../../modules/ecs/fargate/keycloak | n/a |
 | <a name="module_management_identity"></a> [management\_identity](#module\_management\_identity) | ../../../../modules/ecs/fargate/management-identity | n/a |
@@ -20,11 +21,15 @@ This directory contains the Terraform implementation for the ECS single-region (
 
 | Name | Type |
 | ---- | ---- |
+| [aws_cloudwatch_log_group.camunda_hub_db_seed](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_cloudwatch_log_group.db_seed](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_ecs_cluster.ecs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_cluster) | resource |
+| [aws_ecs_task_definition.camunda_hub_db_seed](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
 | [aws_ecs_task_definition.db_seed](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
 | [aws_iam_policy.ecs_task_secrets_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.rds_db_connect_camunda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
+| [aws_iam_policy.rds_db_connect_camunda_hub](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
+| [aws_iam_policy.rds_db_connect_identity](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.registry_secrets_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.s3_backup_access_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_role.ecs_service](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
@@ -47,6 +52,7 @@ This directory contains the Terraform implementation for the ECS single-region (
 | [aws_s3_bucket_public_access_block.backup](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_public_access_block) | resource |
 | [aws_s3_bucket_server_side_encryption_configuration.backup](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration) | resource |
 | [aws_s3_bucket_versioning.backup](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_versioning) | resource |
+| [aws_secretsmanager_secret.camunda_license_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.connectors_client_auth_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.connectors_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.db_admin_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
@@ -57,8 +63,11 @@ This directory contains the Terraform implementation for the ECS single-region (
 | [aws_secretsmanager_secret.keycloak_realm_import](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.orchestration_admin_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.orchestration_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
+| [aws_secretsmanager_secret.pusher_app_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
+| [aws_secretsmanager_secret.pusher_app_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.realm_admin_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.registry_credentials](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
+| [aws_secretsmanager_secret_version.camunda_license_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.connectors_client_auth_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.connectors_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.db_admin_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
@@ -69,6 +78,8 @@ This directory contains the Terraform implementation for the ECS single-region (
 | [aws_secretsmanager_secret_version.keycloak_realm_import](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.orchestration_admin_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.orchestration_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
+| [aws_secretsmanager_secret_version.pusher_app_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
+| [aws_secretsmanager_secret_version.pusher_app_secret](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.realm_admin_user_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.registry_credentials](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_security_group.allow_necessary_camunda_ports_within_vpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
@@ -77,8 +88,11 @@ This directory contains the Terraform implementation for the ECS single-region (
 | [aws_security_group.allow_remote_9600](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.allow_remote_grpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.efs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [null_resource.run_camunda_hub_db_seed](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [null_resource.run_db_seed_task](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [random_password.admin_user_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.camunda_hub_pusher_app_key](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [random_password.camunda_hub_pusher_app_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.connectors_oidc_client_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.connectors_user_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.db_admin_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
@@ -102,6 +116,9 @@ This directory contains the Terraform implementation for the ECS single-region (
 | <a name="input_alb_certificate_arn"></a> [alb\_certificate\_arn](#input\_alb\_certificate\_arn) | ACM certificate ARN for the shared ALB. When set, an HTTPS :443 listener is created, all web-app/OIDC traffic is served over TLS (and HTTP :80 redirects to it), and Keycloak trusts the ALB's X-Forwarded-Proto so the realm needs no sslRequired relaxation. Empty (default) keeps this reference on plain HTTP :80 for the demo. | `string` | `""` | no |
 | <a name="input_alb_ssl_policy"></a> [alb\_ssl\_policy](#input\_alb\_ssl\_policy) | SSL negotiation policy for the HTTPS ALB listener (used only when alb\_certificate\_arn is set). | `string` | `"ELBSecurityPolicy-TLS13-1-2-2021-06"` | no |
 | <a name="input_authentication_mode"></a> [authentication\_mode](#input\_authentication\_mode) | Platform authentication: 'basic' (built-in users, no IdP deployed) or 'oidc' (OIDC via the bundled Keycloak by default, or an external provider when var.external\_oidc is set). | `string` | `"basic"` | no |
+| <a name="input_camunda_hub_restapi_image"></a> [camunda\_hub\_restapi\_image](#input\_camunda\_hub\_restapi\_image) | Container image for the Camunda Hub REST API + web UI. Registry credentials are only attached when this points at registry.camunda.cloud (private); public Docker Hub images pull without credentials. | `string` | `"camunda/hub:8.10.0-alpha3"` | no |
+| <a name="input_camunda_hub_websockets_image"></a> [camunda\_hub\_websockets\_image](#input\_camunda\_hub\_websockets\_image) | Container image for the Camunda Hub websockets relay. Registry credentials are only attached when this (or the restapi image) points at registry.camunda.cloud (private). | `string` | `"camunda/hub-websockets:8.10.0-alpha3"` | no |
+| <a name="input_camunda_license_key"></a> [camunda\_license\_key](#input\_camunda\_license\_key) | (Optional) Camunda license key. When set (and enable\_camunda\_hub = true) it is stored in Secrets Manager and injected as CAMUNDA\_LICENSE\_KEY. Leave empty to run Camunda Hub in its trial mode (fine for tests). | `string` | `""` | no |
 | <a name="input_cidr_blocks"></a> [cidr\_blocks](#input\_cidr\_blocks) | The CIDR block to use for the VPC | `string` | `"10.190.0.0/16"` | no |
 | <a name="input_db_admin_password"></a> [db\_admin\_password](#input\_db\_admin\_password) | Optional override for the Aurora PostgreSQL admin password. If empty, a random password is generated and stored in Secrets Manager. | `string` | `""` | no |
 | <a name="input_db_admin_username"></a> [db\_admin\_username](#input\_db\_admin\_username) | Admin username for the Aurora PostgreSQL cluster (demo default; use Secrets Manager in production) | `string` | `"camunda_admin"` | no |
@@ -110,10 +127,11 @@ This directory contains the Terraform implementation for the ECS single-region (
 | <a name="input_db_seed_enabled"></a> [db\_seed\_enabled](#input\_db\_seed\_enabled) | Run a one-time ECS task to create/grant IAM DB users (uses db\_admin\_username/password) | `bool` | `true` | no |
 | <a name="input_db_seed_iam_usernames"></a> [db\_seed\_iam\_usernames](#input\_db\_seed\_iam\_usernames) | Database users to create and grant rds\_iam + privileges for (used for IAM DB auth) | `list(string)` | <pre>[<br/>  "camunda"<br/>]</pre> | no |
 | <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
+| <a name="input_enable_camunda_hub"></a> [enable\_camunda\_hub](#input\_enable\_camunda\_hub) | Deploy the Camunda Hub (Web Modeler) ECS task. Requires authentication\_mode = "oidc"; enabling it also registers the web-modeler client in the bundled Keycloak realm. | `bool` | `false` | no |
 | <a name="input_enable_web_modeler_authorization"></a> [enable\_web\_modeler\_authorization](#input\_enable\_web\_modeler\_authorization) | Seed Management Identity with the Web Modeler authorization model: the component presets declaring the Web Modeler resource servers, permissions and roles, plus a mapping rule granting them to the admin principal. Requires authentication\_mode = "oidc". Enable this when a Web Modeler / Camunda Hub deployment consumes this Identity, otherwise Web Modeler authenticates but every authorization check is denied. | `bool` | `false` | no |
 | <a name="input_external_oidc"></a> [external\_oidc](#input\_external\_oidc) | External OIDC provider config. Optional and only honored when authentication\_mode = "oidc": when set, that provider is used and the bundled Keycloak is skipped; when null (default), a bundled Keycloak is deployed as the OIDC provider. One client per component (identity, orchestration, connectors); client secrets are existing Secrets Manager ARNs (created out-of-band), never raw values. | <pre>object({<br/>    issuer_uri                      = string<br/>    token_uri                       = string<br/>    audience                        = string<br/>    identity_client_id              = string<br/>    identity_client_secret_arn      = string<br/>    orchestration_client_id         = string<br/>    orchestration_client_secret_arn = string<br/>    connectors_client_id            = string<br/>    connectors_client_secret_arn    = string<br/>  })</pre> | `null` | no |
 | <a name="input_identity_db_name"></a> [identity\_db\_name](#input\_identity\_db\_name) | Dedicated database name for Management Identity on the shared Aurora cluster | `string` | `"identity"` | no |
-| <a name="input_identity_db_username"></a> [identity\_db\_username](#input\_identity\_db\_username) | Password-authenticated database role for Management Identity (Identity does not support IAM DB auth) | `string` | `"identity"` | no |
+| <a name="input_identity_db_username"></a> [identity\_db\_username](#input\_identity\_db\_username) | Database role for Management Identity. Authenticates with an IAM token (the image ships the AWS Advanced JDBC wrapper); the role also carries a password, used only to bootstrap it in the DB seed. | `string` | `"identity"` | no |
 | <a name="input_keycloak_admin_username"></a> [keycloak\_admin\_username](#input\_keycloak\_admin\_username) | Keycloak bootstrap admin username | `string` | `"admin"` | no |
 | <a name="input_keycloak_db_name"></a> [keycloak\_db\_name](#input\_keycloak\_db\_name) | Dedicated database name for Keycloak on the shared Aurora cluster | `string` | `"keycloak"` | no |
 | <a name="input_keycloak_db_username"></a> [keycloak\_db\_username](#input\_keycloak\_db\_username) | Password-authenticated database role for Keycloak | `string` | `"keycloak"` | no |
