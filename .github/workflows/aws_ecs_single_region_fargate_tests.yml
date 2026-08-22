@@ -150,7 +150,9 @@ jobs:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  ref-arch: ${{ matrix.scenario.name }}
+                  # Both scenarios deploy the same module; they differ only in auth mode.
+                  ref-arch: ecs-single-region-fargate
+                  authentication-mode: ${{ matrix.scenario.authentication_mode }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -169,12 +171,11 @@ jobs:
               if: failure()
               shell: bash
               # Mirrors the prefix logic in aws-containers-ecs-single-region-fargate-create:
-              # cluster-name input → cut to 14 chars → strip trailing dash → "${prefix}-cluster"
+              # prefix = "ecs-" + first 9 hex of sha1(cluster-name); ECS cluster is "${prefix}-cluster"
               run: |
                   set -euo pipefail
                   RAW="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}"
-                  PREFIX=$(echo "$RAW" | cut -c1-14)
-                  PREFIX=${PREFIX%-}
+                  PREFIX="ecs-$(printf '%s' "$RAW" | sha1sum | cut -c1-9)"
                   echo "ecs-cluster=${PREFIX}-cluster" | tee -a "$GITHUB_OUTPUT"
 
             - name: 🔬🚨 Get failed ECS tasks info
@@ -246,18 +247,21 @@ jobs:
                   else
                     echo "🔍 Testing ALB endpoint: http://${ALB_DNS}"
 
-                    # Wait for ALB to be healthy
+                    # Wait for the ALB to route to a live web app. In basic auth mode
+                    # /operate returns 200; in oidc mode an unauthenticated request is
+                    # redirected to the identity provider (302), which equally proves
+                    # the ALB is serving the app, so both codes count as healthy.
                     for i in {1..30}; do
                       HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${ALB_DNS}/operate" || echo "000")
-                      if [[ "$HTTP_CODE" == "200" ]]; then
-                        echo "✅ ALB health check passed"
+                      if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "302" ]]; then
+                        echo "✅ ALB health check passed (HTTP $HTTP_CODE)"
                         break
                       fi
                       echo "⏳ Waiting for ALB to be healthy (attempt $i/30, got HTTP $HTTP_CODE)..."
                       sleep 10
                     done
 
-                    if [[ "$HTTP_CODE" != "200" ]]; then
+                    if [[ "$HTTP_CODE" != "200" && "$HTTP_CODE" != "302" ]]; then
                       echo "❌ ALB health check failed after 30 attempts"
                       exit 1
                     fi
@@ -317,11 +321,21 @@ jobs:
               timeout-minutes: 15
               uses: ./.github/actions/camunda-smoke-test
               with:
-                  auth-mode: basic
+                  # Auth path under test comes from the scenario (basic or oidc). The
+                  # action uses the basic-* inputs for basic and the oidc-* inputs for
+                  # oidc; the unused set is empty in the other mode.
+                  auth-mode: ${{ matrix.scenario.authentication_mode }}
                   zeebe-rest-address: >-
                       http://${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
+                  # basic auth (auth-mode=basic)
                   basic-auth-user: admin
                   basic-auth-password: ${{ fromJson(steps.terraform-outputs.outputs.json_output).admin_user_password.value }}
+                  # oidc m2m via the bundled Keycloak (auth-mode=oidc). Uses the
+                  # admin orchestration client — the smoke test deploys/operates, which
+                  # the least-privilege connectors client is not authorized to do.
+                  oidc-client-id: ${{ fromJson(steps.terraform-outputs.outputs.json_output).orchestration_oidc_client_id.value }}
+                  oidc-client-secret: ${{ fromJson(steps.terraform-outputs.outputs.json_output).orchestration_oidc_client_secret.value }}
+                  oidc-token-url: ${{ fromJson(steps.terraform-outputs.outputs.json_output).oidc_token_url.value }}
                   benchmark-duration: '300'
 
             - name: Compute ECS cluster name on failure
@@ -329,12 +343,11 @@ jobs:
               if: failure()
               shell: bash
               # Mirrors the prefix logic in aws-containers-ecs-single-region-fargate-create:
-              # cluster-name input → cut to 14 chars → strip trailing dash → "${prefix}-cluster"
+              # prefix = "ecs-" + first 9 hex of sha1(cluster-name); ECS cluster is "${prefix}-cluster"
               run: |
                   set -euo pipefail
                   RAW="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}"
-                  PREFIX=$(echo "$RAW" | cut -c1-14)
-                  PREFIX=${PREFIX%-}
+                  PREFIX="ecs-$(printf '%s' "$RAW" | sha1sum | cut -c1-9)"
                   echo "ecs-cluster=${PREFIX}-cluster" | tee -a "$GITHUB_OUTPUT"
 
             - name: 🔬🚨 Get failed ECS tasks info

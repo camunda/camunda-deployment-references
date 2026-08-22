@@ -15,7 +15,7 @@ module "orchestration_cluster" {
   ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
 
   # Load Balancer configuration
-  alb_listener_http_webapp_arn     = aws_lb_listener.http_webapp.arn
+  alb_listener_http_webapp_arn     = local.webapp_listener_arn
   alb_listener_http_management_arn = aws_lb_listener.http_management.arn
   nlb_arn                          = aws_lb.grpc.arn
 
@@ -25,7 +25,7 @@ module "orchestration_cluster" {
   enable_alb_http_management_listener_rule = false
   enable_nlb_grpc_26500_listener           = true
 
-  environment_variables = [
+  environment_variables = concat([
     {
       name  = "CAMUNDA_CLUSTER_REPLICATIONFACTOR"
       value = "3"
@@ -59,41 +59,6 @@ module "orchestration_cluster" {
       name  = "SPRING_DATASOURCE_DRIVER_CLASS_NAME"
       value = "software.amazon.jdbc.Driver"
     },
-    # Admin
-    ## Admin user
-    {
-      name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_USERNAME"
-      value = "admin"
-    },
-    {
-      name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_NAME"
-      value = "Admin User"
-    },
-    {
-      name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_EMAIL"
-      value = "admin@example.com"
-    },
-    {
-      name  = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_USERS_0"
-      value = "admin"
-    },
-    ## Connectors user
-    {
-      name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_USERNAME"
-      value = "connectors"
-    },
-    {
-      name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_NAME"
-      value = "Connectors User"
-    },
-    {
-      name  = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_EMAIL"
-      value = "connectors@example.com"
-    },
-    {
-      name  = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_CONNECTORS_USERS_0"
-      value = "connectors"
-    },
     # Backup / Restore configuration
     {
       name  = "CAMUNDA_DATA_BACKUP_STORE"
@@ -107,10 +72,47 @@ module "orchestration_cluster" {
       name  = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME"
       value = aws_s3_bucket.backup.bucket
     },
-  ]
+    ],
+    # --- Authentication: basic (built-in users) or OIDC (bundled Keycloak / external) ---
+    local.oidc_enabled ? [
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_METHOD", value = "oidc" },
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_ISSUERURI", value = local.oidc.issuer_uri },
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_CLIENTID", value = local.oidc.orchestration.client_id },
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_REDIRECTURI", value = local.oidc.redirect_uri },
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_USERNAMECLAIM", value = "preferred_username" },
+      # Detect m2m (client-credentials) callers by the client_id claim; without this,
+      # a service-account token is treated as a user (preferred_username =
+      # service-account-<client>) and never matches the admin/connectors client
+      # mappings below, so deployments are rejected 403. The realm emits client_id.
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_CLIENTIDCLAIM", value = "client_id" },
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_AUDIENCE", value = local.oidc.audience },
+      # Admin user identifier from the username claim (the bundled realm's 'admin';
+      # for external OIDC set this to your admin's preferred_username).
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_USERS_0", value = "admin" },
+      # The orchestration client is also an admin m2m client (matches Camunda's
+      # reference admin.clients), so automation/CI can deploy and operate over
+      # client-credentials; the least-privilege connectors client cannot.
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_CLIENTS_0", value = local.oidc.orchestration.client_id },
+      # Connectors authenticates as an OIDC client (m2m), mapped to the connectors role.
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_CONNECTORS_CLIENTS_0", value = local.oidc.connectors.client_id },
+      ] : [
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_USERNAME", value = "admin" },
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_NAME", value = "Admin User" },
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_EMAIL", value = "admin@example.com" },
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_USERS_0", value = "admin" },
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_USERNAME", value = "connectors" },
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_NAME", value = "Connectors User" },
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_EMAIL", value = "connectors@example.com" },
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_CONNECTORS_USERS_0", value = "connectors" },
+  ])
 
   # Prefer ECS task secrets for sensitive values (container definition 'secrets')
-  secrets = [
+  secrets = local.oidc_enabled ? [
+    {
+      name      = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_CLIENTSECRET"
+      valueFrom = local.oidc.orchestration.client_secret_arn
+    }
+    ] : [
     {
       name      = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_PASSWORD"
       valueFrom = aws_secretsmanager_secret.orchestration_admin_user_password.arn
@@ -153,7 +155,7 @@ module "connectors" {
   vpc_private_subnets                  = module.vpc.private_subnets
   aws_region                           = data.aws_region.current.region
   s2s_cloudmap_namespace               = module.orchestration_cluster.s2s_cloudmap_namespace
-  alb_listener_http_webapp_arn         = aws_lb_listener.http_webapp.arn
+  alb_listener_http_webapp_arn         = local.webapp_listener_arn
   enable_alb_http_webapp_listener_rule = true
   log_group_name                       = module.orchestration_cluster.log_group_name
 
@@ -167,8 +169,8 @@ module "connectors" {
     aws_security_group.allow_package_80_443.id,
   ]
 
-  environment_variables = [
-    # Self-managed connection to orchestration cluster (basic auth)
+  environment_variables = concat([
+    # Self-managed connection to the orchestration cluster (internal Service Connect)
     {
       name  = "CAMUNDA_CLIENT_MODE",
       value = "self-managed"
@@ -181,18 +183,26 @@ module "connectors" {
       name  = "CAMUNDA_CLIENT_GRPCADDRESS",
       value = "http://${module.orchestration_cluster.grpc_service_connect}:26500"
     },
-    {
-      name  = "CAMUNDA_CLIENT_AUTH_METHOD"
-      value = "basic"
-    },
-    {
-      name  = "CAMUNDA_CLIENT_AUTH_USERNAME"
-      value = "connectors"
-    }
-  ]
+    ],
+    # Auth to the orchestration cluster: basic user or OIDC client-credentials.
+    # Connectors fetches tokens via the shared ALB (same host as every other actor)
+    # so the token `iss` is the ALB URL and matches what orchestration validates.
+    local.oidc_enabled ? [
+      { name = "CAMUNDA_CLIENT_AUTH_CLIENTID", value = local.oidc.connectors.client_id },
+      { name = "CAMUNDA_CLIENT_AUTH_TOKENURL", value = local.oidc.token_uri },
+      { name = "CAMUNDA_CLIENT_AUTH_AUDIENCE", value = local.oidc.audience },
+      ] : [
+      { name = "CAMUNDA_CLIENT_AUTH_METHOD", value = "basic" },
+      { name = "CAMUNDA_CLIENT_AUTH_USERNAME", value = "connectors" },
+  ])
 
   # Prefer ECS task secrets for sensitive values (container definition 'secrets')
-  secrets = [
+  secrets = local.oidc_enabled ? [
+    {
+      name      = "CAMUNDA_CLIENT_AUTH_CLIENTSECRET"
+      valueFrom = local.oidc.connectors.client_secret_arn
+    }
+    ] : [
     {
       name      = "CAMUNDA_CLIENT_AUTH_PASSWORD"
       valueFrom = aws_secretsmanager_secret.connectors_client_auth_password.arn
@@ -204,4 +214,110 @@ module "connectors" {
   # Pass additional policies to connectors task role
   extra_task_role_attachments = []
 
+}
+
+module "management_identity" {
+  source = "../../../../modules/ecs/fargate/management-identity"
+
+  # Management Identity is deployed only when OIDC is enabled (basic mode uses
+  # built-in users and needs no IdP). It always runs the generic OIDC profile
+  # against local.oidc — identical whether the IdP is the bundled Keycloak or an
+  # external provider; the component never references Keycloak.
+  count = local.oidc_enabled ? 1 : 0
+
+  depends_on = [null_resource.run_db_seed_task]
+
+  prefix                      = "${var.prefix}-oc1"
+  ecs_cluster_id              = aws_ecs_cluster.ecs.id
+  vpc_id                      = module.vpc.vpc_id
+  vpc_private_subnets         = module.vpc.private_subnets
+  aws_region                  = data.aws_region.current.region
+  s2s_cloudmap_namespace      = module.orchestration_cluster.s2s_cloudmap_namespace
+  log_group_name              = module.orchestration_cluster.log_group_name
+  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
+  registry_credentials_arn    = join("", aws_secretsmanager_secret.registry_credentials[*].arn)
+
+  # ALB exposure is opt-in. Flip to true (and confirm the context path) once
+  # Identity should be reachable through the shared ALB.
+  alb_listener_http_webapp_arn         = local.webapp_listener_arn
+  enable_alb_http_webapp_listener_rule = false
+
+  service_security_group_ids = [
+    aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
+    aws_security_group.allow_package_80_443.id,
+  ]
+
+  environment_variables = concat([
+    # --- Database (password auth to a dedicated Aurora database) ---
+    {
+      name  = "IDENTITY_DATABASE_HOST"
+      value = module.postgresql.aurora_endpoint
+    },
+    {
+      name  = "IDENTITY_DATABASE_PORT"
+      value = "5432"
+    },
+    {
+      name  = "IDENTITY_DATABASE_NAME"
+      value = var.identity_db_name
+    },
+    {
+      name  = "IDENTITY_DATABASE_USERNAME"
+      value = var.identity_db_username
+    },
+    # --- Server / management ports ---
+    {
+      name  = "SERVER_PORT"
+      value = "8084"
+    },
+    {
+      name  = "MANAGEMENT_SERVER_PORT"
+      value = "8082"
+    },
+    # --- Actuator probes (so /actuator/health/liveness is exposed) ---
+    {
+      name  = "MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE"
+      value = "health"
+    },
+    {
+      name  = "MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED"
+      value = "true"
+    },
+    # --- Identity provider: generic OIDC (bundled Keycloak or external), no realm
+    #     bootstrap. The IdP owns clients/users; Identity is a resource server here.
+    #     In generic OIDC mode Identity handles login and token validation only:
+    #     user-profile management, RP-initiated logout and role/group sync *from the
+    #     IdP* are not available. Authorization is therefore split — the Orchestration
+    #     Cluster is seeded Camunda-side (CAMUNDA_SECURITY_INITIALIZATION_* above),
+    #     while the components that resolve permissions through Identity (Web Modeler /
+    #     Camunda Hub) need Identity's own roles declared and granted by claim; see
+    #     identity_authorization.tf and var.enable_web_modeler_authorization.
+    { name = "SPRING_PROFILES_ACTIVE", value = "oidc" },
+    { name = "CAMUNDA_IDENTITY_TYPE", value = "GENERIC" },
+    { name = "CAMUNDA_IDENTITY_BASE_URL", value = local.identity_public_base },
+    { name = "CAMUNDA_IDENTITY_ISSUER", value = local.oidc.issuer_uri },
+    { name = "CAMUNDA_IDENTITY_ISSUER_BACKEND_URL", value = local.oidc.issuer_uri },
+    { name = "CAMUNDA_IDENTITY_CLIENT_ID", value = local.oidc.identity.client_id },
+    { name = "CAMUNDA_IDENTITY_AUDIENCE", value = local.oidc.identity.audience },
+    # First admin is granted by matching this claim/value (write-once at first boot).
+    { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
+    { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
+    ],
+    # Identity's own authorization model (roles + claim-based grants). Opt-in, because
+    # it only matters once a component that resolves permissions through Identity is
+    # deployed; see identity_authorization.tf.
+    local.webmodeler_authorization_enabled ? [
+      { name = "SPRING_APPLICATION_JSON", value = local.identity_authorization_json },
+    ] : [],
+  )
+
+  secrets = [
+    { name = "IDENTITY_DATABASE_PASSWORD", valueFrom = aws_secretsmanager_secret.identity_db_password[0].arn },
+    { name = "CAMUNDA_IDENTITY_CLIENT_SECRET", valueFrom = local.oidc.identity.client_secret_arn },
+  ]
+
+  task_desired_count          = 1
+  extra_task_role_attachments = []
+
+  wait_for_steady_state = true
 }
