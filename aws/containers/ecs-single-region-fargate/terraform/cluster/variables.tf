@@ -128,7 +128,7 @@ variable "identity_db_name" {
 
 variable "identity_db_username" {
   type        = string
-  description = "Password-authenticated database role for Management Identity (Identity does not support IAM DB auth)"
+  description = "Database role for Management Identity. Authenticates with an IAM token (the image ships the AWS Advanced JDBC wrapper); the role also carries a password, used only to bootstrap it in the DB seed."
   default     = "identity"
 
   validation {

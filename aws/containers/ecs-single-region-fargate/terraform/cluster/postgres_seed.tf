@@ -46,7 +46,7 @@ resource "aws_ecs_task_definition" "db_seed" {
           fi
 
           if [ -n "$${IDENTITY_DB_NAME}" ]; then
-            echo "Provisioning Management Identity database '$${IDENTITY_DB_NAME}' and role '$${IDENTITY_DB_USERNAME}' (password auth)"
+            echo "Provisioning Management Identity database '$${IDENTITY_DB_NAME}' and role '$${IDENTITY_DB_USERNAME}' (IAM auth)"
 
             # Create/refresh the role and enable IAM auth on it. The Management Identity
             # image ships the AWS Advanced JDBC wrapper (BOOT-INF/lib/aws-advanced-jdbc-
