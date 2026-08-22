@@ -299,9 +299,20 @@ module "management_identity" {
     { name = "CAMUNDA_IDENTITY_ISSUER_BACKEND_URL", value = local.oidc.issuer_uri },
     { name = "CAMUNDA_IDENTITY_CLIENT_ID", value = local.oidc.identity.client_id },
     { name = "CAMUNDA_IDENTITY_AUDIENCE", value = local.oidc.identity.audience },
+    ],
     # First admin is granted by matching this claim/value (write-once at first boot).
-    { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
-    { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
+    #
+    # Mutually exclusive with the declared mapping rule below. Identity bootstraps a
+    # mapping rule named "Default" from these two vars, and the initializer that reads
+    # `identity.mapping-rules` de-duplicates on the (claim-name, claim-value, rule-type)
+    # triple rather than on the rule name — so a declared rule matching the same claim is
+    # silently skipped and the roles it grants are never applied. When the authorization
+    # model is seeded we therefore let the declared rule do the bootstrapping too: it
+    # grants ManagementIdentity plus the Web Modeler roles, a superset of the
+    # auto-created one. See identity_authorization.tf.
+    local.webmodeler_authorization_enabled ? [] : [
+      { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
+      { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
     ],
     # Identity's own authorization model (roles + claim-based grants). Opt-in, because
     # it only matters once a component that resolves permissions through Identity is
@@ -390,8 +401,18 @@ module "camunda_hub" {
     { name = "CAMUNDA_MODELER_MAIL_FROMADDRESS", value = "changeme@example.com" },
 
     # --- OIDC / Management Identity (provider-agnostic local.oidc interface) ---
-    { name = "CAMUNDA_IDENTITY_TYPE", value = local.use_external ? "GENERIC" : "KEYCLOAK" },
-    { name = "CAMUNDA_IDENTITY_BASEURL", value = local.identity_public_base },
+    # Always GENERIC, including for the bundled Keycloak: that Keycloak is wired as a
+    # plain OIDC provider (the realm import carries no roles or groups), so the Identity
+    # SDK must resolve permissions through Management Identity's RBAC model instead of
+    # from realm roles. Declaring KEYCLOAK makes the SDK look for realm roles that do not
+    # exist, which yields an empty permission set and a blanket
+    # `hasAccessToOrganization` denial — Web Modeler authenticates but every project
+    # call fails (403 on the management API, 404 on org-scoped resources).
+    { name = "CAMUNDA_IDENTITY_TYPE", value = "GENERIC" },
+    # Backend call to Management Identity (org/roles): use the internal Service
+    # Connect address, not the public ALB URL — Identity's ALB rule is opt-in and
+    # off by default, so the public /identity path is not reachable.
+    { name = "CAMUNDA_IDENTITY_BASEURL", value = "http://${module.management_identity[0].identity_service_connect}:8084" },
     { name = "CAMUNDA_IDENTITY_ISSUER", value = local.oidc.issuer_uri },
     { name = "CAMUNDA_IDENTITY_ISSUERBACKENDURL", value = local.oidc.issuer_uri },
     { name = "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI", value = local.oidc.issuer_uri },
@@ -400,6 +421,9 @@ module "camunda_hub" {
     { name = "CAMUNDA_MODELER_SECURITY_JWT_AUDIENCE_PUBLIC_API", value = local.oidc.webmodeler.audience_public },
     # Public root URL for OAuth redirects (matches the web-modeler client's ALB redirect-uri).
     { name = "CAMUNDA_MODELER_SERVER_URL", value = "${local.alb_base_url}${local.camunda_hub_context_path}" },
+    # Match the rest of the stack's HTTP-only demo posture: without an ALB cert the
+    # app must not force an HTTP->HTTPS redirect (there is no HTTPS listener yet).
+    { name = "CAMUNDA_MODELER_SERVER_HTTPSONLY", value = local.alb_https_enabled ? "true" : "false" },
 
     # --- Browser-side Pusher (public ALB host + <context>-ws route) ---
     { name = "CAMUNDA_MODELER_PUSHER_CLIENT_HOST", value = aws_lb.main.dns_name },
@@ -410,6 +434,8 @@ module "camunda_hub" {
     # --- Orchestration cluster wiring (internal Service Connect; user bearer token) ---
     { name = "CAMUNDA_MODELER_CLUSTERS_0_ID", value = "default-cluster" },
     { name = "CAMUNDA_MODELER_CLUSTERS_0_NAME", value = "default-cluster" },
+    # Version >= 8.8 selects the REST/gRPC cluster API (and drops the legacy url.zeebe requirement).
+    { name = "CAMUNDA_MODELER_CLUSTERS_0_VERSION", value = "8.10.0" },
     { name = "CAMUNDA_MODELER_CLUSTERS_0_URL_REST", value = "http://${module.orchestration_cluster.rest_service_connect}:8080" },
     { name = "CAMUNDA_MODELER_CLUSTERS_0_URL_GRPC", value = "http://${module.orchestration_cluster.grpc_service_connect}:26500" },
     { name = "CAMUNDA_MODELER_CLUSTERS_0_AUTHENTICATION", value = "BEARER_TOKEN" },

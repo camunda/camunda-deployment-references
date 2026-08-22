@@ -57,11 +57,13 @@ resource "aws_lb_target_group" "websockets" {
 # (evaluated first) than the restapi rule ("${context_path}*"), because a
 # "/hub-ws/..." request matches both patterns; if the broader "/hub*" rule won,
 # websocket traffic would be misrouted to the restapi container.
+# Priorities 60/61 sit in a free band on the shared listener (siblings use
+# 30 identity / 40 keycloak / 50 connectors / 100 orchestration catch-all).
 resource "aws_lb_listener_rule" "hub" {
   count = var.enable_alb_http_webapp_listener_rule ? 1 : 0
 
   listener_arn = var.alb_listener_http_webapp_arn
-  priority     = 45
+  priority     = 61
 
   action {
     type             = "forward"
@@ -79,7 +81,7 @@ resource "aws_lb_listener_rule" "hub_ws" {
   count = var.enable_alb_http_webapp_listener_rule ? 1 : 0
 
   listener_arn = var.alb_listener_http_webapp_arn
-  priority     = 40
+  priority     = 60
 
   action {
     type             = "forward"

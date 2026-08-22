@@ -263,8 +263,11 @@ resource "aws_ecs_task_definition" "camunda_hub_db_seed" {
             -c "GRANT rds_iam TO \"$${HUB_USER}\";"
 
           echo "Ensuring database exists: $${HUB_DB}"
+          # No OWNER is set: on Aurora RDS the master role cannot create a database
+          # owned by another role ("must be able to SET ROLE"). The hub role is
+          # granted access via the GRANTs below instead.
           if ! psql "$${ADMIN}" -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname = '$${HUB_DB}'" | grep -q 1; then
-            psql "$${ADMIN}" -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$${HUB_DB}\" OWNER \"$${HUB_USER}\";"
+            psql "$${ADMIN}" -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$${HUB_DB}\";"
           fi
 
           echo "Granting privileges on $${HUB_DB} to $${HUB_USER}"

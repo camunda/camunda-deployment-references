@@ -100,6 +100,12 @@ resource "aws_ecs_task_definition" "camunda_hub" {
 }
 
 resource "aws_ecs_service" "camunda_hub" {
+  # ECS CreateService requires each target group in a load_balancer block to be
+  # associated with a load balancer first; the listener rules do that attachment,
+  # so the service must wait for them (they only share the target group otherwise,
+  # which does not order the service after the rules).
+  depends_on = [aws_lb_listener_rule.hub, aws_lb_listener_rule.hub_ws]
+
   name                              = "${var.prefix}-camunda-hub"
   cluster                           = var.ecs_cluster_id
   task_definition                   = aws_ecs_task_definition.camunda_hub.arn
