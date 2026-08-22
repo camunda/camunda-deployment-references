@@ -69,6 +69,12 @@ resource "terraform_data" "validate_authentication_mode" {
       ])
       error_message = "When var.external_oidc is set, all of its fields (issuer_uri, token_uri, audience, and each component's client_id and client_secret_arn) must be non-empty."
     }
+    # The authorization seed lands on the Management Identity task, which only exists in
+    # oidc mode. Silently ignoring the flag in basic mode would look like a broken seed.
+    precondition {
+      condition     = !var.enable_web_modeler_authorization || var.authentication_mode == "oidc"
+      error_message = "var.enable_web_modeler_authorization requires authentication_mode = \"oidc\" (Management Identity is not deployed in basic mode)."
+    }
     # Camunda Hub (Web Modeler) authenticates via OIDC and cannot use basic auth.
     precondition {
       condition     = !var.enable_camunda_hub || local.oidc_enabled
