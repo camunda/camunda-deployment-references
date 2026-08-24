@@ -54,6 +54,13 @@ func TestConnectorWebhookFlowDeploy(t *testing.T) {
 // 1. Triggers the workflow via webhook 10 times
 // 2. Verifies the mock server received exactly 10 requests
 // 3. Cleans up the mock API server
+//
+// Known limit: the callback count is a cluster-wide total, so a run where the
+// primary region's connectors served all 10 jobs and the secondary's served
+// none still passes. That split is a legal Zeebe outcome — a job goes to
+// whichever worker polls first — so it cannot be asserted against. What is
+// checked deterministically is that both regions' connectors deployments
+// become available, in deployC8Helm.
 func TestConnectorWebhookFlowTest(t *testing.T) {
 	t.Log("[CONNECTOR TEST] Testing Connector Webhook Flow in multi-region mode 🚀")
 
