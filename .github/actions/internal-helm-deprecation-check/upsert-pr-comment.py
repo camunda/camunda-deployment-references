@@ -8,8 +8,10 @@ removes its section if it has no findings, or deletes the comment entirely
 when the last section disappears.
 
 Designed to converge under racing matrix jobs by re-fetching the comment
-on every retry. Failure to post is logged as a workflow warning but never
-fails the action -- the PR comment is advisory.
+on every retry. Failure to post never fails the action -- the PR comment is
+advisory. A transient failure is retried and then logged as a warning; a
+missing `pull-requests: write` permission is deterministic, so it is reported
+immediately as an error annotation instead of being retried.
 """
 
 from __future__ import annotations
@@ -46,6 +48,14 @@ SECTION_END_FMT = "<!-- section:{sid}:end -->"
 ANY_SECTION_RE = re.compile(r"<!-- section:[0-9a-f]{12}:start -->")
 
 MAX_ATTEMPTS = 5
+
+
+class MissingPermissionError(RuntimeError):
+    """The token lacks `pull-requests: write` on this repository.
+
+    Deterministic: retrying cannot fix a missing permission, so callers should
+    report it immediately instead of burning the retry budget.
+    """
 
 
 def section_id(*parts: str) -> str:
@@ -87,10 +97,16 @@ def gh_api(
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         payload = exc.read() or b""
-        raise RuntimeError(
+        exc.close()
+        detail = (
             f"GitHub API {method} {path} failed ({exc.code}): "
             f"{payload.decode('utf-8', errors='replace')}"
-        ) from exc
+        )
+        # 403 here means the workflow token has no `pull-requests: write`, which
+        # every retry will hit identically. Surface it as its own error type.
+        if exc.code == 403:
+            raise MissingPermissionError(detail) from exc
+        raise RuntimeError(detail) from exc
 
 
 def find_existing_comment(repo: str, pr_number: int) -> dict | None:
@@ -286,6 +302,18 @@ def main() -> int:
                 print(f"PR #{args.pr_number} comment {action} (attempt {attempt}).")
                 return 0
             last_error = "verification mismatch"
+        except MissingPermissionError as exc:
+            # Deterministic misconfiguration: report it loudly and stop, rather
+            # than retrying five times and hiding it in a warning. Still exits 0
+            # -- the PR comment stays advisory and never fails the workflow.
+            print(
+                "::error::Helm-deprecation PR comment skipped: the workflow "
+                "token lacks `pull-requests: write`. Add it to the job's "
+                "`permissions:` block -- a job-level block REPLACES the "
+                "workflow-level one, so it must repeat every permission the "
+                f"job needs. Details: {exc}",
+            )
+            return 0
         except RuntimeError as exc:
             last_error = str(exc)
         if attempt < MAX_ATTEMPTS:
