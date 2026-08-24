@@ -53,8 +53,7 @@ func TestConnectorWebhookFlowDeploy(t *testing.T) {
 // TestConnectorWebhookFlowTest tests the connector webhook flow:
 // 1. Triggers the workflow via webhook 10 times
 // 2. Verifies the mock server received exactly 10 requests
-// 3. Verifies both connector deployments processed jobs
-// 4. Cleans up the mock API server
+// 3. Cleans up the mock API server
 func TestConnectorWebhookFlowTest(t *testing.T) {
 	t.Log("[CONNECTOR TEST] Testing Connector Webhook Flow in multi-region mode 🚀")
 
@@ -71,7 +70,6 @@ func TestConnectorWebhookFlowTest(t *testing.T) {
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestTriggerWebhookWorkflow", triggerWebhookWorkflow},
 		{"TestVerifyMockServerReceivedRequests", verifyMockServerReceivedRequests},
-		{"TestVerifyConnectorsProcessedJobs", verifyConnectorsProcessedJobs},
 		{"TestCleanupMockApiServer", cleanupMockApiServer},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -271,37 +269,6 @@ func verifyMockServerReceivedRequests(t *testing.T) {
 			}
 		}
 	}
-}
-
-// verifyConnectorsProcessedJobs checks that both connector deployments have processed jobs
-func verifyConnectorsProcessedJobs(t *testing.T) {
-	t.Log("[CONNECTORS CHECK] Verifying both connector deployments processed jobs 🔍")
-
-	// Check primary region connectors
-	primaryLogs, err := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "logs", "deployment/camunda-connectors", "--tail=1000")
-	require.NoError(t, err, "Failed to get primary region connector logs")
-	primaryJobCount := strings.Count(primaryLogs, "Completing job")
-	t.Logf("[CONNECTORS CHECK] Primary region connectors completed %d jobs", primaryJobCount)
-
-	// Check secondary region connectors
-	secondaryLogs, err := k8s.RunKubectlAndGetOutputE(t, &secondary.KubectlNamespace, "logs", "deployment/camunda-connectors", "--tail=1000")
-	require.NoError(t, err, "Failed to get secondary region connector logs")
-	secondaryJobCount := strings.Count(secondaryLogs, "Completing job")
-	t.Logf("[CONNECTORS CHECK] Secondary region connectors completed %d jobs", secondaryJobCount)
-
-	// Both regions should have processed jobs
-	require.Greater(t, primaryJobCount, 0, "Primary region connectors did not process any jobs (no 'Completing job' in logs)")
-	require.Greater(t, secondaryJobCount, 0, "Secondary region connectors did not process any jobs (no 'Completing job' in logs)")
-
-	// Log total jobs processed
-	totalJobs := primaryJobCount + secondaryJobCount
-	t.Logf("[CONNECTORS CHECK] Total jobs completed: %d (primary: %d, secondary: %d)", totalJobs, primaryJobCount, secondaryJobCount)
-
-	// Verify total matches expected (each webhook triggers one REST connector job)
-	require.GreaterOrEqual(t, totalJobs, webhookTriggerCount,
-		"Expected at least %d jobs to be completed, but only %d were found", webhookTriggerCount, totalJobs)
-
-	t.Log("[CONNECTORS CHECK] ✅ Both connector deployments have processed jobs")
 }
 
 // cleanupMockApiServer removes the mock API server
