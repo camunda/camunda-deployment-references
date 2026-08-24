@@ -69,6 +69,27 @@ class ClassifyHttpErrorTest(unittest.TestCase):
             why="a primary rate limit is transient, it must keep its retries",
         )
 
+    def test_403_rate_limit_header_is_matched_case_insensitively(self):
+        """GitHub sends `X-RateLimit-Remaining`; header names are case-insensitive.
+
+        The body here carries the permission message on purpose: only the header
+        can tell the two apart, so a case-sensitive lookup would misclassify it.
+        """
+        self.assert_retryable(
+            403,
+            body=b'{"message":"Resource not accessible by integration"}',
+            headers={"X-RateLimit-Remaining": "0"},
+            why="the conventional header casing must still be recognised",
+        )
+
+    def test_403_retry_after_header_is_matched_case_insensitively(self):
+        self.assert_retryable(
+            403,
+            body=b'{"message":"Resource not accessible by integration"}',
+            headers={"RETRY-AFTER": "60"},
+            why="the conventional header casing must still be recognised",
+        )
+
     def test_403_secondary_rate_limit_stays_retryable(self):
         self.assert_retryable(
             403,
@@ -146,6 +167,12 @@ class MainFailureModesTest(unittest.TestCase):
         self.assertEqual(attempts, 1, "a missing permission is deterministic")
         self.assertIn("::error::", out)
         self.assertIn("pull-requests: write", out)
+
+    def test_error_annotation_covers_every_cause_of_a_denied_token(self):
+        """The token is an input and forks are read-only, so do not blame only the job."""
+        _, _, out = self.run_main(upsert.MissingPermissionError("403"))
+        for cause in ("permissions:", "github-token", "fork"):
+            self.assertIn(cause, out.lower(), f"guidance should mention {cause}")
 
     def test_transient_failure_still_retries_and_warns(self):
         exit_code, attempts, out = self.run_main(RuntimeError("500 boom"))

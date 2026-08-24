@@ -83,11 +83,14 @@ def _is_permission_denied(body: str, headers: dict) -> bool:
     lowered = body.lower()
     if "rate limit" in lowered or "abuse detection" in lowered:
         return False
+    # HTTP header names are case-insensitive and GitHub sends the conventional
+    # X-RateLimit-Remaining / Retry-After casing, so normalise before matching.
+    seen = {str(k).lower(): str(v).strip() for k, v in headers.items()}
     # Primary rate limit: 403 with the remaining budget exhausted.
-    if str(headers.get("x-ratelimit-remaining", "")).strip() == "0":
+    if seen.get("x-ratelimit-remaining") == "0":
         return False
     # Secondary rate limit: 403 asking the caller to back off.
-    if "retry-after" in {k.lower() for k in headers}:
+    if "retry-after" in seen:
         return False
     return "resource not accessible by integration" in lowered
 
@@ -323,11 +326,14 @@ def main() -> int:
             # than retrying five times and hiding it in a warning. Still exits 0
             # -- the PR comment stays advisory and never fails the workflow.
             print(
-                "::error::Helm-deprecation PR comment skipped: the workflow "
-                "token lacks `pull-requests: write`. Add it to the job's "
-                "`permissions:` block -- a job-level block REPLACES the "
-                "workflow-level one, so it must repeat every permission the "
-                f"job needs. Details: {exc}",
+                "::error::Helm-deprecation PR comment skipped: the token is not "
+                "allowed to write pull-request comments on this repository. "
+                "Usual causes: the job's `permissions:` block is missing "
+                "`pull-requests: write` (a job-level block REPLACES the "
+                "workflow-level one, so it must repeat every permission the job "
+                "needs); the token passed as `github-token` lacks that scope; or "
+                "the run comes from a fork, where GITHUB_TOKEN is read-only "
+                f"whatever the workflow requests. Details: {exc}",
             )
             return 0
         except RuntimeError as exc:

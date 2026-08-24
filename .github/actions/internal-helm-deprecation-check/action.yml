@@ -89,9 +89,10 @@ inputs:
             `pull-requests: write` permission for the comment to be posted.
             Beware that a job-level `permissions:` block REPLACES the
             workflow-level one, so it must repeat every permission the job
-            needs. When the permission is missing the action emits an
-            `::error::` annotation and skips the comment; it never fails
-            the job.
+            needs. Fork pull requests get a read-only GITHUB_TOKEN whatever
+            the workflow requests. When the comment cannot be written the
+            action emits an `::error::` annotation and skips it; it never
+            fails the job.
         required: false
         default: ${{ github.token }}
     vault-addr:
