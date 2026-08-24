@@ -92,8 +92,10 @@ inputs:
             needs. On a `pull_request` run from a fork the `GITHUB_TOKEN` is
             read-only whatever the workflow requests, so the comment is
             skipped; `pull_request_target` runs in the base context and is
-            unaffected. When the comment cannot be written the action emits
-            an `::error::` annotation and skips it; it never fails the job.
+            unaffected. A denied token is reported as an `::error::`
+            annotation and the comment is skipped; a transient API failure is
+            retried and then reported as a `::warning::`. Neither ever fails
+            the job.
         required: false
         default: ${{ github.token }}
     vault-addr:

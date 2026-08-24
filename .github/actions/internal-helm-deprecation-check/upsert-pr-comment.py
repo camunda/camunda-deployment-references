@@ -10,8 +10,8 @@ when the last section disappears.
 Designed to converge under racing matrix jobs by re-fetching the comment
 on every retry. Failure to post never fails the action -- the PR comment is
 advisory. A transient failure is retried and then logged as a warning; a
-missing `pull-requests: write` permission is deterministic, so it is reported
-immediately as an error annotation instead of being retried.
+denied token is deterministic, so it is reported immediately as an error
+annotation instead of being retried.
 """
 
 from __future__ import annotations
