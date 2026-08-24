@@ -28,7 +28,7 @@ spec:
                       - |
                         import json
                         import os
-                        from http.server import HTTPServer, BaseHTTPRequestHandler
+                        from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
                         from datetime import datetime
 
                         # Store received requests in memory for verification
@@ -93,7 +93,10 @@ spec:
                                 self._send_response(200, {'message': 'DELETE request received', 'path': self.path})
 
                         port = int(os.environ.get('PORT', 8080))
-                        server = HTTPServer(('0.0.0.0', port), MockHandler)
+                        # Threaded: connector callbacks from both regions, the readiness and
+                        # liveness probes and the test's own polling all arrive concurrently.
+                        # A single-threaded HTTPServer only has a backlog of 5 and drops the rest.
+                        server = ThreadingHTTPServer(('0.0.0.0', port), MockHandler)
                         print(f"Mock API Server starting on port {port}")
                         server.serve_forever()
                   ports:
