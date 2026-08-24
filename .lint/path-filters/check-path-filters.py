@@ -132,13 +132,19 @@ def glob_to_regex(pattern: str) -> re.Pattern[str]:
     """Translate a GitHub filter pattern into an anchored regex.
 
     `*` stops at a separator, `**` crosses them, `?` is a single character.
-    Everything else is literal.
+    A `**/` segment spans zero or more directories, so `a/**/go.mod` has to
+    match `a/go.mod` as well: keeping that slash mandatory would report a
+    working filter as dead the day the file moves up one level.
     """
     out = []
     index = 0
     while index < len(pattern):
         char = pattern[index]
         if char == "*":
+            if pattern[index : index + 3] == "**/":
+                out.append("(?:.*/)?")
+                index += 3
+                continue
             if pattern[index : index + 2] == "**":
                 out.append(".*")
                 index += 2
