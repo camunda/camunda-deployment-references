@@ -16,6 +16,7 @@ on:
             - '!aws/compute/ec2-single-region/test/golden/**'
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
+            - .github/actions/observe-build-status/**
 
     schedule:
         - cron: 0 1 * * * # At 01:00 everyday.

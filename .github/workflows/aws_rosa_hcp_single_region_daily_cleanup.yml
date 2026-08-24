@@ -16,6 +16,7 @@ on:
             - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
+            - .github/actions/observe-build-status/**
 
     schedule:
         - cron: 0 4 * * * # At 04:00 everyday.

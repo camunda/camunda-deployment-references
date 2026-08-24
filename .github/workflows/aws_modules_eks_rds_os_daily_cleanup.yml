@@ -14,6 +14,7 @@ on:
             - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
             - .github/actions/aws-eks-cleanup-resources/**
             - .github/actions/aws-configure-cli/**
+            - .github/actions/observe-build-status/**
 
     schedule:
         - cron: 0 4 * * * # At 04:00 everyday.

@@ -73,6 +73,25 @@ def _token() -> str:
     return token
 
 
+def _is_permission_denied(body: str, headers: dict) -> bool:
+    """Tell a missing permission apart from the other things GitHub 403s on.
+
+    GitHub reuses 403 for primary and secondary rate limits, which *are*
+    transient and must keep their retries. Only the token-permission variant is
+    deterministic, so match it positively and let everything else fall through.
+    """
+    lowered = body.lower()
+    if "rate limit" in lowered or "abuse detection" in lowered:
+        return False
+    # Primary rate limit: 403 with the remaining budget exhausted.
+    if str(headers.get("x-ratelimit-remaining", "")).strip() == "0":
+        return False
+    # Secondary rate limit: 403 asking the caller to back off.
+    if "retry-after" in {k.lower() for k in headers}:
+        return False
+    return "resource not accessible by integration" in lowered
+
+
 def gh_api(
     path: str,
     *,
@@ -97,14 +116,11 @@ def gh_api(
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         payload = exc.read() or b""
+        headers = dict(exc.headers or {})
         exc.close()
-        detail = (
-            f"GitHub API {method} {path} failed ({exc.code}): "
-            f"{payload.decode('utf-8', errors='replace')}"
-        )
-        # 403 here means the workflow token has no `pull-requests: write`, which
-        # every retry will hit identically. Surface it as its own error type.
-        if exc.code == 403:
+        body = payload.decode("utf-8", errors="replace")
+        detail = f"GitHub API {method} {path} failed ({exc.code}): {body}"
+        if exc.code == 403 and _is_permission_denied(body, headers):
             raise MissingPermissionError(detail) from exc
         raise RuntimeError(detail) from exc
 

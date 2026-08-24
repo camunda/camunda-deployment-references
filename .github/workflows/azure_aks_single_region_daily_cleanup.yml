@@ -19,6 +19,7 @@ on:
             - azure/kubernetes/aks-single-region*/**
             - '!azure/kubernetes/aks-single-region/test/golden/**'
             - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
+            - .github/actions/observe-build-status/**
 
     schedule:
         - cron: 0 4 * * * # At 04:00 everyday.
@@ -199,6 +200,7 @@ jobs:
               continue-on-error: true
               uses: ./.github/actions/observe-build-status
               with:
+                  job_name: ${{ github.job }}/${{ matrix.scenario.name }}
                   build_status: ${{ job.status }}
                   secret_vault_address: ${{ secrets.VAULT_ADDR }}
                   secret_vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

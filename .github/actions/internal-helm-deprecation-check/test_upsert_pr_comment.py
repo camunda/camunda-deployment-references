@@ -22,16 +22,18 @@ upsert = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(upsert)
 
 
-def raising_urlopen(status):
+def raising_urlopen(status, body=None, headers=None):
     """Return a urlopen stub that fails the way GitHub does for `status`."""
+    if body is None:
+        body = b'{"message":"Resource not accessible by integration"}'
 
     def urlopen(req, *args, **kwargs):
         raise urllib.error.HTTPError(
             req.full_url,
             status,
             "boom",
-            {},
-            io.BytesIO(b'{"message":"Resource not accessible by integration"}'),
+            headers or {},
+            io.BytesIO(body),
         )
 
     return urlopen
@@ -40,27 +42,61 @@ def raising_urlopen(status):
 class ClassifyHttpErrorTest(unittest.TestCase):
     """A missing permission must be distinguishable from a transient failure."""
 
-    def call_with_status(self, status):
+    def call(self, status, body=None, headers=None):
         with unittest.mock.patch.object(upsert, "_token", lambda: "token"), (
             unittest.mock.patch.object(
-                upsert.urllib.request, "urlopen", raising_urlopen(status)
+                upsert.urllib.request,
+                "urlopen",
+                raising_urlopen(status, body, headers),
             )
         ):
             upsert.gh_api("/repos/o/r/issues/1/comments", method="POST", body={})
 
-    def test_403_raises_missing_permission(self):
+    def assert_retryable(self, status, body=None, headers=None, why=""):
+        with self.assertRaises(RuntimeError) as ctx:
+            self.call(status, body, headers)
+        self.assertNotIsInstance(ctx.exception, upsert.MissingPermissionError, why)
+
+    def test_403_permission_denied_raises_missing_permission(self):
         with self.assertRaises(upsert.MissingPermissionError):
-            self.call_with_status(403)
+            self.call(403)
+
+    def test_403_primary_rate_limit_stays_retryable(self):
+        self.assert_retryable(
+            403,
+            body=b'{"message":"API rate limit exceeded for installation."}',
+            headers={"x-ratelimit-remaining": "0"},
+            why="a primary rate limit is transient, it must keep its retries",
+        )
+
+    def test_403_secondary_rate_limit_stays_retryable(self):
+        self.assert_retryable(
+            403,
+            body=b'{"message":"You have exceeded a secondary rate limit."}',
+            headers={"Retry-After": "60"},
+            why="a secondary rate limit is transient, it must keep its retries",
+        )
+
+    def test_403_abuse_detection_stays_retryable(self):
+        self.assert_retryable(
+            403,
+            body=b'{"message":"You have triggered an abuse detection mechanism."}',
+            why="abuse detection is transient, it must keep its retries",
+        )
+
+    def test_403_of_unknown_shape_stays_retryable(self):
+        self.assert_retryable(
+            403,
+            body=b'{"message":"Something else entirely."}',
+            why="only the documented permission message may skip the retries",
+        )
 
     def test_other_statuses_stay_retryable(self):
         for status in (404, 422, 500, 502):
             with self.subTest(status=status):
-                with self.assertRaises(RuntimeError) as ctx:
-                    self.call_with_status(status)
-                self.assertNotIsInstance(
-                    ctx.exception,
-                    upsert.MissingPermissionError,
-                    f"HTTP {status} is transient and must keep its retries",
+                self.assert_retryable(
+                    status,
+                    why=f"HTTP {status} is transient and must keep its retries",
                 )
 
 
