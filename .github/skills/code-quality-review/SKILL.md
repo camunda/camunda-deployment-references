@@ -102,7 +102,7 @@ one attribute, and repeated shell fragments that belong in a `just` recipe.
 
 ## Output
 
-One line per finding, in the `caveman-review` shape used elsewhere:
+One line per finding:
 
 ```
 <file>:L<line>: <check>: <problem>. <fix>.
