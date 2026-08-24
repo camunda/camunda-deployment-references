@@ -1,6 +1,6 @@
 ---
 name: review-loop
-description: 'Drive one or more pull requests to a review-ready state by pausing CI, requesting a GitHub Copilot review, fixing every finding, re-requesting until the review is clean, then re-running the tests and appending the exact ` [ready]` tag (leading space) to the end of the PR title. USE WHEN: the user invokes "/review-loop", or says "pause the CI and get a Copilot review", "run the review loop", "fix what Copilot says and re-review", "drive this PR to ready", "mets le PR en ready". INVOKES: gh CLI (pr/api/run), the ci-feedback-loop skill for test triage. DO NOT USE FOR: merging PRs, or one-off log fetching (use ci-feedback-loop directly).'
+description: 'Drive one or more pull requests to a review-ready state by pausing CI, self-reviewing the diff for maintainability, requesting a GitHub Copilot review, fixing every finding, re-requesting until the review is clean, then re-running the tests and appending the exact ` [ready]` tag (leading space) to the end of the PR title. USE WHEN: the user invokes "/review-loop", or says "pause the CI and get a Copilot review", "run the review loop", "fix what Copilot says and re-review", "drive this PR to ready", "mets le PR en ready". INVOKES: gh CLI (pr/api/run), the code-quality-review skill for the pre-review self-check, the ci-feedback-loop skill for test triage. DO NOT USE FOR: merging PRs, or one-off log fetching (use ci-feedback-loop directly).'
 argument-hint: '[pr-number|pr-url ...] (defaults to the current branch PR + its backport PRs)'
 ---
 
@@ -9,7 +9,8 @@ argument-hint: '[pr-number|pr-url ...] (defaults to the current branch PR + its 
 Autonomously drive a PR (and its sibling backport PRs) through this loop:
 
 ```
-pause CI → request Copilot review → fix every finding → re-review (loop until clean)
+pause CI → self-review the diff → request Copilot review → fix every finding
+        → re-review (loop until clean)
         → relaunch tests → on failure: fix + re-enter loop → on success: append " [ready]"
 ```
 
@@ -128,6 +129,25 @@ skip the heavy jobs while you iterate.
 > Re-entering after a regression (step 8) re-adds it idempotently, so it is safe
 > to strip first and re-add.
 
+### 1.5. Self-review the diff before asking for a machine review
+
+Read and follow the **code-quality-review** skill
+(`.github/skills/code-quality-review/SKILL.md`) on the current branch's diff.
+
+Do this **before** step 2, not after. Copilot reviews the lines that exist when
+it is asked; if a structural fix is still coming, its findings land on code that
+is about to disappear, and you spend a round-trip answering threads on dead
+lines.
+
+- Apply the findings you agree with, in the same commit style as step 5.
+- On a sibling backport set, run it once on the originating PR and carry the
+  same fixes across — the diffs are meant to stay identical.
+- An empty report is a normal outcome. Do not manufacture a refactor to justify
+  the step.
+
+Skip this step only for a diff that cannot have structure: a lockfile bump, a
+`renovate` update, a one-line constant change.
+
 ### 2. Request a Copilot review
 
 Some repos auto-request Copilot on every push (branch ruleset "Review new
@@ -221,8 +241,9 @@ humans, do not auto-reply to them). For each Copilot finding:
 git add -- <paths-you-actually-changed>
 git status --short      # confirm only the intended paths are staged before committing
 # Use a real, specific scope (the component/area you touched) and message — not a
-# literal placeholder — so `git log` stays auditable and commitlint (scope
-# allowlist `[a-z0-9-]+`) does not reject the angle brackets:
+# literal placeholder — so `git log` stays auditable and the commit-msg hook
+# (`conventional-pre-commit`, run with `--strict --force-scope`, so a scope is
+# mandatory and must match `[a-z0-9-]+`) does not reject the angle brackets:
 git commit -m "fix(<real-scope>): <what this fix changed>" && git push
 ```
 
@@ -291,6 +312,8 @@ Confirm `skip_all` is removed before declaring done.
 ## Anti-patterns
 
 - **Don't merge.** This skill stops at the ` [ready]` tag.
+- **Don't** request the Copilot review before step 1.5 — findings on code you are
+  about to restructure are wasted round-trips.
 - **Don't** silently drop a Copilot finding — fix it or reply with a rationale.
 - **Don't** `git add -u` / `git add .` — stage only the paths you changed.
 - **Don't** skip/disable a failing check to force green — fix the root cause.
@@ -301,5 +324,6 @@ Confirm `skip_all` is removed before declaring done.
 
 ## References
 
+- [code-quality-review](../code-quality-review/SKILL.md) — the strict self-review run at step 1.5.
 - [ci-feedback-loop](../ci-feedback-loop/SKILL.md) — CI status/logs/artifacts.
 - `AGENTS.md` → "PR review rules" — the Copilot-triage + backport-propagation contract.
