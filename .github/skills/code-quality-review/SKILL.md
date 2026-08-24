@@ -10,10 +10,11 @@ A deliberately harsh maintainability pass over a diff, run **before** asking for
 a machine review. It looks at implementation quality, abstraction quality, and
 codebase health — not at whether the code is correct.
 
-Adapted from the MIT-licensed `thermo-nuclear-code-quality-review` skill in
-[cursor/plugins](https://github.com/cursor/plugins/tree/main/cursor-team-kit)
-(MIT License, Copyright (c) 2026 Cursor). The strict checks are kept; the
-upstream "restructure the codebase" ambition is deliberately removed — see
+Adapted from the `thermo-nuclear-code-quality-review` skill in
+[cursor/plugins](https://github.com/cursor/plugins/tree/main/cursor-team-kit),
+MIT License, Copyright (c) 2026 Cursor. The full license text is reproduced in
+[NOTICE](./NOTICE), as MIT requires. The strict checks are kept; the upstream
+"restructure the codebase" ambition is deliberately removed — see
 [Non-goals](#non-goals).
 
 ## When to use
@@ -51,7 +52,11 @@ Do not let a diff push a file from under 1000 lines to over 1000 lines without a
 strong reason.
 
 ```bash
-BASE=${1:-$(git merge-base HEAD "origin/$(cat .target-branch)")}
+# Prefer the remote-tracking ref, fall back to a local branch of the same name,
+# so this also works on a fork or a clone that has not fetched the target yet.
+TARGET=$(cat .target-branch)
+BASE=${1:-$(git merge-base HEAD "origin/$TARGET" 2>/dev/null \
+         || git merge-base HEAD "$TARGET")}
 git diff --name-only "$BASE"...HEAD | while read -r f; do
   [ -f "$f" ] || continue
   now=$(wc -l < "$f")
