@@ -295,13 +295,18 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	kubectlHelpers.WaitForGatewayAuthReady(t, &primary.KubectlNamespace, 30, 10*time.Second)
 	kubectlHelpers.WaitForGatewayAuthReady(t, &secondary.KubectlNamespace, 30, 10*time.Second)
 
-	// connectors last as they depend on the Orchestration Cluster
-	err := k8s.WaitUntilDeploymentAvailableE(t, &primary.KubectlNamespace, "camunda-connectors", retries, 20*time.Second)
-	if err != nil {
-		t.Log("[C8 HELM] camunda-connectors deployment not available, dumping container logs...")
-		output, _ := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "logs", "-l", "app.kubernetes.io/component=connectors", "--tail=200", "--all-containers=true")
-		t.Logf("[C8 HELM] camunda-connectors logs:\n%s", output)
-		t.Fatalf("[C8 HELM] camunda-connectors deployment failed to become available: %v", err)
+	// connectors last as they depend on the Orchestration Cluster.
+	// Both regions run their own connectors deployment, so both have to become
+	// available: a secondary region whose connectors never start would otherwise
+	// only surface much later, as a connector flow that silently never runs there.
+	for _, kubectlOptions := range []*k8s.KubectlOptions{&primary.KubectlNamespace, &secondary.KubectlNamespace} {
+		err := k8s.WaitUntilDeploymentAvailableE(t, kubectlOptions, "camunda-connectors", retries, 20*time.Second)
+		if err != nil {
+			t.Logf("[C8 HELM] camunda-connectors deployment not available in %s, dumping container logs...", kubectlOptions.Namespace)
+			output, _ := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "logs", "-l", "app.kubernetes.io/component=connectors", "--tail=200", "--all-containers=true")
+			t.Logf("[C8 HELM] camunda-connectors logs:\n%s", output)
+			t.Fatalf("[C8 HELM] camunda-connectors deployment failed to become available in %s: %v", kubectlOptions.Namespace, err)
+		}
 	}
 }
 
