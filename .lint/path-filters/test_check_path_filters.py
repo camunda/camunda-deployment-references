@@ -148,6 +148,21 @@ class GlobTest(unittest.TestCase):
         matcher = glob_to_regex("aws/**/main.tf")
         self.assertTrue(matcher.match("aws/modules/eks/main.tf"))
 
+    def test_a_double_star_segment_also_matches_zero_directories(self):
+        """`a/**/go.mod` matches `a/go.mod` on GitHub, so the file may move up a level."""
+        matcher = glob_to_regex("aws/modules/.test/**/go.mod")
+        self.assertTrue(matcher.match("aws/modules/.test/src/go.mod"))
+        self.assertTrue(matcher.match("aws/modules/.test/go.mod"))
+
+    def test_a_leading_double_star_segment_matches_a_file_at_the_root(self):
+        matcher = glob_to_regex("**/README.md")
+        self.assertTrue(matcher.match("aws/modules/README.md"))
+        self.assertTrue(matcher.match("README.md"))
+
+    def test_a_double_star_inside_a_segment_still_crosses_separators(self):
+        matcher = glob_to_regex("aws/modules/**.tf")
+        self.assertTrue(matcher.match("aws/modules/eks/main.tf"))
+
     def test_a_question_mark_matches_exactly_one_character(self):
         matcher = glob_to_regex("aws/x?.tf")
         self.assertTrue(matcher.match("aws/x1.tf"))
