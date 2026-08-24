@@ -85,8 +85,17 @@ inputs:
     github-token:
         description: |
             Token used to read and update the shared PR comment.
-            Defaults to the workflow-provided GITHUB_TOKEN. The token needs
+            Defaults to the workflow-provided `GITHUB_TOKEN`. The token needs
             `pull-requests: write` permission for the comment to be posted.
+            Beware that a job-level `permissions:` block REPLACES the
+            workflow-level one, so it must repeat every permission the job
+            needs. On a `pull_request` run from a fork the `GITHUB_TOKEN` is
+            read-only whatever the workflow requests, so the comment is
+            skipped; `pull_request_target` runs in the base context and is
+            unaffected. A denied token is reported as an `::error::`
+            annotation and the comment is skipped; a transient API failure is
+            retried and then reported as a `::warning::`. Neither ever fails
+            the job.
         required: false
         default: ${{ github.token }}
     vault-addr:

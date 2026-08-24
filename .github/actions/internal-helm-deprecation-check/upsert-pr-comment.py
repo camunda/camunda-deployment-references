@@ -8,8 +8,10 @@ removes its section if it has no findings, or deletes the comment entirely
 when the last section disappears.
 
 Designed to converge under racing matrix jobs by re-fetching the comment
-on every retry. Failure to post is logged as a workflow warning but never
-fails the action -- the PR comment is advisory.
+on every retry. Failure to post never fails the action -- the PR comment is
+advisory. A transient failure is retried and then logged as a warning; a
+denied token is deterministic, so it is reported immediately as an error
+annotation instead of being retried.
 """
 
 from __future__ import annotations
@@ -48,6 +50,14 @@ ANY_SECTION_RE = re.compile(r"<!-- section:[0-9a-f]{12}:start -->")
 MAX_ATTEMPTS = 5
 
 
+class MissingPermissionError(RuntimeError):
+    """The token lacks `pull-requests: write` on this repository.
+
+    Deterministic: retrying cannot fix a missing permission, so callers should
+    report it immediately instead of burning the retry budget.
+    """
+
+
 def section_id(*parts: str) -> str:
     raw = "|".join(parts)
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
@@ -61,6 +71,28 @@ def _token() -> str:
     if not token:
         raise RuntimeError("GH_TOKEN/GITHUB_TOKEN not set")
     return token
+
+
+def _is_permission_denied(body: str, headers: dict) -> bool:
+    """Tell a missing permission apart from the other things GitHub 403s on.
+
+    GitHub reuses 403 for primary and secondary rate limits, which *are*
+    transient and must keep their retries. Only the token-permission variant is
+    deterministic, so match it positively and let everything else fall through.
+    """
+    lowered = body.lower()
+    if "rate limit" in lowered or "abuse detection" in lowered:
+        return False
+    # HTTP header names are case-insensitive and GitHub sends the conventional
+    # X-RateLimit-Remaining / Retry-After casing, so normalise before matching.
+    seen = {str(k).lower(): str(v).strip() for k, v in headers.items()}
+    # Primary rate limit: 403 with the remaining budget exhausted.
+    if seen.get("x-ratelimit-remaining") == "0":
+        return False
+    # Secondary rate limit: 403 asking the caller to back off.
+    if "retry-after" in seen:
+        return False
+    return "resource not accessible by integration" in lowered
 
 
 def gh_api(
@@ -87,10 +119,13 @@ def gh_api(
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         payload = exc.read() or b""
-        raise RuntimeError(
-            f"GitHub API {method} {path} failed ({exc.code}): "
-            f"{payload.decode('utf-8', errors='replace')}"
-        ) from exc
+        headers = dict(exc.headers or {})
+        exc.close()
+        body = payload.decode("utf-8", errors="replace")
+        detail = f"GitHub API {method} {path} failed ({exc.code}): {body}"
+        if exc.code == 403 and _is_permission_denied(body, headers):
+            raise MissingPermissionError(detail) from exc
+        raise RuntimeError(detail) from exc
 
 
 def find_existing_comment(repo: str, pr_number: int) -> dict | None:
@@ -286,6 +321,22 @@ def main() -> int:
                 print(f"PR #{args.pr_number} comment {action} (attempt {attempt}).")
                 return 0
             last_error = "verification mismatch"
+        except MissingPermissionError as exc:
+            # Deterministic misconfiguration: report it loudly and stop, rather
+            # than retrying five times and hiding it in a warning. Still exits 0
+            # -- the PR comment stays advisory and never fails the workflow.
+            print(
+                "::error::Helm-deprecation PR comment skipped: the token is not "
+                "allowed to write pull-request comments on this repository. "
+                "Usual causes: the job's `permissions:` block is missing "
+                "`pull-requests: write` (a job-level block REPLACES the "
+                "workflow-level one, so it must repeat every permission the job "
+                "needs); the token passed as `github-token` lacks that scope; or "
+                "this is a `pull_request` run from a fork, where GITHUB_TOKEN is "
+                "read-only whatever the workflow requests (`pull_request_target` "
+                f"runs in the base context and is unaffected). Details: {exc}",
+            )
+            return 0
         except RuntimeError as exc:
             last_error = str(exc)
         if attempt < MAX_ATTEMPTS:
