@@ -12,6 +12,15 @@ on:
                     is activated during the run), 3 deploys everything up front.
                 required: false
                 default: '2'
+            debug_tmate:
+                description: |
+                    Hold the runner open on an SSH session once the tests are done, before the
+                    teardown, so the clusters can be inspected by hand. The runner already
+                    carries a kubectl context per region, so `kubectl --context cluster-<short>`
+                    works straight away. Only the user who started the run can connect.
+                type: boolean
+                required: false
+                default: false
     pull_request:
         paths:
             - .github/workflows/aws_eks_multi_region_rdbms_tests.yml
@@ -110,8 +119,9 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         # The infrastructure alone is roughly 40 minutes; the growth and region-loss
-        # scenarios add another 60.
-        timeout-minutes: 180
+        # scenarios add another 60. The debug shell is worth 30 more, and the budget
+        # has to cover them or the job is cancelled with the clusters still up.
+        timeout-minutes: ${{ github.event.inputs.debug_tmate == 'true' && 210 || 180 }}
         strategy:
             fail-fast: false
             matrix: ${{ fromJson(needs.clusters-info.outputs.platform-matrix) }}
@@ -302,6 +312,21 @@ jobs:
                       --sort-by=.lastTimestamp | tail -40 || true
                     echo "::endgroup::"
                   done
+
+            # Last chance to look at the clusters: the next step starts deleting them.
+            # Opt-in through the workflow_dispatch input, so a scheduled or pull-request
+            # run never stalls here. The session ends on `touch /continue`, on
+            # disconnect, or when the timeout below expires, whichever comes first.
+            #
+            # The AWS credentials on the runner come from a role assumed at the start of
+            # the job, so `kubectl` stops working once that session expires, however long
+            # the tmate window still has left.
+            - name: Open a debug shell on the runner
+              if: ${{ !cancelled() && github.event.inputs.debug_tmate == 'true' }}
+              timeout-minutes: 30
+              uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3.24
+              with:
+                  limit-access-to-actor: true
 
             - name: Uninstall Camunda and Submariner
               if: always()

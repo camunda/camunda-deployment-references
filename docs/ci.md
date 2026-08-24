@@ -88,6 +88,18 @@ gh run rerun <run-id> --failed # avoid on cloud workflows
 
 A full re-run reprovisions the clusters, so check the cloud quotas first when several runs are in flight.
 
+### Inspecting a live cluster before the teardown
+
+`aws_eks_multi_region_rdbms_tests.yml` takes a `debug_tmate` input on `workflow_dispatch`. Set it and the job stops on an SSH session after the tests and before the destroy step, on the runner that provisioned the clusters:
+
+```bash
+gh workflow run aws_eks_multi_region_rdbms_tests.yml -f debug_tmate=true
+```
+
+The connection string is printed in the step log and only the user who started the run can attach. The runner already holds a kubectl context per region, so `kubectl --context cluster-london get pods -n camunda` works without any setup. End the session with `touch /continue`, or leave it and the step expires after 30 minutes.
+
+The AWS credentials come from a role assumed at the start of the job. They expire on their own schedule, so `kubectl` can stop working while the session is still open.
+
 ## CI Status Reporting
 
 CI emits complementary operational signals:
