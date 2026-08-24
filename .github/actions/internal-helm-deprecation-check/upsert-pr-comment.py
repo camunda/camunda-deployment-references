@@ -332,8 +332,9 @@ def main() -> int:
                 "`pull-requests: write` (a job-level block REPLACES the "
                 "workflow-level one, so it must repeat every permission the job "
                 "needs); the token passed as `github-token` lacks that scope; or "
-                "the run comes from a fork, where GITHUB_TOKEN is read-only "
-                f"whatever the workflow requests. Details: {exc}",
+                "this is a `pull_request` run from a fork, where GITHUB_TOKEN is "
+                "read-only whatever the workflow requests (`pull_request_target` "
+                f"runs in the base context and is unaffected). Details: {exc}",
             )
             return 0
         except RuntimeError as exc:
