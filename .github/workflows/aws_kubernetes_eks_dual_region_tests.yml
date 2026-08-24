@@ -33,7 +33,7 @@ on:
     pull_request:
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
-            - .github/actions/setup-aws/action.yml
+            - .github/actions/aws-configure-cli/**
             - .github/actions/kubernetes-eck-operator/**
             - .github/actions/kubernetes-eck-operator-cleanup/**
             - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
@@ -42,7 +42,7 @@ on:
             - aws/kubernetes/eks-dual-region/terraform/**
             - aws/kubernetes/eks-dual-region/test/**
             - generic/kubernetes/operator-based/elasticsearch/**
-            - .tools-versions
+            - .tool-versions
             - .github/actions/internal-multi-region-tests/**
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/internal-camunda-ci-credentials/**
