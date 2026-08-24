@@ -73,7 +73,11 @@ jobs:
             # match an integration test suite will now run it.
             - name: Create backport PRs
               id: backport
+<<<<<<< HEAD
               uses: korthout/backport-action@3c06f323a58619da1e8522229ebc8d5de2633e46 # v4.3.0
+=======
+              uses: korthout/backport-action@2e830a1d0b8269505846ddd407a70876913ad1f8 # v4.6.0
+>>>>>>> e10cbb1 (ci(backport): stop handing a validated title to an unvalidated backport (#3218))
               with:
                   github_token: ${{ steps.generate-github-token.outputs.token }}
                   add_author_as_assignee: true
