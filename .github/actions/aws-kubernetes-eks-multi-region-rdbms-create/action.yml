@@ -91,15 +91,21 @@ runs:
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
           run: |
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME}/"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
-                export TFSTATE_REGION="${{ inputs.aws-region }}"
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
+                export TFSTATE_REGION="${INPUTS_AWS_REGION}"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
@@ -135,16 +141,23 @@ runs:
         - name: Generate tfvars file
           shell: bash
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
+              INPUTS_ACTIVE_REGION_COUNT: ${{ inputs.active-region-count }}
+              INPUTS_NP_DESIRED_NODE_COUNT: ${{ inputs.np-desired-node-count }}
+              INPUTS_SINGLE_NAT_GATEWAY: ${{ inputs.single-nat-gateway }}
+              INPUTS_DATABASE_INSTANCE_CLASS: ${{ inputs.database-instance-class }}
           run: |
               set -euo pipefail
 
               cat > terraform-cluster.tfvars <<EOF
-              cluster_name            = "${{ inputs.cluster-name }}"
-              kubernetes_version      = "${{ inputs.kubernetes-version }}"
-              active_region_count     = ${{ inputs.active-region-count }}
-              np_desired_node_count   = ${{ inputs.np-desired-node-count }}
-              single_nat_gateway      = ${{ inputs.single-nat-gateway }}
-              database_instance_class = "${{ inputs.database-instance-class }}"
+              cluster_name            = "${INPUTS_CLUSTER_NAME}"
+              kubernetes_version      = "${INPUTS_KUBERNETES_VERSION}"
+              active_region_count     = ${INPUTS_ACTIVE_REGION_COUNT}
+              np_desired_node_count   = ${INPUTS_NP_DESIRED_NODE_COUNT}
+              single_nat_gateway      = ${INPUTS_SINGLE_NAT_GATEWAY}
+              database_instance_class = "${INPUTS_DATABASE_INSTANCE_CLASS}"
               default_tags            = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
               aws_profile             = "infraex"
               EOF
@@ -207,6 +220,8 @@ runs:
         - name: Register kubectl contexts
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
           shell: bash
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
           run: |
               set -euo pipefail
 
@@ -215,7 +230,7 @@ runs:
 
               for i in "${!shorts[@]}"; do
                 aws eks --region "${regions[$i]}" update-kubeconfig \
-                  --name "${{ inputs.cluster-name }}-${shorts[$i]}" \
+                  --name "${INPUTS_CLUSTER_NAME}-${shorts[$i]}" \
                   --alias "cluster-${shorts[$i]}"
               done
 
