@@ -90,11 +90,17 @@ A full re-run reprovisions the clusters, so check the cloud quotas first when se
 
 ### Inspecting a live cluster before the teardown
 
-`aws_eks_multi_region_rdbms_tests.yml` takes a `debug_tmate` input on `workflow_dispatch`. Set it and the job stops on an SSH session after the tests and before the destroy step, on the runner that provisioned the clusters:
+`aws_eks_multi_region_rdbms_tests.yml` stops on an SSH session after the tests and before the destroy step, on the runner that provisioned the clusters. Two switches turn it on, because a workflow has to be on the default branch before it can be dispatched:
 
 ```bash
+# once the workflow is on the default branch
 gh workflow run aws_eks_multi_region_rdbms_tests.yml -f debug_tmate=true
+
+# until then, from the pull request
+gh pr edit <pr> --add-label debug_tmate
 ```
+
+The label is read from the event payload, so it has to be on the pull request before the run starts. Adding it does not trigger a run by itself; push, or re-run after a push that already carried it.
 
 The connection string is printed in the step log and only the user who started the run can attach. The runner already holds a kubectl context per region, so `kubectl --context cluster-london get pods -n camunda` works without any setup. End the session with `touch /continue`, or leave it and the step expires after 30 minutes.
 

@@ -119,9 +119,10 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         # The infrastructure alone is roughly 40 minutes; the growth and region-loss
-        # scenarios add another 60. The debug shell is worth 30 more, and the budget
-        # has to cover them or the job is cancelled with the clusters still up.
-        timeout-minutes: ${{ github.event.inputs.debug_tmate == 'true' && 210 || 180 }}
+        # scenarios add another 60. The extra 30 are the debug shell below: a ceiling
+        # costs nothing when it is not reached, and a run that opens the shell without
+        # it would be cancelled with the clusters still up.
+        timeout-minutes: 210
         strategy:
             fail-fast: false
             matrix: ${{ fromJson(needs.clusters-info.outputs.platform-matrix) }}
@@ -314,15 +315,24 @@ jobs:
                   done
 
             # Last chance to look at the clusters: the next step starts deleting them.
-            # Opt-in through the workflow_dispatch input, so a scheduled or pull-request
-            # run never stalls here. The session ends on `touch /continue`, on
-            # disconnect, or when the timeout below expires, whichever comes first.
+            # Opt-in, so a scheduled run never stalls here. Two switches, because this
+            # workflow is not on the default branch yet and cannot be dispatched: the
+            # `debug_tmate` input once it is, and the `debug_tmate` label on the pull
+            # request meanwhile. The label has to be on before the run starts, since
+            # the event payload is read at that point.
+            #
+            # The session ends on `touch /continue`, on disconnect, or when the timeout
+            # below expires, whichever comes first.
             #
             # The AWS credentials on the runner come from a role assumed at the start of
             # the job, so `kubectl` stops working once that session expires, however long
             # the tmate window still has left.
             - name: Open a debug shell on the runner
-              if: ${{ !cancelled() && github.event.inputs.debug_tmate == 'true' }}
+              if: >-
+                  !cancelled() && (
+                    github.event.inputs.debug_tmate == 'true' ||
+                    contains(github.event.pull_request.labels.*.name, 'debug_tmate')
+                  )
               timeout-minutes: 30
               uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3.24
               with:
