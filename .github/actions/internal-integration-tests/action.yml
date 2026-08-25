@@ -241,35 +241,51 @@ runs:
               wait_port() {
                   local name="$1" port="$2"
                   local log="/tmp/integ-pf/${name}.log"
-                  local current
+                  local verdict
                   for _ in $(seq 1 30); do
-                      # The supervisor appends every restart to one log, so the
-                      # whole file is not a safe thing to search: a "Forwarding
-                      # from" line left by an attempt that has since exited
-                      # would pass while the current attempt is failing to
-                      # rebind. Look only at what the running attempt wrote,
-                      # i.e. everything after the last [pf-supervisor] banner.
-                      current=$(awk '/\[pf-supervisor\]/{buf=""} {buf = buf $0 ORS} END{printf "%s", buf}' \
-                          "$log" 2>/dev/null || true)
-
-                      # Positive proof that *our* kubectl owns the port: it logs
-                      # the forwarding line only after binding successfully. An
-                      # open port proves nothing — a stale kubectl or unrelated
-                      # service holding it satisfies a plain TCP probe just as
-                      # well, and the tests would run against the squatter. Same
-                      # readiness marker the Go kubectl helper scans for, see
+                      # Judge the currently running attempt only. The supervisor
+                      # appends every restart to one log, so a "Forwarding from"
+                      # line left by an attempt that has since exited must not
+                      # count as ready, and a collision reported by an earlier
+                      # attempt must not fail a healthy current one.
+                      #
+                      # Only the attempt banners reset the verdict: the
+                      # "port-forward exited" line has to stay visible, because
+                      # it is what invalidates a marker seen earlier in the same
+                      # attempt.
+                      #
+                      # The readiness marker is kubectl's own, written only
+                      # after a successful bind, so it is positive proof that
+                      # this forward owns the port. An open port proves nothing:
+                      # a stale kubectl or unrelated service holding it would
+                      # satisfy a plain TCP probe just as well and the tests
+                      # would run against the squatter. Same marker the Go
+                      # kubectl helper scans for, see
                       # aws/kubernetes/eks-dual-region/test/internal/helpers/kubectl/helpers.go.
-                      if grep -qE "Forwarding from (127\.0\.0\.1|\[::1\]):${port} ->" <<<"$current"; then
-                          echo "✅ ${name} port-forward ready on :${port}"
-                          return 0
-                      fi
-                      # Report the collision as soon as kubectl names it instead
-                      # of waiting out the loop for a generic timeout.
-                      if grep -qE "address already in use|Unable to listen on port" <<<"$current"; then
-                          echo "::error::${name} port-forward could not bind :${port}; the port is held by another process"
-                          cat "$log" 2>/dev/null || true
-                          return 1
-                      fi
+                      verdict=$(awk -v port="$port" '
+                          /\[pf-supervisor\].*(starting:|restart #)/ { ready=0; bind_error=0; exited=0; next }
+                          /port-forward exited/                     { exited=1; next }
+                          $0 ~ ("Forwarding from (127\\.0\\.0\\.1|\\[::1\\]):" port " ->") { ready=1 }
+                          /address already in use|Unable to listen on port/                { bind_error=1 }
+                          END {
+                              if (bind_error)          print "bind-error"
+                              else if (ready && !exited) print "ready"
+                              else                     print "waiting"
+                          }' "$log" 2>/dev/null || true)
+
+                      case "$verdict" in
+                          ready)
+                              echo "✅ ${name} port-forward ready on :${port}"
+                              return 0
+                              ;;
+                          bind-error)
+                              # Name the cause now instead of waiting out the
+                              # loop for a generic timeout.
+                              echo "::error::${name} port-forward could not bind :${port}; the port is held by another process"
+                              cat "$log" 2>/dev/null || true
+                              return 1
+                              ;;
+                      esac
                       sleep 1
                   done
                   echo "::error::${name} port-forward never became ready on :${port}"
