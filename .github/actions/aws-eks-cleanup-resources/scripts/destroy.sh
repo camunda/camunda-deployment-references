@@ -147,7 +147,16 @@ destroy_resource() {
   if [ "$terraform_module" == "eks-cluster" ]; then
     terraform state rm "kubernetes_storage_class_v1.ebs_sc" || true
 
-    VPC_ID=$(terraform output -raw vpc_id)
+    # `terraform output -raw` prints its "Warning: No outputs found" banner on
+    # stdout as well, so a state without outputs left that banner in VPC_ID and
+    # every diagnostic below died with
+    # `Error parsing parameter '--filters': ... Name=vpc-id,Values=╷`.
+    # Keep the value only when it looks like a VPC id.
+    VPC_ID=$(terraform output -raw vpc_id 2>/dev/null)
+    if [[ ! "$VPC_ID" =~ ^vpc-[0-9a-f]+$ ]]; then
+      echo "No usable vpc_id output in state (got: '${VPC_ID}'); VPC diagnostics will be skipped"
+      VPC_ID=""
+    fi
 
     if ! terraform destroy -auto-approve \
       -var="region=$AWS_REGION" \
@@ -157,14 +166,18 @@ destroy_resource() {
         echo "Error destroying EKS cluster $cluster_name"
 
         export AWS_PAGER=""
-        echo "Checking subnetes for $VPC_ID"
-        aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID"
-        echo "Checking route tables for $VPC_ID"
-        aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$VPC_ID"
-        echo "Checking internet gateways for $VPC_ID"
-        aws ec2 describe-internet-gateways --filters "Name=attachment.vpc-id,Values=$VPC_ID"
-        echo "Checking NAT gateways for $VPC_ID"
-        aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=$VPC_ID"
+        if [ -n "$VPC_ID" ]; then
+          echo "Checking subnets for $VPC_ID"
+          aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID"
+          echo "Checking route tables for $VPC_ID"
+          aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$VPC_ID"
+          echo "Checking internet gateways for $VPC_ID"
+          aws ec2 describe-internet-gateways --filters "Name=attachment.vpc-id,Values=$VPC_ID"
+          echo "Checking NAT gateways for $VPC_ID"
+          aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=$VPC_ID"
+          echo "Checking network interfaces for $VPC_ID"
+          aws ec2 describe-network-interfaces --filters "Name=vpc-id,Values=$VPC_ID"
+        fi
         echo "Dumping elastic ips"
         aws ec2 describe-addresses
 
