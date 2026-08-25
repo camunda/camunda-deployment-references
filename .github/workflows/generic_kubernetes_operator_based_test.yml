@@ -14,14 +14,14 @@ on:
             - .tool-versions
             - generic/kubernetes/operator-based/**
             - aws/openshift/rosa-hcp-single-region/**
-            - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
+            - '!aws/openshift/rosa-hcp-single-region/terraform/*/test/golden/**'
             - aws/kubernetes/eks-single-region-irsa/**
-            - '!aws/kubernetes/eks-single-region-irsa/test/golden/**'
+            - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
             - .github/actions/aws-kubernetes-eks-single-region-create/**
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
-            - .github/actions/internal-helm-chart-tests/**
+            - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
