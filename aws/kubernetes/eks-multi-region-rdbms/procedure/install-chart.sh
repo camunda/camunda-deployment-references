@@ -64,7 +64,7 @@ if grep -q "mode: zoned" "$_values_template" 2>/dev/null; then
         ! grep -q "zones:" "$LOCAL_CHART/values.yaml" 2>/dev/null; then
         echo "ERROR: the values request global.multiregion.mode=zoned, but the built chart does not support it." >&2
         echo "       Built from ref: ${CAMUNDA_HELM_CHART_GIT_REF:-<default pin in build-camunda-chart.sh>}" >&2
-        echo "       Set CAMUNDA_HELM_CHART_GIT_REF to a ref carrying zoned mode; see camunda/camunda-platform-helm#6807." >&2
+        echo "       Set CAMUNDA_HELM_CHART_GIT_REF to a ref carrying zoned mode; see camunda/camunda-platform-helm#6949." >&2
         exit 1
     fi
 fi

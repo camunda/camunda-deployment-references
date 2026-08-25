@@ -68,12 +68,13 @@ export CAMUNDA_REPLICATION_FACTOR="${CAMUNDA_REPLICATION_FACTOR:-$((CAMUNDA_REPL
 #
 # The alternative was hand-assembling CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_*
 # environment variables against the released chart. That does not work: the
-# released chart always exports a numeric node ID, zone awareness requires its
-# absence, and no value passed from outside suppresses it -- `${VAR:-default}`
-# treats an empty value as unset. See camunda/camunda-platform-helm#6807.
+# released chart derives the node ID from `regions` and `regionId`, which is the
+# arithmetic zone awareness replaces, and no value passed from outside overrides
+# it -- `${VAR:-default}` treats an empty value as unset. See
+# camunda/camunda-platform-helm#6807.
 #
 # TODO [release-duty]: drop this pin once zoned mode is in a released chart.
-export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-cs/zoned-multiregion}"
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-feat/zoned-mode-node-id}"
 
 # TODO [release-duty]: pin to the released chart version and switch
 # HELM_CHART_REF to https://helm.camunda.io once 8.10 is generally available.

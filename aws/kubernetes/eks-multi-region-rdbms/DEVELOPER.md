@@ -147,8 +147,8 @@ brokers, and every partition a replica in each zone:
 
 Broker names carry the zone (`paris_1`), so a misplaced broker is visible
 directly. The usual cause is `global.multiregion.zone` not matching any `name`
-in the zone list, which nothing validates today — see
-camunda/camunda-platform-helm#6807.
+in the zone list, which the chart now rejects at render time (see
+camunda/camunda-platform-helm#6949).
 
 ### RDBMS connection failures
 

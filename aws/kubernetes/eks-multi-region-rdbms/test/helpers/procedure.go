@@ -85,7 +85,7 @@ func (e Env) Vars() []string {
 		// run built the released pin, silently ignored `mode: zoned`, and fell
 		// back to legacy numbering with every region numbering its brokers
 		// identically.
-		"CAMUNDA_HELM_CHART_GIT_REF":  GetEnv("CAMUNDA_HELM_CHART_GIT_REF", "cs/zoned-multiregion"),
+		"CAMUNDA_HELM_CHART_GIT_REF":  GetEnv("CAMUNDA_HELM_CHART_GIT_REF", "feat/zoned-mode-node-id"),
 		"CAMUNDA_BASIC_AUTH_USER":     GetEnv("CAMUNDA_BASIC_AUTH_USER", "demo"),
 		"CAMUNDA_BASIC_AUTH_PASSWORD": GetEnv("CAMUNDA_BASIC_AUTH_PASSWORD", "demo"),
 		// Optional Helm overlay, e.g. the CI credentials values file. Empty
