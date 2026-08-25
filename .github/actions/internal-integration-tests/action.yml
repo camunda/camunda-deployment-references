@@ -216,6 +216,15 @@ runs:
                           touch "${base}.stop" 2>/dev/null || true
                           kill -- "-${stale}" 2>/dev/null || true
                           kill "$stale" 2>/dev/null || true
+                          # kill is asynchronous. If the replacement starts
+                          # while the old kubectl still holds the port, its
+                          # first attempt fails to bind and wait_port would call
+                          # that collision fatal — the recovery defeating
+                          # itself. Wait for the whole group to go.
+                          for _ in $(seq 1 25); do
+                              kill -0 -- "-${stale}" 2>/dev/null || break
+                              sleep 0.2
+                          done
                       fi
                   fi
                   rm -f "${base}.pid" "${base}.stop" "${base}.log"
