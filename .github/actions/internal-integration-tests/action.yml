@@ -170,28 +170,76 @@ runs:
               RELEASE="${INPUTS_TEST_RELEASE_NAME}"
               DOMAIN="${INPUTS_CAMUNDA_DOMAIN}"
 
-              # Detach kubectl port-forwards from the composite-action step's
-              # process group with setsid + nohup so they survive across step
-              # boundaries (otherwise the GHA runner reaps the child shell's
-              # process group between steps and follow-up steps get
-              # connection-refused). Mirrors the pattern used in
-              # .github/actions/camunda-smoke-test.
+              # kubectl port-forward rides a single SPDY stream that managed
+              # control planes reap after a short idle window (~30-60s). A bare
+              # one-shot forward then exits and is never restarted, so a test
+              # that touches it later gets a bare "connection refused" against a
+              # perfectly healthy deployment (#2970). Run every forward through
+              # the same supervisor camunda-smoke-test uses: it restarts kubectl
+              # until the cleanup step drops the stop sentinel.
+              #
+              # setsid + nohup detaches the supervisor from this step's process
+              # group so it survives the composite-action step boundary and
+              # becomes its own process-group leader (killable as a group).
               mkdir -p /tmp/integ-pf
+              # Both actions are always consumed from the same checkout
+              # (uses: ./.github/actions/...), so the sibling path is stable.
+              SUPERVISOR="${GITHUB_ACTION_PATH}/../camunda-smoke-test/scripts/port-forward.sh"
+              if [[ ! -f "$SUPERVISOR" ]]; then
+                  echo "::error::port-forward supervisor not found at ${SUPERVISOR}"
+                  exit 1
+              fi
+
+              # Local ports to verify once every forward has been started,
+              # as "<name>:<port>" pairs.
+              PF_CHECKS=()
+
               pf() {
-                  local logname="$1"; shift
-                  setsid nohup kubectl port-forward "$@" \
-                      </dev/null \
-                      >"/tmp/integ-pf/${logname}.log" 2>&1 &
-                  local pid=$!
-                  disown "$pid" || true
-                  echo "$pid"
+                  local name="$1" target="$2" ports="$3"
+                  local base="/tmp/integ-pf/${name}"
+                  # Clear any stale pid/stop/log left by an earlier job on this
+                  # (self-hosted) runner, so the wait below can't be satisfied
+                  # by a leftover PID and cleanup can't kill an unrelated
+                  # process.
+                  rm -f "${base}.pid" "${base}.stop" "${base}.log"
+                  setsid nohup bash "$SUPERVISOR" \
+                      "$NS" "$target" "$ports" "$base" \
+                      </dev/null >/dev/null 2>&1 &
+                  disown || true
+                  for _ in $(seq 1 25); do
+                      [[ -s "${base}.pid" ]] && break
+                      sleep 0.2
+                  done
+                  if [[ ! -s "${base}.pid" ]]; then
+                      echo "::error::${name} port-forward supervisor did not start (no PID written)"
+                      cat "${base}.log" 2>/dev/null || true
+                      return 1
+                  fi
+                  echo "pf_${name}_base=${base}" >> "$GITHUB_OUTPUT"
+                  PF_CHECKS+=("${name}:${ports%%:*}")
+              }
+
+              # Fail here, with the supervisor log, rather than 40s later inside
+              # a Go test with an unexplained connection-refused.
+              wait_port() {
+                  local name="$1" port="$2"
+                  for _ in $(seq 1 30); do
+                      # Subshell: the fd is closed when it exits.
+                      if (exec 3<>"/dev/tcp/127.0.0.1/${port}") 2>/dev/null; then
+                          echo "✅ ${name} port-forward ready on :${port}"
+                          return 0
+                      fi
+                      sleep 1
+                  done
+                  echo "::error::${name} port-forward never became ready on :${port}"
+                  cat "/tmp/integ-pf/${name}.log" 2>/dev/null || true
+                  return 1
               }
 
               if [[ -z "$DOMAIN" ]]; then
                   # Zeebe Gateway
                   echo "Starting port-forward to ${RELEASE}-zeebe-gateway..."
-                  PF_PID=$(pf zeebe "svc/${RELEASE}-zeebe-gateway" 8080:8080 -n "$NS")
-                  echo "pf_zeebe_pid=${PF_PID}" >> "$GITHUB_OUTPUT"
+                  pf zeebe "svc/${RELEASE}-zeebe-gateway" 8080:8080
               fi
 
               # Keycloak port-forward (both no-domain and domain mode):
@@ -214,8 +262,7 @@ runs:
                   KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -s -d: -f2)
                   [[ -z "$KC_REMOTE_PORT" ]] && KC_REMOTE_PORT=18080
                   echo "Starting port-forward to ${KC_HOST}..."
-                  PF_KC_PID=$(pf keycloak "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}" -n "$NS")
-                  echo "pf_kc_pid=${PF_KC_PID}" >> "$GITHUB_OUTPUT"
+                  pf keycloak "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}"
                   # Rewrite to localhost so Go tests reach Keycloak through
                   # the forward.
                   KC_LOCAL_URL="http://localhost:18080${KC_PATH}"
@@ -224,8 +271,7 @@ runs:
 
               # Orchestration actuator (always, port 9600 on the gateway svc)
               echo "Starting port-forward to ${RELEASE}-zeebe-gateway:9600..."
-              PF_ORCH_PID=$(pf orchestration "svc/${RELEASE}-zeebe-gateway" 9600:9600 -n "$NS")
-              echo "pf_orch_pid=${PF_ORCH_PID}" >> "$GITHUB_OUTPUT"
+              pf orchestration "svc/${RELEASE}-zeebe-gateway" 9600:9600
               echo "orchestration_local_url=http://localhost:9600" >> "$GITHUB_OUTPUT"
 
               # Connectors actuator (always, when service is present)
@@ -233,8 +279,7 @@ runs:
               CONN_LOCAL_PORT="${INPUTS_CONNECTORS_LOCAL_PORT}"
               if kubectl get svc "$CONN_SVC" -n "$NS" >/dev/null 2>&1; then
                   echo "Starting port-forward to ${CONN_SVC}..."
-                  PF_CONN_PID=$(pf connectors "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080" -n "$NS")
-                  echo "pf_conn_pid=${PF_CONN_PID}" >> "$GITHUB_OUTPUT"
+                  pf connectors "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080"
                   CONN_PATH="${INPUTS_CONNECTORS_CONTEXT_PATH}"
                   # Strip trailing slash so concatenation never doubles up.
                   CONN_PATH="${CONN_PATH%/}"
@@ -261,8 +306,7 @@ runs:
                   done
                   if [[ -n "$ES_SVC" ]]; then
                       echo "Starting port-forward to ${ES_SVC}:9200..."
-                      PF_ES_PID=$(pf elasticsearch "svc/${ES_SVC}" 9200:9200 -n "$NS")
-                      echo "pf_es_pid=${PF_ES_PID}" >> "$GITHUB_OUTPUT"
+                      pf elasticsearch "svc/${ES_SVC}" 9200:9200
                       # ECK enables xpack.security by default; expose the
                       # generated 'elastic' user password so preflight probes
                       # can authenticate. Bitnami chart leaves ES open, so the
@@ -283,21 +327,9 @@ runs:
               fi
 
               echo "Waiting for port-forwards to be established..."
-              sleep 10
-
-              # Verify Zeebe is reachable (only meaningful in no-domain mode)
-              if [[ -z "$DOMAIN" ]]; then
-                  for i in $(seq 1 15); do
-                      CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-                          http://localhost:8080/v2/topology 2>/dev/null || echo "000")
-                      if [[ "$CODE" =~ ^(200|401|403)$ ]]; then
-                          echo "✅ Zeebe port-forward ready (HTTP ${CODE})"
-                          break
-                      fi
-                      echo "  attempt ${i}/15 (HTTP ${CODE})"
-                      sleep 2
-                  done
-              fi
+              for check in "${PF_CHECKS[@]}"; do
+                  wait_port "${check%%:*}" "${check##*:}"
+              done
           env:
               INPUTS_TEST_NAMESPACE: ${{ inputs.test-namespace }}
               INPUTS_TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
@@ -527,13 +559,21 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              for PID in \
-                  "${{ steps.port-forward.outputs.pf_zeebe_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_kc_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_orch_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_conn_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_es_pid }}"; do
-                  if [[ -n "$PID" ]]; then
-                      kill "$PID" 2>/dev/null || true
+              for BASE in \
+                  "${{ steps.port-forward.outputs.pf_zeebe_base }}" \
+                  "${{ steps.port-forward.outputs.pf_keycloak_base }}" \
+                  "${{ steps.port-forward.outputs.pf_orchestration_base }}" \
+                  "${{ steps.port-forward.outputs.pf_connectors_base }}" \
+                  "${{ steps.port-forward.outputs.pf_elasticsearch_base }}"; do
+                  [[ -z "$BASE" ]] && continue
+                  # Drop the stop sentinel first so the supervisor does not
+                  # restart kubectl after we kill it.
+                  touch "${BASE}.stop" 2>/dev/null || true
+                  if [[ -s "${BASE}.pid" ]]; then
+                      SPID=$(cat "${BASE}.pid")
+                      # Kill the whole process group (setsid made the supervisor
+                      # the group leader) so its kubectl child dies with it.
+                      kill -- "-${SPID}" 2>/dev/null || true
+                      kill "$SPID" 2>/dev/null || true
                   fi
               done
