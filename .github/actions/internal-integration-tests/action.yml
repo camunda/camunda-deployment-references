@@ -203,12 +203,15 @@ runs:
                   # it: the new supervisor overwrites the same .pid, so cleanup
                   # would kill only the new group and leave the old tunnel
                   # serving the previous cluster. Stop it first, and only if the
-                  # recorded PID really is a supervisor — a recycled PID must
-                  # never be killed.
+                  # recorded PID really is the supervisor for *this* base — the
+                  # PID may have been recycled, possibly by another live
+                  # supervisor, and killing that one's group would tear down an
+                  # unrelated forward.
                   if [[ -s "${base}.pid" ]]; then
-                      local stale
+                      local stale stale_argv
                       stale=$(cat "${base}.pid")
-                      if ps -o args= -p "$stale" 2>/dev/null | grep -q "port-forward.sh"; then
+                      stale_argv=$(ps -o args= -p "$stale" 2>/dev/null || true)
+                      if [[ "$stale_argv" == *"port-forward.sh"* && "$stale_argv" == *"$base"* ]]; then
                           echo "Stopping stale ${name} port-forward supervisor (pid ${stale})"
                           touch "${base}.stop" 2>/dev/null || true
                           kill -- "-${stale}" 2>/dev/null || true
@@ -238,7 +241,17 @@ runs:
               wait_port() {
                   local name="$1" port="$2"
                   local log="/tmp/integ-pf/${name}.log"
+                  local current
                   for _ in $(seq 1 30); do
+                      # The supervisor appends every restart to one log, so the
+                      # whole file is not a safe thing to search: a "Forwarding
+                      # from" line left by an attempt that has since exited
+                      # would pass while the current attempt is failing to
+                      # rebind. Look only at what the running attempt wrote,
+                      # i.e. everything after the last [pf-supervisor] banner.
+                      current=$(awk '/\[pf-supervisor\]/{buf=""} {buf = buf $0 ORS} END{printf "%s", buf}' \
+                          "$log" 2>/dev/null || true)
+
                       # Positive proof that *our* kubectl owns the port: it logs
                       # the forwarding line only after binding successfully. An
                       # open port proves nothing — a stale kubectl or unrelated
@@ -246,13 +259,13 @@ runs:
                       # well, and the tests would run against the squatter. Same
                       # readiness marker the Go kubectl helper scans for, see
                       # aws/kubernetes/eks-dual-region/test/internal/helpers/kubectl/helpers.go.
-                      if grep -qE "Forwarding from (127\.0\.0\.1|\[::1\]):${port} ->" "$log" 2>/dev/null; then
+                      if grep -qE "Forwarding from (127\.0\.0\.1|\[::1\]):${port} ->" <<<"$current"; then
                           echo "✅ ${name} port-forward ready on :${port}"
                           return 0
                       fi
                       # Report the collision as soon as kubectl names it instead
                       # of waiting out the loop for a generic timeout.
-                      if grep -qE "address already in use|Unable to listen on port" "$log" 2>/dev/null; then
+                      if grep -qE "address already in use|Unable to listen on port" <<<"$current"; then
                           echo "::error::${name} port-forward could not bind :${port}; the port is held by another process"
                           cat "$log" 2>/dev/null || true
                           return 1
