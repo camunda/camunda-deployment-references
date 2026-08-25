@@ -59,6 +59,45 @@ else
     date_command="date"
 fi
 
+# Detach an IAM policy from every entity that still holds it.
+#
+# Terraform destroys an aws_iam_policy it owns, but it can only detach the
+# attachments it still tracks. When an earlier partial destroy dropped the IRSA
+# role modules from the state while leaving the roles in AWS, the policy stays
+# attached to an entity nothing tracks and DeletePolicy fails for good with
+# `DeleteConflict: Cannot delete a policy attached to entities`. Retrying and
+# cloud-nuke do not help — the attachment has to go first.
+#
+# Safe by construction: this only ever runs on a policy Terraform is deleting.
+# The holding entities are printed, because they are orphans in their own right.
+detach_iam_policy_entities() {
+  local policy_arn=$1
+  local name
+
+  echo "  Detaching $policy_arn from every entity that still holds it..."
+
+  for name in $(aws iam list-entities-for-policy --policy-arn "$policy_arn" \
+                  --entity-filter Role --query 'PolicyRoles[].RoleName' \
+                  --output text 2>/dev/null); do
+    echo "    orphaned role $name -> detaching"
+    aws iam detach-role-policy --role-name "$name" --policy-arn "$policy_arn" || true
+  done
+
+  for name in $(aws iam list-entities-for-policy --policy-arn "$policy_arn" \
+                  --entity-filter User --query 'PolicyUsers[].UserName' \
+                  --output text 2>/dev/null); do
+    echo "    orphaned user $name -> detaching"
+    aws iam detach-user-policy --user-name "$name" --policy-arn "$policy_arn" || true
+  done
+
+  for name in $(aws iam list-entities-for-policy --policy-arn "$policy_arn" \
+                  --entity-filter Group --query 'PolicyGroups[].GroupName' \
+                  --output text 2>/dev/null); do
+    echo "    orphaned group $name -> detaching"
+    aws iam detach-group-policy --group-name "$name" --policy-arn "$policy_arn" || true
+  done
+}
+
 # Remove cloud-provider-managed resources (Load Balancers, Security Groups, ENIs, etc.) inside a VPC.
 # These are created outside of Terraform by ROSA operators, EKS ingress controllers, etc.
 # The VPC itself is left intact for Terraform to manage.
@@ -531,10 +570,24 @@ EOF
       continue
     fi
 
+    # On DeleteConflict: an IAM policy Terraform owns is still attached to an
+    # entity Terraform no longer tracks, so DeletePolicy fails on every run and
+    # the whole group leaks (state file included). Detach, then retry.
+    if [[ "$output" == *"DeleteConflict"* && "$output" == *"policy attached to entities"* && $attempt -lt $max_destroy_attempts ]]; then
+      echo "[$group_id][$module_name] IAM policy still attached (attempt $attempt/$max_destroy_attempts)"
+      local stuck_policy
+      while read -r stuck_policy; do
+        [[ -z "$stuck_policy" ]] && continue
+        detach_iam_policy_entities "$stuck_policy"
+      done < <(grep -oE 'arn:aws:iam::[0-9]+:policy/[A-Za-z0-9+=,.@_/-]+' <<<"$output" | sort -u)
+      continue
+    fi
+
     # For other errors we fail fast instead of retrying, since these
     # typically indicate configuration or logic issues (e.g. invalid Terraform, IAM),
     # not transient AWS/RHCS conditions. Only DependencyViolation, OIDC propagation,
-    # trust policy repair, and known special cases are retried above.
+    # trust policy repair, orphaned IAM policy attachments, and known special
+    # cases are retried above.
     echo "Error destroying $module_name in $group_id"
     return 1
   done
