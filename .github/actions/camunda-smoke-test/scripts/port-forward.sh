@@ -70,11 +70,13 @@ pf_owns() {
 # squatter. Same marker the Go kubectl helper scans for, see
 # aws/kubernetes/eks-dual-region/test/internal/helpers/kubectl/helpers.go.
 #
-# Readiness outranks the bind error in END: with one port and the default
-# localhost addresses, client-go only prints "Unable to listen on port" when
-# every address failed, so the two markers cannot both belong to a live
-# attempt — and if a future kubectl ever emits both, a forward proven bound
-# must not be called fatal.
+# Readiness outranks the bind error in END. Both failure patterns come from a
+# single place: client-go embeds the per-address "address already in use" text
+# inside the "Unable to listen on port" line, and prints that line only when
+# every address for the port failed to bind — a partial failure prints neither.
+# So a live attempt cannot show both a readiness marker and a bind error, and
+# if a future kubectl ever emits both, a forward proven bound must not be
+# called fatal.
 pf_verdict() {
     local log="$1" port="$2"
     awk -v port="$port" '
