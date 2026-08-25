@@ -327,12 +327,17 @@ jobs:
             # The AWS credentials on the runner come from a role assumed at the start of
             # the job, so `kubectl` stops working once that session expires, however long
             # the tmate window still has left.
+            #
+            # `continue-on-error` because letting the window run out is the normal way to
+            # leave: a timed-out step is a failed step, and without this a run that was
+            # green until the shell opened ends up red for having been inspected.
             - name: Open a debug shell on the runner
               if: >-
                   !cancelled() && (
                     github.event.inputs.debug_tmate == 'true' ||
                     contains(github.event.pull_request.labels.*.name, 'debug_tmate')
                   )
+              continue-on-error: true
               timeout-minutes: 30
               uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3.24
               with:
