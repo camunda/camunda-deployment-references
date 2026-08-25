@@ -29,10 +29,7 @@ concurrency:
 env:
     IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
 
-    # TEMPORARY: 0 sweeps every state of this architecture regardless of age, to
-    # collect the clusters a killed runner left behind on 2026-08-25. Revert to
-    # '12' once the sweep has run.
-    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '0' }}
+    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
 
     # please keep those variables synced with aws_eks_multi_region_rdbms_tests.yml
     AWS_PROFILE: infraex
