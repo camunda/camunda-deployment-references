@@ -309,5 +309,8 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              bash "${{ github.action_path }}/scripts/port-forward.sh" \
-                  stop /tmp/smoke-pf
+              PF="${{ github.action_path }}/scripts/port-forward.sh"
+              # Never let an always() teardown mask the failure that got us
+              # here: a missing script means no forward was ever started.
+              [[ -f "$PF" ]] || exit 0
+              bash "$PF" stop /tmp/smoke-pf
