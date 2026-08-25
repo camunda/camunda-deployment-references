@@ -236,22 +236,23 @@ runs:
                   local name="$1" port="$2"
                   local log="/tmp/integ-pf/${name}.log"
                   for _ in $(seq 1 30); do
-                      # An open port is not proof that *our* forward owns it. If
-                      # something else already holds it — an orphaned bare
-                      # kubectl, an unrelated service — our kubectl fails to
-                      # bind and loops forever while the probe below happily
-                      # succeeds against the squatter, pointing the tests at
-                      # whatever it is. kubectl reports the collision, so treat
-                      # it as fatal instead of racing it.
+                      # Positive proof that *our* kubectl owns the port: it logs
+                      # the forwarding line only after binding successfully. An
+                      # open port proves nothing — a stale kubectl or unrelated
+                      # service holding it satisfies a plain TCP probe just as
+                      # well, and the tests would run against the squatter. Same
+                      # readiness marker the Go kubectl helper scans for, see
+                      # aws/kubernetes/eks-dual-region/test/internal/helpers/kubectl/helpers.go.
+                      if grep -qE "Forwarding from (127\.0\.0\.1|\[::1\]):${port} ->" "$log" 2>/dev/null; then
+                          echo "✅ ${name} port-forward ready on :${port}"
+                          return 0
+                      fi
+                      # Report the collision as soon as kubectl names it instead
+                      # of waiting out the loop for a generic timeout.
                       if grep -qE "address already in use|Unable to listen on port" "$log" 2>/dev/null; then
                           echo "::error::${name} port-forward could not bind :${port}; the port is held by another process"
                           cat "$log" 2>/dev/null || true
                           return 1
-                      fi
-                      # Subshell: the fd is closed when it exits.
-                      if (exec 3<>"/dev/tcp/127.0.0.1/${port}") 2>/dev/null; then
-                          echo "✅ ${name} port-forward ready on :${port}"
-                          return 0
                       fi
                       sleep 1
                   done
