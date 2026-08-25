@@ -237,7 +237,20 @@ runs:
               # a Go test with an unexplained connection-refused.
               wait_port() {
                   local name="$1" port="$2"
+                  local log="/tmp/integ-pf/${name}.log"
                   for _ in $(seq 1 30); do
+                      # An open port is not proof that *our* forward owns it. If
+                      # something else already holds it — an orphaned bare
+                      # kubectl, an unrelated service — our kubectl fails to
+                      # bind and loops forever while the probe below happily
+                      # succeeds against the squatter, pointing the tests at
+                      # whatever it is. kubectl reports the collision, so treat
+                      # it as fatal instead of racing it.
+                      if grep -qE "address already in use|Unable to listen on port" "$log" 2>/dev/null; then
+                          echo "::error::${name} port-forward could not bind :${port}; the port is held by another process"
+                          cat "$log" 2>/dev/null || true
+                          return 1
+                      fi
                       # Subshell: the fd is closed when it exits.
                       if (exec 3<>"/dev/tcp/127.0.0.1/${port}") 2>/dev/null; then
                           echo "✅ ${name} port-forward ready on :${port}"
@@ -246,7 +259,7 @@ runs:
                       sleep 1
                   done
                   echo "::error::${name} port-forward never became ready on :${port}"
-                  cat "/tmp/integ-pf/${name}.log" 2>/dev/null || true
+                  cat "$log" 2>/dev/null || true
                   return 1
               }
 
