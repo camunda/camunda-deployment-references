@@ -270,8 +270,13 @@ jobs:
                     contexts="${contexts}cluster-${_shorts[$i]} "
                   done
 
+                  # CAMUNDA_ACTIVE_REGIONS is deliberately not refreshed. Terraform now
+                  # counts the spare slot as active, but Camunda does not run there yet:
+                  # that is the next step's job, and TestMultiRegionActivateRegion skips
+                  # itself when the count already equals the slot count. The lists above
+                  # do have to grow, because that step indexes them to reach the new
+                  # cluster.
                   {
-                    echo "CAMUNDA_ACTIVE_REGIONS=${CAMUNDA_ACTIVE_REGIONS}"
                     echo "CLUSTER_CONTEXTS=${contexts% }"
                     echo "AWS_REGIONS=${AWS_REGIONS}"
                     echo "SUBMARINER_CLUSTER_IDS=${SUBMARINER_CLUSTER_IDS}"
@@ -281,8 +286,6 @@ jobs:
               if: env.ACTIVE_REGION_COUNT != env.CAMUNDA_REGION_SLOTS
               timeout-minutes: 60
               working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
-              env:
-                  CAMUNDA_ACTIVE_REGIONS: ${{ env.CAMUNDA_REGION_SLOTS }}
               run: go test --count=1 -v -timeout 60m -failfast -run TestMultiRegionActivateRegion
 
             # The point of the architecture: losing a region must not stop the engine.
