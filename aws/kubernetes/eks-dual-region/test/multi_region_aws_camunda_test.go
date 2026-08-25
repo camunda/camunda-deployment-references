@@ -225,6 +225,13 @@ func TestAWSDualRegCleanup(t *testing.T) {
 func initKubernetesHelpers(t *testing.T) {
 
 	if helpers.IsTeleportEnabled() {
+		// Teleport-proxied clusters are slower on every wait, so widen the budgets
+		// once, here, rather than as a side effect of whichever deploy step happens
+		// to run first: a suite such as the failback one reaches its waits before
+		// any deploy step, and used to run them on the non-Teleport budget.
+		timeout = "1800s"
+		retries = 100
+
 		t.Log("[K8S INIT] Initializing Kubernetes helpers with Teleport 🚀")
 		primary = helpers.Cluster{
 			Region:           "eu-west-2",
@@ -258,10 +265,6 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 
 	setStringValues := map[string]string{}
 
-	if helpers.IsTeleportEnabled() {
-		timeout = "1800s"
-		retries = 100
-	}
 	// avoid pod anti-affinity limitations
 	baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 
@@ -515,7 +518,6 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 	setStringValues := map[string]string{}
 
 	if helpers.IsTeleportEnabled() {
-		timeout = "1800s"
 		baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 	}
 
