@@ -608,13 +608,23 @@ runs:
                   "${{ steps.port-forward.outputs.pf_elasticsearch_base }}"; do
                   [[ -z "$BASE" ]] && continue
                   # Drop the stop sentinel first so the supervisor does not
-                  # restart kubectl after we kill it.
+                  # restart kubectl after we kill it. Harmless whatever the PID
+                  # file holds: it is only a file the supervisor polls.
                   touch "${BASE}.stop" 2>/dev/null || true
                   if [[ -s "${BASE}.pid" ]]; then
                       SPID=$(cat "${BASE}.pid")
-                      # Kill the whole process group (setsid made the supervisor
-                      # the group leader) so its kubectl child dies with it.
-                      kill -- "-${SPID}" 2>/dev/null || true
-                      kill "$SPID" 2>/dev/null || true
+                      # Same ownership check as the startup path: if the
+                      # supervisor already exited and its PID was recycled,
+                      # signalling it would kill an unrelated process, and
+                      # killing the group would take that process's children
+                      # with it.
+                      SARGV=$(ps -o args= -p "$SPID" 2>/dev/null || true)
+                      if [[ "$SARGV" == *"port-forward.sh"* && "$SARGV" == *"$BASE"* ]]; then
+                          # Kill the whole process group (setsid made the
+                          # supervisor the group leader) so its kubectl child
+                          # dies with it.
+                          kill -- "-${SPID}" 2>/dev/null || true
+                          kill "$SPID" 2>/dev/null || true
+                      fi
                   fi
               done
