@@ -28,7 +28,7 @@ spec:
                       - |
                         import json
                         import os
-                        from http.server import HTTPServer, BaseHTTPRequestHandler
+                        from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
                         from datetime import datetime
 
                         # Store received requests in memory for verification
@@ -48,8 +48,10 @@ spec:
                                 if self.path == '/health':
                                     self._send_response(200, {'status': 'healthy'})
                                 elif self.path == '/requests':
-                                    # Return all received requests for verification
-                                    self._send_response(200, {'requests': received_requests})
+                                    # Return all received requests for verification.
+                                    # Snapshot the list: handlers run on their own threads
+                                    # and may append while this response is serialised.
+                                    self._send_response(200, {'requests': list(received_requests)})
                                 elif self.path == '/requests/count':
                                     self._send_response(200, {'count': len(received_requests)})
                                 elif self.path == '/requests/clear':
@@ -93,7 +95,10 @@ spec:
                                 self._send_response(200, {'message': 'DELETE request received', 'path': self.path})
 
                         port = int(os.environ.get('PORT', 8080))
-                        server = HTTPServer(('0.0.0.0', port), MockHandler)
+                        # Threaded: connector callbacks from both regions, the readiness and
+                        # liveness probes and the test's own polling all arrive concurrently.
+                        # A single-threaded HTTPServer only has a backlog of 5 and drops the rest.
+                        server = ThreadingHTTPServer(('0.0.0.0', port), MockHandler)
                         print(f"Mock API Server starting on port {port}")
                         server.serve_forever()
                   ports:
