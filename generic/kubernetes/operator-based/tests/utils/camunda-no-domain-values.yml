@@ -23,8 +23,6 @@ global:
 
     identity:
         auth:
-            identity:
-                redirectUrl: http://localhost:8085
             console:
                 redirectUrl: http://localhost:8087
             webModeler:
