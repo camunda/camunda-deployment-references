@@ -72,29 +72,27 @@ fi
 # The holding entities are printed, because they are orphans in their own right.
 detach_iam_policy_entities() {
   local policy_arn=$1
-  local name
+  local entity_filter query kind name
 
   echo "  Detaching $policy_arn from every entity that still holds it..."
 
-  for name in $(aws iam list-entities-for-policy --policy-arn "$policy_arn" \
-                  --entity-filter Role --query 'PolicyRoles[].RoleName' \
-                  --output text 2>/dev/null); do
-    echo "    orphaned role $name -> detaching"
-    aws iam detach-role-policy --role-name "$name" --policy-arn "$policy_arn" || true
-  done
+  # `aws --output text` prints the literal "None" for an empty result, so it
+  # has to be skipped explicitly or we log "orphaned role None" and issue a
+  # detach call for it.
+  for entity_filter in Role User Group; do
+    case "$entity_filter" in
+      Role)  query='PolicyRoles[].RoleName';   kind=role  ;;
+      User)  query='PolicyUsers[].UserName';   kind=user  ;;
+      Group) query='PolicyGroups[].GroupName'; kind=group ;;
+    esac
 
-  for name in $(aws iam list-entities-for-policy --policy-arn "$policy_arn" \
-                  --entity-filter User --query 'PolicyUsers[].UserName' \
-                  --output text 2>/dev/null); do
-    echo "    orphaned user $name -> detaching"
-    aws iam detach-user-policy --user-name "$name" --policy-arn "$policy_arn" || true
-  done
-
-  for name in $(aws iam list-entities-for-policy --policy-arn "$policy_arn" \
-                  --entity-filter Group --query 'PolicyGroups[].GroupName' \
-                  --output text 2>/dev/null); do
-    echo "    orphaned group $name -> detaching"
-    aws iam detach-group-policy --group-name "$name" --policy-arn "$policy_arn" || true
+    while read -r name; do
+      [[ -z "$name" || "$name" == "None" ]] && continue
+      echo "    orphaned $kind $name -> detaching"
+      aws iam "detach-${kind}-policy" "--${kind}-name" "$name" --policy-arn "$policy_arn" || true
+    done < <(aws iam list-entities-for-policy --policy-arn "$policy_arn" \
+               --entity-filter "$entity_filter" --query "$query" \
+               --output text 2>/dev/null | tr '\t' '\n')
   done
 }
 

@@ -165,7 +165,7 @@ destroy_resource() {
 
         export AWS_PAGER=""
         if [ -n "$VPC_ID" ]; then
-          echo "Checking subnetes for $VPC_ID"
+          echo "Checking subnets for $VPC_ID"
           aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID"
           echo "Checking route tables for $VPC_ID"
           aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$VPC_ID"
