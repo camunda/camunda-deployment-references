@@ -105,6 +105,14 @@ repos:
             files: ^\.github/actions/internal-helm-deprecation-check/.*\.py$
             pass_filenames: false
 
+          - id: port-forward-selftest
+            name: Port-forward script self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/camunda-smoke-test/scripts/port-forward.sh selftest
+            language: system
+            files: ^\.github/actions/camunda-smoke-test/scripts/port-forward\.sh$
+            pass_filenames: false
+
           - id: cleanup-coverage
             name: Daily cleanups cover every test scenario
             entry: .lint/cleanup-coverage/check-cleanup-coverage.py
