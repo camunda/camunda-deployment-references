@@ -35,7 +35,10 @@ import sys
 #   (`.Values.orchestration.security.initialization.defaultRoles | toYaml`), and
 #   the sibling `defaultRoles.connectors.clients` *is* declared, so `clients`
 #   works for every role. Only the `admin` branch is missing from the schema.
-#   Tracked by https://github.com/camunda/camunda-platform-helm/issues/4564
+#   Declared upstream by camunda/camunda-platform-helm#6560, merged one day after
+#   15.0.0-alpha4 was cut, so no published 8.10 chart carries it yet.
+#   TODO: [release-duty] drop this entry once the chart pin reaches an 8.10 chart
+#   that declares the key (15.0.0-alpha5 or later).
 SCHEMA_GAPS = frozenset(
     {
         "orchestration.security.initialization.defaultRoles.admin.clients",
