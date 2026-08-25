@@ -194,10 +194,24 @@ runs:
               pf() {
                   local name="$1" target="$2" ports="$3"
                   local base="/tmp/integ-pf/${name}"
-                  # Clear any stale pid/stop/log left by an earlier job on this
-                  # (self-hosted) runner, so the wait below can't be satisfied
-                  # by a leftover PID and cleanup can't kill an unrelated
-                  # process.
+                  # A supervisor left running by an interrupted job on a reused
+                  # (self-hosted) runner still holds the local port and keeps
+                  # restarting kubectl. Deleting its metadata alone would orphan
+                  # it: the new supervisor overwrites the same .pid, so cleanup
+                  # would kill only the new group and leave the old tunnel
+                  # serving the previous cluster. Stop it first, and only if the
+                  # recorded PID really is a supervisor — a recycled PID must
+                  # never be killed.
+                  if [[ -s "${base}.pid" ]]; then
+                      local stale
+                      stale=$(cat "${base}.pid")
+                      if ps -o args= -p "$stale" 2>/dev/null | grep -q "port-forward.sh"; then
+                          echo "Stopping stale ${name} port-forward supervisor (pid ${stale})"
+                          touch "${base}.stop" 2>/dev/null || true
+                          kill -- "-${stale}" 2>/dev/null || true
+                          kill "$stale" 2>/dev/null || true
+                      fi
+                  fi
                   rm -f "${base}.pid" "${base}.stop" "${base}.log"
                   setsid nohup bash "$SUPERVISOR" \
                       "$NS" "$target" "$ports" "$base" \
