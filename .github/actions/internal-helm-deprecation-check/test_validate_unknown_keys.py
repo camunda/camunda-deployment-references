@@ -259,6 +259,39 @@ class CommandLineTest(unittest.TestCase):
             )
         self.assertEqual(result.returncode, 2)
 
+    def test_known_schema_gap_is_reported_as_ignored_not_unknown(self):
+        # Build the nested schema/values shape for a SCHEMA_GAPS entry so the
+        # test follows the constant instead of hard-coding one key path.
+        gap = sorted(validate_unknown_keys.SCHEMA_GAPS)[0]
+        parts = gap.split(".")
+
+        schema = {"type": "object", "properties": {}}
+        node = schema
+        for part in parts[:-1]:
+            child = {"type": "object", "properties": {}}
+            node["properties"][part] = child
+            node = child
+        # The final segment is deliberately absent from the schema: that is the
+        # gap we suppress.
+
+        values = {}
+        node = values
+        for part in parts[:-1]:
+            node[part] = {}
+            node = node[part]
+        node[parts[-1]] = ["someone"]
+
+        result = self.run_script(schema, values)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Ignoring 1 key(s)", result.stdout)
+        self.assertIn(gap, result.stdout)
+
+    def test_schema_gap_does_not_mask_a_real_unknown_key(self):
+        schema = {"type": "object", "properties": {"a": {"type": "object", "properties": {}}}}
+        result = self.run_script(schema, {"a": {"typo": 1}})
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("- a.typo", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
