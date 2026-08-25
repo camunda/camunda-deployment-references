@@ -516,5 +516,8 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              bash "${GITHUB_ACTION_PATH}/../camunda-smoke-test/scripts/port-forward.sh" \
-                  stop /tmp/integ-pf
+              PF="${GITHUB_ACTION_PATH}/../camunda-smoke-test/scripts/port-forward.sh"
+              # Never let an always() teardown mask the failure that got us
+              # here: a missing script means no forward was ever started.
+              [[ -f "$PF" ]] || exit 0
+              bash "$PF" stop /tmp/integ-pf
