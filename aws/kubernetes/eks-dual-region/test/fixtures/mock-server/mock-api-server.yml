@@ -48,8 +48,10 @@ spec:
                                 if self.path == '/health':
                                     self._send_response(200, {'status': 'healthy'})
                                 elif self.path == '/requests':
-                                    # Return all received requests for verification
-                                    self._send_response(200, {'requests': received_requests})
+                                    # Return all received requests for verification.
+                                    # Snapshot the list: handlers run on their own threads
+                                    # and may append while this response is serialised.
+                                    self._send_response(200, {'requests': list(received_requests)})
                                 elif self.path == '/requests/count':
                                     self._send_response(200, {'count': len(received_requests)})
                                 elif self.path == '/requests/clear':

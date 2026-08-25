@@ -295,10 +295,15 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	kubectlHelpers.WaitForGatewayAuthReady(t, &primary.KubectlNamespace, 30, 10*time.Second)
 	kubectlHelpers.WaitForGatewayAuthReady(t, &secondary.KubectlNamespace, 30, 10*time.Second)
 
-	// connectors last as they depend on the Orchestration Cluster.
-	// Both regions run their own connectors deployment, so both have to become
-	// available: a secondary region whose connectors never start would otherwise
-	// only surface much later, as a connector flow that silently never runs there.
+	// connectors last as they depend on the Orchestration Cluster
+	waitForConnectorsAvailable(t)
+}
+
+// waitForConnectorsAvailable waits for the connectors deployment of both regions.
+// Each region runs its own, so both have to become available: a secondary region
+// whose connectors never start would otherwise only surface much later, as a
+// connector flow that silently never runs there.
+func waitForConnectorsAvailable(t *testing.T) {
 	for _, kubectlOptions := range []*k8s.KubectlOptions{&primary.KubectlNamespace, &secondary.KubectlNamespace} {
 		err := k8s.WaitUntilDeploymentAvailableE(t, kubectlOptions, "camunda-connectors", retries, 20*time.Second)
 		if err != nil {
@@ -832,5 +837,5 @@ func addSecondaryBrokers(t *testing.T) {
 	// Check that the new brokers have become ready, now that they're integrated in the zeebe cluster again
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=300s", "statefulset/camunda-zeebe")
 
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-connectors", retries, 15*time.Second)
+	waitForConnectorsAvailable(t)
 }

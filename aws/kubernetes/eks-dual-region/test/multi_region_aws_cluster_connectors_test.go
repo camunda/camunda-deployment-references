@@ -52,7 +52,7 @@ func TestConnectorWebhookFlowDeploy(t *testing.T) {
 
 // TestConnectorWebhookFlowTest tests the connector webhook flow:
 // 1. Triggers the workflow via webhook 10 times
-// 2. Verifies the mock server received exactly 10 requests
+// 2. Verifies the mock server received at least 10 requests
 // 3. Cleans up the mock API server
 //
 // Known limit: the callback count is a cluster-wide total, so a run where the
@@ -222,9 +222,9 @@ type MockServerRequest struct {
 	Body      map[string]interface{} `json:"body"`
 }
 
-// verifyMockServerReceivedRequests verifies that the mock server received exactly the expected number of requests
+// verifyMockServerReceivedRequests verifies that the mock server received at least the expected number of requests
 func verifyMockServerReceivedRequests(t *testing.T) {
-	t.Logf("[VERIFICATION] Verifying mock server received exactly %d requests 🔍", webhookTriggerCount)
+	t.Logf("[VERIFICATION] Verifying mock server received at least %d requests 🔍", webhookTriggerCount)
 
 	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "mock-api-server", 0, 8080, 5, 10*time.Second)
 	defer closeFn()
@@ -256,13 +256,16 @@ func verifyMockServerReceivedRequests(t *testing.T) {
 		}
 	}
 
-	// Final verification
+	// Final verification.
+	// At least, not exactly: Zeebe job execution is at-least-once, so a callback
+	// whose response was lost is legitimately retried and delivered twice. Under
+	// delivery is the regression worth failing on.
 	receivedCount := len(requestsResponse.Requests)
-	require.Equal(t, webhookTriggerCount, receivedCount,
-		"Expected exactly %d requests, but received %d. Response: %s",
+	require.GreaterOrEqual(t, receivedCount, webhookTriggerCount,
+		"Expected at least %d requests, but received %d. Response: %s",
 		webhookTriggerCount, receivedCount, lastBody)
 
-	t.Logf("[VERIFICATION] ✅ Mock server received exactly %d requests as expected", webhookTriggerCount)
+	t.Logf("[VERIFICATION] ✅ Mock server received %d requests, expected at least %d", receivedCount, webhookTriggerCount)
 
 	// Log some details about the received requests
 	for i, req := range requestsResponse.Requests {
