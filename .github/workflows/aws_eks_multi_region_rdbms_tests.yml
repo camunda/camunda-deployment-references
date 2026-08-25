@@ -251,6 +251,32 @@ jobs:
                   sed -i "s/^active_region_count.*/active_region_count = ${{ env.CAMUNDA_REGION_SLOTS }}/" terraform-cluster.tfvars
                   terraform apply -no-color -auto-approve -var-file=terraform-cluster.tfvars
 
+                  # The environment contract was exported while the spare slot was still
+                  # idle, so it names one region fewer than there now are. Every later
+                  # step indexes those lists by slot, and the region-loss scenario takes
+                  # the last one: `contexts[2]: unbound variable` under `set -u`, before
+                  # anything about region loss was exercised. The new cluster also has no
+                  # kubectl context yet, because only the create action registers them.
+                  source ../../procedure/export-terraform-outputs.sh
+
+                  read -r -a _regions <<< "$AWS_REGIONS"
+                  read -r -a _names <<< "$EKS_CLUSTER_NAMES"
+                  read -r -a _shorts <<< "$SUBMARINER_CLUSTER_IDS"
+
+                  contexts=""
+                  for i in "${!_shorts[@]}"; do
+                    aws eks --region "${_regions[$i]}" update-kubeconfig \
+                      --name "${_names[$i]}" --alias "cluster-${_shorts[$i]}"
+                    contexts="${contexts}cluster-${_shorts[$i]} "
+                  done
+
+                  {
+                    echo "CAMUNDA_ACTIVE_REGIONS=${CAMUNDA_ACTIVE_REGIONS}"
+                    echo "CLUSTER_CONTEXTS=${contexts% }"
+                    echo "AWS_REGIONS=${AWS_REGIONS}"
+                    echo "SUBMARINER_CLUSTER_IDS=${SUBMARINER_CLUSTER_IDS}"
+                  } | tee -a "$GITHUB_ENV"
+
             - name: Join the new region and grow the Zeebe cluster
               if: env.ACTIVE_REGION_COUNT != env.CAMUNDA_REGION_SLOTS
               timeout-minutes: 60
