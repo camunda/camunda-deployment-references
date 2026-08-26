@@ -19,6 +19,12 @@ set -euo pipefail
 ghost_selftest() {
   local tmp failures=0 out rc
   tmp=$(mktemp -d)
+  # Expanded at definition time on purpose, so the directory still goes away if
+  # the selftest aborts under `set -e` before reaching the end. It runs from a
+  # pre-commit hook, and a hook that litters /tmp on every failed run is its own
+  # small annoyance.
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmp'" EXIT
 
   _expect() {
     if [[ "$2" == "$3" ]]; then
@@ -96,7 +102,6 @@ STUB
     "$(grep -c '💣 Deleting cluster:' <<<"$out" || true)" "2"
   _expect "a stale OIDC config alone does not fail the run" "$rc" "0"
 
-  rm -rf "$tmp"
   [[ "$failures" -eq 0 ]] || return 1
 }
 
