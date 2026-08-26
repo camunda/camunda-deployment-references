@@ -88,6 +88,30 @@ gh run rerun <run-id> --failed # avoid on cloud workflows
 
 A full re-run reprovisions the clusters, so check the cloud quotas first when several runs are in flight.
 
+### A push can lose its run
+
+The cloud workflows declare `concurrency.cancel-in-progress: false`, so a run of the same workflow on the same ref never cancels the one before it. The cost is that a push landing while that group is still busy can produce no run at all: the other workflows appear on the new commit and this one silently does not.
+
+Check before assuming the workflow is broken:
+
+```bash
+gh api "/repos/<owner>/<repo>/actions/runs?head_sha=<sha>" --jq '.workflow_runs[].name'
+```
+
+There is nothing to fix in the workflow. Push again once the group is free, or re-run the previous run if its commit is still the one you want to test.
+
+### Keeping a pull request to the tests it needs
+
+Every workflow whose `paths` match anything in the pull request runs on every push, and the filter reads the whole pull-request diff rather than the last push. A branch that touches a shared action therefore provisions clusters for architectures it has nothing to do with.
+
+`internal-triage-skip` is the way out. Label the pull request `skip_<workflow filename without extension>` and that workflow's triage job short-circuits the rest, so the run appears but no cluster is created:
+
+```bash
+gh pr edit <pr> --add-label skip_aws_openshift_rosa_hcp_dual_region_tests
+```
+
+Never create those labels by hand: `internal-triage-skip` creates them, with colour `#1D76DB`, and also posts a checklist comment offering the same choices as checkboxes.
+
 ### Inspecting a live cluster before the teardown
 
 `aws_eks_multi_region_rdbms_tests.yml` stops on an SSH session after the tests and before the destroy step, on the runner that provisioned the clusters. Two switches turn it on, because a workflow has to be on the default branch before it can be dispatched:
