@@ -182,6 +182,15 @@ runs:
               # group so it survives the composite-action step boundary and
               # becomes its own process-group leader (killable as a group).
               mkdir -p /tmp/integ-pf
+              # Registry of started forwards, appended one base path per line as
+              # each is started so the cleanup step tears down exactly what this
+              # step got as far as starting, even when it dies half-way. A file
+              # rather than a step output because a step that exits non-zero has
+              # no reason to have reached a final "publish the list" line.
+              # Truncated here so a reused (self-hosted) runner cannot leak
+              # bases from a previous job into this one.
+              PF_REGISTRY=/tmp/integ-pf/bases
+              : >"$PF_REGISTRY"
               # Both actions are always consumed from the same checkout
               # (uses: ./.github/actions/...), so the sibling path is stable.
               SUPERVISOR="${GITHUB_ACTION_PATH}/../camunda-smoke-test/scripts/port-forward.sh"
@@ -241,7 +250,7 @@ runs:
                       cat "${base}.log" 2>/dev/null || true
                       return 1
                   fi
-                  echo "pf_${name}_base=${base}" >> "$GITHUB_OUTPUT"
+                  echo "$base" >> "$PF_REGISTRY"
                   PF_CHECKS+=("${name}:${ports%%:*}")
               }
 
@@ -271,14 +280,21 @@ runs:
                       # would run against the squatter. Same marker the Go
                       # kubectl helper scans for, see
                       # aws/kubernetes/eks-dual-region/test/internal/helpers/kubectl/helpers.go.
+                      #
+                      # Readiness outranks the bind error in END: with one port
+                      # and the default localhost addresses, client-go only
+                      # prints "Unable to listen on port" when every address
+                      # failed, so the two markers cannot both belong to a live
+                      # attempt — and if a future kubectl ever emits both, a
+                      # forward proven bound must not be called fatal.
                       verdict=$(awk -v port="$port" '
                           /\[pf-supervisor\].*(starting:|restart #)/ { ready=0; bind_error=0; exited=0; next }
                           /port-forward exited/                     { exited=1; next }
                           $0 ~ ("Forwarding from (127\\.0\\.0\\.1|\\[::1\\]):" port " ->") { ready=1 }
                           /address already in use|Unable to listen on port/                { bind_error=1 }
                           END {
-                              if (bind_error)          print "bind-error"
-                              else if (ready && !exited) print "ready"
+                              if (ready && !exited)    print "ready"
+                              else if (bind_error)     print "bind-error"
                               else                     print "waiting"
                           }' "$log" 2>/dev/null || true)
 
@@ -625,12 +641,11 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              for BASE in \
-                  "${{ steps.port-forward.outputs.pf_zeebe_base }}" \
-                  "${{ steps.port-forward.outputs.pf_keycloak_base }}" \
-                  "${{ steps.port-forward.outputs.pf_orchestration_base }}" \
-                  "${{ steps.port-forward.outputs.pf_connectors_base }}" \
-                  "${{ steps.port-forward.outputs.pf_elasticsearch_base }}"; do
+              # Tear down exactly the forwards the setup step registered, so a
+              # forward added there needs no matching edit here.
+              PF_REGISTRY=/tmp/integ-pf/bases
+              [[ -f "$PF_REGISTRY" ]] || exit 0
+              while read -r BASE; do
                   [[ -z "$BASE" ]] && continue
                   # Drop the stop sentinel first so the supervisor does not
                   # restart kubectl after we kill it. Harmless whatever the PID
@@ -652,4 +667,4 @@ runs:
                           kill "$SPID" 2>/dev/null || true
                       fi
                   fi
-              done
+              done <"$PF_REGISTRY"
