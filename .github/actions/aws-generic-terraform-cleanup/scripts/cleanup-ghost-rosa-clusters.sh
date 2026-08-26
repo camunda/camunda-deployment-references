@@ -4,6 +4,93 @@ set -euo pipefail
 # Description:
 # This script deletes ROSA clusters that have no resources left in AWS but still appear in the OpenShift console.
 # It ensures that only clusters older than a specified number of hours (MIN_AGE) are deleted.
+#
+# Usage:
+#   cleanup-ghost-rosa-clusters.sh <MIN_AGE in hours>
+#   cleanup-ghost-rosa-clusters.sh selftest
+
+# ghost_selftest re-runs this script against stubbed rosa/aws binaries.
+#
+# It exists for one behaviour in particular: a per-cluster repair that fails
+# must not take the rest of the list down with it. Under `set -e` a single
+# `rosa create operator-roles` returning CLUSTERS-MGMT-404 used to abort the
+# whole script, so every cluster queued behind it was silently skipped and the
+# job went red with no cluster deleted.
+ghost_selftest() {
+  local tmp failures=0 out rc
+  tmp=$(mktemp -d)
+
+  _expect() {
+    if [[ "$2" == "$3" ]]; then
+      echo "ok   $1"
+    else
+      echo "FAIL $1: got '$2' want '$3'"
+      failures=$((failures + 1))
+    fi
+  }
+
+  mkdir -p "$tmp/bin"
+  # Two ghost clusters, both old enough and both missing their installer role.
+  # ghost-a repairs cleanly; ghost-b's OIDC config is already gone from RHCS.
+  cat >"$tmp/bin/rosa" <<'STUB'
+#!/bin/bash
+case "$*" in
+  "list cluster --output json")
+    cat <<'JSON'
+[{"id":"a","name":"ghost-a","region":{"id":"eu-west-1"},"creation_timestamp":"2000-01-01T00:00:00Z",
+  "status":{"state":"error","limited_support_reason_count":1},"node_pools":{"items":[]},
+  "aws":{"sts":{"role_arn":"arn:aws:iam::1:role/ghost-a-account-HCP-ROSA-Installer-Role","oidc_config":{"id":"oidc-a"}}}},
+ {"id":"b","name":"ghost-b","region":{"id":"eu-west-1"},"creation_timestamp":"2000-01-01T00:00:00Z",
+  "status":{"state":"error","limited_support_reason_count":1},"node_pools":{"items":[]},
+  "aws":{"sts":{"role_arn":"arn:aws:iam::1:role/ghost-b-account-HCP-ROSA-Installer-Role","oidc_config":{"id":"oidc-b"}}}}]
+JSON
+    ;;
+  *"create operator-roles"*"oidc-b"*)
+    echo "ERR: There was a problem retrieving OIDC Config 'oidc-b': status is 404, code is 'CLUSTERS-MGMT-404'" >&2
+    exit 1
+    ;;
+  "list clusters") ;;                 # nothing registered: both deregister at once
+  *) echo "stub rosa $*" ;;
+esac
+STUB
+  cat >"$tmp/bin/aws" <<'STUB'
+#!/bin/bash
+case "$*" in
+  # No installer role exists, so both clusters qualify as orphaned.
+  *"list-roles"*) echo "" ;;
+  *"get-role"*ghost-a*) echo "arn:aws:iam::1:role/ghost-a-account-HCP-ROSA-Installer-Role" ;;
+  *"get-role"*ghost-b*) echo "arn:aws:iam::1:role/ghost-b-account-HCP-ROSA-Installer-Role" ;;
+  *"list-open-id-connect-providers"*) echo "None" ;;
+  *) echo "" ;;
+esac
+STUB
+  chmod +x "$tmp/bin/rosa" "$tmp/bin/aws"
+
+  rc=0
+  out=$(PATH="$tmp/bin:$PATH" RHCS_TOKEN=stub \
+        DEREGISTER_MAX_ATTEMPTS=1 DEREGISTER_INTERVAL=0 \
+        bash "$SELF" 0 2>&1) || rc=$?
+
+  # The point of the fix: ghost-b's stale OIDC config is reported and skipped,
+  # and ghost-a is still processed.
+  _expect "stale OIDC config is recognised" \
+    "$(grep -c 'OIDC config oidc-b is already gone' <<<"$out")" "1"
+  _expect "both clusters were processed" \
+    "$(grep -c '🔧 Cluster Name:' <<<"$out")" "2"
+  _expect "the deletion still ran for both" \
+    "$(grep -c '💣 Deleting cluster:' <<<"$out")" "2"
+  _expect "a stale OIDC config alone does not fail the run" "$rc" "0"
+
+  rm -rf "$tmp"
+  [[ "$failures" -eq 0 ]] || return 1
+}
+
+SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
+if [[ "${1:-}" == "selftest" ]]; then
+  ghost_selftest
+  exit $?
+fi
 
 # Check if required environment variables are set
 if [ -z "$RHCS_TOKEN" ]; then
@@ -204,12 +291,43 @@ while read -r cluster; do
   echo "🌍 Region: $region_id"
 
   echo "📦 Recreating account roles with prefix ${cluster_name}-account"
-  AWS_REGION="$region_id" rosa create account-roles --mode auto --yes --hosted-cp --prefix "${cluster_name}-account"
+  if ! account_roles_out=$(AWS_REGION="$region_id" rosa create account-roles \
+      --mode auto --yes --hosted-cp --prefix "${cluster_name}-account" 2>&1); then
+    echo "$account_roles_out"
+    echo "  ❌ Could not recreate account roles for ${cluster_name}; leaving it for the next run."
+    FAILED=1
+    continue
+  fi
+  echo "$account_roles_out"
 
-  installer_role_arn=$(aws iam get-role --role-name "${cluster_name}-account-HCP-ROSA-Installer-Role" --query 'Role.Arn' --output text)
+  if ! installer_role_arn=$(aws iam get-role \
+      --role-name "${cluster_name}-account-HCP-ROSA-Installer-Role" \
+      --query 'Role.Arn' --output text 2>&1); then
+    echo "$installer_role_arn"
+    echo "  ❌ Installer role for ${cluster_name} is still missing after the repair; leaving it for the next run."
+    FAILED=1
+    continue
+  fi
 
   echo "📦 Recreating operator roles with prefix ${cluster_name}-operator"
-  AWS_REGION="$region_id" rosa create operator-roles --mode auto --yes --hosted-cp --prefix "${cluster_name}-operator" --oidc-config-id "${oidc_config_id}" --role-arn "${installer_role_arn}"
+  if ! operator_roles_out=$(AWS_REGION="$region_id" rosa create operator-roles \
+      --mode auto --yes --hosted-cp --prefix "${cluster_name}-operator" \
+      --oidc-config-id "${oidc_config_id}" --role-arn "${installer_role_arn}" 2>&1); then
+    echo "$operator_roles_out"
+    if [[ "$operator_roles_out" == *"CLUSTERS-MGMT-404"* ]]; then
+      # RHCS has already dropped this cluster's OIDC config, so there is
+      # nothing left for operator roles to reference: the repair is moot, not
+      # failed. Deleting the cluster is still worth attempting, and is the
+      # whole point of this script.
+      echo "  ℹ️ OIDC config ${oidc_config_id} is already gone; skipping the operator-role repair."
+    else
+      echo "  ❌ Could not recreate operator roles for ${cluster_name}; leaving it for the next run."
+      FAILED=1
+      continue
+    fi
+  else
+    echo "$operator_roles_out"
+  fi
 
   echo "💣 Deleting cluster: $cluster_name"
   AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --best-effort --watch
