@@ -89,6 +89,30 @@ repos:
             types: [terraform]
             pass_filenames: false
 
+          - id: terraform-test-touched
+            name: Terraform test (touched states)
+            entry: scripts/run-terraform-test-touched.sh
+            language: script
+            files: \.(tf|tftest\.hcl)$
+            pass_filenames: false
+
+          - id: python-unittest-actions
+            name: Python unit tests (composite actions)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .github/actions/internal-helm-deprecation-check -p 'test_*.py'
+            language: system
+            files: ^\.github/actions/internal-helm-deprecation-check/.*\.py$
+            pass_filenames: false
+
+          - id: destroy-resources-selftest
+            name: Destroy-resources classifier self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources.sh selftest
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources\.sh$
+            pass_filenames: false
+
           - id: ghost-rosa-cleanup-selftest
             name: Ghost ROSA cleanup script self-test
             # yamllint disable-line rule:line-length
