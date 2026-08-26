@@ -92,6 +92,13 @@ resource "aws_rds_cluster" "primary" {
 
   lifecycle {
     prevent_destroy = false
+    # Replication topology of a global cluster is owned by
+    # aws_rds_global_cluster and FailoverGlobalCluster, not by this resource.
+    # AWS stamps ReplicationSourceIdentifier on whichever member a managed
+    # failover demoted — including this one — and clearing it is the provider's
+    # PromoteReadReplicaDBCluster path. See aws_rds_cluster.secondary below,
+    # which already guards the same attribute.
+    ignore_changes = [replication_source_identifier]
   }
 }
 
