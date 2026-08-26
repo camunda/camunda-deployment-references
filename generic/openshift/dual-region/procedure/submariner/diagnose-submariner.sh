@@ -60,6 +60,21 @@ for ctx in "$C0" "$C1"; do
   run oc --context "$ctx" get gateways.submariner.io,endpoints.submariner.io -A -o wide
   echo "--- gateway-labelled nodes ---"
   run oc --context "$ctx" get nodes -l submariner.io/gateway=true -o wide
+  # The gateway opens a raw socket for NAT discovery and the datapath health
+  # check. When that is refused the log says only
+  # `sendmsg: operation not permitted`, which does not distinguish a missing
+  # capability from something dropping the packets (#3255). Capture what the
+  # pod was actually admitted with, so the next occurrence is conclusive
+  # instead of needing a live cluster to answer.
+  echo "--- submariner-gateway pod security context / admitting SCC ---"
+  run oc --context "$ctx" -n submariner-operator get pods -l app=submariner-gateway \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\n  scc: "}{.metadata.annotations.openshift\.io/scc}{"\n  pod securityContext: "}{.spec.securityContext}{"\n  container securityContext: "}{.spec.containers[*].securityContext}{"\n"}{end}'
+  # The manifest sets both `airGappedDeployment: true` and `NATTEnable: true`,
+  # which pull in opposite directions: an air-gapped deployment should not be
+  # running NAT discovery at all, yet that is the code path that fails. Dump
+  # what the operator actually received.
+  echo "--- deployed Submariner CR spec ---"
+  run oc --context "$ctx" -n submariner-operator get submariners.submariner.io -o yaml
 done
 
 if [ -n "$C0" ]; then
