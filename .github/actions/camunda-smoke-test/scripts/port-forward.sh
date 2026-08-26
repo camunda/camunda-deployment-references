@@ -97,6 +97,23 @@ pf_verdict() {
         }' "$log" 2>/dev/null || true
 }
 
+# Stop the running kubectl and make sure it is really gone.
+#
+# SIGTERM alone is not a guarantee: the attempts this is called on are the ones
+# already suspected of being wedged, and the caller follows up with an
+# unbounded `wait`, so a kubectl that ignores or is too slow to handle the
+# signal would hang the supervisor exactly where the deadline was meant to
+# rescue it. Escalate after a short grace period.
+pf_kill_kubectl() {
+    local kpid="$1" _
+    kill "$kpid" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+        kill -0 "$kpid" 2>/dev/null || return 0
+        sleep 0.25
+    done
+    kill -9 "$kpid" 2>/dev/null || true
+}
+
 # Wait for the running kubectl to bind, exit, or run out of time.
 #
 # The restart loop can only react to a kubectl that *exits*. A stalled SPDY
@@ -117,12 +134,12 @@ pf_await_bind() {
         fi
         if [[ -f "$stop" ]]; then
             # Teardown must not block on a kubectl that never exits on its own.
-            kill "$kpid" 2>/dev/null || true
+            pf_kill_kubectl "$kpid"
             return 0
         fi
         if [[ "$SECONDS" -ge "$deadline" ]]; then
             echo "[pf-supervisor] $(date -u +%H:%M:%S) no bind within ${PF_BIND_TIMEOUT}s; recycling the attempt" >>"$log"
-            kill "$kpid" 2>/dev/null || true
+            pf_kill_kubectl "$kpid"
             return 0
         fi
         sleep 0.5
@@ -268,8 +285,22 @@ pf_stop() {
 }
 
 pf_selftest() {
-    local tmp failures=0
+    local tmp failures=0 stub_path
     tmp=$(mktemp -d)
+    # Resolved once: reading $PATH inside each subshell would make shellcheck
+    # flag a modification it cannot see escaping (SC2030/SC2031).
+    stub_path="$tmp/bin:$PATH"
+
+    # `wait` has no timeout, so poll instead: the point of these cases is that
+    # the supervisor exits on its own.
+    _wait_with_timeout() {
+        local pid="$1" limit="$2" _
+        for _ in $(seq 1 $((limit * 4))); do
+            kill -0 "$pid" 2>/dev/null || return 0
+            sleep 0.25
+        done
+        return 1
+    }
 
     _expect() {
         if [[ "$2" == "$3" ]]; then
@@ -301,7 +332,7 @@ pf_selftest() {
     printf '#!/usr/bin/env bash\nsleep 60\n' >"$tmp/bin/kubectl"
     chmod +x "$tmp/bin/kubectl"
     (
-        PATH="$tmp/bin:$PATH"
+        PATH="$stub_path"
         PF_BIND_TIMEOUT=1
         pf_supervise ns svc/x 1:1 "$tmp/hang"
     ) &
@@ -314,6 +345,27 @@ pf_selftest() {
     else
         echo "FAIL hung attempt is recycled: log did not show a recycle and a restart"
         cat "$tmp/hang.log"
+        failures=$((failures + 1))
+    fi
+
+    # A kubectl that ignores SIGTERM must still be reaped, or the unbounded
+    # `wait` after the deadline would hang the supervisor anyway.
+    mkdir -p "$tmp/bin"
+    printf '#!/usr/bin/env bash\ntrap "" TERM\nsleep 60\n' >"$tmp/bin/kubectl"
+    chmod +x "$tmp/bin/kubectl"
+    (
+        PATH="$stub_path"
+        PF_BIND_TIMEOUT=1
+        pf_supervise ns svc/x 1:1 "$tmp/stubborn"
+    ) &
+    local stubborn=$!
+    sleep 5
+    touch "$tmp/stubborn.stop"
+    if _wait_with_timeout "$stubborn" 12; then
+        echo "ok   a kubectl ignoring SIGTERM is escalated to SIGKILL"
+    else
+        echo "FAIL a kubectl ignoring SIGTERM wedged the supervisor"
+        kill -9 "$stubborn" 2>/dev/null || true
         failures=$((failures + 1))
     fi
 
