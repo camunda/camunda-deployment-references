@@ -66,14 +66,20 @@ for ctx in "$C0" "$C1"; do
   # capability from something dropping the packets (#3255). Capture what the
   # pod was actually admitted with, so the next occurrence is conclusive
   # instead of needing a live cluster to answer.
-  echo "--- submariner-gateway pod security context / admitting SCC ---"
-  run oc --context "$ctx" -n submariner-operator get pods -l app=submariner-gateway \
-    -o jsonpath='{range .items[*]}{.metadata.name}{"\n  scc: "}{.metadata.annotations.openshift\.io/scc}{"\n  pod securityContext: "}{.spec.securityContext}{"\n  container securityContext: "}{.spec.containers[*].securityContext}{"\n"}{end}'
+  #
+  # Whole objects rather than a jsonpath selector: this has to answer a
+  # question, and a selector that silently yields an empty string -- a
+  # mistyped escape, an annotation that moved -- would look like "no SCC" and
+  # send the reader down the wrong path. The YAML also carries the container
+  # names and every securityContext, which a flat selector would flatten.
+  echo "--- submariner-gateway pods (annotations, SCC, securityContext) ---"
+  run oc --context "$ctx" -n submariner-operator get pods -l app=submariner-gateway -o yaml
   # The manifest sets both `airGappedDeployment: true` and `NATTEnable: true`,
   # which pull in opposite directions: an air-gapped deployment should not be
   # running NAT discovery at all, yet that is the code path that fails. Dump
-  # what the operator actually received.
-  echo "--- deployed Submariner CR spec ---"
+  # what the operator actually received, status included -- the status is where
+  # it reports what it did with the spec.
+  echo "--- deployed Submariner CRs (spec and status) ---"
   run oc --context "$ctx" -n submariner-operator get submariners.submariner.io -o yaml
 done
 
