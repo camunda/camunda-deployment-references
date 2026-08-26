@@ -35,8 +35,16 @@ AWS_S3_REGION=${AWS_S3_REGION:-$AWS_REGION}
 FAIL_ON_NOT_FOUND=false
 DRY_RUN=${DRY_RUN:-false}
 
+# `selftest` exercises the pure classifier defined further down and takes none
+# of the runtime arguments, so it skips the validation below and is dispatched
+# once the functions exist.
+SELFTEST=false
+# Matched on the full argv, not just $1: the real path takes four or more
+# arguments, so a bucket that happens to be named "selftest" cannot trip this.
+[[ $# -eq 1 && "$1" == "selftest" ]] && SELFTEST=true
+
 # Validate ORDER argument
-if [[ -z "$ORDER" ]]; then
+if [[ "$SELFTEST" != true && -z "$ORDER" ]]; then
   echo "Error: destruction ORDER must be provided (e.g. 'vpn,cluster' or 'cluster,vpn')."
   exit 1
 fi
@@ -70,6 +78,9 @@ fi
 #
 # Safe by construction: this only ever runs on a policy Terraform is deleting.
 # The holding entities are printed, because they are orphans in their own right.
+# Reached only through remediate_iam_attachments, which the retry loop
+# dispatches by name, so shellcheck cannot see a call site for either.
+# shellcheck disable=SC2329,SC2317
 detach_iam_policy_entities() {
   local policy_arn=$1
   local entity_filter query kind name
@@ -261,6 +272,125 @@ cleanup_vpc_dependencies() {
   fi
 
   echo "  VPC dependency cleanup completed for $vpc_id"
+}
+
+# classify_destroy_error maps a failed `terraform destroy` to the remediation
+# that can recover it, or prints nothing when the failure is fatal.
+#
+# One place decides. Before this, five `if [[ "$output" == *...* ]]` branches
+# carried both the pattern and its remediation inline in the retry loop, and the
+# comment at the bottom had to enumerate them in prose to stay accurate -- a
+# reliable sign the control flow no longer said it. Adding a sixth recoverable
+# error is now a case here plus a function beside the others, and never a change
+# to the loop.
+classify_destroy_error() {
+  local output="$1" module_name="$2"
+
+  if [[ "$module_name" =~ ^(cluster|clusters)$ && "$output" == *"CLUSTERS-MGMT-404"* ]]; then
+    # Not a remediation: the cluster is already gone, which is the outcome the
+    # destroy wanted. The loop treats this as success.
+    echo already_gone
+  elif [[ "$output" == *"DependencyViolation"* ]]; then
+    echo remediate_vpc_dependencies
+  elif [[ "$output" == *"clusters using OIDC config"* ]]; then
+    echo remediate_orphaned_oidc
+  elif [[ "$output" == *"CLUSTERS-MGMT-400"* && "$output" == *"trust policy"* ]]; then
+    echo remediate_broken_trust_policy
+  elif [[ "$output" == *"DeleteConflict"* && "$output" == *"policy attached to entities"* ]]; then
+    echo remediate_iam_attachments
+  fi
+}
+
+# The remediations below share one signature -- group_id, module_name, output --
+# so the loop can dispatch to them by name. Each is best-effort: it improves the
+# odds of the next destroy, and the loop decides what to do if it does not.
+
+# The cloud provider leaves orphan SGs and ENIs behind after a cluster teardown,
+# which hold the VPC. Re-run the dependency sweep and give AWS time to catch up.
+# Invoked indirectly, by name, from the retry loop's dispatch -- shellcheck
+# cannot see that call site.
+# shellcheck disable=SC2329,SC2317
+remediate_vpc_dependencies() {
+  local group_id="$1" module_name="$2"
+
+  echo "[$group_id][$module_name] Re-running VPC dependency cleanup before retry..."
+
+  if [[ "$module_name" == "cluster" ]]; then
+    local retry_vpc
+    retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
+                --query "Vpcs[0].VpcId" --output text --region "$AWS_REGION" 2>/dev/null)
+    if [[ -n "$retry_vpc" && "$retry_vpc" != "None" ]]; then
+      cleanup_vpc_dependencies "$retry_vpc" "$AWS_REGION"
+    fi
+  elif [[ "$module_name" == "clusters" ]]; then
+    if [[ -z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION" ]]; then
+      echo "[$group_id][$module_name] Warning: CLUSTER_0_AWS_REGION or CLUSTER_1_AWS_REGION not set, skipping VPC cleanup retry"
+    else
+      local retry_vpc1 retry_vpc2 retry_c1 retry_c2
+      if [[ "$group_id" == *"-oOo-"* ]]; then
+        retry_c1=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
+        retry_c2=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
+      else
+        retry_c1="$group_id"
+        retry_c2="$group_id"
+      fi
+      retry_vpc1=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${retry_c1}*" \
+                   --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_0_AWS_REGION" 2>/dev/null)
+      retry_vpc2=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${retry_c2}*" \
+                   --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION" 2>/dev/null)
+      [[ -n "$retry_vpc1" && "$retry_vpc1" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc1" "$CLUSTER_0_AWS_REGION"
+      [[ -n "$retry_vpc2" && "$retry_vpc2" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc2" "$CLUSTER_1_AWS_REGION"
+    fi
+  fi
+
+  echo "[$group_id][$module_name] Waiting 30s for async resource cleanup..."
+  sleep 30
+}
+
+# The ROSA cluster was dropped from the state by an earlier partial destroy but
+# still exists in RHCS, and the OIDC config cannot go while it is referenced.
+# Drop the config from state so the rest of the group can be destroyed;
+# cleanup-ghost-rosa-clusters.sh picks up the orphan.
+# Invoked indirectly, by name, from the retry loop's dispatch -- shellcheck
+# cannot see that call site.
+# shellcheck disable=SC2329,SC2317
+remediate_orphaned_oidc() {
+  local group_id="$1" module_name="$2" resource
+
+  echo "[$group_id][$module_name] Removing OIDC config resources from Terraform state to unblock destroy..."
+  terraform state list 2>/dev/null | grep "oidc_config" | while read -r resource; do
+    echo "[$group_id][$module_name] Removing from state: $resource"
+    terraform state rm "$resource" 2>/dev/null || true
+  done
+}
+
+# The account IAM roles exist but their trust policies no longer let Red Hat's
+# service assume the Installer role, so RHCS cannot delete the cluster.
+# Invoked indirectly, by name, from the retry loop's dispatch -- shellcheck
+# cannot see that call site.
+# shellcheck disable=SC2329,SC2317
+remediate_broken_trust_policy() {
+  local group_id="$1" module_name="$2"
+
+  echo "[$group_id][$module_name] Recreating account roles to restore trust policies..."
+  rosa login --token="$RHCS_TOKEN"
+  rosa create account-roles --mode auto --yes --hosted-cp --prefix "${group_id}-account" || true
+}
+
+# An IAM policy Terraform owns is still attached to an entity Terraform no
+# longer tracks, so DeletePolicy fails identically on every run and the whole
+# group leaks, state file included.
+# Invoked indirectly, by name, from the retry loop's dispatch -- shellcheck
+# cannot see that call site.
+# shellcheck disable=SC2329,SC2317
+remediate_iam_attachments() {
+  local group_id="$1" module_name="$2" output="$3" stuck_policy
+
+  echo "[$group_id][$module_name] Detaching IAM policies still attached to untracked entities..."
+  while read -r stuck_policy; do
+    [[ -z "$stuck_policy" ]] && continue
+    detach_iam_policy_entities "$stuck_policy"
+  done < <(grep -oE 'arn:aws:iam::[0-9]+:policy/[A-Za-z0-9+=,.@_/-]+' <<<"$output" | sort -u)
 }
 
 destroy_module() {
@@ -483,11 +613,14 @@ EOF
 
   echo "[$group_id][$module_name] Destroying module"
 
-  # Retry loop: after ROSA/EKS cluster destruction (~28min), the cloud provider may leave
-  # behind orphan resources (SGs, ENIs) in the VPC. If terraform fails with DependencyViolation,
-  # we re-run VPC dependency cleanup and retry.
+  # Retry loop: after ROSA/EKS cluster destruction (~28min), the cloud provider
+  # may leave behind orphan resources (SGs, ENIs) in the VPC, and RHCS may be
+  # mid-way through its own teardown. Which of those is recoverable, and how, is
+  # decided by classify_destroy_error and the remediate_* functions above; this
+  # loop only orchestrates.
   local max_destroy_attempts=3
   local destroy_succeeded=false
+  local handler
   for attempt in $(seq 1 $max_destroy_attempts); do
     if output=$(terraform destroy -auto-approve 2>&1); then
       destroy_succeeded=true
@@ -495,8 +628,8 @@ EOF
       break
     fi
     # terraform prints a full red `Error: deleting EC2 VPC (...):
-    # DependencyViolation` block for a condition the branches below routinely
-    # recover from on the next attempt — that block is why this lane reads as
+    # DependencyViolation` block for a condition the dispatch below routinely
+    # recovers from on the next attempt — that block is why this lane reads as
     # permanently broken in #3122, when every destroy was in fact completing on
     # attempt 2. Worse, groups run in parallel into one interleaved `tail -f`
     # stream, so those lines arrive with no indication of which cluster they
@@ -514,98 +647,30 @@ EOF
     local tag="[$group_id][$module_name] > "
     printf '%s%s\n' "$tag" "${output//$'\n'/$'\n'$tag}"
 
-    if [[ "$module_name" =~ ^(cluster|clusters)$ && "$output" == *"CLUSTERS-MGMT-404"* ]]; then
-      echo "Cluster already deleted (CLUSTERS-MGMT-404). Considering successful."
+    handler=$(classify_destroy_error "$output" "$module_name")
+
+    if [[ "$handler" == "already_gone" ]]; then
+      echo "[$group_id][$module_name] Cluster already deleted (CLUSTERS-MGMT-404). Considering successful."
       destroy_succeeded=true
       break
     fi
 
-    # On DependencyViolation, re-clean VPC dependencies and retry
-    if [[ "$output" == *"DependencyViolation"* && $attempt -lt $max_destroy_attempts ]]; then
-      echo "[$group_id][$module_name] DependencyViolation detected (attempt $attempt/$max_destroy_attempts)"
-      echo "[$group_id][$module_name] Re-running VPC dependency cleanup before retry..."
-
-      if [[ "$module_name" == "cluster" ]]; then
-        local retry_vpc
-        retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
-                    --query "Vpcs[0].VpcId" --output text --region "$AWS_REGION" 2>/dev/null)
-        if [[ -n "$retry_vpc" && "$retry_vpc" != "None" ]]; then
-          cleanup_vpc_dependencies "$retry_vpc" "$AWS_REGION"
-        fi
-      elif [[ "$module_name" == "clusters" ]]; then
-        if [[ -z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION" ]]; then
-          echo "[$group_id][$module_name] Warning: CLUSTER_0_AWS_REGION or CLUSTER_1_AWS_REGION not set, skipping VPC cleanup retry"
-        else
-          local retry_vpc1 retry_vpc2
-          local retry_c1 retry_c2
-          if [[ "$group_id" == *"-oOo-"* ]]; then
-            retry_c1=$(echo "$group_id" | awk -F"-oOo-" '{print $1}')
-            retry_c2=$(echo "$group_id" | awk -F"-oOo-" '{print $2}')
-          else
-            retry_c1="$group_id"
-            retry_c2="$group_id"
-          fi
-          retry_vpc1=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${retry_c1}*" \
-                       --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_0_AWS_REGION" 2>/dev/null)
-          retry_vpc2=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${retry_c2}*" \
-                       --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_1_AWS_REGION" 2>/dev/null)
-          [[ -n "$retry_vpc1" && "$retry_vpc1" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc1" "$CLUSTER_0_AWS_REGION"
-          [[ -n "$retry_vpc2" && "$retry_vpc2" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc2" "$CLUSTER_1_AWS_REGION"
-        fi
-      fi
-
-      echo "[$group_id][$module_name] Waiting 30s for async resource cleanup..."
-      sleep 30
-      continue
+    # No handler means the failure is not one we know how to recover from --
+    # typically a configuration or logic problem rather than a transient AWS or
+    # RHCS condition -- so fail fast rather than burning two more destroys on it.
+    # A handler on the last attempt has nothing left to retry into.
+    if [[ -z "$handler" ]]; then
+      echo "Error destroying $module_name in $group_id"
+      return 1
+    fi
+    if [[ $attempt -ge $max_destroy_attempts ]]; then
+      echo "[$group_id][$module_name] ${handler#remediate_} still failing on the last attempt"
+      echo "Error destroying $module_name in $group_id"
+      return 1
     fi
 
-    # On "clusters using OIDC config" error: the ROSA cluster was already removed from the
-    # Terraform state (by a previous partial destroy) but still exists in RHCS.
-    # The OIDC config can't be deleted while clusters reference it.
-    # We remove the OIDC config from state to unblock the destroy of remaining resources.
-    # The orphaned cluster + OIDC config will be cleaned up by cleanup-ghost-rosa-clusters.sh.
-    if [[ "$output" == *"clusters using OIDC config"* && $attempt -lt $max_destroy_attempts ]]; then
-      echo "[$group_id][$module_name] OIDC config still in use by orphaned ROSA clusters (attempt $attempt/$max_destroy_attempts)"
-      echo "[$group_id][$module_name] Removing OIDC config resources from Terraform state to unblock destroy..."
-      terraform state list 2>/dev/null | grep "oidc_config" | while read -r resource; do
-        echo "[$group_id][$module_name] Removing from state: $resource"
-        terraform state rm "$resource" 2>/dev/null || true
-      done
-      continue
-    fi
-
-    # On CLUSTERS-MGMT-400 with trust policy error: the account IAM roles exist but their
-    # trust policies are broken (e.g. previous partial cleanup removed the trust relationship).
-    # Red Hat's service can't assume the Installer role to delete the cluster.
-    # We recreate the account roles with correct trust policies and retry.
-    if [[ "$output" == *"CLUSTERS-MGMT-400"* && "$output" == *"trust policy"* && $attempt -lt $max_destroy_attempts ]]; then
-      echo "[$group_id][$module_name] Broken trust policy detected (attempt $attempt/$max_destroy_attempts)"
-      echo "[$group_id][$module_name] Recreating account roles to restore trust policies..."
-      rosa login --token="$RHCS_TOKEN"
-      rosa create account-roles --mode auto --yes --hosted-cp --prefix "${group_id}-account" || true
-      continue
-    fi
-
-    # On DeleteConflict: an IAM policy Terraform owns is still attached to an
-    # entity Terraform no longer tracks, so DeletePolicy fails on every run and
-    # the whole group leaks (state file included). Detach, then retry.
-    if [[ "$output" == *"DeleteConflict"* && "$output" == *"policy attached to entities"* && $attempt -lt $max_destroy_attempts ]]; then
-      echo "[$group_id][$module_name] IAM policy still attached (attempt $attempt/$max_destroy_attempts)"
-      local stuck_policy
-      while read -r stuck_policy; do
-        [[ -z "$stuck_policy" ]] && continue
-        detach_iam_policy_entities "$stuck_policy"
-      done < <(grep -oE 'arn:aws:iam::[0-9]+:policy/[A-Za-z0-9+=,.@_/-]+' <<<"$output" | sort -u)
-      continue
-    fi
-
-    # For other errors we fail fast instead of retrying, since these
-    # typically indicate configuration or logic issues (e.g. invalid Terraform, IAM),
-    # not transient AWS/RHCS conditions. Only DependencyViolation, OIDC propagation,
-    # trust policy repair, orphaned IAM policy attachments, and known special
-    # cases are retried above.
-    echo "Error destroying $module_name in $group_id"
-    return 1
+    echo "[$group_id][$module_name] recoverable failure, running ${handler} (attempt $attempt/$max_destroy_attempts)"
+    "$handler" "$group_id" "$module_name" "$output"
   done
 
   if [[ "$destroy_succeeded" != "true" ]]; then
@@ -619,6 +684,71 @@ EOF
 
 
 # Fetch all group IDs
+# destroy_selftest checks classify_destroy_error against the verbatim error text
+# each case was written for, and that every handler it can name exists.
+#
+# The classifier is a lookup table matched against vendor error strings, which
+# is exactly the kind of thing that rots silently: a pattern typo, or a handler
+# renamed without its case, would simply stop recovering and the daily cleanup
+# would go back to leaking with no signal.
+destroy_selftest() {
+  local failures=0 got
+
+  _expect() {
+    if [[ "$2" == "$3" ]]; then
+      echo "ok   $1"
+    else
+      echo "FAIL $1: got '$2' want '$3'"
+      failures=$((failures + 1))
+    fi
+  }
+
+  # Verbatim from the runs each case was written for.
+  local dep_violation="Error: deleting EC2 VPC (vpc-EXAMPLE): operation error EC2: DeleteVpc, api error DependencyViolation: The vpc has dependencies and cannot be deleted."
+  local oidc_in_use="Error: there are clusters using OIDC config 'EXAMPLEOIDCCONFIGID', can't delete the OIDC config"
+  local trust_policy="status is 400, code is 'CLUSTERS-MGMT-400' ... Failed to delete cluster: Please make sure IAM role 'arn:aws:iam::000000000000:role/EXAMPLE-account-HCP-ROSA-Installer-Role' exists, and add it to the trust policy"
+  local gone="Error: status is 404, identifier is '404', code is 'CLUSTERS-MGMT-404'"
+  local delete_conflict="Error: deleting IAM Policy (arn:aws:iam::000000000000:policy/EXAMPLE-external-dns-policy): DeleteConflict: Cannot delete a policy attached to entities."
+  local unknown="Error: Invalid provider configuration"
+
+  _expect "DependencyViolation -> vpc dependencies" \
+    "$(classify_destroy_error "$dep_violation" clusters)" "remediate_vpc_dependencies"
+  _expect "OIDC config in use -> state removal" \
+    "$(classify_destroy_error "$oidc_in_use" clusters)" "remediate_orphaned_oidc"
+  _expect "broken trust policy -> account roles" \
+    "$(classify_destroy_error "$trust_policy" clusters)" "remediate_broken_trust_policy"
+  _expect "DeleteConflict -> detach IAM policies" \
+    "$(classify_destroy_error "$delete_conflict" cluster)" "remediate_iam_attachments"
+  _expect "CLUSTERS-MGMT-404 -> already gone" \
+    "$(classify_destroy_error "$gone" cluster)" "already_gone"
+
+  # A 404 only means "already gone" for a cluster module; anywhere else it is
+  # an unclassified failure and must not be swallowed as success.
+  _expect "404 on a non-cluster module is not success" \
+    "$(classify_destroy_error "$gone" backup_bucket)" ""
+  _expect "unrecognised error has no handler" \
+    "$(classify_destroy_error "$unknown" clusters)" ""
+
+  # Every handler the classifier can name has to be callable, or the loop would
+  # dispatch into nothing and the error would look recovered.
+  for got in remediate_vpc_dependencies remediate_orphaned_oidc \
+             remediate_broken_trust_policy remediate_iam_attachments; do
+    if declare -F "$got" >/dev/null; then
+      echo "ok   handler $got is defined"
+    else
+      echo "FAIL handler $got is named by the classifier but not defined"
+      failures=$((failures + 1))
+    fi
+  done
+
+  [[ "$failures" -eq 0 ]] || return 1
+}
+
+if [[ "$SELFTEST" == true ]]; then
+  destroy_selftest
+  exit $?
+fi
+
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
 aws_exit_code=$?
 
