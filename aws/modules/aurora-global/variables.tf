@@ -82,6 +82,33 @@ variable "extra_wrapper_plugins" {
   }
 }
 
+variable "failover_timeout_ms" {
+  type = number
+  # The wrapper's own default. The module always loads the failover plugin, so
+  # its timeout is a first-class input rather than a free-form URL parameter.
+  default     = 300000
+  description = "Value of the failover plugin's failoverTimeoutMs: the maximum time in milliseconds the driver keeps trying to reconnect to a new writer or reader after a cluster failover. The wrapper default of 300000 (5 min) is usually far longer than an Aurora Global failover takes."
+
+  validation {
+    condition     = var.failover_timeout_ms > 0
+    error_message = "failover_timeout_ms must be greater than 0."
+  }
+}
+
+variable "extra_url_parameters" {
+  type        = map(string)
+  default     = {}
+  description = "Additional query parameters appended to the jdbc_url, e.g. the efm2 plugin's { failureDetectionTime = \"15000\" }. The parameters the module owns (wrapperPlugins, globalClusterInstanceHostPatterns, failoverTimeoutMs, TLS mode) are reserved — use the dedicated inputs for those."
+
+  validation {
+    condition = length(setintersection(
+      keys(var.extra_url_parameters),
+      ["wrapperPlugins", "globalClusterInstanceHostPatterns", "failoverTimeoutMs", "sslmode", "sslMode"],
+    )) == 0
+    error_message = "extra_url_parameters must not contain the module-owned parameters wrapperPlugins, globalClusterInstanceHostPatterns, failoverTimeoutMs, sslmode or sslMode — use extra_wrapper_plugins or failover_timeout_ms instead."
+  }
+}
+
 variable "instance_class" {
   type        = string
   default     = "db.r6g.large"

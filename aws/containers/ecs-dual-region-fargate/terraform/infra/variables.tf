@@ -128,9 +128,27 @@ variable "db_admin_password" {
 }
 
 variable "db_extra_wrapper_plugins" {
-  type        = list(string)
-  default     = []
-  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the generated JDBC URL. 'failover' (and 'iam' when db_iam_auth_enabled) are always set, so list only the extras, e.g. ['efm2']. Only applies when secondary_storage_type = 'rdbms'."
+  type = list(string)
+  # efm2 (Enhanced Failure Monitoring v2) detects an unresponsive instance from
+  # its own monitoring connection instead of waiting for the TCP timeout, so the
+  # failover plugin reacts within seconds of a writer going away.
+  default     = ["efm2"]
+  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the generated JDBC URL. 'failover' (and 'iam' when db_iam_auth_enabled) are always set, so list only the extras. Only applies when secondary_storage_type = 'rdbms'."
+}
+
+variable "db_failover_timeout_ms" {
+  type = number
+  # The wrapper defaults to 300000 (5 min): the orchestration cluster would keep
+  # retrying a dead writer for that whole window before the connection attempt
+  # gives up. 1 min is well past an Aurora Global failover.
+  default     = 60000
+  description = "Maximum time in milliseconds the AWS JDBC Wrapper keeps trying to reconnect after a cluster failover (failoverTimeoutMs). The wrapper's own default is 300000 (5 min), which this reference architecture lowers to 60000. Only applies when secondary_storage_type = 'rdbms'."
+}
+
+variable "db_extra_jdbc_url_parameters" {
+  type        = map(string)
+  default     = {}
+  description = "Additional query parameters appended to the generated JDBC URL, e.g. the efm2 plugin's { failureDetectionTime = \"15000\" }. The parameters the Aurora module owns (wrapperPlugins, globalClusterInstanceHostPatterns, failoverTimeoutMs, TLS mode) are reserved. Only applies when secondary_storage_type = 'rdbms'."
 }
 
 variable "db_iam_auth_enabled" {

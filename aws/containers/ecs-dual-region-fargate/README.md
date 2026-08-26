@@ -9,7 +9,7 @@ This folder describes the IaC of Camunda on AWS ECS Fargate in a dual-region act
 
 - **Two AWS regions** (default: `eu-west-2` and `eu-west-3`) connected via Transit Gateway
 - **8 Zeebe brokers** — 4 per region with asymmetric initial contact points (Service Connect locally, NLB cross-region)
-- **Aurora Global Database** — single writer endpoint with [AWS JDBC Wrapper](https://github.com/aws/aws-advanced-jdbc-wrapper) `failover` plugin for automatic reconnection
+- **Aurora Global Database** — single writer endpoint with [AWS JDBC Wrapper](https://github.com/aws/aws-advanced-jdbc-wrapper) `failover` + `efm2` plugins for fast, automatic reconnection (1 min `failoverTimeoutMs`)
 - **Route 53 Resolver** — forwards Cloud Map DNS queries cross-region for service discovery
 - **RDBMS secondary storage** — uses Aurora (PostgreSQL by default, or MySQL via `db_engine`) instead of Elasticsearch/OpenSearch
 

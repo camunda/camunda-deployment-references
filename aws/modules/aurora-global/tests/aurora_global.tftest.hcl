@@ -437,6 +437,141 @@ run "extra_wrapper_plugins_reject_comma_separated_input" {
   ]
 }
 
+run "extra_url_parameters_are_appended" {
+  command = plan
+
+  variables {
+    extra_url_parameters = {
+      failureDetectionTime = "15000"
+      connectTimeout       = "5000"
+    }
+  }
+
+  override_resource {
+    target          = aws_rds_global_cluster.this
+    override_during = plan
+    values = {
+      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.primary
+    override_during = plan
+    values = {
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.secondary
+    override_during = plan
+    values = {
+      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "&connectTimeout=5000&failureDetectionTime=15000")
+    error_message = "extra_url_parameters should be appended to the jdbc_url, key-sorted"
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "sslmode=require&connectTimeout=5000")
+    error_message = "extra_url_parameters should come after the module-owned parameters"
+  }
+}
+
+run "extra_url_parameters_reject_module_owned_keys" {
+  command = plan
+
+  variables {
+    extra_url_parameters = {
+      failoverTimeoutMs = "60000"
+    }
+  }
+
+  expect_failures = [
+    var.extra_url_parameters,
+  ]
+}
+
+run "failover_timeout_defaults_to_the_wrapper_default" {
+  command = plan
+
+  override_resource {
+    target          = aws_rds_global_cluster.this
+    override_during = plan
+    values = {
+      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.primary
+    override_during = plan
+    values = {
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.secondary
+    override_during = plan
+    values = {
+      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "&failoverTimeoutMs=300000")
+    error_message = "jdbc_url should carry the wrapper's own failoverTimeoutMs default when the input is not set"
+  }
+}
+
+run "failover_timeout_override_reaches_the_jdbc_url" {
+  command = plan
+
+  variables {
+    failover_timeout_ms = 60000
+  }
+
+  override_resource {
+    target          = aws_rds_global_cluster.this
+    override_during = plan
+    values = {
+      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.primary
+    override_during = plan
+    values = {
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.secondary
+    override_during = plan
+    values = {
+      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "&failoverTimeoutMs=60000")
+    error_message = "failover_timeout_ms should be rendered into the jdbc_url"
+  }
+}
+
+run "failover_timeout_rejects_non_positive_values" {
+  command = plan
+
+  variables {
+    failover_timeout_ms = 0
+  }
+
+  expect_failures = [
+    var.failover_timeout_ms,
+  ]
+}
+
 run "jdbc_url_omits_iam_plugin_when_iam_disabled" {
   command = plan
 
