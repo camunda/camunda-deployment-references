@@ -105,6 +105,15 @@ repos:
             files: ^\.github/actions/internal-helm-deprecation-check/.*\.py$
             pass_filenames: false
 
+          - id: ghost-rosa-cleanup-selftest
+            name: Ghost ROSA cleanup script self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/aws-generic-terraform-cleanup/scripts/cleanup-ghost-rosa-clusters.sh selftest
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/cleanup-ghost-rosa-clusters\.sh$
+            pass_filenames: false
+
           - id: cleanup-coverage
             name: Daily cleanups cover every test scenario
             entry: .lint/cleanup-coverage/check-cleanup-coverage.py
