@@ -41,6 +41,12 @@
 # exited. Every subcommand reports failure through its return code.
 set -uo pipefail
 
+# Seconds a single kubectl attempt gets to bind before it is recycled, and
+# attempts `wait` polls for (1s apart). The wait budget has to outlast at least
+# two bind deadlines so a first hung attempt is not fatal.
+PF_BIND_TIMEOUT="${PF_BIND_TIMEOUT:-15}"
+PF_WAIT_ATTEMPTS="${PF_WAIT_ATTEMPTS:-60}"
+
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
 # True when <pid> is the supervisor for <base>. A PID file alone proves
@@ -91,6 +97,38 @@ pf_verdict() {
         }' "$log" 2>/dev/null || true
 }
 
+# Wait for the running kubectl to bind, exit, or run out of time.
+#
+# The restart loop can only react to a kubectl that *exits*. A stalled SPDY
+# upgrade to the API server neither binds nor exits, so without a deadline one
+# hung attempt pins the forward down for the rest of the job — observed on ROSA
+# against a healthy keycloak-0: 32s of complete silence after the banner.
+# Recycling the attempt turns that hang into a retry, which is what the
+# supervisor is for.
+#
+# Only lines appended after <marked> count, so a marker from an earlier attempt
+# cannot satisfy this one.
+pf_await_bind() {
+    local log="$1" marked="$2" kpid="$3" stop="$4"
+    local deadline=$((SECONDS + PF_BIND_TIMEOUT))
+    while kill -0 "$kpid" 2>/dev/null; do
+        if tail -n "+$((marked + 1))" "$log" 2>/dev/null | grep -q "Forwarding from"; then
+            return 0
+        fi
+        if [[ -f "$stop" ]]; then
+            # Teardown must not block on a kubectl that never exits on its own.
+            kill "$kpid" 2>/dev/null || true
+            return 0
+        fi
+        if [[ "$SECONDS" -ge "$deadline" ]]; then
+            echo "[pf-supervisor] $(date -u +%H:%M:%S) no bind within ${PF_BIND_TIMEOUT}s; recycling the attempt" >>"$log"
+            kill "$kpid" 2>/dev/null || true
+            return 0
+        fi
+        sleep 0.5
+    done
+}
+
 pf_supervise() {
     local ns="$1" target="$2" ports="$3" base="$4"
     local log="${base}.log" pidfile="${base}.pid" stop="${base}.stop"
@@ -106,13 +144,18 @@ pf_supervise() {
 
     local restart=0
     while [[ ! -f "$stop" ]]; do
+        local marked
+        marked=$(wc -l <"$log")
         if [[ "$restart" -gt 0 ]]; then
             echo "[pf-supervisor] $(date -u +%H:%M:%S) restart #${restart}: kubectl port-forward ${target} ${ports} -n ${ns}" >>"$log"
         else
             echo "[pf-supervisor] $(date -u +%H:%M:%S) starting: kubectl port-forward ${target} ${ports} -n ${ns}" >>"$log"
         fi
 
-        kubectl port-forward "$target" "$ports" -n "$ns" </dev/null >>"$log" 2>&1 || true
+        kubectl port-forward "$target" "$ports" -n "$ns" </dev/null >>"$log" 2>&1 &
+        local kpid=$!
+        pf_await_bind "$log" "$marked" "$kpid" "$stop"
+        wait "$kpid" 2>/dev/null || true
 
         # Asked to stop while kubectl was running: exit without restarting.
         [[ -f "$stop" ]] && break
@@ -175,7 +218,7 @@ pf_start() {
 # Fail here, with the supervisor log, rather than later inside a test with an
 # unexplained connection-refused.
 pf_wait() {
-    local base="$1" port="$2" attempts="${3:-30}"
+    local base="$1" port="$2" attempts="${3:-$PF_WAIT_ATTEMPTS}"
     local log="${base}.log" verdict _
     for _ in $(seq 1 "$attempts"); do
         verdict=$(pf_verdict "$log" "$port")
@@ -251,6 +294,28 @@ pf_selftest() {
 
     printf '[pf-supervisor] 00:00:00 starting: x\nForwarding from 127.0.0.1:9200 -> 9200\n' >"$tmp/a.log"
     _expect "another port bound -> waiting" "$(pf_verdict "$tmp/a.log" 9600)" "waiting"
+
+    # A kubectl that never binds and never exits must be recycled, not waited
+    # on forever — the failure this deadline exists for.
+    mkdir -p "$tmp/bin"
+    printf '#!/usr/bin/env bash\nsleep 60\n' >"$tmp/bin/kubectl"
+    chmod +x "$tmp/bin/kubectl"
+    (
+        PATH="$tmp/bin:$PATH"
+        PF_BIND_TIMEOUT=1
+        pf_supervise ns svc/x 1:1 "$tmp/hang"
+    ) &
+    local sup=$!
+    sleep 4
+    touch "$tmp/hang.stop"
+    wait "$sup" 2>/dev/null || true
+    if grep -q "no bind within" "$tmp/hang.log" && grep -q "restart #1" "$tmp/hang.log"; then
+        echo "ok   hung attempt is recycled instead of pinning the forward"
+    else
+        echo "FAIL hung attempt is recycled: log did not show a recycle and a restart"
+        cat "$tmp/hang.log"
+        failures=$((failures + 1))
+    fi
 
     # A PID that is not our supervisor must never be signalled.
     sleep 30 &
