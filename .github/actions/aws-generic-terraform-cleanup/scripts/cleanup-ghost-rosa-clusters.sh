@@ -89,11 +89,11 @@ STUB
   # The point of the fix: ghost-b's stale OIDC config is reported and skipped,
   # and ghost-a is still processed.
   _expect "stale OIDC config is recognised" \
-    "$(grep -c 'OIDC config oidc-b is already gone' <<<"$out")" "1"
+    "$(grep -c 'OIDC config oidc-b is already gone' <<<"$out" || true)" "1"
   _expect "both clusters were processed" \
-    "$(grep -c '🔧 Cluster Name:' <<<"$out")" "2"
+    "$(grep -c '🔧 Cluster Name:' <<<"$out" || true)" "2"
   _expect "the deletion still ran for both" \
-    "$(grep -c '💣 Deleting cluster:' <<<"$out")" "2"
+    "$(grep -c '💣 Deleting cluster:' <<<"$out" || true)" "2"
   _expect "a stale OIDC config alone does not fail the run" "$rc" "0"
 
   rm -rf "$tmp"
@@ -315,11 +315,20 @@ while read -r cluster; do
   fi
   echo "$account_roles_out"
 
+  # Stdout only: this value is passed straight to `--role-arn`, and folding
+  # stderr into it would let any AWS CLI warning end up in the flag. Errors
+  # still reach the job log, they just do not contaminate the ARN. The shape
+  # check is the same guard used on the VPC id in destroy.sh, for the same
+  # reason.
   if ! installer_role_arn=$(aws iam get-role \
       --role-name "${cluster_name}-account-HCP-ROSA-Installer-Role" \
-      --query 'Role.Arn' --output text 2>&1); then
-    echo "$installer_role_arn"
+      --query 'Role.Arn' --output text); then
     echo "  ❌ Installer role for ${cluster_name} is still missing after the repair; leaving it for the next run."
+    FAILED=1
+    continue
+  fi
+  if [[ ! "$installer_role_arn" =~ ^arn:aws:iam::[0-9]+:role/.+$ ]]; then
+    echo "  ❌ Unusable installer role ARN for ${cluster_name}: '${installer_role_arn}'; leaving it for the next run."
     FAILED=1
     continue
   fi
