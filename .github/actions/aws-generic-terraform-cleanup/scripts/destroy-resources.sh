@@ -494,7 +494,25 @@ EOF
       echo "$output"
       break
     fi
-    echo "$output"
+    # terraform prints a full red `Error: deleting EC2 VPC (...):
+    # DependencyViolation` block for a condition the branches below routinely
+    # recover from on the next attempt — that block is why this lane reads as
+    # permanently broken in #3122, when every destroy was in fact completing on
+    # attempt 2. Worse, groups run in parallel into one interleaved `tail -f`
+    # stream, so those lines arrive with no indication of which cluster they
+    # belong to or whether anything is going to be done about them.
+    #
+    # Say what is about to happen, and tag every line so a recovered attempt
+    # cannot be mistaken for the job's cause of death. Grouping with
+    # `::group::` is not an option here: concurrent groups would nest and
+    # swallow each other's output.
+    if [[ $attempt -lt $max_destroy_attempts ]]; then
+      echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts} failed; a retry may still recover it. Output:"
+    else
+      echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts} failed; no attempts left. Output:"
+    fi
+    local tag="[$group_id][$module_name] > "
+    printf '%s%s\n' "$tag" "${output//$'\n'/$'\n'$tag}"
 
     if [[ "$module_name" =~ ^(cluster|clusters)$ && "$output" == *"CLUSTERS-MGMT-404"* ]]; then
       echo "Cluster already deleted (CLUSTERS-MGMT-404). Considering successful."
