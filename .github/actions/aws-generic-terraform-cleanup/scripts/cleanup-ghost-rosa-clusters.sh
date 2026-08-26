@@ -66,6 +66,21 @@ esac
 STUB
   chmod +x "$tmp/bin/rosa" "$tmp/bin/aws"
 
+  # On Darwin the script reaches for `gdate`, which ships with coreutils and is
+  # not installed by `just install-tooling`. Now that a pre-commit hook runs
+  # this selftest, a macOS checkout without coreutils would fail the hook for a
+  # reason that has nothing to do with the change being committed. Shim it: the
+  # selftest only needs epoch seconds out of a fixed timestamp.
+  cat >"$tmp/bin/gdate" <<'STUB'
+#!/bin/bash
+if [[ "${1:-}" == "-d" ]]; then
+  python3 -c 'import sys, datetime; print(int(datetime.datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00")).timestamp()))' "$2"
+else
+  date "$@"
+fi
+STUB
+  chmod +x "$tmp/bin/gdate"
+
   rc=0
   out=$(PATH="$tmp/bin:$PATH" RHCS_TOKEN=stub \
         DEREGISTER_MAX_ATTEMPTS=1 DEREGISTER_INTERVAL=0 \
