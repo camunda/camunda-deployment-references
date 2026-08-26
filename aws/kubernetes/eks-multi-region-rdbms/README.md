@@ -141,11 +141,37 @@ deliberate: the partition layout reserves its replicas, so each partition runs a
 `N-1` of `N` — a majority — and the cluster forms and serves normally.
 
 Activating that zone then only fills in replicas that were already reserved. No
-broker is renumbered and no partition is redistributed, which is what makes
-`activate-region.sh` non-disruptive.
+broker is renumbered and no partition is redistributed.
 
 Leaving **two or more** zones empty is rejected by a `check` block in
 `terraform/clusters/checks.tf`: every partition would lose its majority.
+
+### What activating a zone costs
+
+`activate-region.sh` also upgrades the regions that are already running, and
+that is a rolling restart of live brokers.
+
+A broker only talks to peers it was told about. The list is
+`CAMUNDA_CLUSTER_INITIALCONTACTPOINTS`, read once at startup, and nothing
+replaces it at runtime. Regions that started before the new zone existed refuse
+its brokers outright:
+
+```
+'zurich_0', but member is not known.
+Known members are '[Member{id=london_0, address=camunda-zeebe-0.london...
+```
+
+So the newcomer can only join once every running region carries the longer list,
+which means restarting them. Kubernetes rolls one Pod at a time, and while a Pod
+is down its partitions run one replica short of the configured replication
+factor. With three zones at one replica each, a partition is at 2 of 3 during
+that window: a majority, so it keeps accepting writes, but with no margin left
+until the Pod is back.
+
+Two consequences worth planning around. Activate a zone when the cluster is
+otherwise healthy, not while another region is already degraded. And expect the
+step to take as long as a rolling restart of every running region, on top of
+deploying the new one.
 
 ## Replication-agnostic secondary storage
 

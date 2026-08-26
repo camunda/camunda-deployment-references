@@ -41,16 +41,28 @@ camunda::registered_broker_count() {
     echo "$response" | jq -r '.brokers | length' 2>/dev/null || echo 0
 }
 
-# camunda::region_node_ids <slot> -> space-separated broker node IDs of a slot.
+# camunda::region_node_ids <slot> -> space-separated broker IDs of a slot.
 #
-# The Helm chart derives node IDs as `ordinal * regionSlots + regionId`, so the
-# brokers of a slot are that slot's residue class modulo the number of slots.
+# Zone-aware brokers are addressed by the composite ID `<zone>_<index>`, where
+# the index runs from 0 to numberOfBrokers-1 inside each zone. That is what the
+# management API answers with, and what it expects back:
+#
+#   {"brokers":[{"id":"zurich_0", ...},{"id":"zurich_1", ...}]}
 camunda::region_node_ids() {
     local slot="$1"
+    local zone_names
+    read -r -a zone_names <<<"${CAMUNDA_ZONE_NAMES:?CAMUNDA_ZONE_NAMES must be set, source export-terraform-outputs.sh}"
+
+    local zone="${zone_names[$slot]:-}"
+    if [ -z "$zone" ]; then
+        echo "ERROR: CAMUNDA_ZONE_NAMES has no entry for region slot $slot." >&2
+        return 1
+    fi
+
     local ids=()
-    local ordinal
-    for ((ordinal = 0; ordinal < CAMUNDA_BROKERS_PER_REGION; ordinal++)); do
-        ids+=($((ordinal * CAMUNDA_REGION_SLOTS + slot)))
+    local index
+    for ((index = 0; index < CAMUNDA_BROKERS_PER_REGION; index++)); do
+        ids+=("${zone}_${index}")
     done
     echo "${ids[@]}"
 }

@@ -92,7 +92,7 @@ cluster="$(camunda::management "$survivor_context" GET /actuator/cluster)"
 
 missing=()
 for id in $node_ids; do
-    if ! echo "$cluster" | jq -e --argjson id "$id" '[.brokers[]?.id] | index($id) != null' >/dev/null; then
+    if ! echo "$cluster" | jq -e --arg id "$id" '[.brokers[]?.id] | index($id) != null' >/dev/null; then
         missing+=("$id")
     fi
 done
@@ -102,11 +102,11 @@ if [ "${#missing[@]}" -eq 0 ]; then
     echo "    catch up from the Raft log without any membership change."
 else
     echo "    Brokers ${missing[*]} were removed during failover; adding them back."
-    add_json="$(printf '%s\n' "${missing[@]}" | jq -R 'tonumber' | jq -sc .)"
-    body="$(jq -nc \
-        --argjson add "$add_json" \
-        --argjson rf "$CAMUNDA_REPLICATION_FACTOR" \
-        '{brokers: {add: $add}, partitions: {replicationFactor: $rf}}')"
+    # No `partitions.replicationFactor`: a zone-aware cluster derives it from the
+    # zone list and rejects the field outright with "Changing the replication
+    # factor is not supported on zone-aware clusters."
+    add_json="$(printf '%s\n' "${missing[@]}" | jq -R . | jq -sc .)"
+    body="$(jq -nc --argjson add "$add_json" '{brokers: {add: $add}}')"
 
     camunda::management "$survivor_context" PATCH /actuator/cluster "$body"
     camunda::wait_for_cluster_change "$survivor_context"

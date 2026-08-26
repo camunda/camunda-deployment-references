@@ -3,7 +3,7 @@
 # shellcheck source-path=SCRIPTDIR
 set -euo pipefail
 
-# Brings a previously empty region slot online, without interrupting the running
+# Brings a previously empty region slot online without stopping the running
 # Camunda cluster.
 #
 #   ./activate-region.sh <slot>
@@ -16,16 +16,19 @@ set -euo pipefail
 #      CLUSTER_CONTEXTS.
 #   3. CAMUNDA_ACTIVE_REGIONS already reflects the NEW number of active regions.
 #
-# What makes this non-disruptive is that the slot count, and therefore every
-# broker node ID, was fixed at bootstrap. Activating a slot only fills in the
-# replicas that the partition layout already reserved for it; no existing broker
-# is renumbered and no partition is redistributed.
+# The slot count, and therefore every broker's identity, was fixed at bootstrap.
+# Activating a slot only fills in the replicas that the partition layout already
+# reserved for it; no existing broker is renumbered and no partition is
+# redistributed.
+#
+# It is not free, though. The running regions are restarted so they learn the new
+# region's contact point, one Pod at a time, and each partition spends that
+# window one replica short. See "What activating a zone costs" in ../README.md.
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_REGION_SLOTS:?CAMUNDA_REGION_SLOTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_BROKERS_PER_REGION:?CAMUNDA_BROKERS_PER_REGION must be set, source export_environment_prerequisites.sh}"
-: "${CAMUNDA_REPLICATION_FACTOR:?CAMUNDA_REPLICATION_FACTOR must be set, source export_environment_prerequisites.sh}"
 
 if [ $# -ne 1 ]; then
     echo "usage: $0 <region-slot>" >&2
@@ -65,12 +68,22 @@ echo "==> 3/6 Rendering the Helm values with the new contact point list"
 . "$SCRIPT_DIR/generate-zeebe-helm-values.sh"
 "$SCRIPT_DIR/assemble-envsubst-values.sh"
 
-echo "==> 4/6 Installing Camunda in region slot $SLOT"
-# Only the new region is installed. The already running regions learn about the
-# new brokers through cluster membership gossip; their values files now carry a
-# longer contact point list, which is picked up harmlessly on their next
-# upgrade. Restarting them here would be a needless rolling restart.
-"$SCRIPT_DIR/install-chart.sh" "$SLOT"
+echo "==> 4/6 Installing Camunda in region slot $SLOT and refreshing the running regions"
+# Every active slot is (re)installed, not only the new one. The running regions
+# hold the contact point list they started with, and nothing hands them a new
+# one at runtime: a broker they were never told about is refused outright,
+#
+#   'zurich_0', but member is not known. Known members are '[Member{id=london_0 ...
+#
+# so the new region can never register. Step 3 has already rendered every slot's
+# values with the longer list; applying them is what lets the newcomer in.
+#
+# Slots are applied in order, so the running regions learn the new contact point
+# before the new region starts dialling them. Each of those upgrades is a rolling
+# restart, one Pod at a time, and while a Pod is down its partitions run one
+# replica short of the configured replication factor. See "Growing the cluster"
+# in ../README.md for what that costs.
+"$SCRIPT_DIR/install-chart.sh"
 
 echo "==> 5/6 Exporting the new region's services to the ClusterSet"
 "$SCRIPT_DIR/submariner/export-services.sh"
@@ -96,25 +109,15 @@ while true; do
 
     if [ "$SECONDS" -ge "$deadline" ]; then
         echo
-        echo "The new brokers did not join on their own within the timeout."
-        echo "They are part of the partition layout computed at bootstrap, so this"
-        echo "normally happens automatically. Falling back to an explicit membership"
-        echo "change through the cluster scaling API."
-        echo
-        echo "    Cluster membership as the survivors see it:"
-        camunda::management "$survivor_context" GET /actuator/cluster
-        echo
-
-        add_json="$(printf '%s\n' "$node_ids" | tr ' ' '\n' | jq -R 'tonumber' | jq -sc .)"
-        body="$(jq -nc \
-            --argjson add "$add_json" \
-            --argjson rf "$CAMUNDA_REPLICATION_FACTOR" \
-            '{brokers: {add: $add}, partitions: {replicationFactor: $rf}}')"
-
-        echo "    PATCH /actuator/cluster $body"
-        camunda::management "$survivor_context" PATCH /actuator/cluster "$body"
-        camunda::wait_for_cluster_change "$survivor_context"
-        break
+        echo "ERROR: the brokers of region slot $SLOT did not register within the timeout." >&2
+        echo "       They are already ACTIVE members of the configuration below, so this" >&2
+        echo "       is not a membership problem and no cluster change would fix it: the" >&2
+        echo "       processes are not reaching the rest of the cluster. Check that step" >&2
+        echo "       4 restarted the running regions, and that the new region's services" >&2
+        echo "       are exported to the ClusterSet." >&2
+        echo >&2
+        camunda::management "$survivor_context" GET /actuator/cluster >&2
+        exit 1
     fi
 
     echo "    $joined/$expected_total brokers joined, waiting ..."

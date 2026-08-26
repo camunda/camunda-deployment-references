@@ -177,7 +177,7 @@ if [ "$DRAIN_BROKERS" = true ]; then
     echo "    the replication factor of the affected partitions instead of moving"
     echo "    their replicas."
 
-    remove_json="$(printf '%s\n' "$node_ids" | tr ' ' '\n' | jq -R 'tonumber' | jq -sc .)"
+    remove_json="$(printf '%s\n' "$node_ids" | tr ' ' '\n' | jq -R . | jq -sc .)"
     body="$(jq -nc --argjson remove "$remove_json" '{brokers: {remove: $remove}}')"
 
     camunda::management "$survivor_context" PATCH "/actuator/cluster?force=true" "$body"

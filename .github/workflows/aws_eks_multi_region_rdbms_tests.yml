@@ -286,6 +286,11 @@ jobs:
               if: env.ACTIVE_REGION_COUNT != env.CAMUNDA_REGION_SLOTS
               timeout-minutes: 60
               working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              env:
+                  # Activation upgrades the running regions as well, so the overlay has
+                  # to be here too. Applying their values without it would drop the CI
+                  # user from the release the rest of the suite authenticates against.
+                  CAMUNDA_EXTRA_VALUES: ${{ steps.camunda-ci-credentials.outputs.values-file }}
               run: go test --count=1 -v -timeout 60m -failfast -run TestMultiRegionActivateRegion
 
             # The point of the architecture: losing a region must not stop the engine.
@@ -301,6 +306,9 @@ jobs:
               working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
               env:
                   CAMUNDA_ACTIVE_REGIONS: ${{ env.CAMUNDA_REGION_SLOTS }}
+                  # Failback reinstalls the recovered region, so it needs the same
+                  # overlay the first install used.
+                  CAMUNDA_EXTRA_VALUES: ${{ steps.camunda-ci-credentials.outputs.values-file }}
               run: go test --count=1 -v -timeout 60m -failfast -run TestMultiRegionFailback
 
             - name: Debug the cross-region networking
