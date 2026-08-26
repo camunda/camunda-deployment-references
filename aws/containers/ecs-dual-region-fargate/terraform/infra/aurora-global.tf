@@ -27,6 +27,8 @@ module "aurora_global" {
   master_password       = local.db_admin_password_effective
   iam_auth_enabled      = var.db_iam_auth_enabled
   extra_wrapper_plugins = var.db_extra_wrapper_plugins
+  extra_url_parameters  = var.db_extra_jdbc_url_parameters
+  failover_timeout_ms   = var.db_failover_timeout_ms
 
   # Primary cluster (region 0 — writer)
   primary_cluster_name       = "${local.prefix_region_0}-camunda-db"
