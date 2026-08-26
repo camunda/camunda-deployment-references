@@ -119,7 +119,11 @@ install_slot() {
 }
 
 if [ $# -ge 1 ]; then
-    install_slot "$1"
+    # Slots are installed in the order given, which is how activate-region.sh
+    # brings the new region up before restarting the ones already running.
+    for slot in "$@"; do
+        install_slot "$slot"
+    done
 else
     for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
         install_slot "$i"

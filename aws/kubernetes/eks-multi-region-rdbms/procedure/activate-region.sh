@@ -60,7 +60,13 @@ echo "==> 1/6 Joining region slot $SLOT ($new_context) to the Submariner Cluster
 "$SCRIPT_DIR/submariner/join-clusters.sh" "$SLOT"
 "$SCRIPT_DIR/submariner/verify-submariner.sh"
 
-echo "==> 2/6 Creating the namespace and the RDBMS secret in $new_context"
+echo "==> 2/6 Preparing $new_context: storage class, namespace and RDBMS secret"
+# The new cluster has none of these. The storage class in particular is easy to
+# forget because the bootstrap configured it for the regions that existed then:
+# without it the broker PVCs never bind and the Pods sit in Pending, which the
+# rest of this script would then wait out as a failure to join.
+"$SCRIPT_DIR/storageclass-configure.sh"
+"$SCRIPT_DIR/storageclass-verify.sh"
 "$SCRIPT_DIR/setup-namespaces.sh"
 "$SCRIPT_DIR/create-rdbms-secret.sh"
 
@@ -78,12 +84,21 @@ echo "==> 4/6 Installing Camunda in region slot $SLOT and refreshing the running
 # so the new region can never register. Step 3 has already rendered every slot's
 # values with the longer list; applying them is what lets the newcomer in.
 #
-# Slots are applied in order, so the running regions learn the new contact point
-# before the new region starts dialling them. Each of those upgrades is a rolling
-# restart, one Pod at a time, and while a Pod is down its partitions run one
-# replica short of the configured replication factor. See "Growing the cluster"
-# in ../README.md for what that costs.
-"$SCRIPT_DIR/install-chart.sh"
+# The new region goes FIRST. Every broker starts behind an initContainer that
+# waits for the per-Pod clusterset DNS names of all its contact points, so a
+# running region restarted before the new one exists blocks there for the full
+# gate timeout, twelve minutes per Pod, for nothing.
+#
+# Those restarts are the cost of activation: one Pod at a time, and while a Pod
+# is down its partitions run one replica short. See "What activating a zone
+# costs" in ../README.md.
+install_order=("$SLOT")
+for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+    if [ "$i" -ne "$SLOT" ]; then
+        install_order+=("$i")
+    fi
+done
+"$SCRIPT_DIR/install-chart.sh" "${install_order[@]}"
 
 echo "==> 5/6 Exporting the new region's services to the ClusterSet"
 "$SCRIPT_DIR/submariner/export-services.sh"
@@ -93,11 +108,10 @@ node_ids="$(camunda::region_node_ids "$SLOT")"
 echo "    Expected broker node IDs for slot $SLOT: $node_ids"
 
 expected_total=$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_ACTIVE_REGIONS))
-# Ten minutes is a generous window for gossip to carry the new brokers in. The
-# rest of the budget belongs to what happens when it does not: the membership
-# change and then the topology verification, which together need most of the
-# step's hour.
-deadline=$((SECONDS + ${ACTIVATE_REGION_TIMEOUT_SECONDS:-600}))
+# Long enough to cover the rolling restarts of step 4 and the brokers coming
+# back behind them, short enough to leave the topology verification that follows
+# its own budget inside the caller's timeout.
+deadline=$((SECONDS + ${ACTIVATE_REGION_TIMEOUT_SECONDS:-900}))
 
 while true; do
     joined="$(camunda::registered_broker_count "$survivor_context")"
