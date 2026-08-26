@@ -80,14 +80,17 @@ node_ids="$(camunda::region_node_ids "$SLOT")"
 echo "    Expected broker node IDs for slot $SLOT: $node_ids"
 
 expected_total=$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_ACTIVE_REGIONS))
-deadline=$((SECONDS + ${ACTIVATE_REGION_TIMEOUT_SECONDS:-1800}))
+# Ten minutes is a generous window for gossip to carry the new brokers in. The
+# rest of the budget belongs to what happens when it does not: the membership
+# change and then the topology verification, which together need most of the
+# step's hour.
+deadline=$((SECONDS + ${ACTIVATE_REGION_TIMEOUT_SECONDS:-600}))
 
 while true; do
-    topology="$(camunda::management "$survivor_context" GET /actuator/cluster)"
-    known="$(echo "$topology" | jq -r '[.brokers[]?.id] | length')"
+    joined="$(camunda::registered_broker_count "$survivor_context")"
 
-    if [ "$known" -ge "$expected_total" ]; then
-        echo "    All $expected_total brokers are known to the cluster."
+    if [ "${joined:-0}" -ge "$expected_total" ]; then
+        echo "    All $expected_total brokers joined the cluster."
         break
     fi
 
@@ -97,6 +100,9 @@ while true; do
         echo "They are part of the partition layout computed at bootstrap, so this"
         echo "normally happens automatically. Falling back to an explicit membership"
         echo "change through the cluster scaling API."
+        echo
+        echo "    Cluster membership as the survivors see it:"
+        camunda::management "$survivor_context" GET /actuator/cluster
         echo
 
         add_json="$(printf '%s\n' "$node_ids" | tr ' ' '\n' | jq -R 'tonumber' | jq -sc .)"
@@ -111,7 +117,7 @@ while true; do
         break
     fi
 
-    echo "    $known/$expected_total brokers known, waiting ..."
+    echo "    $joined/$expected_total brokers joined, waiting ..."
     sleep 20
 done
 
