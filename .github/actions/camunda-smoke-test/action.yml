@@ -139,6 +139,12 @@ runs:
               # the process-group contract live in the script.
               bash "${{ github.action_path }}/scripts/port-forward.sh" \
                   start "$NS" "svc/${SVC}" 8080:8080 /tmp/smoke-pf/zeebe
+              # Confirm *this* supervisor bound the port before probing it. An
+              # HTTP 200 on :8080 only proves something answers there: a stale
+              # forward left by an interrupted job would satisfy the probe below
+              # while pointing at the previous cluster.
+              bash "${{ github.action_path }}/scripts/port-forward.sh" \
+                  wait /tmp/smoke-pf/zeebe 8080
 
               for i in $(seq 1 30); do
                   # `-w` already prints 000 on a failed transfer, so a
@@ -236,6 +242,10 @@ runs:
               bash "${{ github.action_path }}/scripts/port-forward.sh" \
                   start "$NS" "svc/${KC_HOST}" "${LOCAL_KC_PORT}:${KC_REMOTE_PORT}" \
                   /tmp/smoke-pf/keycloak
+              # Same reasoning as the Zeebe forward: prove ownership of the port
+              # before trusting an HTTP answer on it.
+              bash "${{ github.action_path }}/scripts/port-forward.sh" \
+                  wait /tmp/smoke-pf/keycloak "${LOCAL_KC_PORT}"
 
               for i in $(seq 1 30); do
                   CODE=$(curl -s -o /dev/null \
