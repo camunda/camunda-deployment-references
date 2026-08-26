@@ -170,152 +170,30 @@ runs:
               RELEASE="${INPUTS_TEST_RELEASE_NAME}"
               DOMAIN="${INPUTS_CAMUNDA_DOMAIN}"
 
-              # kubectl port-forward rides a single SPDY stream that managed
-              # control planes reap after a short idle window (~30-60s). A bare
-              # one-shot forward then exits and is never restarted, so a test
-              # that touches it later gets a bare "connection refused" against a
-              # perfectly healthy deployment (#2970). Run every forward through
-              # the same supervisor camunda-smoke-test uses: it restarts kubectl
-              # until the cleanup step drops the stop sentinel.
+              # Every forward runs through the shared supervisor: kubectl
+              # port-forward rides a single SPDY stream that managed control
+              # planes reap after a short idle window, so a bare one-shot
+              # forward exits and is never restarted and a test that touches it
+              # later gets a connection-refused against a healthy deployment
+              # (#2970). Rationale and the log contract live in the script.
               #
-              # setsid + nohup detaches the supervisor from this step's process
-              # group so it survives the composite-action step boundary and
-              # becomes its own process-group leader (killable as a group).
-              mkdir -p /tmp/integ-pf
-              # Registry of started forwards, appended one base path per line as
-              # each is started so the cleanup step tears down exactly what this
-              # step got as far as starting, even when it dies half-way. A file
-              # rather than a step output because a step that exits non-zero has
-              # no reason to have reached a final "publish the list" line.
-              # Truncated here so a reused (self-hosted) runner cannot leak
-              # bases from a previous job into this one.
-              PF_REGISTRY=/tmp/integ-pf/bases
-              : >"$PF_REGISTRY"
               # Both actions are always consumed from the same checkout
               # (uses: ./.github/actions/...), so the sibling path is stable.
-              SUPERVISOR="${GITHUB_ACTION_PATH}/../camunda-smoke-test/scripts/port-forward.sh"
-              if [[ ! -f "$SUPERVISOR" ]]; then
-                  echo "::error::port-forward supervisor not found at ${SUPERVISOR}"
+              PF="${GITHUB_ACTION_PATH}/../camunda-smoke-test/scripts/port-forward.sh"
+              if [[ ! -f "$PF" ]]; then
+                  echo "::error::port-forward script not found at ${PF}"
                   exit 1
               fi
 
-              # Local ports to verify once every forward has been started,
-              # as "<name>:<port>" pairs.
+              # Forwards to verify once every one has been started, as
+              # "<base>:<local-port>" pairs.
               PF_CHECKS=()
 
               pf() {
                   local name="$1" target="$2" ports="$3"
                   local base="/tmp/integ-pf/${name}"
-                  # A supervisor left running by an interrupted job on a reused
-                  # (self-hosted) runner still holds the local port and keeps
-                  # restarting kubectl. Deleting its metadata alone would orphan
-                  # it: the new supervisor overwrites the same .pid, so cleanup
-                  # would kill only the new group and leave the old tunnel
-                  # serving the previous cluster. Stop it first, and only if the
-                  # recorded PID really is the supervisor for *this* base — the
-                  # PID may have been recycled, possibly by another live
-                  # supervisor, and killing that one's group would tear down an
-                  # unrelated forward.
-                  if [[ -s "${base}.pid" ]]; then
-                      local stale stale_argv
-                      stale=$(cat "${base}.pid")
-                      stale_argv=$(ps -o args= -p "$stale" 2>/dev/null || true)
-                      if [[ "$stale_argv" == *"port-forward.sh"* && "$stale_argv" == *"$base"* ]]; then
-                          echo "Stopping stale ${name} port-forward supervisor (pid ${stale})"
-                          touch "${base}.stop" 2>/dev/null || true
-                          kill -- "-${stale}" 2>/dev/null || true
-                          kill "$stale" 2>/dev/null || true
-                          # kill is asynchronous. If the replacement starts
-                          # while the old kubectl still holds the port, its
-                          # first attempt fails to bind and wait_port would call
-                          # that collision fatal — the recovery defeating
-                          # itself. Wait for the whole group to go.
-                          for _ in $(seq 1 25); do
-                              kill -0 -- "-${stale}" 2>/dev/null || break
-                              sleep 0.2
-                          done
-                      fi
-                  fi
-                  rm -f "${base}.pid" "${base}.stop" "${base}.log"
-                  setsid nohup bash "$SUPERVISOR" \
-                      "$NS" "$target" "$ports" "$base" \
-                      </dev/null >/dev/null 2>&1 &
-                  disown || true
-                  for _ in $(seq 1 25); do
-                      [[ -s "${base}.pid" ]] && break
-                      sleep 0.2
-                  done
-                  if [[ ! -s "${base}.pid" ]]; then
-                      echo "::error::${name} port-forward supervisor did not start (no PID written)"
-                      cat "${base}.log" 2>/dev/null || true
-                      return 1
-                  fi
-                  echo "$base" >> "$PF_REGISTRY"
-                  PF_CHECKS+=("${name}:${ports%%:*}")
-              }
-
-              # Fail here, with the supervisor log, rather than 40s later inside
-              # a Go test with an unexplained connection-refused.
-              wait_port() {
-                  local name="$1" port="$2"
-                  local log="/tmp/integ-pf/${name}.log"
-                  local verdict
-                  for _ in $(seq 1 30); do
-                      # Judge the currently running attempt only. The supervisor
-                      # appends every restart to one log, so a "Forwarding from"
-                      # line left by an attempt that has since exited must not
-                      # count as ready, and a collision reported by an earlier
-                      # attempt must not fail a healthy current one.
-                      #
-                      # Only the attempt banners reset the verdict: the
-                      # "port-forward exited" line has to stay visible, because
-                      # it is what invalidates a marker seen earlier in the same
-                      # attempt.
-                      #
-                      # The readiness marker is kubectl's own, written only
-                      # after a successful bind, so it is positive proof that
-                      # this forward owns the port. An open port proves nothing:
-                      # a stale kubectl or unrelated service holding it would
-                      # satisfy a plain TCP probe just as well and the tests
-                      # would run against the squatter. Same marker the Go
-                      # kubectl helper scans for, see
-                      # aws/kubernetes/eks-dual-region/test/internal/helpers/kubectl/helpers.go.
-                      #
-                      # Readiness outranks the bind error in END: with one port
-                      # and the default localhost addresses, client-go only
-                      # prints "Unable to listen on port" when every address
-                      # failed, so the two markers cannot both belong to a live
-                      # attempt — and if a future kubectl ever emits both, a
-                      # forward proven bound must not be called fatal.
-                      verdict=$(awk -v port="$port" '
-                          /\[pf-supervisor\].*(starting:|restart #)/ { ready=0; bind_error=0; exited=0; next }
-                          /port-forward exited/                     { exited=1; next }
-                          $0 ~ ("Forwarding from (127\\.0\\.0\\.1|\\[::1\\]):" port " ->") { ready=1 }
-                          /address already in use|Unable to listen on port/                { bind_error=1 }
-                          END {
-                              if (ready && !exited)    print "ready"
-                              else if (bind_error)     print "bind-error"
-                              else                     print "waiting"
-                          }' "$log" 2>/dev/null || true)
-
-                      case "$verdict" in
-                          ready)
-                              echo "✅ ${name} port-forward ready on :${port}"
-                              return 0
-                              ;;
-                          bind-error)
-                              # Name the cause now instead of waiting out the
-                              # loop for a generic timeout.
-                              echo "::error::${name} port-forward could not bind :${port}; the port is held by another process"
-                              cat "$log" 2>/dev/null || true
-                              return 1
-                              ;;
-                      esac
-                      sleep 1
-                  done
-                  echo "::error::${name} port-forward never became ready on :${port}"
-                  cat "$log" 2>/dev/null || true
-                  return 1
+                  bash "$PF" start "$NS" "$target" "$ports" "$base"
+                  PF_CHECKS+=("${base}:${ports%%:*}")
               }
 
               if [[ -z "$DOMAIN" ]]; then
@@ -410,7 +288,7 @@ runs:
 
               echo "Waiting for port-forwards to be established..."
               for check in "${PF_CHECKS[@]}"; do
-                  wait_port "${check%%:*}" "${check##*:}"
+                  bash "$PF" wait "${check%%:*}" "${check##*:}"
               done
           env:
               INPUTS_TEST_NAMESPACE: ${{ inputs.test-namespace }}
@@ -641,30 +519,8 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              # Tear down exactly the forwards the setup step registered, so a
-              # forward added there needs no matching edit here.
-              PF_REGISTRY=/tmp/integ-pf/bases
-              [[ -f "$PF_REGISTRY" ]] || exit 0
-              while read -r BASE; do
-                  [[ -z "$BASE" ]] && continue
-                  # Drop the stop sentinel first so the supervisor does not
-                  # restart kubectl after we kill it. Harmless whatever the PID
-                  # file holds: it is only a file the supervisor polls.
-                  touch "${BASE}.stop" 2>/dev/null || true
-                  if [[ -s "${BASE}.pid" ]]; then
-                      SPID=$(cat "${BASE}.pid")
-                      # Same ownership check as the startup path: if the
-                      # supervisor already exited and its PID was recycled,
-                      # signalling it would kill an unrelated process, and
-                      # killing the group would take that process's children
-                      # with it.
-                      SARGV=$(ps -o args= -p "$SPID" 2>/dev/null || true)
-                      if [[ "$SARGV" == *"port-forward.sh"* && "$SARGV" == *"$BASE"* ]]; then
-                          # Kill the whole process group (setsid made the
-                          # supervisor the group leader) so its kubectl child
-                          # dies with it.
-                          kill -- "-${SPID}" 2>/dev/null || true
-                          kill "$SPID" 2>/dev/null || true
-                      fi
-                  fi
-              done <"$PF_REGISTRY"
+              PF="${GITHUB_ACTION_PATH}/../camunda-smoke-test/scripts/port-forward.sh"
+              # Never let an always() teardown mask the failure that got us
+              # here: a missing script means no forward was ever started.
+              [[ -f "$PF" ]] || exit 0
+              bash "$PF" stop /tmp/integ-pf
