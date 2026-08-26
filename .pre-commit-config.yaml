@@ -105,6 +105,15 @@ repos:
             files: ^\.github/actions/internal-helm-deprecation-check/.*\.py$
             pass_filenames: false
 
+          - id: destroy-resources-selftest
+            name: Destroy-resources classifier self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources.sh selftest
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources\.sh$
+            pass_filenames: false
+
           - id: cleanup-coverage
             name: Daily cleanups cover every test scenario
             entry: .lint/cleanup-coverage/check-cleanup-coverage.py
