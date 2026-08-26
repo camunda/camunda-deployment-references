@@ -8,8 +8,6 @@ global:
             method: oidc
 
     identity:
-        enabled: true
-
         auth:
             enabled: true
             type: KEYCLOAK
