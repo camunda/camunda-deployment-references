@@ -12,11 +12,12 @@ set -euo pipefail
 # rather than treated as a failure, which is the expected state while a cluster
 # is grown one zone at a time.
 #
-# Zone attribution reads the broker identity. Under ZONE_AWARE a broker is
-# `<zone>_<index>`, so the zone is the prefix. The legacy numbering is still
-# handled -- `nodeId % zoneCount` -- so this keeps working against a cluster
-# deployed before the switch, and reports which of the two it saw rather than
-# guessing silently.
+# Zone attribution reads `brokerId`, the composite `<zone>_<index>` a zone-aware
+# broker reports. Not `nodeId`: that one is the index INSIDE the zone, so it
+# repeats across zones and every zone would look like the first ones. The legacy
+# numbering is still handled -- `nodeId % zoneCount`, for a cluster deployed
+# before the switch, which carries no brokerId -- and the script reports which of
+# the two it saw rather than guessing silently.
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_NAMESPACE:?CAMUNDA_NAMESPACE must be set, source export_environment_prerequisites.sh}"
@@ -149,8 +150,8 @@ fail() {
 [ "$actual_replication" = "$CAMUNDA_REPLICATION_FACTOR" ] ||
     fail "expected replicationFactor $CAMUNDA_REPLICATION_FACTOR, got $actual_replication"
 
-# A composite id means zone awareness; a number means the legacy scheme.
-if jq -e '[.brokers[].nodeId] | map(select(type == "string" and contains("_"))) | length > 0' \
+# A zone-aware broker reports a composite `brokerId`; a legacy one has none.
+if jq -e '[.brokers[] | select(.brokerId != null)] | length > 0' \
     "$OUTPUT_FILE" >/dev/null 2>&1; then
     identity="zone-aware"
 else
@@ -165,8 +166,10 @@ for ((slot = 0; slot < CAMUNDA_REGION_SLOTS; slot++)); do
     zone="${_zone_names[$slot]:-slot-$slot}"
 
     if [ "$identity" = "zone-aware" ]; then
+        # Strip the trailing index off `brokerId`, rather than splitting on the
+        # first underscore, so a zone whose name contains one still resolves.
         count="$(jq --arg zone "$zone" \
-            '[.brokers[] | select((.nodeId | tostring | split("_")[0]) == $zone)] | length' \
+            '[.brokers[] | select((.brokerId | sub("_[0-9]+$"; "")) == $zone)] | length' \
             "$OUTPUT_FILE")"
     else
         count="$(jq --argjson slots "$CAMUNDA_REGION_SLOTS" --argjson slot "$slot" \
