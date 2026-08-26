@@ -39,7 +39,9 @@ DRY_RUN=${DRY_RUN:-false}
 # of the runtime arguments, so it skips the validation below and is dispatched
 # once the functions exist.
 SELFTEST=false
-[[ "$BUCKET" == "selftest" ]] && SELFTEST=true
+# Matched on the full argv, not just $1: the real path takes four or more
+# arguments, so a bucket that happens to be named "selftest" cannot trip this.
+[[ $# -eq 1 && "$1" == "selftest" ]] && SELFTEST=true
 
 # Validate ORDER argument
 if [[ "$SELFTEST" != true && -z "$ORDER" ]]; then
@@ -684,11 +686,11 @@ destroy_selftest() {
   }
 
   # Verbatim from the runs each case was written for.
-  local dep_violation="Error: deleting EC2 VPC (vpc-03eb7d8c9dc1138c4): operation error EC2: DeleteVpc, api error DependencyViolation: The vpc has dependencies and cannot be deleted."
-  local oidc_in_use="Error: there are clusters using OIDC config '2sdmf873p0ll3i1321ke134goe0lv15f', can't delete the OIDC config"
-  local trust_policy="status is 400, code is 'CLUSTERS-MGMT-400' ... Failed to delete cluster: Please make sure IAM role 'arn:aws:iam::444804106854:role/hci-a55c6-account-HCP-ROSA-Installer-Role' exists, and add it to the trust policy"
+  local dep_violation="Error: deleting EC2 VPC (vpc-EXAMPLE): operation error EC2: DeleteVpc, api error DependencyViolation: The vpc has dependencies and cannot be deleted."
+  local oidc_in_use="Error: there are clusters using OIDC config 'EXAMPLEOIDCCONFIGID', can't delete the OIDC config"
+  local trust_policy="status is 400, code is 'CLUSTERS-MGMT-400' ... Failed to delete cluster: Please make sure IAM role 'arn:aws:iam::000000000000:role/EXAMPLE-account-HCP-ROSA-Installer-Role' exists, and add it to the trust policy"
   local gone="Error: status is 404, identifier is '404', code is 'CLUSTERS-MGMT-404'"
-  local delete_conflict="Error: deleting IAM Policy (arn:aws:iam::444804106854:policy/eks-3238139a6-external-dns-policy): DeleteConflict: Cannot delete a policy attached to entities."
+  local delete_conflict="Error: deleting IAM Policy (arn:aws:iam::000000000000:policy/EXAMPLE-external-dns-policy): DeleteConflict: Cannot delete a policy attached to entities."
   local unknown="Error: Invalid provider configuration"
 
   _expect "DependencyViolation -> vpc dependencies" \
