@@ -23,8 +23,6 @@ global:
 
     identity:
         auth:
-            identity:
-                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
             webModeler:
                 redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
             optimize:
