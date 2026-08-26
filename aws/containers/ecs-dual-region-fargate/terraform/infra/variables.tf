@@ -142,7 +142,7 @@ variable "db_failover_timeout_ms" {
   # retrying a dead writer for that whole window before the connection attempt
   # gives up. 1 min is well past an Aurora Global failover.
   default     = 60000
-  description = "Maximum time in milliseconds the AWS JDBC Wrapper keeps trying to reconnect after a cluster failover (failoverTimeoutMs). Only applies when secondary_storage_type = 'rdbms'."
+  description = "Maximum time in milliseconds the AWS JDBC Wrapper keeps trying to reconnect after a cluster failover (failoverTimeoutMs). The wrapper's own default is 300000 (5 min), which this reference architecture lowers to 60000. Only applies when secondary_storage_type = 'rdbms'."
 }
 
 variable "db_extra_jdbc_url_parameters" {
