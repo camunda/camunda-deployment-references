@@ -292,8 +292,8 @@ pf_stop() {
         [[ -s "$pidfile" ]] || continue
         spid=$(cat "$pidfile")
         if pf_owns "$spid" "$base"; then
-            # The whole process group (setsid made the supervisor the group
-            # leader), so its kubectl child dies with it.
+            # Kill the whole process group, not just the supervisor: setsid
+            # made it the group leader, so its kubectl child dies with it.
             pf_kill_group "$spid"
         fi
     done
