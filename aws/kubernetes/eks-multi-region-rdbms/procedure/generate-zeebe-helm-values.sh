@@ -89,12 +89,10 @@ export CAMUNDA_CLUSTER_INITIALCONTACTPOINTS="$contact_points"
 ###############################################################################
 # Zone list                                                                   #
 #                                                                             #
-# Every SLOT is listed, including one not deployed yet. That is what keeps the  #
-# growth path additive: the partition layout already reserves the missing       #
-# zone's replicas, so each partition runs at N-1 of N -- a majority -- and      #
-# activating the zone fills them in without redistributing anything. It still   #
-# restarts the running regions to hand them the new contact point; see "What    #
-# activating a zone costs" in ../README.md.                                     #
+# Every SLOT is listed, including one not deployed yet. That is what makes the #
+# growth path non-disruptive: the partition layout already reserves the        #
+# missing zone's replicas, so each partition runs at N-1 of N -- a majority -- #
+# and activating the zone fills them in without redistributing anything.       #
 #                                                                             #
 # Emitted as JSON so that ../helm-values/camunda-values.yml stays valid YAML   #
 # as a template, rather than only after substitution.                          #
