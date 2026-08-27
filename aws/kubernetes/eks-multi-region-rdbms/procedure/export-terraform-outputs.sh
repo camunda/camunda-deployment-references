@@ -17,11 +17,21 @@ _tf_json="$(terraform -chdir="$TF_DIR" output -json)"
 _tf_get() { echo "$_tf_json" | jq -r "$1"; }
 
 export CAMUNDA_REGION_SLOTS="$(_tf_get '.region_slot_count.value')"
-export CAMUNDA_ACTIVE_REGIONS="$(_tf_get '.active_region_count.value')"
+
+# How many slots Terraform has provisioned, which is not how many regions run
+# Camunda. Activating a slot builds its infrastructure first and deploys into it
+# afterwards, so the two disagree for the length of that procedure, and the
+# activation reads the Camunda-side count to know which slot to bring up. A
+# caller that already knows it therefore keeps it.
+export TF_ACTIVE_REGION_COUNT="$(_tf_get '.active_region_count.value')"
+export CAMUNDA_ACTIVE_REGIONS="${CAMUNDA_ACTIVE_REGIONS:-$TF_ACTIVE_REGION_COUNT}"
 
 # Region-indexed maps are flattened into space-separated lists in slot order.
 export AWS_REGIONS="$(_tf_get '[.regions.value | to_entries | sort_by(.key | tonumber) | .[].value.region] | join(" ")')"
 export SUBMARINER_CLUSTER_IDS="$(_tf_get '[.regions.value | to_entries | sort_by(.key | tonumber) | .[].value.short_name] | join(" ")')"
+# The kubectl context of a cluster is its Submariner ID prefixed with `cluster-`;
+# register-kubecontexts.sh creates them under exactly those aliases.
+export CLUSTER_CONTEXTS="$(_tf_get '[.regions.value | to_entries | sort_by(.key | tonumber) | .[].value.short_name | "cluster-" + .] | join(" ")')"
 export REGION_VPC_CIDRS="$(_tf_get '[.vpc_cidr_blocks.value | to_entries | sort_by(.key | tonumber) | .[].value] | join(" ")')"
 export REGION_SERVICE_CIDRS="$(_tf_get '[.service_cidr_blocks.value | to_entries | sort_by(.key | tonumber) | .[].value] | join(" ")')"
 # Every zone, not only the active ones: the Camunda zone list covers the whole
@@ -37,8 +47,9 @@ export AURORA_GLOBAL_CLUSTER_ID="$(_tf_get '.database_global_cluster_id.value //
 unset _tf_json
 
 echo "Terraform outputs exported:"
-echo "  region slots   : $CAMUNDA_REGION_SLOTS (active: $CAMUNDA_ACTIVE_REGIONS)"
+echo "  region slots   : $CAMUNDA_REGION_SLOTS (provisioned: $TF_ACTIVE_REGION_COUNT, running Camunda: $CAMUNDA_ACTIVE_REGIONS)"
 echo "  aws regions    : $AWS_REGIONS"
+echo "  contexts       : $CLUSTER_CONTEXTS"
 echo "  eks clusters   : $EKS_CLUSTER_NAMES"
 echo "  submariner ids : $SUBMARINER_CLUSTER_IDS"
 echo "  zone names     : $CAMUNDA_ZONE_NAMES"

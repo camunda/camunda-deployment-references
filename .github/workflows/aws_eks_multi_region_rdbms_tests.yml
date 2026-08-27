@@ -251,33 +251,16 @@ jobs:
                   sed -i "s/^active_region_count.*/active_region_count = ${{ env.CAMUNDA_REGION_SLOTS }}/" terraform-cluster.tfvars
                   terraform apply -no-color -auto-approve -var-file=terraform-cluster.tfvars
 
-                  # The environment contract was exported while the spare slot was still
-                  # idle, so it names one region fewer than there now are. Every later
-                  # step indexes those lists by slot, and the region-loss scenario takes
-                  # the last one: `contexts[2]: unbound variable` under `set -u`, before
-                  # anything about region loss was exercised. The new cluster also has no
-                  # kubectl context yet, because only the create action registers them.
+                  # The contract was exported while the spare slot was still idle, so its
+                  # slot-indexed lists name one region fewer than there now are, and the
+                  # new cluster has no kubectl context. The exporter leaves
+                  # CAMUNDA_ACTIVE_REGIONS alone, which is what the next step needs: the
+                  # slot is provisioned but nothing runs Camunda there yet.
                   source ../../procedure/export-terraform-outputs.sh
+                  ../../procedure/register-kubecontexts.sh
 
-                  read -r -a _regions <<< "$AWS_REGIONS"
-                  read -r -a _names <<< "$EKS_CLUSTER_NAMES"
-                  read -r -a _shorts <<< "$SUBMARINER_CLUSTER_IDS"
-
-                  contexts=""
-                  for i in "${!_shorts[@]}"; do
-                    aws eks --region "${_regions[$i]}" update-kubeconfig \
-                      --name "${_names[$i]}" --alias "cluster-${_shorts[$i]}"
-                    contexts="${contexts}cluster-${_shorts[$i]} "
-                  done
-
-                  # CAMUNDA_ACTIVE_REGIONS is deliberately not refreshed. Terraform now
-                  # counts the spare slot as active, but Camunda does not run there yet:
-                  # that is the next step's job, and TestMultiRegionActivateRegion skips
-                  # itself when the count already equals the slot count. The lists above
-                  # do have to grow, because that step indexes them to reach the new
-                  # cluster.
                   {
-                    echo "CLUSTER_CONTEXTS=${contexts% }"
+                    echo "CLUSTER_CONTEXTS=${CLUSTER_CONTEXTS}"
                     echo "AWS_REGIONS=${AWS_REGIONS}"
                     echo "SUBMARINER_CLUSTER_IDS=${SUBMARINER_CLUSTER_IDS}"
                   } | tee -a "$GITHUB_ENV"

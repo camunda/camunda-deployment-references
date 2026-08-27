@@ -377,7 +377,7 @@ cd ../../procedure
 . ./export_environment_prerequisites.sh
 
 # 3. kubectl contexts, one per active region
-#    aws eks --region <region> update-kubeconfig --name <cluster> --alias <context>
+./register-kubecontexts.sh
 
 # 4. Storage
 ./storageclass-configure.sh

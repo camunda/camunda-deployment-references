@@ -81,41 +81,19 @@ echo "==> 4/6 Installing Camunda in region slot $SLOT"
 echo "==> 5/6 Exporting the new region's services to the ClusterSet"
 "$SCRIPT_DIR/submariner/export-services.sh"
 
-echo "==> 6/6 Waiting for the new brokers to join the Zeebe cluster"
-node_ids="$(camunda::region_node_ids "$SLOT")"
-echo "    Expected broker node IDs for slot $SLOT: $node_ids"
-
-expected_total=$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_ACTIVE_REGIONS))
-# Long enough for the new region's brokers to start, reach a member and be
-# gossiped to the rest, short enough to leave the topology verification that
-# follows its own budget inside the caller's timeout.
-deadline=$((SECONDS + ${ACTIVATE_REGION_TIMEOUT_SECONDS:-900}))
-
-while true; do
-    joined="$(camunda::registered_broker_count "$survivor_context")"
-
-    if [ "${joined:-0}" -ge "$expected_total" ]; then
-        echo "    All $expected_total brokers joined the cluster."
-        break
-    fi
-
-    if [ "$SECONDS" -ge "$deadline" ]; then
-        echo
-        echo "ERROR: the brokers of region slot $SLOT did not register within the timeout." >&2
-        echo "       They are already ACTIVE members of the configuration below, so this" >&2
-        echo "       is not a membership problem and no cluster change would fix it: the" >&2
-        echo "       processes are not reaching the rest of the cluster. Check that the" >&2
-        echo "       new region's Pods are running rather than Pending, and that its" >&2
-        echo "       services are exported to the ClusterSet." >&2
-        echo >&2
-        camunda::management "$survivor_context" GET /actuator/cluster >&2
-        exit 1
-    fi
-
-    echo "    $joined/$expected_total brokers joined, waiting ..."
-    sleep 20
-done
-
-echo
-echo "Region slot $SLOT is active. Verifying the resulting topology:"
-"$SCRIPT_DIR/check-cluster-topology.sh"
+echo "==> 6/6 Waiting for the new brokers to join, then verifying the topology"
+# check-cluster-topology.sh already polls the gateway until the expected broker
+# count is present and then asserts the shape, so the wait and the verification
+# are the same call.
+if ! TOPOLOGY_TIMEOUT_SECONDS="${ACTIVATE_REGION_TIMEOUT_SECONDS:-900}" \
+    "$SCRIPT_DIR/check-cluster-topology.sh"; then
+    echo >&2
+    echo "The brokers of region slot $SLOT are ACTIVE members of the configuration" >&2
+    echo "below, so this is not a membership problem and no cluster change would fix" >&2
+    echo "it: the processes are not reaching the rest of the cluster. Check that the" >&2
+    echo "new region's Pods are running rather than Pending, and that its services" >&2
+    echo "are exported to the ClusterSet." >&2
+    echo >&2
+    camunda::management "$survivor_context" GET /actuator/cluster >&2
+    exit 1
+fi

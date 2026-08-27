@@ -63,22 +63,15 @@ the cross-region code paths, and it is the starting point of the
 Then:
 
 ```bash
-# kubectl contexts, aliased to the names in CLUSTER_CONTEXTS
-for pair in "eu-west-2:$USER-mr-london:cluster-london" \
-            "eu-west-3:$USER-mr-paris:cluster-paris"; do
-  IFS=: read -r region name alias <<<"$pair"
-  aws eks --region "$region" update-kubeconfig --name "$name" --alias "$alias"
-done
-
 cd ../../procedure
 . ./export-terraform-outputs.sh
-export CAMUNDA_ACTIVE_REGIONS=2
-export CLUSTER_CONTEXTS="cluster-london cluster-paris"
+./register-kubecontexts.sh
 . ./export_environment_prerequisites.sh
 ```
 
-`export-terraform-outputs.sh` derives most of the environment from the state, so
-only the kubectl context aliases really need to be provided by hand.
+`export-terraform-outputs.sh` derives the whole environment from the state, down
+to the kubectl context aliases that `register-kubecontexts.sh` then creates, so
+nothing here has to be typed twice.
 
 ## Debugging
 
@@ -172,8 +165,8 @@ Common causes:
 ```bash
 # Grow the cluster from 2 to 3 regions without touching the running brokers
 cd terraform/clusters && terraform apply -var active_region_count=3 && cd -
-aws eks --region eu-central-2 update-kubeconfig --name "$USER-mr-zurich" --alias cluster-zurich
-export CLUSTER_CONTEXTS="cluster-london cluster-paris cluster-zurich"
+. ./export-terraform-outputs.sh   # refreshes the slot-indexed lists, keeps the Camunda count
+./register-kubecontexts.sh
 export CAMUNDA_ACTIVE_REGIONS=3
 ./activate-region.sh 2
 

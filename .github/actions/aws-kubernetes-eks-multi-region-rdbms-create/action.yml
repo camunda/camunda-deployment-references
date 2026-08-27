@@ -220,18 +220,11 @@ runs:
         - name: Register kubectl contexts
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
           shell: bash
-          env:
-              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
           run: |
               set -euo pipefail
 
-              read -r -a regions <<< "${{ steps.outputs.outputs.aws-regions }}"
-              read -r -a shorts  <<< "${{ steps.outputs.outputs.submariner-cluster-ids }}"
-
-              for i in "${!shorts[@]}"; do
-                aws eks --region "${regions[$i]}" update-kubeconfig \
-                  --name "${INPUTS_CLUSTER_NAME}-${shorts[$i]}" \
-                  --alias "cluster-${shorts[$i]}"
-              done
-
-              kubectl config get-contexts
+              # Same two commands a reader runs by hand; the procedure owns the
+              # alias convention so that CLUSTER_CONTEXTS keeps addressing them.
+              # shellcheck disable=SC1091
+              source ../../procedure/export-terraform-outputs.sh
+              ../../procedure/register-kubecontexts.sh
