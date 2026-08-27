@@ -3,7 +3,7 @@
 # shellcheck source-path=SCRIPTDIR
 set -euo pipefail
 
-# Brings a previously empty region slot online without stopping the running
+# Brings a previously empty region slot online without interrupting the running
 # Camunda cluster.
 #
 #   ./activate-region.sh <slot>
@@ -18,12 +18,8 @@ set -euo pipefail
 #
 # The slot count, and therefore every broker's identity, was fixed at bootstrap.
 # Activating a slot only fills in the replicas that the partition layout already
-# reserved for it; no existing broker is renumbered and no partition is
-# redistributed.
-#
-# It is not free, though. The running regions are restarted so they learn the new
-# region's contact point, one Pod at a time, and each partition spends that
-# window one replica short. See "What activating a zone costs" in ../README.md.
+# reserved for it; no existing broker is renumbered, no partition is
+# redistributed, and the regions already running are left alone.
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
@@ -74,31 +70,13 @@ echo "==> 3/6 Rendering the Helm values with the new contact point list"
 . "$SCRIPT_DIR/generate-zeebe-helm-values.sh"
 "$SCRIPT_DIR/assemble-envsubst-values.sh"
 
-echo "==> 4/6 Installing Camunda in region slot $SLOT and refreshing the running regions"
-# Every active slot is (re)installed, not only the new one. The running regions
-# hold the contact point list they started with, and nothing hands them a new
-# one at runtime: a broker they were never told about is refused outright,
-#
-#   'zurich_0', but member is not known. Known members are '[Member{id=london_0 ...
-#
-# so the new region can never register. Step 3 has already rendered every slot's
-# values with the longer list; applying them is what lets the newcomer in.
-#
-# The new region goes FIRST. Every broker starts behind an initContainer that
-# waits for the per-Pod clusterset DNS names of all its contact points, so a
-# running region restarted before the new one exists blocks there for the full
-# gate timeout, twelve minutes per Pod, for nothing.
-#
-# Those restarts are the cost of activation: one Pod at a time, and while a Pod
-# is down its partitions run one replica short. See "What activating a zone
-# costs" in ../README.md.
-install_order=("$SLOT")
-for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
-    if [ "$i" -ne "$SLOT" ]; then
-        install_order+=("$i")
-    fi
-done
-"$SCRIPT_DIR/install-chart.sh" "${install_order[@]}"
+echo "==> 4/6 Installing Camunda in region slot $SLOT"
+# Only the new region is installed. The contact point list matters at bootstrap;
+# once a cluster is formed a newcomer only has to reach one member, and the rest
+# learn about it by gossip. So the regions already running keep their shorter
+# list and are not restarted. Their values files now carry the longer one, which
+# they pick up on their next upgrade.
+"$SCRIPT_DIR/install-chart.sh" "$SLOT"
 
 echo "==> 5/6 Exporting the new region's services to the ClusterSet"
 "$SCRIPT_DIR/submariner/export-services.sh"
@@ -108,9 +86,9 @@ node_ids="$(camunda::region_node_ids "$SLOT")"
 echo "    Expected broker node IDs for slot $SLOT: $node_ids"
 
 expected_total=$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_ACTIVE_REGIONS))
-# Long enough to cover the rolling restarts of step 4 and the brokers coming
-# back behind them, short enough to leave the topology verification that follows
-# its own budget inside the caller's timeout.
+# Long enough for the new region's brokers to start, reach a member and be
+# gossiped to the rest, short enough to leave the topology verification that
+# follows its own budget inside the caller's timeout.
 deadline=$((SECONDS + ${ACTIVATE_REGION_TIMEOUT_SECONDS:-900}))
 
 while true; do
@@ -126,9 +104,9 @@ while true; do
         echo "ERROR: the brokers of region slot $SLOT did not register within the timeout." >&2
         echo "       They are already ACTIVE members of the configuration below, so this" >&2
         echo "       is not a membership problem and no cluster change would fix it: the" >&2
-        echo "       processes are not reaching the rest of the cluster. Check that step" >&2
-        echo "       4 restarted the running regions, and that the new region's services" >&2
-        echo "       are exported to the ClusterSet." >&2
+        echo "       processes are not reaching the rest of the cluster. Check that the" >&2
+        echo "       new region's Pods are running rather than Pending, and that its" >&2
+        echo "       services are exported to the ClusterSet." >&2
         echo >&2
         camunda::management "$survivor_context" GET /actuator/cluster >&2
         exit 1
