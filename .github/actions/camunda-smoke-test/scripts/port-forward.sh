@@ -114,6 +114,26 @@ pf_kill_kubectl() {
     kill -9 "$kpid" 2>/dev/null || true
 }
 
+# Stop a supervisor and everything in its process group, and make sure they are
+# really gone.
+#
+# Same escalation as pf_kill_kubectl, for the same reason: both callers act on a
+# group they have decided must disappear, and neither can tell whether it will
+# honour SIGTERM. `pf_start` in particular starts a replacement right after, so
+# a group that lingers holding the local port turns the recovery into the bind
+# collision it was meant to avoid.
+pf_kill_group() {
+    local pgid="$1" _
+    kill -- "-${pgid}" 2>/dev/null || true
+    kill "$pgid" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+        kill -0 -- "-${pgid}" 2>/dev/null || return 0
+        sleep 0.25
+    done
+    kill -9 -- "-${pgid}" 2>/dev/null || true
+    kill -9 "$pgid" 2>/dev/null || true
+}
+
 # Wait for the running kubectl to bind, exit, or run out of time.
 #
 # The restart loop can only react to a kubectl that *exits*. A stalled SPDY
@@ -200,18 +220,14 @@ pf_start() {
         stale=$(cat "${base}.pid")
         if pf_owns "$stale" "$base"; then
             echo "Stopping stale port-forward supervisor for ${base} (pid ${stale})"
+            # Sentinel first so the supervisor cannot relaunch kubectl between
+            # the signal and its death.
             touch "${base}.stop" 2>/dev/null || true
-            kill -- "-${stale}" 2>/dev/null || true
-            kill "$stale" 2>/dev/null || true
-            # kill is asynchronous. If the replacement starts while the old
-            # kubectl still holds the port, its first attempt fails to bind
-            # and `wait` would call that collision fatal — the recovery
-            # defeating itself. Wait for the whole group to go.
-            local _
-            for _ in $(seq 1 25); do
-                kill -0 -- "-${stale}" 2>/dev/null || break
-                sleep 0.2
-            done
+            # Blocks until the group is gone: the replacement starting while
+            # the old kubectl still holds the port would fail to bind, and
+            # `wait` would call that collision fatal — the recovery defeating
+            # itself.
+            pf_kill_group "$stale"
         fi
     fi
 
@@ -276,10 +292,9 @@ pf_stop() {
         [[ -s "$pidfile" ]] || continue
         spid=$(cat "$pidfile")
         if pf_owns "$spid" "$base"; then
-            # Kill the whole process group (setsid made the supervisor the
-            # group leader) so its kubectl child dies with it.
-            kill -- "-${spid}" 2>/dev/null || true
-            kill "$spid" 2>/dev/null || true
+            # The whole process group (setsid made the supervisor the group
+            # leader), so its kubectl child dies with it.
+            pf_kill_group "$spid"
         fi
     done
 }
@@ -368,6 +383,17 @@ pf_selftest() {
     else
         echo "FAIL a kubectl ignoring SIGTERM wedged the supervisor"
         kill -9 "$stubborn" 2>/dev/null || true
+        failures=$((failures + 1))
+    fi
+
+    # A group that no longer exists must cost nothing: the escalation loop is
+    # there for a group that refuses to die, not a toll on every teardown.
+    local gone_start=$SECONDS
+    pf_kill_group 2147483647
+    if [[ $((SECONDS - gone_start)) -le 1 ]]; then
+        echo "ok   killing an absent group returns immediately"
+    else
+        echo "FAIL killing an absent group burned the grace period"
         failures=$((failures + 1))
     fi
 
