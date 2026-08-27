@@ -197,11 +197,10 @@ func TestMultiRegionRegionLoss(t *testing.T) {
 	defer helpers.RunProcedureAllowFailure(t, env, 5*time.Minute, "submariner/diagnose-submariner.sh")
 
 	helpers.RunProcedure(t, env, 15*time.Minute, "simulate-region-loss.sh", strconv.Itoa(lostSlot))
-	helpers.RunProcedure(t, env, 20*time.Minute, "failover.sh", strconv.Itoa(lostSlot))
 
-	// The topology check must still pass for the surviving regions, which is
-	// exactly what "the cluster keeps processing" means here.
-	helpers.RunProcedure(t, env, 20*time.Minute, "verify-degraded-cluster.sh", strconv.Itoa(lostSlot))
+	// failover.sh ends on verify-degraded-cluster.sh, which is what "the cluster
+	// keeps processing" means here: the surviving regions still accept work.
+	helpers.RunProcedure(t, env, 20*time.Minute, "failover.sh", strconv.Itoa(lostSlot))
 }
 
 // TestMultiRegionFailback brings the lost region back.

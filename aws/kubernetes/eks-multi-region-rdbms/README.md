@@ -434,9 +434,28 @@ when the writer was in the lost region:
 - **unplanned** — `remove-from-global-cluster`, which promotes a surviving
   member and loses whatever had not replicated yet.
 
-`--drain-brokers` force-removes the lost brokers so that the surviving regions
-run at full replication factor. It trades a partition reconfiguration for
-durability and is worth it only for a long outage.
+`--drain-brokers` force-removes the lost zone, through
+`DELETE /actuator/cluster/zones/<zone>`. One atomic change evicts its brokers and
+drops the zone from the persisted partition distribution, so quorum stops
+counting replicas that cannot answer. `failback.sh` puts it back with
+`POST /actuator/cluster/zones/<zone>`, supplying the replica count and priority
+from the same zone list the chart deploys.
+
+Whether you need it is a function of how many zones are left:
+
+| Zones | After losing one | Draining |
+|---|---|---|
+| 2 | 1 replica of 2, no majority, processing stops | **Required.** Removing the zone restores a quorum the survivor can reach on its own |
+| 3 or more | 2 replicas of 3, majority holds, processing continues | **Optional**, and usually not worth it for a zone expected back |
+
+The reason to leave a zone in place is failback cost. Brokers that stayed members
+rejoin and catch up from the Raft log; a removed zone has to be added back
+explicitly, and its brokers start from nothing.
+
+That is not theory. Run `33055779396` passed both `TestMultiRegionRegionLoss` and
+`TestMultiRegionFailback` on a three-zone cluster with no membership change at
+all: `failover.sh` only read `GET /actuator/cluster`, and the region came back by
+being redeployed.
 
 ### Upgrades
 

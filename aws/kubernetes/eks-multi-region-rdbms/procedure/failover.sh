@@ -23,10 +23,16 @@ set -euo pipefail
 #     promotes a surviving member. Replication lag at the time of the outage is
 #     lost, and the global cluster must be rebuilt during failback.
 #
-# `--drain-brokers` additionally removes the lost brokers from the Zeebe cluster.
-# Use it only when the region will stay down long enough that running the
-# surviving regions at full replication factor is worth a partition
-# reconfiguration; failback then has to add the brokers back explicitly.
+# `--drain-brokers` additionally force-removes the lost zone from the Zeebe
+# cluster, through `DELETE /actuator/cluster/zones/<zone>`. That is one atomic
+# change: the zone's brokers are evicted and the zone leaves the persisted
+# partition distribution, so quorum stops counting replicas that cannot answer.
+#
+# Whether you need it depends on how many zones are left. Two zones lose their
+# majority when one goes, and processing only resumes once the zone is removed.
+# Three or more keep a majority without it, and a zone expected back is cheaper
+# left in place: its brokers catch up from the Raft log, where a removed zone has
+# to be added back explicitly. See "Region loss" in ../README.md.
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${AWS_REGIONS:?AWS_REGIONS must be set, source export_environment_prerequisites.sh}"
@@ -166,23 +172,28 @@ else
 fi
 
 ###############################################################################
-# 3. Optional: drain the lost brokers                                         #
+# 3. Optional: force-remove the lost zone                                     #
 ###############################################################################
 
 if [ "$DRAIN_BROKERS" = true ]; then
-    node_ids="$(camunda::region_node_ids "$LOST_SLOT")"
+    read -r -a zone_names <<<"${CAMUNDA_ZONE_NAMES:?CAMUNDA_ZONE_NAMES must be set, source export-terraform-outputs.sh}"
+    lost_zone="${zone_names[$LOST_SLOT]}"
+
     echo
-    echo "--> Removing the brokers of region slot $LOST_SLOT: $node_ids"
-    echo "    force=true is required because the brokers are unreachable. It reduces"
-    echo "    the replication factor of the affected partitions instead of moving"
-    echo "    their replicas."
+    echo "--> Force-removing zone $lost_zone"
+    echo "    One atomic change evicts the zone's brokers and drops the zone from the"
+    echo "    persisted partition distribution, so the surviving zones become the whole"
+    echo "    cluster: the affected partitions lose a replica rather than waiting for"
+    echo "    one that cannot answer, and quorum is computed without it."
+    echo "    Only do this for a zone that is down and unreachable."
 
-    remove_json="$(printf '%s\n' "$node_ids" | tr ' ' '\n' | jq -R . | jq -sc .)"
-    body="$(jq -nc --argjson remove "$remove_json" '{brokers: {remove: $remove}}')"
-
-    camunda::management "$survivor_context" PATCH "/actuator/cluster?force=true" "$body"
+    camunda::management "$survivor_context" DELETE "/actuator/cluster/zones/$lost_zone"
     camunda::wait_for_cluster_change "$survivor_context"
 fi
+
+echo
+echo "--> Verifying the degraded cluster"
+"$SCRIPT_DIR/verify-degraded-cluster.sh" "$LOST_SLOT"
 
 echo
 echo "==============================================================="
@@ -190,6 +201,5 @@ echo " Failover complete."
 echo
 echo " Next steps:"
 echo "   * Route client traffic away from region slot $LOST_SLOT."
-echo "   * Run ./check-cluster-topology.sh to confirm the degraded but healthy state."
 echo "   * When the region is back, run ./failback.sh $LOST_SLOT."
 echo "==============================================================="

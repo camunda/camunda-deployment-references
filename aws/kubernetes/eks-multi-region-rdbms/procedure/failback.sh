@@ -23,7 +23,6 @@ set -euo pipefail
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_REGION_SLOTS:?CAMUNDA_REGION_SLOTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_BROKERS_PER_REGION:?CAMUNDA_BROKERS_PER_REGION must be set, source export_environment_prerequisites.sh}"
-: "${CAMUNDA_REPLICATION_FACTOR:?CAMUNDA_REPLICATION_FACTOR must be set, source export_environment_prerequisites.sh}"
 
 if [ $# -lt 1 ]; then
     echo "usage: $0 <recovered-region-slot> [--switch-writer]" >&2
@@ -58,6 +57,9 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
 done
 survivor_context="${contexts[$survivor_slot]}"
 
+read -r -a zone_names <<<"${CAMUNDA_ZONE_NAMES:?CAMUNDA_ZONE_NAMES must be set, source export-terraform-outputs.sh}"
+recovered_zone="${zone_names[$RECOVERED_SLOT]}"
+
 echo "==============================================================="
 echo " Failback of region slot $RECOVERED_SLOT (${aws_regions[$RECOVERED_SLOT]})"
 echo "==============================================================="
@@ -81,34 +83,39 @@ echo "--> 2/4 Re-exporting the region's services to the ClusterSet"
 "$SCRIPT_DIR/submariner/export-services.sh"
 
 ###############################################################################
-# 2. Re-add the brokers if they were drained                                  #
+# 2. Re-add the zone if it was force-removed                                  #
 ###############################################################################
 
 echo
-echo "--> 3/4 Checking whether the brokers of slot $RECOVERED_SLOT are cluster members"
+echo "--> 3/4 Checking whether zone $recovered_zone is still in the partition distribution"
 
-node_ids="$(camunda::region_node_ids "$RECOVERED_SLOT")"
 cluster="$(camunda::management "$survivor_context" GET /actuator/cluster)"
 
-missing=()
-for id in $node_ids; do
-    if ! echo "$cluster" | jq -e --arg id "$id" '[.brokers[]?.id] | index($id) != null' >/dev/null; then
-        missing+=("$id")
-    fi
-done
-
-if [ "${#missing[@]}" -eq 0 ]; then
-    echo "    All brokers of slot $RECOVERED_SLOT are already members; they rejoin and"
-    echo "    catch up from the Raft log without any membership change."
+if echo "$cluster" | jq -e --arg zone "$recovered_zone" \
+    '[.partitionDistribution.zones[]? | select(.name == $zone)] | length > 0' >/dev/null; then
+    echo "    Zone $recovered_zone was never removed; its brokers rejoin and catch up"
+    echo "    from the Raft log without any membership change."
 else
-    echo "    Brokers ${missing[*]} were removed during failover; adding them back."
-    # No `partitions.replicationFactor`: a zone-aware cluster derives it from the
-    # zone list and rejects the field outright with "Changing the replication
-    # factor is not supported on zone-aware clusters."
-    add_json="$(printf '%s\n' "${missing[@]}" | jq -R . | jq -sc .)"
-    body="$(jq -nc --argjson add "$add_json" '{brokers: {add: $add}}')"
+    echo "    Zone $recovered_zone was force-removed during failover; adding it back."
 
-    camunda::management "$survivor_context" PATCH /actuator/cluster "$body"
+    # The zone is gone from the cluster, so its replica count and priority cannot
+    # be read back from there. They come from the zone list that step 1 rendered,
+    # which is also the one the chart just deployed, so the two cannot drift.
+    zone_spec="$(echo "$CAMUNDA_MULTIREGION_ZONES" | jq -c --arg zone "$recovered_zone" \
+        '.[] | select(.name == $zone)')"
+    if [ -z "$zone_spec" ]; then
+        echo "ERROR: zone $recovered_zone is not in CAMUNDA_MULTIREGION_ZONES." >&2
+        exit 1
+    fi
+
+    # Zone-aware broker IDs, which is what the API expects: after the removal
+    # there is no membership left to read them from.
+    brokers_json="$(camunda::region_node_ids "$RECOVERED_SLOT" | tr ' ' '\n' | jq -R . | jq -sc .)"
+    body="$(echo "$zone_spec" | jq -c --argjson brokers "$brokers_json" \
+        '{numberOfReplicas, priority, brokers: $brokers}')"
+
+    echo "    POST /actuator/cluster/zones/$recovered_zone $body"
+    camunda::management "$survivor_context" POST "/actuator/cluster/zones/$recovered_zone" "$body"
     camunda::wait_for_cluster_change "$survivor_context"
 fi
 
