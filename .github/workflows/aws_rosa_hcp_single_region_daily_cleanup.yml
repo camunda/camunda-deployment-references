@@ -13,7 +13,7 @@ on:
             - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
             - .tool-versions
             - aws/openshift/rosa-hcp-single-region/**
-            - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
+            - '!aws/openshift/rosa-hcp-single-region/terraform/*/test/golden/**'
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
 

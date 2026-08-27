@@ -170,28 +170,36 @@ runs:
               RELEASE="${INPUTS_TEST_RELEASE_NAME}"
               DOMAIN="${INPUTS_CAMUNDA_DOMAIN}"
 
-              # Detach kubectl port-forwards from the composite-action step's
-              # process group with setsid + nohup so they survive across step
-              # boundaries (otherwise the GHA runner reaps the child shell's
-              # process group between steps and follow-up steps get
-              # connection-refused). Mirrors the pattern used in
-              # .github/actions/camunda-smoke-test.
-              mkdir -p /tmp/integ-pf
+              # Every forward runs through the shared supervisor: kubectl
+              # port-forward rides a single SPDY stream that managed control
+              # planes reap after a short idle window, so a bare one-shot
+              # forward exits and is never restarted and a test that touches it
+              # later gets a connection-refused against a healthy deployment
+              # (#2970). Rationale and the log contract live in the script.
+              #
+              # Both actions are always consumed from the same checkout
+              # (uses: ./.github/actions/...), so the sibling path is stable.
+              PF="${GITHUB_ACTION_PATH}/../camunda-smoke-test/scripts/port-forward.sh"
+              if [[ ! -f "$PF" ]]; then
+                  echo "::error::port-forward script not found at ${PF}"
+                  exit 1
+              fi
+
+              # Forwards to verify once every one has been started, as
+              # "<base>:<local-port>" pairs.
+              PF_CHECKS=()
+
               pf() {
-                  local logname="$1"; shift
-                  setsid nohup kubectl port-forward "$@" \
-                      </dev/null \
-                      >"/tmp/integ-pf/${logname}.log" 2>&1 &
-                  local pid=$!
-                  disown "$pid" || true
-                  echo "$pid"
+                  local name="$1" target="$2" ports="$3"
+                  local base="/tmp/integ-pf/${name}"
+                  bash "$PF" start "$NS" "$target" "$ports" "$base"
+                  PF_CHECKS+=("${base}:${ports%%:*}")
               }
 
               if [[ -z "$DOMAIN" ]]; then
                   # Zeebe Gateway
                   echo "Starting port-forward to ${RELEASE}-zeebe-gateway..."
-                  PF_PID=$(pf zeebe "svc/${RELEASE}-zeebe-gateway" 8080:8080 -n "$NS")
-                  echo "pf_zeebe_pid=${PF_PID}" >> "$GITHUB_OUTPUT"
+                  pf zeebe "svc/${RELEASE}-zeebe-gateway" 8080:8080
               fi
 
               # Keycloak port-forward (both no-domain and domain mode):
@@ -214,8 +222,7 @@ runs:
                   KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -s -d: -f2)
                   [[ -z "$KC_REMOTE_PORT" ]] && KC_REMOTE_PORT=18080
                   echo "Starting port-forward to ${KC_HOST}..."
-                  PF_KC_PID=$(pf keycloak "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}" -n "$NS")
-                  echo "pf_kc_pid=${PF_KC_PID}" >> "$GITHUB_OUTPUT"
+                  pf keycloak "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}"
                   # Rewrite to localhost so Go tests reach Keycloak through
                   # the forward.
                   KC_LOCAL_URL="http://localhost:18080${KC_PATH}"
@@ -224,8 +231,7 @@ runs:
 
               # Orchestration actuator (always, port 9600 on the gateway svc)
               echo "Starting port-forward to ${RELEASE}-zeebe-gateway:9600..."
-              PF_ORCH_PID=$(pf orchestration "svc/${RELEASE}-zeebe-gateway" 9600:9600 -n "$NS")
-              echo "pf_orch_pid=${PF_ORCH_PID}" >> "$GITHUB_OUTPUT"
+              pf orchestration "svc/${RELEASE}-zeebe-gateway" 9600:9600
               echo "orchestration_local_url=http://localhost:9600" >> "$GITHUB_OUTPUT"
 
               # Connectors actuator (always, when service is present)
@@ -233,8 +239,7 @@ runs:
               CONN_LOCAL_PORT="${INPUTS_CONNECTORS_LOCAL_PORT}"
               if kubectl get svc "$CONN_SVC" -n "$NS" >/dev/null 2>&1; then
                   echo "Starting port-forward to ${CONN_SVC}..."
-                  PF_CONN_PID=$(pf connectors "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080" -n "$NS")
-                  echo "pf_conn_pid=${PF_CONN_PID}" >> "$GITHUB_OUTPUT"
+                  pf connectors "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080"
                   CONN_PATH="${INPUTS_CONNECTORS_CONTEXT_PATH}"
                   # Strip trailing slash so concatenation never doubles up.
                   CONN_PATH="${CONN_PATH%/}"
@@ -261,8 +266,7 @@ runs:
                   done
                   if [[ -n "$ES_SVC" ]]; then
                       echo "Starting port-forward to ${ES_SVC}:9200..."
-                      PF_ES_PID=$(pf elasticsearch "svc/${ES_SVC}" 9200:9200 -n "$NS")
-                      echo "pf_es_pid=${PF_ES_PID}" >> "$GITHUB_OUTPUT"
+                      pf elasticsearch "svc/${ES_SVC}" 9200:9200
                       # ECK enables xpack.security by default; expose the
                       # generated 'elastic' user password so preflight probes
                       # can authenticate. Bitnami chart leaves ES open, so the
@@ -283,21 +287,9 @@ runs:
               fi
 
               echo "Waiting for port-forwards to be established..."
-              sleep 10
-
-              # Verify Zeebe is reachable (only meaningful in no-domain mode)
-              if [[ -z "$DOMAIN" ]]; then
-                  for i in $(seq 1 15); do
-                      CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-                          http://localhost:8080/v2/topology 2>/dev/null || echo "000")
-                      if [[ "$CODE" =~ ^(200|401|403)$ ]]; then
-                          echo "✅ Zeebe port-forward ready (HTTP ${CODE})"
-                          break
-                      fi
-                      echo "  attempt ${i}/15 (HTTP ${CODE})"
-                      sleep 2
-                  done
-              fi
+              for check in "${PF_CHECKS[@]}"; do
+                  bash "$PF" wait "${check%%:*}" "${check##*:}"
+              done
           env:
               INPUTS_TEST_NAMESPACE: ${{ inputs.test-namespace }}
               INPUTS_TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
@@ -527,13 +519,8 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              for PID in \
-                  "${{ steps.port-forward.outputs.pf_zeebe_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_kc_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_orch_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_conn_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_es_pid }}"; do
-                  if [[ -n "$PID" ]]; then
-                      kill "$PID" 2>/dev/null || true
-                  fi
-              done
+              PF="${GITHUB_ACTION_PATH}/../camunda-smoke-test/scripts/port-forward.sh"
+              # Never let an always() teardown mask the failure that got us
+              # here: a missing script means no forward was ever started.
+              [[ -f "$PF" ]] || exit 0
+              bash "$PF" stop /tmp/integ-pf

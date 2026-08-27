@@ -10,4 +10,8 @@ on:
 jobs:
     lint:
         uses: camunda/infraex-common-config/.github/workflows/lint-global.yml@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+        with:
+            # Runs Renovate over the repository and fails on an annotation it reads and then
+            # drops as unusable -- a dependency that looks tracked and can never be updated.
+            check-renovate-lookup: true
         secrets: inherit

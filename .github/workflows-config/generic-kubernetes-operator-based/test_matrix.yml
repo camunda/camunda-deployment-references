@@ -1,7 +1,11 @@
 ---
 matrix:
     distro:
-        - name: OpenShift 4.19
+        # The renovate rule below tracks the newest OpenShift release, so this
+        # entry is always "latest" and must not name a minor version: renovate
+        # bumps `version` and never the label, which is how the name drifts away
+        # from the cluster that actually runs.
+        - name: OpenShift latest
           schedule_only: false
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
           version: 4.20.33
