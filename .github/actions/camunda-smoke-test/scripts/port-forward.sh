@@ -291,8 +291,10 @@ pf_selftest() {
     # flag a modification it cannot see escaping (SC2030/SC2031).
     stub_path="$tmp/bin:$PATH"
 
-    # `wait` has no timeout, so poll instead: the point of these cases is that
-    # the supervisor exits on its own.
+    # Polls the supervisor PID rather than calling the bash `wait` builtin,
+    # which has no timeout and would hang the whole self-test if a case
+    # regressed. Unrelated to the `wait` subcommand: that one asks whether a
+    # forward bound its port, this asks whether the supervisor process is gone.
     _wait_with_timeout() {
         local pid="$1" limit="$2" _
         for _ in $(seq 1 $((limit * 4))); do
