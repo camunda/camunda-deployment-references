@@ -13,9 +13,10 @@ on:
             - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
             - .tool-versions
             - aws/openshift/rosa-hcp-single-region/**
-            - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
+            - '!aws/openshift/rosa-hcp-single-region/terraform/*/test/golden/**'
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
+            - .github/actions/observe-build-status/**
 
     schedule:
         - cron: 0 4 * * * # At 04:00 everyday.
@@ -56,6 +57,11 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         steps:
+            # Telemetry must never block the job: a monitoring outage may cost a
+            # duration metric, never a teardown.
+            - continue-on-error: true
+              uses: camunda/infra-global-github-actions/start-build-monitor@02b3f0e49b00b98fffc76af690ebc83c28f24dae # main
+
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
@@ -146,3 +152,13 @@ jobs:
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
                   slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}
+
+            - name: Observe build status
+              if: always()
+              continue-on-error: true
+              uses: ./.github/actions/observe-build-status
+              with:
+                  build_status: ${{ job.status }}
+                  secret_vault_address: ${{ secrets.VAULT_ADDR }}
+                  secret_vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  secret_vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
