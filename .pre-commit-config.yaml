@@ -147,6 +147,21 @@ repos:
             files: ^\.lint/cleanup-coverage/.*\.py$
             pass_filenames: false
 
+          - id: matrix-skip-guard
+            name: Forced jobs do not read a skipped job's matrix
+            entry: .lint/matrix-skip-guard/check-matrix-skip-guard.py
+            language: script
+            files: ^\.github/workflows/.*\.yml$|^\.lint/matrix-skip-guard/
+            pass_filenames: false
+
+          - id: python-unittest-matrix-skip-guard
+            name: Python unit tests (matrix skip guard)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/matrix-skip-guard -p 'test_*.py'
+            language: system
+            files: ^\.lint/matrix-skip-guard/.*\.py$
+            pass_filenames: false
+
           - id: action-vars
             name: Action variables resolve where they are written
             entry: .lint/action-vars/check-action-vars.py
