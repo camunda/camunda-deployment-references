@@ -499,7 +499,7 @@ jobs:
     cleanup-clusters:
         runs-on: ubuntu-latest
         timeout-minutes: 60
-        if: always()
+        if: always() && needs.clusters-info.result != 'skipped'
         needs:
             - integration-tests
             - access-info
