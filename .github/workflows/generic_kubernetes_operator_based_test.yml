@@ -944,7 +944,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup clusters
-        if: always()
+        if: always() && needs.clusters-info.result != 'skipped'
         runs-on: ubuntu-latest
         needs:
             - clusters-info
