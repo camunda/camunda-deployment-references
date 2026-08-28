@@ -184,7 +184,15 @@ def offenders() -> list[str]:
     for path in sorted(WORKFLOWS.glob("*.yml")):
         lines = path.read_text().splitlines(keepends=True)
         for name, body in job_blocks(lines):
-            producers = {m.group("job") for line in body for m in PRODUCER.finditer(line)}
+            # Comments stripped here for the same reason as in job_condition,
+            # but the failure runs the other way: a commented-out matrix line
+            # would invent a producer and fail a job that has none. A lint that
+            # cries wolf gets deleted.
+            producers = {
+                m.group("job")
+                for line in body
+                for m in PRODUCER.finditer(strip_comment(line))
+            }
             if not producers:
                 continue
             condition = job_condition(body)
