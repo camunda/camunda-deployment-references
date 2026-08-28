@@ -745,7 +745,10 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
-        # Always cleanup when: tests passed, last retry attempt reached, OR retry mechanism itself failed (e.g. bad credentials)
+        # Cleanup when the suite actually ran -- tests passed, last retry attempt
+        # reached, OR the retry mechanism itself failed (e.g. bad credentials).
+        # Skipped by triage means no clusters were ever created, and the matrix
+        # this job reads was never written.
         if: always() && needs.clusters-info.result != 'skipped' && (needs.integration-tests.result == 'success' || fromJson(github.run_attempt) >= 3 ||
             needs.integration-tests-retry.result == 'failure')
         runs-on: ubuntu-latest

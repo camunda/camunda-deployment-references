@@ -16,14 +16,21 @@ absent from the run and the run concludes `failure` while every job in it reads
 
 The damage is not the missing cleanup, which had nothing to clean. It is a red
 run that no change to the pull request can turn green, on every skipped
-workflow, which is how a genuinely broken suite stops being noticed. Before this
-guard, 34 of the last 60 runs of the EKS dual-region suite ended that way.
+workflow, which is how a genuinely broken suite stops being noticed. When this
+was written (2026-08-27), 34 of the 60 most recent runs of the EKS dual-region
+suite had ended that way -- a snapshot of what motivated the check, not a figure
+anyone should expect to still reproduce.
 
 `always()` is still wanted on those jobs: cleanup has to run when the tests
 *failed*. The distinction that matters is failed versus skipped, so the fix is
-to name the producer in the condition:
+to compare the producer's result in the condition:
 
     if: always() && needs.clusters-info.result != 'skipped'
+
+A comparison, not a bare mention. `needs.<job>.result` on its own is a non-empty
+string for every outcome, `skipped` among them, so `always() &&
+needs.clusters-info.result` reads like a guard and is true in exactly the case
+it is supposed to exclude.
 
 #3127 fixed this shape once, for the step that reads matrix *artifacts*, and
 concluded the job matrices were safe because they carried no `if:`. Eight of
@@ -48,6 +55,15 @@ KEY = re.compile(r"^(?P<indent>\s*)(?P<name>[A-Za-z_][\w-]*):")
 
 # `${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}`
 PRODUCER = re.compile(r"fromJson\(\s*needs\.(?P<job>[A-Za-z_][\w-]*)\.outputs\.")
+
+# `needs.clusters-info.result != 'skipped'`, and the `== 'success'` shape too.
+#
+# A comparison is the whole point. `needs.<job>.result` on its own is a
+# non-empty string for every outcome, `skipped` included, so `always() &&
+# needs.clusters-info.result` is truthy exactly when the guard is needed and
+# would let `fromJson('')` fail the run anyway. Only an operator can make the
+# condition false for a skipped producer.
+GUARD = re.compile(r"needs\.(?P<job>[A-Za-z_][\w-]*)\.result\s*[!=]=\s*['\"]")
 
 # `        if: always() && ...`, including a folded continuation
 IF_KEY = re.compile(r"^(?P<indent>\s*)if:\s*(?P<value>.*)$")
@@ -159,11 +175,12 @@ def offenders() -> list[str]:
                 continue  # no `if:`, so a skipped producer already skips this job
             if "always()" not in condition:
                 continue  # not forced to run past a skipped producer
-            unguarded = sorted(p for p in producers if f"needs.{p}.result" not in condition)
+            guarded = {m.group("job") for m in GUARD.finditer(condition)}
+            unguarded = sorted(producers - guarded)
             if unguarded:
                 found.append(
                     f"{path}: job '{name}' builds its matrix from "
-                    f"{', '.join(unguarded)} but runs on always() without checking "
+                    f"{', '.join(unguarded)} but runs on always() without comparing "
                     f"{' / '.join(f'needs.{p}.result' for p in unguarded)}"
                 )
     return found

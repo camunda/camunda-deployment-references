@@ -207,5 +207,36 @@ class CommentTest(OffendersTest):
         self.assertEqual(strip_comment("needs.x.result != 'a#b'"), "needs.x.result != 'a#b'")
 
 
+class BareReferenceTest(OffendersTest):
+    """Mentioning the producer is not guarding on it.
+
+    `needs.<job>.result` is a non-empty string for every outcome, `skipped`
+    included, so a bare reference is true in exactly the case it is meant to
+    exclude. Only a comparison can be false for a skipped producer.
+    """
+
+    def test_bare_result_reference_is_reported(self):
+        self.write(workflow("always() && needs.clusters-info.result"))
+        self.assertEqual(len(offenders()), 1)
+
+    def test_bare_reference_inside_a_larger_condition_is_reported(self):
+        self.write(
+            workflow("always() && (needs.clusters-info.result || github.event_name == 'schedule')")
+        )
+        self.assertEqual(len(offenders()), 1)
+
+    def test_equality_against_success_is_accepted(self):
+        self.write(workflow("always() && needs.clusters-info.result == 'success'"))
+        self.assertEqual(offenders(), [])
+
+    def test_double_quoted_comparison_is_accepted(self):
+        self.write(workflow('always() && needs.clusters-info.result != "skipped"'))
+        self.assertEqual(offenders(), [])
+
+    def test_whitespace_around_the_operator_is_tolerated(self):
+        self.write(workflow("always() && needs.clusters-info.result   !=   'skipped'"))
+        self.assertEqual(offenders(), [])
+
+
 if __name__ == "__main__":
     unittest.main()
