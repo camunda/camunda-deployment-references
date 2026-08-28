@@ -1,5 +1,31 @@
 # Agent Conventions
 
+## CI cost and skip labels
+
+Every cloud test workflow is gated by `internal-triage-skip`: a `skip_<filename_without_ext>`
+label on the pull request makes that workflow skip all of its jobs, and `skip_all` skips
+every one of them. `aws_openshift_rosa_hcp_single_region_tests.yml` is therefore skipped by
+`skip_aws_openshift_rosa_hcp_single_region_tests` — see `DEVELOPER.md`, "Skipping Workflows
+Using Labels". The action creates the labels itself; never hand-create one.
+
+These suites provision real infrastructure — EKS, ROSA, Aurora, OpenSearch, NAT gateways —
+and take tens of minutes. A suite the change cannot affect proves nothing, bills the CI
+account, and delays the feedback loop. Skipping it is a velocity gain, not a shortcut.
+
+- **Always** pick the skip labels when opening a pull request, and revisit them whenever
+  the diff grows. Compare the diff against each workflow's `paths:` filter: a shared path
+  such as `.github/actions/**` fans a CI-plumbing change out to every cloud suite at once.
+- **Always** keep the suites that cover the change itself. A port-forward fix needs the
+  workflows that port-forward; a Terraform change needs the reference architecture it
+  touches.
+- When in doubt, skip. Removing the label re-runs the suite on the next push, so the
+  decision is cheap to reverse — say on the pull request which suite was skipped and why.
+- **Always** re-enable, in the final review loop, every suite that covers the change, and
+  let it run green on the final commit. **Never** mark a pull request ready while a suite
+  covering the change is still skipped.
+- **Always** apply `skip_all` to a pull request that is parked, blocked on a conflict, or a
+  draft nobody is actively testing. Remove it when the work resumes.
+
 ## Scratch / debug workspace
 
 - **Always** use `./debug/` for any scratch files, downloaded CI logs,
