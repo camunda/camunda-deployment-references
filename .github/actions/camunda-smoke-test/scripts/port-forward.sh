@@ -97,6 +97,43 @@ pf_verdict() {
         }' "$log" 2>/dev/null || true
 }
 
+# Stop the running kubectl and make sure it is really gone.
+#
+# SIGTERM alone is not a guarantee: the attempts this is called on are the ones
+# already suspected of being wedged, and the caller follows up with an
+# unbounded `wait`, so a kubectl that ignores or is too slow to handle the
+# signal would hang the supervisor exactly where the deadline was meant to
+# rescue it. Escalate after a short grace period.
+pf_kill_kubectl() {
+    local kpid="$1" _
+    kill "$kpid" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+        kill -0 "$kpid" 2>/dev/null || return 0
+        sleep 0.25
+    done
+    kill -9 "$kpid" 2>/dev/null || true
+}
+
+# Stop a supervisor and everything in its process group, and make sure they are
+# really gone.
+#
+# Same escalation as pf_kill_kubectl, for the same reason: both callers act on a
+# group they have decided must disappear, and neither can tell whether it will
+# honour SIGTERM. `pf_start` in particular starts a replacement right after, so
+# a group that lingers holding the local port turns the recovery into the bind
+# collision it was meant to avoid.
+pf_kill_group() {
+    local pgid="$1" _
+    kill -- "-${pgid}" 2>/dev/null || true
+    kill "$pgid" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+        kill -0 -- "-${pgid}" 2>/dev/null || return 0
+        sleep 0.25
+    done
+    kill -9 -- "-${pgid}" 2>/dev/null || true
+    kill -9 "$pgid" 2>/dev/null || true
+}
+
 # Wait for the running kubectl to bind, exit, or run out of time.
 #
 # The restart loop can only react to a kubectl that *exits*. A stalled SPDY
@@ -117,12 +154,12 @@ pf_await_bind() {
         fi
         if [[ -f "$stop" ]]; then
             # Teardown must not block on a kubectl that never exits on its own.
-            kill "$kpid" 2>/dev/null || true
+            pf_kill_kubectl "$kpid"
             return 0
         fi
         if [[ "$SECONDS" -ge "$deadline" ]]; then
             echo "[pf-supervisor] $(date -u +%H:%M:%S) no bind within ${PF_BIND_TIMEOUT}s; recycling the attempt" >>"$log"
-            kill "$kpid" 2>/dev/null || true
+            pf_kill_kubectl "$kpid"
             return 0
         fi
         sleep 0.5
@@ -183,18 +220,14 @@ pf_start() {
         stale=$(cat "${base}.pid")
         if pf_owns "$stale" "$base"; then
             echo "Stopping stale port-forward supervisor for ${base} (pid ${stale})"
+            # Sentinel first so the supervisor cannot relaunch kubectl between
+            # the signal and its death.
             touch "${base}.stop" 2>/dev/null || true
-            kill -- "-${stale}" 2>/dev/null || true
-            kill "$stale" 2>/dev/null || true
-            # kill is asynchronous. If the replacement starts while the old
-            # kubectl still holds the port, its first attempt fails to bind
-            # and `wait` would call that collision fatal — the recovery
-            # defeating itself. Wait for the whole group to go.
-            local _
-            for _ in $(seq 1 25); do
-                kill -0 -- "-${stale}" 2>/dev/null || break
-                sleep 0.2
-            done
+            # Blocks until the group is gone: the replacement starting while
+            # the old kubectl still holds the port would fail to bind, and
+            # `wait` would call that collision fatal — the recovery defeating
+            # itself.
+            pf_kill_group "$stale"
         fi
     fi
 
@@ -259,17 +292,32 @@ pf_stop() {
         [[ -s "$pidfile" ]] || continue
         spid=$(cat "$pidfile")
         if pf_owns "$spid" "$base"; then
-            # Kill the whole process group (setsid made the supervisor the
-            # group leader) so its kubectl child dies with it.
-            kill -- "-${spid}" 2>/dev/null || true
-            kill "$spid" 2>/dev/null || true
+            # Kill the whole process group, not just the supervisor: setsid
+            # made it the group leader, so its kubectl child dies with it.
+            pf_kill_group "$spid"
         fi
     done
 }
 
 pf_selftest() {
-    local tmp failures=0
+    local tmp failures=0 stub_path
     tmp=$(mktemp -d)
+    # Resolved once: reading $PATH inside each subshell would make shellcheck
+    # flag a modification it cannot see escaping (SC2030/SC2031).
+    stub_path="$tmp/bin:$PATH"
+
+    # Polls the supervisor PID rather than calling the bash `wait` builtin,
+    # which has no timeout and would hang the whole self-test if a case
+    # regressed. Unrelated to the `wait` subcommand: that one asks whether a
+    # forward bound its port, this asks whether the supervisor process is gone.
+    _wait_with_timeout() {
+        local pid="$1" limit="$2" _
+        for _ in $(seq 1 $((limit * 4))); do
+            kill -0 "$pid" 2>/dev/null || return 0
+            sleep 0.25
+        done
+        return 1
+    }
 
     _expect() {
         if [[ "$2" == "$3" ]]; then
@@ -301,7 +349,7 @@ pf_selftest() {
     printf '#!/usr/bin/env bash\nsleep 60\n' >"$tmp/bin/kubectl"
     chmod +x "$tmp/bin/kubectl"
     (
-        PATH="$tmp/bin:$PATH"
+        PATH="$stub_path"
         PF_BIND_TIMEOUT=1
         pf_supervise ns svc/x 1:1 "$tmp/hang"
     ) &
@@ -314,6 +362,38 @@ pf_selftest() {
     else
         echo "FAIL hung attempt is recycled: log did not show a recycle and a restart"
         cat "$tmp/hang.log"
+        failures=$((failures + 1))
+    fi
+
+    # A kubectl that ignores SIGTERM must still be reaped, or the unbounded
+    # `wait` after the deadline would hang the supervisor anyway.
+    mkdir -p "$tmp/bin"
+    printf '#!/usr/bin/env bash\ntrap "" TERM\nsleep 60\n' >"$tmp/bin/kubectl"
+    chmod +x "$tmp/bin/kubectl"
+    (
+        PATH="$stub_path"
+        PF_BIND_TIMEOUT=1
+        pf_supervise ns svc/x 1:1 "$tmp/stubborn"
+    ) &
+    local stubborn=$!
+    sleep 5
+    touch "$tmp/stubborn.stop"
+    if _wait_with_timeout "$stubborn" 12; then
+        echo "ok   a kubectl ignoring SIGTERM is escalated to SIGKILL"
+    else
+        echo "FAIL a kubectl ignoring SIGTERM wedged the supervisor"
+        kill -9 "$stubborn" 2>/dev/null || true
+        failures=$((failures + 1))
+    fi
+
+    # A group that no longer exists must cost nothing: the escalation loop is
+    # there for a group that refuses to die, not a toll on every teardown.
+    local gone_start=$SECONDS
+    pf_kill_group 2147483647
+    if [[ $((SECONDS - gone_start)) -le 1 ]]; then
+        echo "ok   killing an absent group returns immediately"
+    else
+        echo "FAIL killing an absent group burned the grace period"
         failures=$((failures + 1))
     fi
 
