@@ -21,6 +21,7 @@ _spec.loader.exec_module(check_matrix_skip_guard)
 offenders = check_matrix_skip_guard.offenders
 job_blocks = check_matrix_skip_guard.job_blocks
 job_condition = check_matrix_skip_guard.job_condition
+strip_comment = check_matrix_skip_guard.strip_comment
 
 
 def workflow(cleanup_if: str, matrix_source: str = "needs.clusters-info.outputs.platform-matrix") -> str:
@@ -171,6 +172,39 @@ class FoldedConditionTest(OffendersTest):
             )
         )
         self.assertEqual(len(offenders()), 1)
+
+
+class CommentTest(OffendersTest):
+    """A comment mentioning the guard must never stand in for the guard."""
+
+    def test_guard_named_only_in_a_trailing_comment_is_reported(self):
+        self.write(workflow("always()  # needs.clusters-info.result is handled downstream"))
+        self.assertEqual(len(offenders()), 1)
+
+    def test_guard_named_only_in_a_folded_comment_line_is_reported(self):
+        self.write(
+            workflow(
+                "always() &&\n"
+                "            # unlike needs.clusters-info.result, this is prose\n"
+                "            github.event_name == 'schedule'"
+            )
+        )
+        self.assertEqual(len(offenders()), 1)
+
+    def test_real_guard_with_a_trailing_comment_is_accepted(self):
+        self.write(
+            workflow("always() && needs.clusters-info.result != 'skipped'  # triage skips the suite")
+        )
+        self.assertEqual(offenders(), [])
+
+    def test_hash_inside_quotes_is_not_a_comment(self):
+        self.assertEqual(
+            strip_comment("contains(labels, '# needs.clusters-info.result') && always()"),
+            "contains(labels, '# needs.clusters-info.result') && always()",
+        )
+
+    def test_hash_without_leading_whitespace_is_not_a_comment(self):
+        self.assertEqual(strip_comment("needs.x.result != 'a#b'"), "needs.x.result != 'a#b'")
 
 
 if __name__ == "__main__":

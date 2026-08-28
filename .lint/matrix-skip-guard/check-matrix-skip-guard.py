@@ -57,6 +57,27 @@ def indent_of(line: str) -> int:
     return len(line) - len(line.lstrip(" "))
 
 
+def strip_comment(text: str) -> str:
+    """Drop a YAML inline comment from a scalar.
+
+    The guard check is a substring search, so a trailing
+    `# needs.clusters-info.result is deliberately ignored` would satisfy it
+    without the condition doing anything. A comment starts at a `#` that opens
+    the line or follows whitespace, and only outside a quoted scalar — `'#'`
+    inside quotes is data.
+    """
+    quote = ""
+    for i, char in enumerate(text):
+        if quote:
+            if char == quote:
+                quote = ""
+        elif char in "\"'":
+            quote = char
+        elif char == "#" and (i == 0 or text[i - 1] in " \t"):
+            return text[:i]
+    return text
+
+
 def job_blocks(lines: list[str]) -> list[tuple[str, list[str]]]:
     """Return `(job name, body lines)` for every job in a workflow."""
     start = None
@@ -105,22 +126,23 @@ def job_condition(body: list[str]) -> str | None:
     The value may span several lines: yamlfmt folds conditions past the line
     length limit, and some are written as block scalars. Both continue on lines
     indented deeper than the `if:` key itself, so both are joined back together
-    before the caller looks for a guard in them.
+    before the caller looks for a guard in them. Comments are dropped on the
+    way, so prose about the condition is never mistaken for the condition.
     """
     top = min((indent_of(l) for l in body if l.strip()), default=0)
     for i, line in enumerate(body):
         match = IF_KEY.match(line)
         if not match or len(match.group("indent")) != top:
             continue
-        value = match.group("value").strip()
+        value = strip_comment(match.group("value")).strip()
         parts = [] if value in (">", ">-", "|", "|-") else [value]
         for nxt in body[i + 1 :]:
             if not nxt.strip():
                 break
             if indent_of(nxt) <= top:
                 break
-            parts.append(nxt.strip())
-        return " ".join(parts)
+            parts.append(strip_comment(nxt).strip())
+        return " ".join(p for p in parts if p)
     return None
 
 
