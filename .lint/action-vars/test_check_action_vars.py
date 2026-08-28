@@ -76,6 +76,38 @@ class TestParsing(unittest.TestCase):
         offending = source.splitlines().index("              oc: ${INPUTS_OPENSHIFT_VERSION}") + 1
         self.assertIn(f":{offending}:", problem)
 
+    def test_a_commented_key_still_opens_its_block(self):
+        problems = findings(
+            composite(
+                """        - name: Plan
+          shell: bash
+          env: # the caller sets these
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
+          run: |
+              echo hello
+"""
+            )
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("declares INPUTS_RH_TOKEN but never reads it", problems[0])
+
+    def test_yaml_written_by_a_script_is_text_and_not_structure(self):
+        source = composite(
+            """        - name: Apply
+          shell: bash
+          run: |
+              cat <<'EOF' | kubectl apply -f -
+              spec:
+                  steps:
+                      - name: Ghost
+                        env:
+                            BAD: ${SOME_VALUE}
+              EOF
+"""
+        )
+        self.assertEqual(findings(source), [])
+        self.assertEqual([step.name for step in read_steps(source.splitlines())], ["Apply"])
+
 
 class TestLiteralValues(unittest.TestCase):
     def test_rejects_a_shell_variable_under_with(self):
@@ -117,6 +149,152 @@ class TestLiteralValues(unittest.TestCase):
             )
         )
         self.assertEqual(len(problems), 1)
+
+    def test_rejects_the_unbraced_form_in_either_quote_style(self):
+        for quoted in ('"$INPUTS_RH_TOKEN"', "'$INPUTS_RH_TOKEN'"):
+            with self.subTest(value=quoted):
+                problems = findings(
+                    composite(
+                        f"""        - name: Plan
+          uses: ./.github/actions/other
+          with:
+              token: {quoted}
+"""
+                    )
+                )
+                self.assertEqual(len(problems), 1)
+                self.assertIn("literal string '${INPUTS_RH_TOKEN}'", problems[0])
+
+    def test_accepts_the_unbraced_form_when_it_is_only_part_of_the_value(self):
+        self.assertEqual(
+            findings(
+                composite(
+                    """        - name: Plan
+          uses: ./.github/actions/other
+          with:
+              bucket: $INPUTS_PREFIX-tfstate
+"""
+                )
+            ),
+            [],
+        )
+
+    def test_ignores_a_reference_that_only_appears_in_a_trailing_comment(self):
+        self.assertEqual(
+            findings(
+                composite(
+                    """        - name: Plan
+          uses: ./.github/actions/other
+          with:
+              token: real-value # was ${INPUTS_RH_TOKEN}
+"""
+                )
+            ),
+            [],
+        )
+
+    def test_rejects_a_reference_quoted_inside_the_value(self):
+        problems = findings(
+            composite(
+                """        - name: Plan
+          uses: ./.github/actions/other
+          with:
+              message: "planning with ${INPUTS_RH_TOKEN}"
+"""
+            )
+        )
+        self.assertEqual(len(problems), 1)
+
+    def test_an_escaped_quote_does_not_reopen_the_value_over_the_comment(self):
+        self.assertEqual(
+            findings(
+                composite(
+                    """        - name: Plan
+          uses: ./.github/actions/other
+          with:
+              message: "say \\"hello\\"" # was ${INPUTS_RH_TOKEN}
+"""
+                )
+            ),
+            [],
+        )
+
+    def test_a_comment_after_a_plain_scalar_is_not_part_of_the_script(self):
+        self.assertEqual(
+            findings(
+                composite(
+                    """        - name: Plan
+          shell: bash
+          run: echo hello # once read ${INPUTS_RH_TOKEN}
+"""
+                )
+            ),
+            [],
+        )
+
+    def test_a_hash_inside_a_quoted_scalar_belongs_to_the_value(self):
+        problems = findings(
+            composite(
+                """        - name: Plan
+          uses: ./.github/actions/other
+          with:
+              message: "planning # with ${INPUTS_RH_TOKEN}"
+"""
+            )
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("literal string '${INPUTS_RH_TOKEN}'", problems[0])
+
+    def test_the_script_exemption_does_not_extend_to_env(self):
+        problems = findings(
+            composite(
+                """        - name: Retry
+          shell: bash
+          env:
+              script: ${INPUTS_COMMAND}
+          run: |
+              echo hello
+"""
+            )
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("literal string '${INPUTS_COMMAND}'", problems[0])
+
+    def test_rejects_a_shell_variable_in_a_job_level_env(self):
+        problems = findings(
+            """---
+name: Test
+jobs:
+    build:
+        env:
+            RHCS_TOKEN: ${INPUTS_RH_TOKEN}
+        steps:
+            - name: Plan
+              run: |
+                  terraform plan
+"""
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("env block", problems[0])
+        self.assertIn("literal string '${INPUTS_RH_TOKEN}'", problems[0])
+
+    def test_the_literal_escape_hatch_silences_an_outer_env_finding(self):
+        self.assertEqual(
+            findings(
+                """---
+name: Test
+env:
+    PATH_PREFIX: ${HOME}/bin # lint: literal-var
+jobs:
+    build:
+        steps:
+            - name: Plan
+              run: |
+                  terraform plan
+"""
+            ),
+            [],
+        )
 
     def test_accepts_a_github_expression(self):
         self.assertEqual(
@@ -250,6 +428,24 @@ jobs:
             [],
         )
 
+    def test_accepts_a_job_level_declaration_written_after_the_steps(self):
+        self.assertEqual(
+            findings(
+                """---
+name: Test
+jobs:
+    build:
+        steps:
+            - name: Reader
+              run: |
+                  echo "${INPUTS_AWS_REGION}"
+        env:
+            INPUTS_AWS_REGION: eu-west-1
+"""
+            ),
+            [],
+        )
+
     def test_one_job_env_does_not_reach_the_next_job(self):
         problems = findings(
             """---
@@ -273,6 +469,29 @@ jobs:
         self.assertEqual(len(problems), 1)
         self.assertIn("Outsider", problems[0])
         self.assertIn("reads ${INPUTS_AWS_REGION}", problems[0])
+
+    def test_a_later_job_env_does_not_reach_back_to_an_earlier_one(self):
+        problems = findings(
+            """---
+name: Test
+jobs:
+    build:
+        steps:
+            - name: Reader
+              run: |
+                  echo "${INPUTS_AWS_REGION}"
+
+    publish:
+        env:
+            INPUTS_AWS_REGION: eu-west-1
+        steps:
+            - name: Owner
+              run: |
+                  echo "${INPUTS_AWS_REGION}"
+"""
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("Reader", problems[0])
 
 
 class TestDeadDeclarations(unittest.TestCase):

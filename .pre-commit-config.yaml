@@ -105,6 +105,32 @@ repos:
             files: ^\.github/actions/internal-helm-deprecation-check/.*\.py$
             pass_filenames: false
 
+          - id: port-forward-selftest
+            name: Port-forward script self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/camunda-smoke-test/scripts/port-forward.sh selftest
+            language: system
+            files: ^\.github/actions/camunda-smoke-test/scripts/port-forward\.sh$
+            pass_filenames: false
+
+          - id: destroy-resources-selftest
+            name: Destroy-resources classifier self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources.sh selftest
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources\.sh$
+            pass_filenames: false
+
+          - id: ghost-rosa-cleanup-selftest
+            name: Ghost ROSA cleanup script self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/aws-generic-terraform-cleanup/scripts/cleanup-ghost-rosa-clusters.sh selftest
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/cleanup-ghost-rosa-clusters\.sh$
+            pass_filenames: false
+
           - id: cleanup-coverage
             name: Daily cleanups cover every test scenario
             entry: .lint/cleanup-coverage/check-cleanup-coverage.py
@@ -135,6 +161,23 @@ repos:
             entry: python3 -m unittest discover -s .lint/action-vars -p 'test_*.py'
             language: system
             files: ^\.lint/action-vars/.*\.py$
+            pass_filenames: false
+
+          - id: path-filters
+            name: Workflow path filters still match something
+            entry: .lint/path-filters/check-path-filters.py
+            language: script
+            # a filter dies when the directory it names is renamed, and that
+            # commit need not touch any workflow, so file triggers are not enough
+            always_run: true
+            pass_filenames: false
+
+          - id: python-unittest-path-filters
+            name: Python unit tests (path filters)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/path-filters -p 'test_*.py'
+            language: system
+            files: ^\.lint/path-filters/.*\.py$
             pass_filenames: false
 
     - repo: https://github.com/tekwizely/pre-commit-golang
