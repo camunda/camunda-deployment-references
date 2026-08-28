@@ -287,5 +287,34 @@ class FalseGuardTest(OffendersTest):
                 self.assertEqual(guards_against_skip(op, value), expected)
 
 
+class CommentedOutProducerTest(OffendersTest):
+    """A commented-out matrix must not invent a producer.
+
+    The mirror of CommentTest: there a comment created a guard that did not
+    exist, here it would create the offence itself.
+    """
+
+    def test_commented_out_matrix_is_not_a_producer(self):
+        wf = workflow("always()").replace(
+            "                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}",
+            "                # distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}\n"
+            "                distro: [a, b]",
+        )
+        self.write(wf)
+        self.assertEqual(offenders(), [])
+
+    def test_a_real_matrix_beside_a_commented_one_is_still_reported(self):
+        wf = workflow("always()").replace(
+            "                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}",
+            "                # distro: ${{ fromJson(needs.old-job.outputs.platform-matrix).distro }}\n"
+            "                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}",
+        )
+        self.write(wf)
+        found = offenders()
+        self.assertEqual(len(found), 1)
+        self.assertIn("clusters-info", found[0])
+        self.assertNotIn("old-job", found[0])
+
+
 if __name__ == "__main__":
     unittest.main()
