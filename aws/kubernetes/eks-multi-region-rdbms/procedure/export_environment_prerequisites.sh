@@ -20,9 +20,10 @@ set -o pipefail
 # Region topology                                                             #
 ###############################################################################
 
-# Number of REGION SLOTS. Drives the Zeebe broker node ID stride
-# (nodeId = ordinal * slots + regionId) and is immutable for the lifetime of
-# the Camunda cluster.
+# Number of REGION SLOTS, and therefore of zones. Fixed for the lifetime of the
+# Camunda cluster: the partition layout reserves replicas per zone, so changing
+# it redistributes every partition. A broker's own ID is its index INSIDE its
+# zone, so the slot count does not enter into it.
 export CAMUNDA_REGION_SLOTS="${CAMUNDA_REGION_SLOTS:-3}"
 
 # Number of slots currently deployed. Must be CAMUNDA_REGION_SLOTS or

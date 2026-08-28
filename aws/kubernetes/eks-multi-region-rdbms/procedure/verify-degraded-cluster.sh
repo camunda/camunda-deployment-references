@@ -22,22 +22,16 @@ if [ $# -ne 1 ]; then
 fi
 
 LOST_SLOT="$1"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=SCRIPTDIR/lib-management-api.sh
+. "$SCRIPT_DIR/lib-management-api.sh"
 CAMUNDA_BASIC_AUTH_USER="${CAMUNDA_BASIC_AUTH_USER:-demo}"
 CAMUNDA_BASIC_AUTH_PASSWORD="${CAMUNDA_BASIC_AUTH_PASSWORD:-demo}"
 LOCAL_PORT="${LOCAL_PORT:-8080}"
 
-read -r -a contexts <<<"$CLUSTER_CONTEXTS"
+survivor_context="$(camunda::survivor_context "$LOST_SLOT")"
 
-survivor_slot=-1
-for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
-    if [ "$i" -ne "$LOST_SLOT" ]; then
-        survivor_slot="$i"
-        break
-    fi
-done
-survivor_context="${contexts[$survivor_slot]}"
-
-echo "Verifying the surviving cluster from region slot $survivor_slot ($survivor_context)"
+echo "Verifying the surviving cluster from $survivor_context"
 
 kubectl --context "$survivor_context" -n "$CAMUNDA_NAMESPACE" \
     port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" "${LOCAL_PORT}:8080" >/dev/null 2>&1 &

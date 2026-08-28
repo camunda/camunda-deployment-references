@@ -63,26 +63,13 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib-management-api.sh"
 
-read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 read -r -a aws_regions <<<"$AWS_REGIONS"
 
-# Pick any surviving region to drive the management API from.
-survivor_slot=-1
-for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
-    if [ "$i" -ne "$LOST_SLOT" ]; then
-        survivor_slot="$i"
-        break
-    fi
-done
-if [ "$survivor_slot" -lt 0 ]; then
-    echo "ERROR: no surviving region left." >&2
-    exit 1
-fi
-survivor_context="${contexts[$survivor_slot]}"
+survivor_context="$(camunda::survivor_context "$LOST_SLOT")"
 
 echo "==============================================================="
 echo " Region slot $LOST_SLOT (${aws_regions[$LOST_SLOT]}) declared lost"
-echo " Driving the procedure from region slot $survivor_slot ($survivor_context)"
+echo " Driving the procedure from $survivor_context"
 echo "==============================================================="
 
 ###############################################################################
@@ -176,8 +163,7 @@ fi
 ###############################################################################
 
 if [ "$DRAIN_BROKERS" = true ]; then
-    read -r -a zone_names <<<"${CAMUNDA_ZONE_NAMES:?CAMUNDA_ZONE_NAMES must be set, source export-terraform-outputs.sh}"
-    lost_zone="${zone_names[$LOST_SLOT]}"
+    lost_zone="$(camunda::zone_name "$LOST_SLOT")"
 
     echo
     echo "--> Force-removing zone $lost_zone"

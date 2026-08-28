@@ -45,20 +45,10 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib-management-api.sh"
 
-read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 read -r -a aws_regions <<<"$AWS_REGIONS"
 
-survivor_slot=-1
-for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
-    if [ "$i" -ne "$RECOVERED_SLOT" ]; then
-        survivor_slot="$i"
-        break
-    fi
-done
-survivor_context="${contexts[$survivor_slot]}"
-
-read -r -a zone_names <<<"${CAMUNDA_ZONE_NAMES:?CAMUNDA_ZONE_NAMES must be set, source export-terraform-outputs.sh}"
-recovered_zone="${zone_names[$RECOVERED_SLOT]}"
+survivor_context="$(camunda::survivor_context "$RECOVERED_SLOT")"
+recovered_zone="$(camunda::zone_name "$RECOVERED_SLOT")"
 
 echo "==============================================================="
 echo " Failback of region slot $RECOVERED_SLOT (${aws_regions[$RECOVERED_SLOT]})"
