@@ -916,7 +916,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup AKS clusters
-        if: always()
+        if: always() && needs.clusters-info.result != 'skipped'
         needs:
             - prepare-clusters
             - clusters-info
