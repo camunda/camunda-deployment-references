@@ -16,10 +16,19 @@ set -euo pipefail
 #      CLUSTER_CONTEXTS.
 #   3. CAMUNDA_ACTIVE_REGIONS already reflects the NEW number of active regions.
 #
-# The slot count, and therefore every broker's identity, was fixed at bootstrap.
-# Activating a slot only fills in the replicas that the partition layout already
-# reserved for it; no existing broker is renumbered, no partition is
-# redistributed, and the regions already running are left alone.
+# The slot count, and therefore every broker's identity, was fixed at bootstrap,
+# so no existing broker is renumbered and no partition is redistributed.
+#
+# INCOMPLETE. This was written believing the partition layout already reserved
+# replicas for the empty slot, so bringing its brokers up was the whole job.
+# It does not: the zone list now covers only DEPLOYED zones, so the regions
+# already running have never heard of this one, and its brokers have nothing to
+# join. The missing step is announcing the zone to them --
+#   POST /actuator/cluster/zones/<zone>  {numberOfReplicas, priority, brokers}
+# -- which procedure/failback.sh already does when re-adding a force-removed
+# zone. Until that is lifted into a shared helper and called here,
+# TestMultiRegionActivateRegion is expected to fail, and step 6/6 below is where
+# it will surface.
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"

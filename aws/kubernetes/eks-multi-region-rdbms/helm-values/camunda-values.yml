@@ -50,8 +50,11 @@ global:
         #   Expected to send a message with subject 'default-partition-1-configure'
         #   to member 'zurich_0', but member is not known.
         # Growing the cluster means extending this list when a zone is
-        # activated, which is what procedure/activate-region.sh does and what
-        # TestMultiRegionActivateRegion is there to prove.
+        # activated AND announcing the new zone to the regions already
+        # running, through POST /actuator/cluster/zones/<zone>.
+        # procedure/activate-region.sh renders the longer list but does not yet
+        # make that call, so TestMultiRegionActivateRegion is expected to fail
+        # until it does. procedure/failback.sh has the primitive.
         #
         # Priority skews Raft leadership. Zone 0 gets the highest because it
         # hosts the Aurora writer, and keeping leaders next to the writer is

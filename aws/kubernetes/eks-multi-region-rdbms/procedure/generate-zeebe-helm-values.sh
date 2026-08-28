@@ -19,10 +19,10 @@ set -euo pipefail
 #       cluster.
 #
 #   CAMUNDA_MULTIREGION_ZONES
-#       The `global.multiregion.zones` list, as a JSON flow sequence. Covers every
-#       zone SLOT, not only the deployed ones -- see the note on reserved
-#       replicas below -- and is byte-identical in every region's values file,
-#       which is what keeps the topology a single description.
+#       The `global.multiregion.zones` list, as a JSON flow sequence. Covers the
+#       DEPLOYED zones only -- see the note below on why listing an absent one
+#       stalls the cluster -- and is byte-identical in every region's values
+#       file, which is what keeps the topology a single description.
 #
 # Contact points intentionally cover only the active regions: a slot that has
 # not been deployed yet has no DNS record, and listing it would make every

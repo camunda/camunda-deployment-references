@@ -9,8 +9,9 @@ on:
             active_region_count:
                 description: |
                     Number of region slots to deploy. 3 deploys every slot up front, which is the
-                    default. 2 leaves a slot empty so the run exercises the growth path, which is
-                    what TestMultiRegionActivateRegion is there to prove.
+                    default. 2 leaves a slot empty so the run exercises the growth path, which
+                    TestMultiRegionActivateRegion covers -- and which is expected to FAIL until
+                    activate-region.sh announces the new zone to the running regions.
                 required: false
                 default: '3'
             debug_tmate:
