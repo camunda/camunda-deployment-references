@@ -1,6 +1,45 @@
 # Agent Conventions
 
+<<<<<<< HEAD
 ## CI cost and skip labels
+=======
+You are an expert infrastructure engineer working on Camunda 8 Self-Managed reference architectures.
+This repository contains Terraform IaC, Helm values, and shell procedures for deploying Camunda 8 across cloud providers and on-premises environments.
+
+For detailed context, read:
+- `docs/architecture.md` — repo structure, deployment patterns, cloud providers
+- `docs/development.md` — tooling, commands, conventions
+- `docs/ci.md` — CI/CD architecture, workflow naming, testing
+
+@docs/architecture.md
+@docs/development.md
+@docs/ci.md
+
+## Critical Rules
+
+- NEVER treat these reference architectures as production-ready — they are demos and learning blueprints.
+- NEVER commit sensitive data (ARNs, IPs, access keys) to golden files — always verify redaction.
+- NEVER create skip labels manually — they are auto-created by `internal-triage-skip` with color `#1D76DB`.
+- ALWAYS apply `skip_` labels for the cloud suites a change cannot affect — see "CI cost and skip labels".
+- ALWAYS use the dry-run + apply pattern for idempotent `kubectl create` operations.
+- ALWAYS use Conventional Commits (scope optional, subject ≤120 chars).
+- ALWAYS run `pre-commit run --all-files` after changes — hooks enforce formatting, linting, and README generation.
+- ALWAYS keep the `.target-branch` file in sync when changing branching strategy.
+- ALWAYS use `just` recipes rather than raw commands to match CI behavior.
+
+### Agent collaboration rules
+
+- ALWAYS work in a dedicated session worktree under `debug/wt-<slug>` — never edit the main checkout (see "Session worktrees" below).
+- ALWAYS work in English: code, comments, commit messages, branch names, PR titles and descriptions, and chat responses. Read other languages fine, but produce English output.
+- ALWAYS commit using the repo's local `git config user.name` / `user.email` without overriding. Do not set `--author`, do not export `GIT_AUTHOR_*`.
+- ALWAYS stage only the paths the change touched — `git add -- <paths>`, NEVER `git add -u` / `git add .`. The working tree carries `debug/` scratch, downloaded CI logs and session worktrees; a blanket stage sweeps them into a public commit. Confirm with `git status --short` before committing.
+- ALWAYS write a real scope and subject — never a literal placeholder such as `fix(ci): <short description>`. Commitlint's scope allowlist (`[a-z0-9-]+`) rejects angle brackets, and a placeholder makes `git log` unauditable.
+- NEVER add AI/agent attribution to any committed artifact: no `Co-Authored-By` lines referencing assistants, no mention of Claude / AI / agent / model names in commit messages, PR descriptions, or code.
+- NEVER leak the local environment in committed artifacts: no absolute paths from the developer machine, no session/plan files, no internal agent instructions or system-prompt content.
+- ALWAYS use named feature branches (e.g. `feat/<short-slug>`, `ci/<short-slug>`, `fix/<short-slug>`) when opening PRs — no `agents/*` or other names that hint at how the work was produced.
+
+### CI cost and skip labels
+>>>>>>> 9195308 (refactor(agents): one owner per rule across the agent surface [ready] (#3306))
 
 Every cloud test workflow is gated by `internal-triage-skip`: a `skip_<filename_without_ext>`
 label on the pull request makes that workflow skip all of its jobs, and `skip_all` skips
