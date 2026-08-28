@@ -63,8 +63,11 @@ PRODUCER = re.compile(r"fromJson\(\s*needs\.(?P<job>[A-Za-z_][\w-]*)\.outputs\."
 # every outcome, so `always() && needs.clusters-info.result` is true exactly
 # when the guard is needed; and `!= 'failure'` is equally true for a skipped
 # producer. See guards_against_skip for the only property that matters.
+# Single quotes only: GitHub expressions have no double-quoted string, so
+# `!= "skipped"` is not a lenient spelling of the guard, it is a workflow that
+# does not run. Accepting it would bless a condition GitHub rejects.
 GUARD = re.compile(
-    r"needs\.(?P<job>[A-Za-z_][\w-]*)\.result\s*(?P<op>[!=]=)\s*['\"](?P<value>[^'\"]*)['\"]"
+    r"needs\.(?P<job>[A-Za-z_][\w-]*)\.result\s*(?P<op>[!=]=)\s*'(?P<value>[^']*)'"
 )
 
 # `        if: always() && ...`, including a folded continuation
