@@ -198,6 +198,14 @@ func TestMultiRegionRegionLoss(t *testing.T) {
 
 	helpers.RunProcedure(t, env, 15*time.Minute, "simulate-region-loss.sh", strconv.Itoa(lostSlot))
 
+	// Rehearse the zone removal against the real API before the run declines to
+	// use it. `--drain-brokers` is not what this scenario asserts, and the suite
+	// never takes that branch, so this is the only thing that keeps the request
+	// from rotting: it fails if the path, the zone ID or the response shape ever
+	// stop matching. `--dry-run` changes nothing on the cluster.
+	helpers.RunProcedure(t, env, 10*time.Minute, "failover.sh",
+		strconv.Itoa(lostSlot), "--drain-brokers", "--dry-run")
+
 	// failover.sh ends on verify-degraded-cluster.sh, which is what "the cluster
 	// keeps processing" means here: the surviving regions still accept work.
 	helpers.RunProcedure(t, env, 20*time.Minute, "failover.sh", strconv.Itoa(lostSlot))

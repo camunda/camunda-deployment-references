@@ -104,6 +104,8 @@ else
     body="$(echo "$zone_spec" | jq -c --argjson brokers "$brokers_json" \
         '{numberOfReplicas, priority, brokers: $brokers}')"
 
+    # Printed before it is sent, so the exact request can be replayed by hand
+    # against `?dryRun=true` before committing to it.
     echo "    POST /actuator/cluster/zones/$recovered_zone $body"
     camunda::management "$survivor_context" POST "/actuator/cluster/zones/$recovered_zone" "$body"
     camunda::wait_for_cluster_change "$survivor_context"

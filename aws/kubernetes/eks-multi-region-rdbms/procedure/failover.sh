@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Handles the loss of one region.
 #
-#   ./failover.sh <lost-region-slot> [--unplanned] [--drain-brokers]
+#   ./failover.sh <lost-region-slot> [--unplanned] [--drain-brokers] [--dry-run]
 #
 # With `replicationFactor == regionSlots` and at least three slots, losing one
 # region leaves every partition with a majority of its replicas: Zeebe keeps
@@ -41,7 +41,7 @@ set -euo pipefail
 : "${CAMUNDA_BROKERS_PER_REGION:?CAMUNDA_BROKERS_PER_REGION must be set, source export_environment_prerequisites.sh}"
 
 if [ $# -lt 1 ]; then
-    echo "usage: $0 <lost-region-slot> [--unplanned] [--drain-brokers]" >&2
+    echo "usage: $0 <lost-region-slot> [--unplanned] [--drain-brokers] [--dry-run]" >&2
     exit 1
 fi
 
@@ -49,10 +49,12 @@ LOST_SLOT="$1"
 shift
 UNPLANNED=false
 DRAIN_BROKERS=false
+DRY_RUN=false
 for arg in "$@"; do
     case "$arg" in
     --unplanned) UNPLANNED=true ;;
     --drain-brokers) DRAIN_BROKERS=true ;;
+    --dry-run) DRY_RUN=true ;;
     *)
         echo "unknown argument: $arg" >&2
         exit 1
@@ -130,31 +132,35 @@ else
             exit 1
         fi
 
-        if [ "$UNPLANNED" = true ]; then
-            echo "    Unplanned: detaching and promoting $target_arn"
-            echo "    Data not yet replicated at the time of the outage is lost."
-            aws rds remove-from-global-cluster \
-                --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-                --db-cluster-identifier "$target_arn"
+        if [ "$DRY_RUN" = true ]; then
+            echo "    --dry-run: would promote $target_arn, doing nothing."
         else
-            echo "    Planned switchover to $target_arn"
-            aws rds failover-global-cluster \
-                --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-                --target-db-cluster-identifier "$target_arn"
+            if [ "$UNPLANNED" = true ]; then
+                echo "    Unplanned: detaching and promoting $target_arn"
+                echo "    Data not yet replicated at the time of the outage is lost."
+                aws rds remove-from-global-cluster \
+                    --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
+                    --db-cluster-identifier "$target_arn"
+            else
+                echo "    Planned switchover to $target_arn"
+                aws rds failover-global-cluster \
+                    --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
+                    --target-db-cluster-identifier "$target_arn"
+            fi
+
+            echo "    Waiting for the promoted cluster to become available ..."
+            target_id="$(basename "$target_arn")"
+            target_region="$(echo "$target_arn" | cut -d: -f4)"
+            aws rds wait db-cluster-available \
+                --region "$target_region" \
+                --db-cluster-identifier "$target_id"
+
+            echo "    Promotion complete."
+            echo
+            echo "    The AWS Advanced JDBC Wrapper failover plugin discovers the new writer"
+            echo "    from globalClusterInstanceHostPatterns, so Camunda needs no restart."
+            echo "    Connections in flight during the promotion are retried by the driver."
         fi
-
-        echo "    Waiting for the promoted cluster to become available ..."
-        target_id="$(basename "$target_arn")"
-        target_region="$(echo "$target_arn" | cut -d: -f4)"
-        aws rds wait db-cluster-available \
-            --region "$target_region" \
-            --db-cluster-identifier "$target_id"
-
-        echo "    Promotion complete."
-        echo
-        echo "    The AWS Advanced JDBC Wrapper failover plugin discovers the new writer"
-        echo "    from globalClusterInstanceHostPatterns, so Camunda needs no restart."
-        echo "    Connections in flight during the promotion are retried by the driver."
     fi
 fi
 
@@ -173,8 +179,21 @@ if [ "$DRAIN_BROKERS" = true ]; then
     echo "    one that cannot answer, and quorum is computed without it."
     echo "    Only do this for a zone that is down and unreachable."
 
-    camunda::management "$survivor_context" DELETE "/actuator/cluster/zones/$lost_zone"
-    camunda::wait_for_cluster_change "$survivor_context"
+    if [ "$DRY_RUN" = true ]; then
+        echo "    --dry-run: asking the API for the plan, changing nothing."
+        camunda::management "$survivor_context" \
+            DELETE "/actuator/cluster/zones/${lost_zone}?dryRun=true" |
+            jq '{plannedChanges, expectedBrokers: [.expectedTopology[]?.id]}'
+    else
+        camunda::management "$survivor_context" DELETE "/actuator/cluster/zones/$lost_zone"
+        camunda::wait_for_cluster_change "$survivor_context"
+    fi
+fi
+
+if [ "$DRY_RUN" = true ]; then
+    echo
+    echo "--> --dry-run: nothing was changed, so there is no degraded state to verify."
+    exit 0
 fi
 
 echo

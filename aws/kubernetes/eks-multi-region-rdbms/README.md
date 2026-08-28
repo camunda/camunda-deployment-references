@@ -452,6 +452,17 @@ The reason to leave a zone in place is failback cost. Brokers that stayed member
 rejoin and catch up from the Raft log; a removed zone has to be added back
 explicitly, and its brokers start from nothing.
 
+Because it is irreversible on a live cluster, rehearse it first:
+
+```bash
+./failover.sh <slot> --drain-brokers --dry-run
+```
+
+That reports the plan the API would execute and changes nothing, neither the
+zone nor the database writer. `failback.sh` prints the body of its re-add before
+sending it, so the return trip can be replayed the same way against
+`?dryRun=true`.
+
 That is not theory. Run `33055779396` passed both `TestMultiRegionRegionLoss` and
 `TestMultiRegionFailback` on a three-zone cluster with no membership change at
 all: `failover.sh` only read `GET /actuator/cluster`, and the region came back by
