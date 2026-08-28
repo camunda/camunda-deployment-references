@@ -35,10 +35,12 @@ For detailed context, read:
 
 ### CI cost and skip labels
 
-Every cloud test workflow is gated by `internal-triage-skip`: a `skip_<workflow_file_name>`
+Every cloud test workflow is gated by `internal-triage-skip`: a `skip_<filename_without_ext>`
 label on the pull request makes that workflow skip all of its jobs, and `skip_all` skips
-every one of them. The action posts a checklist comment listing the available options and
-creates the labels itself.
+every one of them. `aws_openshift_rosa_hcp_single_region_tests.yml` is therefore skipped by
+`skip_aws_openshift_rosa_hcp_single_region_tests` — see `docs/ci.md`, "Workflow Naming".
+The action posts a checklist comment listing the available options and creates the labels
+itself.
 
 These suites provision real infrastructure — EKS, ROSA, Aurora, OpenSearch, NAT gateways —
 and take tens of minutes. A suite the change cannot affect proves nothing, bills the CI
