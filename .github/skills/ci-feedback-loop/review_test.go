@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
@@ -100,5 +101,50 @@ func TestIsCopilot(t *testing.T) {
 		if isCopilot(login) {
 			t.Errorf("isCopilot(%q) = true", login)
 		}
+	}
+}
+
+func TestInlineCommentHandlesNulls(t *testing.T) {
+	// `line` is null on an outdated comment, `in_reply_to_id` on a thread
+	// opener. Unmarshalling null into a non-pointer int is a silent no-op, so
+	// both would render as 0 and read as "line 0" / "reply to 0".
+	var got []inlineComment
+	raw := `[{"id":1,"path":"a.go","line":null,"in_reply_to_id":null},
+	         {"id":2,"path":"b.go","line":7,"in_reply_to_id":9}]`
+	if err := json.Unmarshal([]byte(raw), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got[0].location() != "a.go:(outdated)" {
+		t.Errorf("null line rendered as %q", got[0].location())
+	}
+	if got[0].thread() != "new thread" {
+		t.Errorf("null in_reply_to_id rendered as %q", got[0].thread())
+	}
+	if got[1].location() != "b.go:7" {
+		t.Errorf("line rendered as %q", got[1].location())
+	}
+	if got[1].thread() != "reply to 9" {
+		t.Errorf("in_reply_to_id rendered as %q", got[1].thread())
+	}
+}
+
+func TestPRLabelsDecodesNamesWithSpaces(t *testing.T) {
+	// Real labels in this repo contain spaces ("backport stable/8.9",
+	// "no merge"). A whitespace split would shred them, and the skip_all gate
+	// reads this list.
+	var payload struct {
+		Labels []struct {
+			Name string `json:"name"`
+		} `json:"labels"`
+	}
+	raw := `{"labels":[{"name":"backport stable/8.9"},{"name":"skip_all"},{"name":"no merge"}]}`
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(payload.Labels) != 3 {
+		t.Fatalf("got %d labels, want 3", len(payload.Labels))
+	}
+	if payload.Labels[0].Name != "backport stable/8.9" {
+		t.Errorf("label with spaces decoded as %q", payload.Labels[0].Name)
 	}
 }

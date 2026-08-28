@@ -161,12 +161,27 @@ func prTitle(repo string, pr int) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// prLabels returns the PR's label names. It decodes JSON rather than splitting
+// text: label names contain spaces in this repo ("backport stable/8.9",
+// "no merge"), so any whitespace split would shred them into fragments.
 func prLabels(repo string, pr int) ([]string, error) {
-	out, err := gh("pr", "view", strconv.Itoa(pr), "--repo", repo, "--json", "labels", "-q", ".labels[].name")
+	out, err := gh("pr", "view", strconv.Itoa(pr), "--repo", repo, "--json", "labels")
 	if err != nil {
 		return nil, err
 	}
-	return strings.Fields(string(out)), nil
+	var payload struct {
+		Labels []struct {
+			Name string `json:"name"`
+		} `json:"labels"`
+	}
+	if err := json.Unmarshal(out, &payload); err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(payload.Labels))
+	for _, l := range payload.Labels {
+		names = append(names, l.Name)
+	}
+	return names, nil
 }
 
 func prHeadRef(repo string, pr int) (string, error) {
@@ -375,15 +390,35 @@ func reviewStateCmd() *cobra.Command {
 	}
 }
 
+// inlineComment mirrors one review comment. `line` is null on an outdated
+// comment and `in_reply_to_id` is null on a thread opener; both are pointers so
+// "absent" stays distinguishable from a genuine 0 rather than silently
+// rendering as `path:0`.
 type inlineComment struct {
 	ID        int64  `json:"id"`
 	Path      string `json:"path"`
-	Line      int    `json:"line"`
+	Line      *int   `json:"line"`
 	Body      string `json:"body"`
-	InReplyTo int64  `json:"in_reply_to_id"`
+	InReplyTo *int64 `json:"in_reply_to_id"`
 	User      struct {
 		Login string `json:"login"`
 	} `json:"user"`
+}
+
+// location renders the comment's anchor, flagging the outdated case explicitly.
+func (c inlineComment) location() string {
+	if c.Line == nil {
+		return c.Path + ":(outdated)"
+	}
+	return fmt.Sprintf("%s:%d", c.Path, *c.Line)
+}
+
+// thread reports whether the comment opens a thread or replies to one.
+func (c inlineComment) thread() string {
+	if c.InReplyTo == nil {
+		return "new thread"
+	}
+	return fmt.Sprintf("reply to %d", *c.InReplyTo)
 }
 
 func reviewFindingsCmd() *cobra.Command {
@@ -413,8 +448,8 @@ func reviewFindingsCmd() *cobra.Command {
 						if !isCopilot(c.User.Login) {
 							continue
 						}
-						fmt.Printf("[finding id=%d] %s:%d (in_reply_to=%d)\n%s\n",
-							c.ID, c.Path, c.Line, c.InReplyTo, c.Body)
+						fmt.Printf("[finding id=%d] %s (%s)\n%s\n",
+							c.ID, c.location(), c.thread(), c.Body)
 					}
 				}
 				return nil
@@ -428,8 +463,9 @@ type checkEntry struct {
 	State string `json:"state"`
 }
 
-// notGreen returns the checks that block readiness: anything not passing,
-// skipped or neutral.
+// notGreen returns the checks that block readiness. SUCCESS, SKIPPED and
+// NEUTRAL do not block: a skipped heavy suite is the normal state for a PR that
+// cannot affect it. Everything else — failing, pending, queued — does.
 func notGreen(checks []checkEntry) []checkEntry {
 	var bad []checkEntry
 	for _, c := range checks {
@@ -462,8 +498,14 @@ func reviewReadyCmd() *cobra.Command {
 							return fmt.Errorf("PR #%d still carries %s: its CI is silenced, so it is not ready (run `review resume` first)", n, skipAllLabel)
 						}
 					}
+					// A checks query that fails is not evidence of green. Refuse,
+					// rather than tagging on the strength of an error.
 					out, err := gh("pr", "checks", strconv.Itoa(n), "--repo", repo, "--json", "name,state")
-					if err == nil {
+					if err != nil {
+						if !force {
+							return fmt.Errorf("PR #%d: cannot read the checks, so readiness is unproven: %w", n, err)
+						}
+					} else {
 						var checks []checkEntry
 						if err := json.Unmarshal(out, &checks); err != nil {
 							return err
