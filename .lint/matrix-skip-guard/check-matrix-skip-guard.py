@@ -16,14 +16,21 @@ absent from the run and the run concludes `failure` while every job in it reads
 
 The damage is not the missing cleanup, which had nothing to clean. It is a red
 run that no change to the pull request can turn green, on every skipped
-workflow, which is how a genuinely broken suite stops being noticed. Before this
-guard, 34 of the last 60 runs of the EKS dual-region suite ended that way.
+workflow, which is how a genuinely broken suite stops being noticed. When this
+was written (2026-08-27), 34 of the 60 most recent runs of the EKS dual-region
+suite had ended that way -- a snapshot of what motivated the check, not a figure
+anyone should expect to still reproduce.
 
 `always()` is still wanted on those jobs: cleanup has to run when the tests
 *failed*. The distinction that matters is failed versus skipped, so the fix is
-to name the producer in the condition:
+to compare the producer's result in the condition:
 
     if: always() && needs.clusters-info.result != 'skipped'
+
+A comparison, not a bare mention. `needs.<job>.result` on its own is a non-empty
+string for every outcome, `skipped` among them, so `always() &&
+needs.clusters-info.result` reads like a guard and is true in exactly the case
+it is supposed to exclude.
 
 #3127 fixed this shape once, for the step that reads matrix *artifacts*, and
 concluded the job matrices were safe because they carried no `if:`. Eight of
@@ -49,12 +56,38 @@ KEY = re.compile(r"^(?P<indent>\s*)(?P<name>[A-Za-z_][\w-]*):")
 # `${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}`
 PRODUCER = re.compile(r"fromJson\(\s*needs\.(?P<job>[A-Za-z_][\w-]*)\.outputs\.")
 
+# `needs.clusters-info.result != 'skipped'`, and every other comparison shape.
+#
+# Parsed rather than pattern-matched for "looks like a guard", because most
+# comparisons are not one. `needs.<job>.result` alone is a non-empty string for
+# every outcome, so `always() && needs.clusters-info.result` is true exactly
+# when the guard is needed; and `!= 'failure'` is equally true for a skipped
+# producer. See guards_against_skip for the only property that matters.
+GUARD = re.compile(
+    r"needs\.(?P<job>[A-Za-z_][\w-]*)\.result\s*(?P<op>[!=]=)\s*['\"](?P<value>[^'\"]*)['\"]"
+)
+
 # `        if: always() && ...`, including a folded continuation
 IF_KEY = re.compile(r"^(?P<indent>\s*)if:\s*(?P<value>.*)$")
 
 
 def indent_of(line: str) -> int:
     return len(line) - len(line.lstrip(" "))
+
+
+def guards_against_skip(op: str, value: str) -> bool:
+    """True when `needs.<job>.result <op> '<value>'` is FALSE for a skipped producer.
+
+    That is the whole requirement, and it is not the same as "compares the
+    result". Only two shapes satisfy it:
+
+        != 'skipped'          false when skipped
+        == '<anything else>'  false when skipped
+
+    while `!= 'failure'` and `== 'skipped'` read like guards and leave the job
+    scheduled on the exact run they were meant to protect.
+    """
+    return (op == "!=") == (value == "skipped")
 
 
 def strip_comment(text: str) -> str:
@@ -159,11 +192,16 @@ def offenders() -> list[str]:
                 continue  # no `if:`, so a skipped producer already skips this job
             if "always()" not in condition:
                 continue  # not forced to run past a skipped producer
-            unguarded = sorted(p for p in producers if f"needs.{p}.result" not in condition)
+            guarded = {
+                m.group("job")
+                for m in GUARD.finditer(condition)
+                if guards_against_skip(m.group("op"), m.group("value"))
+            }
+            unguarded = sorted(producers - guarded)
             if unguarded:
                 found.append(
                     f"{path}: job '{name}' builds its matrix from "
-                    f"{', '.join(unguarded)} but runs on always() without checking "
+                    f"{', '.join(unguarded)} but runs on always() without comparing "
                     f"{' / '.join(f'needs.{p}.result' for p in unguarded)}"
                 )
     return found

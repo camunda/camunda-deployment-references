@@ -22,6 +22,7 @@ offenders = check_matrix_skip_guard.offenders
 job_blocks = check_matrix_skip_guard.job_blocks
 job_condition = check_matrix_skip_guard.job_condition
 strip_comment = check_matrix_skip_guard.strip_comment
+guards_against_skip = check_matrix_skip_guard.guards_against_skip
 
 
 def workflow(cleanup_if: str, matrix_source: str = "needs.clusters-info.outputs.platform-matrix") -> str:
@@ -205,6 +206,85 @@ class CommentTest(OffendersTest):
 
     def test_hash_without_leading_whitespace_is_not_a_comment(self):
         self.assertEqual(strip_comment("needs.x.result != 'a#b'"), "needs.x.result != 'a#b'")
+
+
+class BareReferenceTest(OffendersTest):
+    """Mentioning the producer is not guarding on it.
+
+    `needs.<job>.result` is a non-empty string for every outcome, `skipped`
+    included, so a bare reference is true in exactly the case it is meant to
+    exclude. Only a comparison can be false for a skipped producer.
+    """
+
+    def test_bare_result_reference_is_reported(self):
+        self.write(workflow("always() && needs.clusters-info.result"))
+        self.assertEqual(len(offenders()), 1)
+
+    def test_bare_reference_inside_a_larger_condition_is_reported(self):
+        self.write(
+            workflow("always() && (needs.clusters-info.result || github.event_name == 'schedule')")
+        )
+        self.assertEqual(len(offenders()), 1)
+
+    def test_equality_against_success_is_accepted(self):
+        self.write(workflow("always() && needs.clusters-info.result == 'success'"))
+        self.assertEqual(offenders(), [])
+
+    def test_double_quoted_comparison_is_accepted(self):
+        self.write(workflow('always() && needs.clusters-info.result != "skipped"'))
+        self.assertEqual(offenders(), [])
+
+    def test_whitespace_around_the_operator_is_tolerated(self):
+        self.write(workflow("always() && needs.clusters-info.result   !=   'skipped'"))
+        self.assertEqual(offenders(), [])
+
+
+class FalseGuardTest(OffendersTest):
+    """Comparing the result is not the same as excluding `skipped`.
+
+    A comparison only guards when it is FALSE for a skipped producer. Half of
+    them are not: `!= 'failure'` and `== 'skipped'` read like guards and leave
+    the job scheduled on exactly the run they were meant to protect.
+    """
+
+    def test_not_equal_failure_is_reported(self):
+        self.write(workflow("always() && needs.clusters-info.result != 'failure'"))
+        self.assertEqual(len(offenders()), 1)
+
+    def test_not_equal_success_is_reported(self):
+        self.write(workflow("always() && needs.clusters-info.result != 'success'"))
+        self.assertEqual(len(offenders()), 1)
+
+    def test_equal_skipped_is_reported(self):
+        self.write(workflow("always() && needs.clusters-info.result == 'skipped'"))
+        self.assertEqual(len(offenders()), 1)
+
+    def test_equal_failure_is_accepted(self):
+        """False for a skipped producer, so cleanup is not scheduled."""
+        self.write(workflow("always() && needs.clusters-info.result == 'failure'"))
+        self.assertEqual(offenders(), [])
+
+    def test_a_real_guard_beside_a_false_one_is_accepted(self):
+        self.write(
+            workflow(
+                "always() && needs.clusters-info.result != 'skipped' "
+                "&& needs.clusters-info.result != 'failure'"
+            )
+        )
+        self.assertEqual(offenders(), [])
+
+    def test_the_truth_table_directly(self):
+        cases = {
+            ("!=", "skipped"): True,
+            ("!=", "failure"): False,
+            ("!=", "success"): False,
+            ("==", "skipped"): False,
+            ("==", "success"): True,
+            ("==", "failure"): True,
+        }
+        for (op, value), expected in cases.items():
+            with self.subTest(op=op, value=value):
+                self.assertEqual(guards_against_skip(op, value), expected)
 
 
 if __name__ == "__main__":
