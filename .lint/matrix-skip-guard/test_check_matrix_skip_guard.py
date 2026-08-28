@@ -230,9 +230,15 @@ class BareReferenceTest(OffendersTest):
         self.write(workflow("always() && needs.clusters-info.result == 'success'"))
         self.assertEqual(offenders(), [])
 
-    def test_double_quoted_comparison_is_accepted(self):
+    def test_double_quoted_comparison_is_reported(self):
+        """GitHub expressions have no double-quoted string.
+
+        `!= "skipped"` is not a lenient spelling of the guard, it is an
+        expression GitHub refuses to evaluate. Reporting it is right: the job
+        is unguarded, and the workflow is broken besides.
+        """
         self.write(workflow('always() && needs.clusters-info.result != "skipped"'))
-        self.assertEqual(offenders(), [])
+        self.assertEqual(len(offenders()), 1)
 
     def test_whitespace_around_the_operator_is_tolerated(self):
         self.write(workflow("always() && needs.clusters-info.result   !=   'skipped'"))
