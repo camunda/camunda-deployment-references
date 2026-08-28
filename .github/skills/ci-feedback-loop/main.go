@@ -28,9 +28,9 @@ const debugRoot = "debug/ci"
 func main() {
 	root := &cobra.Command{
 		Use:   "ci-feedback",
-		Short: "Feedback loop for GitHub Actions: locate / summarize / logs / artifacts",
+		Short: "Feedback loop for GitHub Actions: locate / summarize / logs / artifacts, plus review-loop orchestration",
 	}
-	root.AddCommand(locateCmd(), summarizeCmd(), logsCmd(), artifactsCmd())
+	root.AddCommand(locateCmd(), summarizeCmd(), logsCmd(), artifactsCmd(), reviewCmd())
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
 	}
