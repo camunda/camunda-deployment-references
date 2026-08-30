@@ -91,7 +91,7 @@ runs:
 
 
         ######################## Report build result #############################
-        - uses: camunda/infra-global-github-actions/submit-build-status@475528365f4010480dccff71ccac554cc3352e7c # main
+        - uses: camunda/infra-global-github-actions/submit-build-status@2fa2e5ecfa1d82a6d2a93106bd43889f68500f4f # main
           if: ${{ always() && steps.secrets.outputs.gcloud_sa_key != '' }}
           with:
               job_name_override: ${{ inputs.job_name }}
