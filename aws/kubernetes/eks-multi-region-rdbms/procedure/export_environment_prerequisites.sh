@@ -126,9 +126,16 @@ if [ "$CAMUNDA_ACTIVE_REGIONS" -gt "$CAMUNDA_REGION_SLOTS" ]; then
     return 1 2>/dev/null || exit 1
 fi
 
-if [ "$CAMUNDA_ACTIVE_REGIONS" -lt "$((CAMUNDA_REGION_SLOTS - 1))" ]; then
-    echo "ERROR: CAMUNDA_ACTIVE_REGIONS ($CAMUNDA_ACTIVE_REGIONS) leaves more than one slot empty out of $CAMUNDA_REGION_SLOTS." >&2
-    echo "       Every Zeebe partition would lose its majority and the cluster could not form a quorum." >&2
+# A majority of the slots has to be live, not "all but one". The two agree at
+# three and four slots and part company at two, where `slots - 1` would accept a
+# single active region and one replica of two is not a majority. Terraform is
+# saved from that by a separate `active_region_count >= 2` validation; this
+# script is the safety net when the procedures are run by hand, so it states the
+# invariant itself.
+if [ "$((2 * CAMUNDA_ACTIVE_REGIONS))" -le "$CAMUNDA_REGION_SLOTS" ]; then
+    echo "ERROR: CAMUNDA_ACTIVE_REGIONS ($CAMUNDA_ACTIVE_REGIONS) is not a majority of $CAMUNDA_REGION_SLOTS slots." >&2
+    echo "       With one replica per slot, every Zeebe partition would lose its majority" >&2
+    echo "       and the cluster could not form a quorum." >&2
     return 1 2>/dev/null || exit 1
 fi
 

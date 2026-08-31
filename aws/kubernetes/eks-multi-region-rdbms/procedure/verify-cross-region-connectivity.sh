@@ -157,8 +157,12 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     for ((j = 0; j < CAMUNDA_ACTIVE_REGIONS; j++)); do
         [ "$i" -eq "$j" ] && continue
 
-        # The per-pod clusterset name, which is the form Zeebe dials.
-        target="connectivity-probe-0.${cluster_ids[$j]}.connectivity-probe.${CAMUNDA_NAMESPACE}.svc.clusterset.local"
+        # The per-pod clusterset name, which is the form Zeebe dials. Trailing
+        # dot for the same reason the contact points carry one: without it the
+        # resolver walks the pod's search domains first, and a record Lighthouse
+        # has not published yet turns into several cached negatives instead of
+        # one, which is what the retry below exists to survive.
+        target="connectivity-probe-0.${cluster_ids[$j]}.connectivity-probe.${CAMUNDA_NAMESPACE}.svc.clusterset.local."
         echo "--> ${cluster_ids[$i]} -> ${cluster_ids[$j]}"
 
         # Retried rather than attempted once. Lighthouse publishes the per-pod

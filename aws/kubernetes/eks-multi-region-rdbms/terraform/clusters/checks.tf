@@ -16,9 +16,9 @@ check "active_region_count_within_slots" {
 
 check "quorum_preserved_during_growth" {
   assert {
-    condition     = var.active_region_count >= local.region_slot_count - 1
+    condition     = 2 * var.active_region_count > local.region_slot_count
     error_message = <<-EOT
-      active_region_count (${var.active_region_count}) leaves more than one region slot empty out of ${local.region_slot_count}.
+      active_region_count (${var.active_region_count}) is not a majority of the ${local.region_slot_count} region slots.
 
       With replicationFactor == number of region slots, each Zeebe partition
       places exactly one replica per slot. Leaving two or more slots empty
