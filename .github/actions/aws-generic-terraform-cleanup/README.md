@@ -20,7 +20,7 @@ This GitHub Action automates the deletion of generic terraform resources using a
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
 | `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.22.5` |
 | `delete-ghost-rosa-clusters` | <p>Specify whether to delete ghost rosa clusters (true or false)</p> | `false` | `false` |
-| `destroy-pass-timeout-minutes` | <p>Wall-clock budget for each of the two destroy passes. The caller's step-level <code>timeout-minutes</code> must exceed twice this value plus room for the ghost pass and the log upload, otherwise the runner kills the step before it can report anything. The default is sized for the cleanup workflows' <code>timeout-minutes: 125</code>.</p> | `false` | `55` |
+| `destroy-pass-timeout-minutes` | <p>Wall-clock budget for each of the two destroy passes. Keep <code>2 x this value</code>, plus room for the ghost pass and the log upload, under the caller's step-level <code>timeout-minutes</code>. Nothing enforces the relationship, and a step the runner kills takes the log upload down with it — which is how the 2026-08-29 EC2 and ECS cleanups ended with no artifact and no verdict. The default is sized for the daily cleanups' <code>timeout-minutes: 125</code>; a caller on a shorter leash has to lower it to match, or it gets no protection at all.</p> | `false` | `55` |
 
 
 ## Outputs
@@ -106,10 +106,13 @@ This action is a `composite` action.
     # Default: false
 
     destroy-pass-timeout-minutes:
-    # Wall-clock budget for each of the two destroy passes. The caller's step-level
-    # `timeout-minutes` must exceed twice this value plus room for the ghost pass and
-    # the log upload, otherwise the runner kills the step before it can report anything.
-    # The default is sized for the cleanup workflows' `timeout-minutes: 125`.
+    # Wall-clock budget for each of the two destroy passes.
+    # Keep `2 x this value`, plus room for the ghost pass and the log upload, under the
+    # caller's step-level `timeout-minutes`. Nothing enforces the relationship, and a step
+    # the runner kills takes the log upload down with it — which is how the 2026-08-29 EC2
+    # and ECS cleanups ended with no artifact and no verdict. The default is sized for the
+    # daily cleanups' `timeout-minutes: 125`; a caller on a shorter leash has to lower it
+    # to match, or it gets no protection at all.
     #
     # Required: false
     # Default: 55
