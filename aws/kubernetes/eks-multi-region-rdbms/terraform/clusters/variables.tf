@@ -84,14 +84,16 @@ variable "regions" {
     error_message = "Each region slot must use a distinct short_name; it is used to suffix cluster names."
   }
 
+  # One pool, not two. Checking the VPC blocks against each other and the service
+  # blocks against each other leaves a VPC block free to collide with another
+  # slot's service block, which is the same duplicate prefix: Submariner runs
+  # without Globalnet and Transit Gateway cannot route one.
   validation {
-    condition     = length(distinct([for r in var.regions : r.vpc_cidr_block])) == length(var.regions)
-    error_message = "Each region slot must use a distinct VPC CIDR block: Submariner runs without Globalnet and Transit Gateway cannot route duplicate prefixes."
-  }
-
-  validation {
-    condition     = length(distinct([for r in var.regions : r.service_cidr_block])) == length(var.regions)
-    error_message = "Each region slot must use a distinct Kubernetes service CIDR block."
+    condition = length(distinct(concat(
+      [for r in var.regions : r.vpc_cidr_block],
+      [for r in var.regions : r.service_cidr_block],
+    ))) == 2 * length(var.regions)
+    error_message = "Every VPC and Kubernetes service CIDR block must be distinct across all region slots, service blocks included: Submariner runs without Globalnet and Transit Gateway cannot route duplicate prefixes."
   }
 
 }

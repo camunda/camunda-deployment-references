@@ -104,8 +104,11 @@ func (e Env) Vars() []string {
 }
 
 // RunProcedure executes a procedure script and fails the test on a non-zero
-// exit status. Output is streamed to the test log so that a CI failure carries
-// the script output rather than only its exit code.
+// exit status. Output is buffered and written to the test log once the script
+// ends, so a CI failure carries the script output rather than only its exit
+// code. Nothing appears while it runs: `go test` interleaves nothing anyway
+// until the test finishes, and a run that hangs is diagnosed from the timeout
+// dump below rather than from a live tail.
 func RunProcedure(t *testing.T, env Env, timeout time.Duration, script string, args ...string) string {
 	t.Helper()
 
@@ -139,6 +142,13 @@ func RunProcedure(t *testing.T, env Env, timeout time.Duration, script string, a
 		}
 	case <-time.After(timeout):
 		_ = cmd.Process.Kill()
+		// Reaped, and the goroutine given a moment to flush what the script had
+		// already written: killing without waiting leaves a zombie until the test
+		// binary exits, and drops the tail of the output that explains the hang.
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+		}
 		t.Logf("=== %s (timed out) ===\n%s", script, buf.String())
 		t.Fatalf("%s did not finish within %s", script, timeout)
 	}
