@@ -50,6 +50,14 @@ inputs:
         description: Specify whether to delete ghost rosa clusters (true or false)
         default: 'false'
 
+    destroy-pass-timeout-minutes:
+        description: |
+            Wall-clock budget for each of the two destroy passes. The caller's step-level
+            `timeout-minutes` must exceed twice this value plus room for the ghost pass and
+            the log upload, otherwise the runner kills the step before it can report anything.
+            The default is sized for the cleanup workflows' `timeout-minutes: 125`.
+        default: '55'
+
 outputs:
     stuck-rosa-clusters:
         description: >-
@@ -125,6 +133,8 @@ runs:
               # has no `/tfstate-<id>/` segment, so the destroy pass skips over it.
               STUCK_STATE_BUCKET: ${{ inputs.tf-bucket }}
               STUCK_STATE_KEY: ${{ inputs.tf-bucket-key-prefix }}ghost-rosa-cluster-deletion-state.json
+              INPUTS_DESTROY_PASS_TIMEOUT_MINUTES: ${{ inputs.destroy-pass-timeout-minutes }}
+              ACTION_PATH: ${{ github.action_path }}
           run: |
               set -euo pipefail
 
@@ -144,21 +154,40 @@ runs:
               # Use repo .tool-version as global version
               cp .tool-versions ~/.tool-versions
 
+              # Both passes are bounded, because an unbounded first pass can eat the
+              # caller's entire step budget. On 2026-08-29 the EC2 and ECS cleanups spent
+              # 109 of their 125 minutes on pass 1, then the runner killed the step
+              # mid-destroy: no verdict, no uploaded log, and — worst of all — the
+              # cloud-nuke pass, which exists precisely for the resources terraform cannot
+              # delete on its own, never started. A pass that runs out of budget is a
+              # result too, so long as the step survives to act on it.
+              run_destroy_pass() {
+                local label="$1" status=0
+
+                # --kill-after: terraform ignoring TERM must not outlive the budget either.
+                timeout --signal=TERM --kill-after=2m "${INPUTS_DESTROY_PASS_TIMEOUT_MINUTES}m" \
+                  "${ACTION_PATH}/scripts/destroy-resources.sh" "${INPUTS_TF_BUCKET}" \
+                  ${INPUTS_MAX_AGE_HOURS} ${INPUTS_TARGET} ${INPUTS_MODULES_ORDER} ${INPUTS_TF_BUCKET_KEY_PREFIX} \
+                  $([[ "${INPUTS_FAIL_ON_NOT_FOUND}" == "true" ]] && echo "--fail-on-not-found") || status=$?
+
+                if [ "$status" -eq 124 ]; then
+                  echo "::warning::${label} exhausted its ${INPUTS_DESTROY_PASS_TIMEOUT_MINUTES}m budget and was stopped;" \
+                       "see the uploaded cleanup logs for the module it was still on."
+                fi
+                return "$status"
+              }
+
               # First attempt without RETRY_DESTROY
               destroy_status=0
               echo "🚀 First attempt: Running destroy without cloud-nuke retry..."
-              if ${{ github.action_path }}/scripts/destroy-resources.sh "${INPUTS_TF_BUCKET}" \
-                ${INPUTS_MAX_AGE_HOURS} ${INPUTS_TARGET} ${INPUTS_MODULES_ORDER} ${INPUTS_TF_BUCKET_KEY_PREFIX} \
-                $([[ "${INPUTS_FAIL_ON_NOT_FOUND}" == "true" ]] && echo "--fail-on-not-found"); then
+              if run_destroy_pass "the first destroy pass"; then
                   echo "✅ Destroy succeeded without retry"
               else
                   echo "⚠️  First attempt failed, retrying with cloud-nuke..."
                   # RETRY_DESTROY enables cloud-nuke to clean up resources created outside of Terraform
                   # such as Load Balancers created by ingress-nginx, EBS volumes, etc.
                   export RETRY_DESTROY='true'
-                  ${{ github.action_path }}/scripts/destroy-resources.sh "${INPUTS_TF_BUCKET}" \
-                    ${INPUTS_MAX_AGE_HOURS} ${INPUTS_TARGET} ${INPUTS_MODULES_ORDER} ${INPUTS_TF_BUCKET_KEY_PREFIX} \
-                    $([[ "${INPUTS_FAIL_ON_NOT_FOUND}" == "true" ]] && echo "--fail-on-not-found") || destroy_status=$?
+                  run_destroy_pass "the cloud-nuke destroy pass" || destroy_status=$?
                   unset RETRY_DESTROY
               fi
 
@@ -170,7 +199,7 @@ runs:
               # status instead and report it once both passes have run.
               ghost_status=0
               if [ "${INPUTS_DELETE_GHOST_ROSA_CLUSTERS}" == "true" ]; then
-                ${{ github.action_path }}/scripts/cleanup-ghost-rosa-clusters.sh ${INPUTS_MAX_AGE_HOURS} || ghost_status=$?
+                ${ACTION_PATH}/scripts/cleanup-ghost-rosa-clusters.sh ${INPUTS_MAX_AGE_HOURS} || ghost_status=$?
               fi
 
               if [ "$destroy_status" -ne 0 ]; then
@@ -186,6 +215,11 @@ runs:
         # Required for matrix jobs
         - name: Convert key prefix into slug
           id: key-prefix-slug
+          # The upload below is `always()`, so this has to be too: skipping it on a failed
+          # destroy leaves the artifact name without its prefix, and two matrix legs
+          # failing together would then race for the same name — losing the logs in the
+          # one case they are worth reading.
+          if: always()
           shell: bash
           run: |
               set -euo pipefail

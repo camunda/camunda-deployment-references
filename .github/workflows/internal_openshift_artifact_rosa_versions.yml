@@ -72,21 +72,15 @@ jobs:
 
                   # Write the artifact into the repo working tree (gh-pages branch is currently checked out).
                   mkdir -p docs
-                  # We deploy ROSA HCP (Hosted Control Planes) — the `--hosted-cp` flag is required,
-                  # otherwise `rosa list versions` returns ROSA classic versions, which lag behind HCP.
-                  # Merge classic + HCP, dedup, and sort descending so Renovate sees all supported versions.
-                  {
-                    rosa list versions --hosted-cp --output json | jq '.[].raw_id' --raw-output
-                    rosa list versions --output json              | jq '.[].raw_id' --raw-output
-                  } | sort -V -u -r > docs/rosa_versions.txt
-
-                  echo "::group::Raw HCP versions returned by rosa CLI"
-                  rosa list versions --hosted-cp --output json | jq '.[].raw_id' --raw-output || true
-                  echo "::endgroup::"
-
-                  echo "::group::Raw classic versions returned by rosa CLI"
-                  rosa list versions --output json | jq '.[].raw_id' --raw-output || true
-                  echo "::endgroup::"
+                  # We deploy ROSA HCP (Hosted Control Planes), so `--hosted-cp` is what the pins
+                  # in the test matrices have to satisfy. Merging in the classic `rosa list versions`
+                  # output published minors down to 4.11 and fed Renovate versions that the HCP
+                  # cluster-create API then rejects — 4.18.47 failed with `CLUSTERS-MGMT-400:
+                  # Version 'openshift-v4.18.47' reached end of life` while 4.18.53 sat in this
+                  # artifact as a valid-looking bump. Publish only what HCP will actually create.
+                  rosa list versions --hosted-cp --output json \
+                    | jq '.[].raw_id' --raw-output \
+                    | sort -V -u -r > docs/rosa_versions.txt
 
                   echo "::group::Generated docs/rosa_versions.txt ($(wc -l < docs/rosa_versions.txt) lines)"
                   cat docs/rosa_versions.txt

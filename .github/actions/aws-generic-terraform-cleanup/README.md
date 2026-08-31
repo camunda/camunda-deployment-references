@@ -20,6 +20,7 @@ This GitHub Action automates the deletion of generic terraform resources using a
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
 | `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.22.5` |
 | `delete-ghost-rosa-clusters` | <p>Specify whether to delete ghost rosa clusters (true or false)</p> | `false` | `false` |
+| `destroy-pass-timeout-minutes` | <p>Wall-clock budget for each of the two destroy passes. The caller's step-level <code>timeout-minutes</code> must exceed twice this value plus room for the ghost pass and the log upload, otherwise the runner kills the step before it can report anything. The default is sized for the cleanup workflows' <code>timeout-minutes: 125</code>.</p> | `false` | `55` |
 
 
 ## Outputs
@@ -103,4 +104,13 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: false
+
+    destroy-pass-timeout-minutes:
+    # Wall-clock budget for each of the two destroy passes. The caller's step-level
+    # `timeout-minutes` must exceed twice this value plus room for the ghost pass and
+    # the log upload, otherwise the runner kills the step before it can report anything.
+    # The default is sized for the cleanup workflows' `timeout-minutes: 125`.
+    #
+    # Required: false
+    # Default: 55
 ```
