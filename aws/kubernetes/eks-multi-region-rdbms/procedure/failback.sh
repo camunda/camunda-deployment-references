@@ -47,6 +47,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 read -r -a aws_regions <<<"$AWS_REGIONS"
 
+camunda::require_slot "$RECOVERED_SLOT" "the recovered region slot"
+
 survivor_context="$(camunda::survivor_context "$RECOVERED_SLOT")"
 camunda::use_surviving_region "$RECOVERED_SLOT"
 recovered_zone="$(camunda::zone_name "$RECOVERED_SLOT")"

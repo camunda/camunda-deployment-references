@@ -50,6 +50,26 @@ camunda::survivor_context() {
     return 1
 }
 
+# camunda::require_slot <value> <what>
+#
+# A slot index reaches array lookups and, in failover.sh, destructive calls. Bash
+# does not object to `${arr[oops]}`: it evaluates the subscript arithmetically,
+# an unknown name is 0, and the run continues against the wrong region while
+# looking like it worked. Checked once, here, so both scripts fail on the typo
+# rather than on its consequences.
+camunda::require_slot() {
+    local value="$1" what="${2:-region slot}"
+
+    if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+        echo "ERROR: $what must be a slot number, got '$value'." >&2
+        return 1
+    fi
+    if [ "$value" -ge "$CAMUNDA_ACTIVE_REGIONS" ]; then
+        echo "ERROR: $what '$value' is not a deployed slot; $CAMUNDA_ACTIVE_REGIONS are active, so valid slots are 0..$((CAMUNDA_ACTIVE_REGIONS - 1))." >&2
+        return 1
+    fi
+}
+
 # camunda::use_surviving_region <excluded-slot>
 #
 # Points the AWS CLI at a region that is still up, when nothing else has.
