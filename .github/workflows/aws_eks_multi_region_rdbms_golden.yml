@@ -13,6 +13,7 @@ on:
             - aws/modules/aurora-global-member/**
             - aws/kubernetes/eks-multi-region-rdbms/terraform/**
             - .github/actions/aws-configure-cli/**
+            - .github/actions/internal-terraform-golden-plan/**
 
 # limit to a single execution per actor of this workflow
 concurrency:
