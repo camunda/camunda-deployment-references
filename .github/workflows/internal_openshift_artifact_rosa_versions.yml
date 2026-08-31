@@ -72,12 +72,18 @@ jobs:
 
                   # Write the artifact into the repo working tree (gh-pages branch is currently checked out).
                   mkdir -p docs
-                  # We deploy ROSA HCP (Hosted Control Planes), so `--hosted-cp` is what the pins
-                  # in the test matrices have to satisfy. Merging in the classic `rosa list versions`
-                  # output published minors down to 4.11 and fed Renovate versions that the HCP
-                  # cluster-create API then rejects — 4.18.47 failed with `CLUSTERS-MGMT-400:
-                  # Version 'openshift-v4.18.47' reached end of life` while 4.18.53 sat in this
-                  # artifact as a valid-looking bump. Publish only what HCP will actually create.
+                  # We deploy ROSA HCP (Hosted Control Planes), so `--hosted-cp` is the list the
+                  # pins in the test matrices have to satisfy; the classic `rosa list versions`
+                  # output described a product this repo never creates and dragged the artifact
+                  # down to 4.11.
+                  #
+                  # This does not make the artifact EOL-free -- `--hosted-cp` still reports
+                  # minors that are past end of life (4.14 and up as of writing), and the CLI
+                  # exposes no end-of-life field to filter on. It cannot: a pinned minor going
+                  # EOL is what broke the 4.18 matrix entry, and no filter here would have saved
+                  # it, because Renovate is only ever offered patches within the minor the pin
+                  # names. Bumping the minor stays a manual step. What this does buy is that
+                  # every version published is at least one HCP knows about.
                   rosa list versions --hosted-cp --output json \
                     | jq '.[].raw_id' --raw-output \
                     | sort -V -u -r > docs/rosa_versions.txt
