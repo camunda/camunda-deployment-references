@@ -92,6 +92,7 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+                      secret/data/products/infrastructure-experience/ci/common SLACK_BOT_TOKEN;
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -140,6 +141,49 @@ jobs:
                   modules-order: vpn,cluster
                   openshift: 'true'
                   delete-ghost-rosa-clusters: 'true'
+
+            # A cluster the ghost pass gave up on is not a cleanup failure: OCM
+            # still owns its teardown, and re-deleting it every night is what
+            # turns one wedged cluster into a permanently red daily job. It gets
+            # its own alert, so the failure alert below keeps meaning "something
+            # the cleanup could have fixed did not get fixed".
+            - name: Describe ROSA clusters stuck in deletion
+              id: stuck_clusters
+              if: always()
+              env:
+                  # The retry step's list wins when it ran, being the later
+                  # observation; the first pass's list is the fallback for the
+                  # runs where the retry never happened.
+                  STUCK: ${{ steps.retry_delete_clusters.outputs.stuck-rosa-clusters || steps.delete_clusters.outputs.stuck-rosa-clusters }}
+                  MENTION: ${{ env.IS_SCHEDULE == 'true' && ' cc @infraex-medic' || '' }}
+                  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+              run: |
+                  set -euo pipefail
+                  [ -n "$STUCK" ] || exit 0
+
+                  TEXT=":hourglass_flowing_sand: *ROSA HCP single region* — cluster(s) stuck in deletion for over 24h: \`${STUCK}\`."
+                  TEXT="${TEXT} OCM still owns their teardown, so the cleanup left them alone instead of failing on them; they need a look on the Red Hat console."
+                  TEXT="${TEXT} <${RUN_URL}|Cleanup run>${MENTION}"
+
+                  {
+                    echo "text<<STUCK_EOF"
+                    printf '%s\n' "$TEXT"
+                    echo "STUCK_EOF"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Notify in Slack about ROSA clusters stuck in deletion
+              if: ${{ steps.stuck_clusters.outputs.text != '' }}
+              uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+              with:
+                  method: chat.postMessage
+                  token: ${{ steps.secrets.outputs.SLACK_BOT_TOKEN }}
+                  payload: |
+                      {
+                        "channel": ${{ toJSON(env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB') }},
+                        "unfurl_links": false,
+                        "unfurl_media": false,
+                        "text": ${{ toJSON(steps.stuck_clusters.outputs.text) }}
+                      }
 
             - name: Notify in Slack in case of failure
               id: slack-notification
