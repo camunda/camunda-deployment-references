@@ -52,14 +52,24 @@ inputs:
 
     destroy-pass-timeout-minutes:
         description: |
-            Wall-clock budget for each of the two destroy passes.
-            Keep `2 x this value`, plus room for the ghost pass and the log upload, under the
-            caller's step-level `timeout-minutes`. Nothing enforces the relationship, and a step
-            the runner kills takes the log upload down with it — which is how the 2026-08-29 EC2
-            and ECS cleanups ended with no artifact and no verdict. The default is sized for the
-            daily cleanups' `timeout-minutes: 125`; a caller on a shorter leash has to lower it
-            to match, or it gets no protection at all.
-        default: '55'
+            Wall-clock budget for the first destroy pass — the one that tears the whole
+            reference architecture down, so it has to fit a full teardown. A healthy single
+            ROSA HCP cluster measured 55min (11 for the vpn module, 40 for the cluster), and
+            a daily sweep may carry several groups, hence the headroom.
+        default: '85'
+
+    retry-destroy-pass-timeout-minutes:
+        description: |
+            Wall-clock budget for the cloud-nuke retry pass. Smaller than the first on purpose:
+            it only runs when the first pass failed, and cloud-nuke removes the VPC blockers up
+            front, so the destroy behind it is a sweep rather than a full teardown.
+
+            Keep both budgets plus room for the ghost pass and the log upload under the caller's
+            step-level `timeout-minutes` — the defaults sum to 115 under the daily cleanups' 125.
+            Nothing enforces it, and a step the runner kills takes the log upload down with it,
+            which is how the 2026-08-29 EC2 and ECS cleanups ended with no artifact and no
+            verdict. A caller on a shorter leash has to lower both, or it gets no protection.
+        default: '30'
 
 outputs:
     stuck-rosa-clusters:
@@ -137,6 +147,7 @@ runs:
               STUCK_STATE_BUCKET: ${{ inputs.tf-bucket }}
               STUCK_STATE_KEY: ${{ inputs.tf-bucket-key-prefix }}ghost-rosa-cluster-deletion-state.json
               INPUTS_DESTROY_PASS_TIMEOUT_MINUTES: ${{ inputs.destroy-pass-timeout-minutes }}
+              INPUTS_RETRY_DESTROY_PASS_TIMEOUT_MINUTES: ${{ inputs.retry-destroy-pass-timeout-minutes }}
               ACTION_PATH: ${{ github.action_path }}
           run: |
               set -euo pipefail
@@ -165,16 +176,16 @@ runs:
               # delete on its own, never started. A pass that runs out of budget is a
               # result too, so long as the step survives to act on it.
               run_destroy_pass() {
-                local label="$1" status=0
+                local label="$1" budget="$2" status=0
 
                 # --kill-after: terraform ignoring TERM must not outlive the budget either.
-                timeout --signal=TERM --kill-after=2m "${INPUTS_DESTROY_PASS_TIMEOUT_MINUTES}m" \
+                timeout --signal=TERM --kill-after=2m "${budget}m" \
                   "${ACTION_PATH}/scripts/destroy-resources.sh" "${INPUTS_TF_BUCKET}" \
                   ${INPUTS_MAX_AGE_HOURS} ${INPUTS_TARGET} ${INPUTS_MODULES_ORDER} ${INPUTS_TF_BUCKET_KEY_PREFIX} \
                   $([[ "${INPUTS_FAIL_ON_NOT_FOUND}" == "true" ]] && echo "--fail-on-not-found") || status=$?
 
                 if [ "$status" -eq 124 ]; then
-                  echo "::warning::${label} exhausted its ${INPUTS_DESTROY_PASS_TIMEOUT_MINUTES}m budget and was stopped;" \
+                  echo "::warning::${label} exhausted its ${budget}m budget and was stopped;" \
                        "see the uploaded cleanup logs for the module it was still on."
                 fi
                 return "$status"
@@ -183,14 +194,14 @@ runs:
               # First attempt without RETRY_DESTROY
               destroy_status=0
               echo "🚀 First attempt: Running destroy without cloud-nuke retry..."
-              if run_destroy_pass "the first destroy pass"; then
+              if run_destroy_pass "the first destroy pass" "${INPUTS_DESTROY_PASS_TIMEOUT_MINUTES}"; then
                   echo "✅ Destroy succeeded without retry"
               else
                   echo "⚠️  First attempt failed, retrying with cloud-nuke..."
                   # RETRY_DESTROY enables cloud-nuke to clean up resources created outside of Terraform
                   # such as Load Balancers created by ingress-nginx, EBS volumes, etc.
                   export RETRY_DESTROY='true'
-                  run_destroy_pass "the cloud-nuke destroy pass" || destroy_status=$?
+                  run_destroy_pass "the cloud-nuke destroy pass" "${INPUTS_RETRY_DESTROY_PASS_TIMEOUT_MINUTES}" || destroy_status=$?
                   unset RETRY_DESTROY
               fi
 

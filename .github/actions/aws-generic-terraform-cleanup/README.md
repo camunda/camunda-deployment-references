@@ -20,7 +20,8 @@ This GitHub Action automates the deletion of generic terraform resources using a
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
 | `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.22.5` |
 | `delete-ghost-rosa-clusters` | <p>Specify whether to delete ghost rosa clusters (true or false)</p> | `false` | `false` |
-| `destroy-pass-timeout-minutes` | <p>Wall-clock budget for each of the two destroy passes. Keep <code>2 x this value</code>, plus room for the ghost pass and the log upload, under the caller's step-level <code>timeout-minutes</code>. Nothing enforces the relationship, and a step the runner kills takes the log upload down with it — which is how the 2026-08-29 EC2 and ECS cleanups ended with no artifact and no verdict. The default is sized for the daily cleanups' <code>timeout-minutes: 125</code>; a caller on a shorter leash has to lower it to match, or it gets no protection at all.</p> | `false` | `55` |
+| `destroy-pass-timeout-minutes` | <p>Wall-clock budget for the first destroy pass — the one that tears the whole reference architecture down, so it has to fit a full teardown. A healthy single ROSA HCP cluster measured 55min (11 for the vpn module, 40 for the cluster), and a daily sweep may carry several groups, hence the headroom.</p> | `false` | `85` |
+| `retry-destroy-pass-timeout-minutes` | <p>Wall-clock budget for the cloud-nuke retry pass. Smaller than the first on purpose: it only runs when the first pass failed, and cloud-nuke removes the VPC blockers up front, so the destroy behind it is a sweep rather than a full teardown.</p> <p>Keep both budgets plus room for the ghost pass and the log upload under the caller's step-level <code>timeout-minutes</code> — the defaults sum to 115 under the daily cleanups' 125. Nothing enforces it, and a step the runner kills takes the log upload down with it, which is how the 2026-08-29 EC2 and ECS cleanups ended with no artifact and no verdict. A caller on a shorter leash has to lower both, or it gets no protection.</p> | `false` | `30` |
 
 
 ## Outputs
@@ -106,14 +107,24 @@ This action is a `composite` action.
     # Default: false
 
     destroy-pass-timeout-minutes:
-    # Wall-clock budget for each of the two destroy passes.
-    # Keep `2 x this value`, plus room for the ghost pass and the log upload, under the
-    # caller's step-level `timeout-minutes`. Nothing enforces the relationship, and a step
-    # the runner kills takes the log upload down with it — which is how the 2026-08-29 EC2
-    # and ECS cleanups ended with no artifact and no verdict. The default is sized for the
-    # daily cleanups' `timeout-minutes: 125`; a caller on a shorter leash has to lower it
-    # to match, or it gets no protection at all.
+    # Wall-clock budget for the first destroy pass — the one that tears the whole
+    # reference architecture down, so it has to fit a full teardown. A healthy single
+    # ROSA HCP cluster measured 55min (11 for the vpn module, 40 for the cluster), and
+    # a daily sweep may carry several groups, hence the headroom.
     #
     # Required: false
-    # Default: 55
+    # Default: 85
+
+    retry-destroy-pass-timeout-minutes:
+    # Wall-clock budget for the cloud-nuke retry pass. Smaller than the first on purpose:
+    # it only runs when the first pass failed, and cloud-nuke removes the VPC blockers up
+    # front, so the destroy behind it is a sweep rather than a full teardown.
+    # Keep both budgets plus room for the ghost pass and the log upload under the caller's
+    # step-level `timeout-minutes` — the defaults sum to 115 under the daily cleanups' 125.
+    # Nothing enforces it, and a step the runner kills takes the log upload down with it,
+    # which is how the 2026-08-29 EC2 and ECS cleanups ended with no artifact and no
+    # verdict. A caller on a shorter leash has to lower both, or it gets no protection.
+    #
+    # Required: false
+    # Default: 30
 ```
