@@ -23,7 +23,7 @@ set -euo pipefail
 
 PROBE_IMAGE="${PROBE_IMAGE:-busybox:1.37}"
 PROBE_PORT="${PROBE_PORT:-8080}"
-PROBE_TIMEOUT="${PROBE_CONNECT_TIMEOUT:-10}"
+PROBE_CONNECT_TIMEOUT="${PROBE_CONNECT_TIMEOUT:-10}"
 PROBE_READY_TIMEOUT="${PROBE_READY_TIMEOUT:-120s}"
 PROBE_IMPORT_TIMEOUT="${PROBE_IMPORT_TIMEOUT:-300}"
 # Per path, so a slow record does not read as an unreachable one.
@@ -182,7 +182,7 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
         while true; do
             if kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
                 exec statefulset/connectivity-probe -- \
-                timeout "$PROBE_TIMEOUT" nc -z -w "$PROBE_TIMEOUT" "$target" "$PROBE_PORT" >/dev/null 2>&1; then
+                timeout "$PROBE_CONNECT_TIMEOUT" nc -z -w "$PROBE_CONNECT_TIMEOUT" "$target" "$PROBE_PORT" >/dev/null 2>&1; then
                 reachable=true
                 break
             fi
