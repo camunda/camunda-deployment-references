@@ -145,7 +145,13 @@ camunda::_request() {
     local pid=$!
     sleep 3
 
-    local curl_args=(-sS -w '\n%{http_code}' -X "$method")
+    # Bounded, because the callers are polling loops with their own deadlines and
+    # a port-forward that half-opens rather than dies makes curl wait forever,
+    # which is exactly the case those deadlines exist for. 000 on expiry reads
+    # the same as any other unanswered call, so the loops retry as they already do.
+    local curl_args=(-sS -w '\n%{http_code}' -X "$method"
+        --connect-timeout "${CAMUNDA_API_CONNECT_TIMEOUT:-5}"
+        --max-time "${CAMUNDA_API_MAX_TIME:-30}")
     [ -n "$auth" ] && curl_args+=(-u "$auth")
     [ -n "$body" ] && curl_args+=(-H 'Content-Type: application/json' -d "$body")
 
