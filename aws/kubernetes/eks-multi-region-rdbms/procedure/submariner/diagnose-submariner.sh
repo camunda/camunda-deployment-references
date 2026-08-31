@@ -19,6 +19,9 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     # show. `show networks` is the useful part, it reports the CIDRs each
     # cluster registered.
     echo "--- subctl show networks"
+    # `--contexts`, plural, is the flag subctl takes: it accepts a comma-separated
+    # list. Reviewers keep reading it as a typo for `--context`, which subctl does
+    # not have.
     subctl show networks --contexts "$context" 2>&1
 
     echo "--- submariner-operator pods"

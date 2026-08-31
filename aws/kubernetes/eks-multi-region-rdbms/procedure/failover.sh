@@ -84,10 +84,16 @@ echo "--> Zeebe quorum check"
 echo "    replicationFactor    : ${CAMUNDA_REPLICATION_FACTOR:-$CAMUNDA_REGION_SLOTS}"
 echo "    surviving regions    : $surviving_regions of $CAMUNDA_ACTIVE_REGIONS"
 
-if [ "$surviving_regions" -le $((CAMUNDA_ACTIVE_REGIONS / 2)) ]; then
+# Quorum is a majority of the REPLICAS, and there is one replica per slot,
+# deployed or not. Comparing against the active count instead reads a four-slot
+# cluster running three regions as healthy after losing one: two survivors beat
+# half of three, but two replicas of four is not a majority, and the engine has
+# stopped. Telling an operator otherwise during an incident is the worst moment
+# to be optimistic.
+if [ "$((2 * surviving_regions))" -le "$CAMUNDA_REGION_SLOTS" ]; then
     echo
-    echo "WARNING: with $surviving_regions of $CAMUNDA_ACTIVE_REGIONS regions left, partitions no longer hold a" >&2
-    echo "         majority of their replicas and Zeebe has stopped processing. Recovery" >&2
+    echo "WARNING: with $surviving_regions regions left of $CAMUNDA_REGION_SLOTS replicas, partitions no longer" >&2
+    echo "         hold a majority and Zeebe has stopped processing. Recovery" >&2
     echo "         requires force-removing the lost brokers; re-run with --drain-brokers." >&2
 else
     echo "    Partitions keep a majority of their replicas: Zeebe keeps processing."
