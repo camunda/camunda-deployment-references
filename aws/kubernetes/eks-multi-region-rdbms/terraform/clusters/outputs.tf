@@ -39,37 +39,37 @@ output "zone_names" {
 }
 
 output "cluster_names" {
-  description = "EKS cluster name per region slot"
+  description = "EKS cluster name per active region slot; a slot that is not deployed yet has no key here"
   value       = { for i in local.active_indices : i => "${var.cluster_name}-${var.regions[i].short_name}" }
 }
 
 output "vpc_ids" {
-  description = "VPC ID per region slot"
+  description = "VPC ID per active region slot; a slot that is not deployed yet has no key here"
   value       = { for i, c in local.clusters : i => c.vpc_id }
 }
 
 output "private_subnet_ids" {
-  description = "Private subnet IDs per region slot, used by the database root module"
+  description = "Private subnet IDs per active region slot, used by the database root module"
   value       = { for i, c in local.clusters : i => c.private_subnet_ids }
 }
 
 output "vpc_cidr_blocks" {
-  description = "VPC CIDR block per region slot"
+  description = "VPC CIDR block per active region slot"
   value       = { for i in local.active_indices : i => var.regions[i].vpc_cidr_block }
 }
 
 output "service_cidr_blocks" {
-  description = "Kubernetes service CIDR block per region slot"
+  description = "Kubernetes service CIDR block per active region slot"
   value       = { for i in local.active_indices : i => var.regions[i].service_cidr_block }
 }
 
 output "oidc_provider_arns" {
-  description = "OIDC provider ARN per region slot, used to bind IRSA roles"
+  description = "OIDC provider ARN per active region slot, used to bind IRSA roles"
   value       = { for i, c in local.clusters : i => c.oidc_provider_arn }
 }
 
 output "transit_gateway_ids" {
-  description = "Transit Gateway ID per region slot"
+  description = "Transit Gateway ID per active region slot"
   value       = { for i, h in local.tgw_hubs : i => h.transit_gateway_id }
 }
 

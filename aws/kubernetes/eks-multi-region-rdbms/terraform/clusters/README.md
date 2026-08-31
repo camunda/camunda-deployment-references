@@ -64,20 +64,20 @@
 | <a name="output_active_region_count"></a> [active\_region\_count](#output\_active\_region\_count) | Number of region slots currently deployed |
 | <a name="output_all_cidr_blocks"></a> [all\_cidr\_blocks](#output\_all\_cidr\_blocks) | Every VPC and Kubernetes service CIDR of the active regions, used to build database firewall rules |
 | <a name="output_camunda_rdbms_url"></a> [camunda\_rdbms\_url](#output\_camunda\_rdbms\_url) | JDBC URL for `orchestration.data.secondaryStorage.rdbms.url`.<br/><br/>It uses the AWS Advanced JDBC Wrapper with the `failover` plugin and the<br/>instance host patterns of every Aurora Global member, so that a global<br/>failover is followed transparently and Camunda never has to be<br/>reconfigured. Replace this URL with any single-writer endpoint to run the<br/>same architecture on a different database. |
-| <a name="output_cluster_names"></a> [cluster\_names](#output\_cluster\_names) | EKS cluster name per region slot |
+| <a name="output_cluster_names"></a> [cluster\_names](#output\_cluster\_names) | EKS cluster name per active region slot; a slot that is not deployed yet has no key here |
 | <a name="output_database_cluster_identifiers"></a> [database\_cluster\_identifiers](#output\_database\_cluster\_identifiers) | Aurora cluster identifier per region slot hosting a database member |
 | <a name="output_database_global_cluster_id"></a> [database\_global\_cluster\_id](#output\_database\_global\_cluster\_id) | Identifier of the Aurora Global Database, consumed by the failover and failback procedures |
 | <a name="output_database_name"></a> [database\_name](#output\_database\_name) | Name of the database backing the Camunda secondary storage |
 | <a name="output_database_password"></a> [database\_password](#output\_database\_password) | Master password of the Aurora Global Database |
 | <a name="output_database_username"></a> [database\_username](#output\_database\_username) | Master username of the Aurora Global Database |
 | <a name="output_database_writer_endpoint"></a> [database\_writer\_endpoint](#output\_database\_writer\_endpoint) | Writer endpoint of the current Aurora Global Database primary |
-| <a name="output_oidc_provider_arns"></a> [oidc\_provider\_arns](#output\_oidc\_provider\_arns) | OIDC provider ARN per region slot, used to bind IRSA roles |
-| <a name="output_private_subnet_ids"></a> [private\_subnet\_ids](#output\_private\_subnet\_ids) | Private subnet IDs per region slot, used by the database root module |
+| <a name="output_oidc_provider_arns"></a> [oidc\_provider\_arns](#output\_oidc\_provider\_arns) | OIDC provider ARN per active region slot, used to bind IRSA roles |
+| <a name="output_private_subnet_ids"></a> [private\_subnet\_ids](#output\_private\_subnet\_ids) | Private subnet IDs per active region slot, used by the database root module |
 | <a name="output_region_slot_count"></a> [region\_slot\_count](#output\_region\_slot\_count) | Number of region slots. Feeds `global.multiregion.regions` in the Camunda<br/>Helm values and therefore the Zeebe broker node ID stride. Immutable for<br/>the lifetime of the Camunda cluster. |
 | <a name="output_regions"></a> [regions](#output\_regions) | Region slot definitions of the ACTIVE regions, indexed by slot number |
-| <a name="output_service_cidr_blocks"></a> [service\_cidr\_blocks](#output\_service\_cidr\_blocks) | Kubernetes service CIDR block per region slot |
-| <a name="output_transit_gateway_ids"></a> [transit\_gateway\_ids](#output\_transit\_gateway\_ids) | Transit Gateway ID per region slot |
-| <a name="output_vpc_cidr_blocks"></a> [vpc\_cidr\_blocks](#output\_vpc\_cidr\_blocks) | VPC CIDR block per region slot |
-| <a name="output_vpc_ids"></a> [vpc\_ids](#output\_vpc\_ids) | VPC ID per region slot |
+| <a name="output_service_cidr_blocks"></a> [service\_cidr\_blocks](#output\_service\_cidr\_blocks) | Kubernetes service CIDR block per active region slot |
+| <a name="output_transit_gateway_ids"></a> [transit\_gateway\_ids](#output\_transit\_gateway\_ids) | Transit Gateway ID per active region slot |
+| <a name="output_vpc_cidr_blocks"></a> [vpc\_cidr\_blocks](#output\_vpc\_cidr\_blocks) | VPC CIDR block per active region slot |
+| <a name="output_vpc_ids"></a> [vpc\_ids](#output\_vpc\_ids) | VPC ID per active region slot; a slot that is not deployed yet has no key here |
 | <a name="output_zone_names"></a> [zone\_names](#output\_zone\_names) | Zone name per slot, in slot order, for EVERY slot including ones not<br/>deployed yet.<br/><br/>Deliberately not the same set as the active regions. The Camunda zone list<br/>describes the whole topology so that the replicas of an undeployed zone are<br/>reserved rather than redistributed; feeding it only the active regions<br/>would silently build a smaller cluster and lose the growth property. |
 <!-- END_TF_DOCS -->
