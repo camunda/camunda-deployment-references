@@ -4,12 +4,16 @@ set -euo pipefail
 # Exports the Camunda services of every active cluster to the Submariner
 # ClusterSet, then waits for the resulting ServiceImports to appear.
 #
-# Only the services actually consumed across regions are exported, instead of
-# every service in the namespace:
-#   * <release>-zeebe          headless, carries Raft replication and the
-#                              per-pod DNS records brokers dial each other on
-#   * <release>-zeebe-gateway  gRPC entry point, lets a client in one region
-#                              reach a gateway in another
+# One service, the headless <release>-zeebe: it carries Raft replication and the
+# per-pod DNS records the brokers dial each other on.
+#
+# Headless is what makes this work. Lighthouse resolves a headless export to the
+# remote pod IPs, which the Transit Gateway routes because the VPC CIDRs are
+# peered and distinct. A non-headless export resolves to the remote ClusterIP
+# instead, and nothing routes another cluster's service CIDR: Submariner runs
+# here in service-discovery mode, with no connectivity component and no Globalnet
+# to carry that traffic. Exporting the gateway service would publish a name that
+# resolves to an address no packet can reach.
 #
 # Re-run this after any operation that recreates services, for example after
 # activating a new region.
@@ -25,7 +29,6 @@ read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 
 services=(
     "${CAMUNDA_RELEASE_NAME}-zeebe"
-    "${CAMUNDA_RELEASE_NAME}-zeebe-gateway"
 )
 
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
