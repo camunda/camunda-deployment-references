@@ -118,6 +118,22 @@ resource "aws_rds_cluster" "this" {
       engine_version,
       availability_zones,
     ]
+
+    # The writer needs credentials, a database name and its availability zones;
+    # a secondary inherits all four through replication and AWS rejects them.
+    # The same module serves both roles, so the variables default to null and
+    # nothing but this stops a primary being planned without them. AWS would
+    # otherwise fail the create with a message that names neither the module nor
+    # the missing input.
+    precondition {
+      condition = !var.is_primary || (
+        var.master_username != null &&
+        var.master_password != null &&
+        var.database_name != null &&
+        length(var.availability_zones) > 0
+      )
+      error_message = "is_primary = true requires master_username, master_password, database_name and availability_zones; a secondary member inherits them from the global cluster and must leave them unset."
+    }
   }
 }
 

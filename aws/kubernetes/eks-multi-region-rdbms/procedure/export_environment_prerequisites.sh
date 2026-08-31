@@ -39,7 +39,10 @@ export CLUSTER_CONTEXTS="${CLUSTER_CONTEXTS:-cluster-london cluster-paris cluste
 export SUBMARINER_CLUSTER_IDS="${SUBMARINER_CLUSTER_IDS:-london paris zurich}"
 
 # Slot hosting the Submariner broker. Any cluster can host it; the broker only
-# stores metadata and its loss does not interrupt established tunnels.
+# stores metadata. Losing it stops NEW service exports from propagating, and
+# leaves the records already published in place. There is no data plane to
+# interrupt: Submariner runs here for service discovery only and the Transit
+# Gateway carries the traffic.
 export SUBMARINER_BROKER_SLOT="${SUBMARINER_BROKER_SLOT:-0}"
 
 ###############################################################################
