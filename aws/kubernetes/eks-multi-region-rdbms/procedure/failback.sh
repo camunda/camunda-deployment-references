@@ -152,10 +152,9 @@ else
                 --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
                 --target-db-cluster-identifier "$target_arn"
 
-            target_id="$(basename "$target_arn")"
             aws rds wait db-cluster-available \
                 --region "$recovered_region" \
-                --db-cluster-identifier "$target_id"
+                --db-cluster-identifier "$target_arn"
             echo "    Writer is back in $recovered_region."
         fi
     else

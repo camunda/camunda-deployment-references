@@ -156,11 +156,12 @@ else
             fi
 
             echo "    Waiting for the promoted cluster to become available ..."
-            target_id="$(basename "$target_arn")"
+            # An Aurora cluster ARN has no slashes, so there is no identifier to cut
+            # out of it. `--db-cluster-identifier` takes the ARN as it stands.
             target_region="$(echo "$target_arn" | cut -d: -f4)"
             aws rds wait db-cluster-available \
                 --region "$target_region" \
-                --db-cluster-identifier "$target_id"
+                --db-cluster-identifier "$target_arn"
 
             echo "    Promotion complete."
             echo
