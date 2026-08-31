@@ -3,7 +3,8 @@ set -euo pipefail
 
 # Prints the Zeebe cluster topology and asserts the expected multi-region shape:
 #
-#   * clusterSize brokers are known
+#   * every broker of an active zone is known, which is clusterSize once all
+#     the zones are deployed and fewer while the cluster is still growing
 #   * every zone hosts exactly CAMUNDA_BROKERS_PER_REGION brokers
 #   * partitionCount and replicationFactor match the configuration
 #   * no partition is unhealthy

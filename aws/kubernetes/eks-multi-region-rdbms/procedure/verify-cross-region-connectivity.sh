@@ -32,6 +32,14 @@ PROBE_RETRY_SECONDS="${PROBE_RETRY_SECONDS:-180}"
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 read -r -a cluster_ids <<<"$SUBMARINER_CLUSTER_IDS"
 
+# This runs before the chart is installed, so the namespace it probes in may not
+# exist yet. Created here rather than assumed, so the script stands on its own as
+# a diagnostic; setup-namespaces.sh creates the same thing the same way.
+for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+    kubectl --context "${contexts[$i]}" create namespace "$CAMUNDA_NAMESPACE" \
+        --dry-run=client -o yaml | kubectl --context "${contexts[$i]}" apply -f - >/dev/null
+done
+
 cleanup() {
     for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
         kubectl --context "${contexts[$i]}" -n "$CAMUNDA_NAMESPACE" \
