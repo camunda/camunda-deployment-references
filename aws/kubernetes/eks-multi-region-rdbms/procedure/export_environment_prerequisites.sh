@@ -82,7 +82,9 @@ export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-feat/zoned-mode
 
 # TODO [release-duty]: pin to the released chart version and switch
 # HELM_CHART_REF to https://helm.camunda.io once 8.10 is generally available.
-# renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+# The chart is deliberately parked on the pre-release tag until 8.10 ships, so
+# no released version can match; renovate-inert-ok until the TODO above is done.
+# renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io renovate-inert-ok
 export HELM_CHART_VERSION="${HELM_CHART_VERSION:-15-dev-latest}"
 export HELM_CHART_REF="${HELM_CHART_REF:-oci://registry.camunda.cloud/team-distribution/camunda-platform}"
 
