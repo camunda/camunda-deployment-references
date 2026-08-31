@@ -1,5 +1,5 @@
 variable "name" {
-  description = "Name prefix for the peering attachment, typically <cluster_name>-<owner_short_name>-<accepter_short_name>"
+  description = "Name prefix for the peering attachment, typically `<cluster_name>-<owner_short_name>-<accepter_short_name>`"
   type        = string
 }
 

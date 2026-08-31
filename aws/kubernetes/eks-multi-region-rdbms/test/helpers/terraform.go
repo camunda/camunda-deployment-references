@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -46,9 +47,15 @@ func ReadTerraformOutputs(t *testing.T, terraformDir string) TerraformOutputs {
 	cmd := exec.Command(binary, "-chdir="+terraformDir, "output", "-json")
 	cmd.Env = os.Environ()
 
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	// Terraform says why it failed on stderr: a backend that cannot
+	// authenticate, a held state lock, a workspace that does not exist. Reporting
+	// only the exit status turns every one of those into "exit status 1".
 	raw, err := cmd.Output()
 	if err != nil {
-		t.Fatalf("terraform output failed in %s: %v", terraformDir, err)
+		t.Fatalf("terraform output failed in %s: %v\n%s", terraformDir, err, stderr.String())
 	}
 
 	var outputs map[string]tfValue

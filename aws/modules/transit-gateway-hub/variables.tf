@@ -1,5 +1,5 @@
 variable "name" {
-  description = "Name prefix for the Transit Gateway and its attachment, typically <cluster_name>-<region_short_name>"
+  description = "Name prefix for the Transit Gateway and its attachment, typically `<cluster_name>-<region_short_name>`"
   type        = string
 }
 

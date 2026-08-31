@@ -51,7 +51,7 @@ env:
     # Every region the architecture can create must be swept, including the AWS opt-in
     # regions used by slots 2 and 3. Keep in sync with the `regions` variable default in
     # aws/kubernetes/eks-multi-region-rdbms/terraform/clusters/variables.tf.
-    CLEANUP_REGIONS: eu-west-2 eu-west-3 eu-central-2
+    CLEANUP_REGIONS: eu-west-2 eu-west-3 eu-central-2 eu-south-1
 
     # Regions of the provider aliases the teardown template declares, one per
     # region slot. Terraform reads TF_VAR_* straight from the environment.

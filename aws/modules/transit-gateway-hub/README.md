@@ -15,7 +15,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| <a name="input_name"></a> [name](#input\_name) | Name prefix for the Transit Gateway and its attachment, typically <cluster\_name>-<region\_short\_name> | `string` | n/a | yes |
+| <a name="input_name"></a> [name](#input\_name) | Name prefix for the Transit Gateway and its attachment, typically `<cluster_name>-<region_short_name>` | `string` | n/a | yes |
 | <a name="input_remote_cidr_blocks"></a> [remote\_cidr\_blocks](#input\_remote\_cidr\_blocks) | CIDR blocks of every remote region VPC that must be reachable through the Transit Gateway | `list(string)` | `[]` | no |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | Subnet IDs used for the Transit Gateway VPC attachment. Use one private subnet per availability zone. | `list(string)` | n/a | yes |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC hosting the regional Kubernetes cluster | `string` | n/a | yes |
