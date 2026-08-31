@@ -329,22 +329,27 @@ done | jq -c -s '.')
 raw_clusters=$(jq -c -n --argjson a "$candidates" --argjson b "$orphaned" '$a + $b | unique_by(.id)')
 
 # ── How long each candidate has been stuck ──────────────────────────────────
+# A cluster first seen at or before this instant has outlived the threshold.
+# Keeping the arithmetic here rather than inside jq leaves both queries below a
+# plain timestamp comparison.
+stuck_cutoff=$((CURRENT_TIME - STUCK_THRESHOLD_HOURS * 3600))
+
 state_uri=""
-if [[ -n "$STUCK_STATE_BUCKET" && -n "$STUCK_STATE_KEY" ]]; then
-  if [[ -z "$AWS_S3_REGION" ]]; then
-    echo "⚠️ A stuck-state location is configured but no AWS region is; stuck-cluster tracking is off for this run."
-  else
-    state_uri="s3://${STUCK_STATE_BUCKET}/${STUCK_STATE_KEY}"
-  fi
+if [[ -n "$STUCK_STATE_BUCKET" && -n "$STUCK_STATE_KEY" && -n "$AWS_S3_REGION" ]]; then
+  state_uri="s3://${STUCK_STATE_BUCKET}/${STUCK_STATE_KEY}"
 fi
 
 previous='{}'
 if [[ -n "$state_uri" ]]; then
-  # Streamed to stdout rather than through a temp file, and a missing object is
-  # not an error: the first run has no state to read, and neither does a bucket
-  # whose prefix has just been rotated.
+  # Streamed through stdout rather than a temp file, and a missing object is not
+  # an error: the first run has nothing to read, and neither does a bucket whose
+  # prefix has just been rotated. Anything that is not a JSON object -- empty,
+  # truncated, hand-edited -- is discarded the same way, because the next step
+  # feeds it to --argjson and would abort the cleanup on a parse error.
   previous=$(aws s3 cp "$state_uri" - --region "$AWS_S3_REGION" 2>/dev/null) || previous=''
   jq -e 'type == "object"' >/dev/null 2>&1 <<<"$previous" || previous='{}'
+else
+  echo "ℹ️ No stuck-state location configured; every candidate counts as first seen now."
 fi
 
 # Rebuilt from the clusters seen this run rather than merged into the old map,
@@ -353,30 +358,29 @@ fi
 state=$(jq -c -n --argjson clusters "$raw_clusters" --argjson previous "$previous" --argjson now "$CURRENT_TIME" \
   '[$clusters[] | {key: .id, value: {name: .name, first_seen: ($previous[.id].first_seen // $now)}}] | from_entries')
 
-stuck=$(jq -c --argjson now "$CURRENT_TIME" --argjson limit "$((STUCK_THRESHOLD_HOURS * 3600))" \
-  'with_entries(select($now - .value.first_seen >= $limit))' <<<"$state")
-stuck_names=$(jq -r '[.[].name] | join(", ")' <<<"$stuck")
-
 if [[ -n "$state_uri" ]]; then
   if printf '%s' "$state" | aws s3 cp - "$state_uri" --region "$AWS_S3_REGION" >/dev/null 2>&1; then
     echo "💾 Persisted stuck-cluster state to ${state_uri}"
   else
     # Best effort on purpose: losing the map costs the next run's accuracy, not
-    # this run's correctness. Failing here would trade a late alert for no
-    # cleanup at all.
+    # this run's cleanup. Failing here would trade a late alert for no cleanup.
     echo "⚠️ Could not persist stuck-cluster state to ${state_uri}; stuck ages restart from this run."
   fi
 fi
 
+stuck_names=$(jq -r --argjson cutoff "$stuck_cutoff" \
+  '[.[] | select(.first_seen <= $cutoff) | .name] | join(", ")' <<<"$state")
+
 # Emitted before any deletion, so a cluster that has to be reported still is
 # when a later cluster in the list takes the script down.
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-  echo "stuck_clusters=${stuck_names}" >> "$GITHUB_OUTPUT"
+  echo "stuck_clusters=${stuck_names}" | tee -a "$GITHUB_OUTPUT"
 fi
 
 if [[ -n "$stuck_names" ]]; then
-  echo "🚨 Stuck for ${STUCK_THRESHOLD_HOURS}h or more, so left to OCM and reported rather than retried: ${stuck_names}"
-  raw_clusters=$(jq -c --argjson stuck "$stuck" 'map(select($stuck[.id] == null))' <<<"$raw_clusters")
+  echo "🚨 First seen ${STUCK_THRESHOLD_HOURS}h ago or more, so left to OCM and reported rather than retried: ${stuck_names}"
+  raw_clusters=$(jq -c --argjson state "$state" --argjson cutoff "$stuck_cutoff" \
+    'map(select($state[.id].first_seen > $cutoff))' <<<"$raw_clusters")
 fi
 
 # Check if there are any clusters
