@@ -34,8 +34,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_FILE="${OUTPUT_FILE:-zeebe-topology.json}"
 
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
-# Query through the first active region; any gateway returns the whole topology.
-context="${contexts[0]}"
+# Any gateway returns the whole topology, so the first active region is as good
+# as another, right up until that is the region that went. Override with
+# CAMUNDA_TOPOLOGY_CONTEXT to ask a survivor instead; failover.sh and
+# failback.sh get theirs from `camunda::survivor_context`.
+context="${CAMUNDA_TOPOLOGY_CONTEXT:-${contexts[0]}}"
 
 # A stretched cluster does not converge instantly: brokers dial each other
 # across regions, and the README budgets 10-20 minutes for the Raft cluster to

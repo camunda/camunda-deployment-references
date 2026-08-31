@@ -7,7 +7,9 @@ set -euo pipefail
 #
 # Instructions from https://submariner.io/operations/deployment/subctl/
 
-curl -Ls https://get.submariner.io -o submariner-install.sh
+# -f so an HTTP error fails here instead of saving the error page and running
+# it as a shell script two lines down.
+curl -fLsS https://get.submariner.io -o submariner-install.sh
 cat submariner-install.sh
 
 # renovate: datasource=github-releases depName=submariner-io/subctl
