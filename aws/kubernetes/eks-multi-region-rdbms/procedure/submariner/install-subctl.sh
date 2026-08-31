@@ -22,6 +22,11 @@ VERSION="$SUBCTL_VERSION" bash submariner-install.sh
 export PATH="$PATH:$HOME/.local/bin"
 # shellcheck disable=SC2016 # deliberate: $PATH and $HOME must expand when the
 # profile is read, not when this line is written into it.
-echo 'export PATH="$PATH:$HOME/.local/bin"' >>~/.profile
+profile_line='export PATH="$PATH:$HOME/.local/bin"'
+# Appended once. Re-running this script is normal, and every extra copy makes
+# the profile a little longer and PATH a little more repetitive.
+if ! grep -qxF "$profile_line" "$HOME/.profile" 2>/dev/null; then
+    echo "$profile_line" >>"$HOME/.profile"
+fi
 
 subctl version

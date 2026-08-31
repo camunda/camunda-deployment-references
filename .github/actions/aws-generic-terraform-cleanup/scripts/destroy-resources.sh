@@ -526,6 +526,12 @@ destroy_module() {
   # fail with "Provider configuration not present", leaving a whole regional
   # deployment behind.
   if [[ -n "${TF_CONFIG_TEMPLATE:-}" ]]; then
+    # A bare filename, so the value cannot walk out of $SCRIPT_DIR and hand the
+    # destroy run an arbitrary file as its provider config.
+    if [[ "$TF_CONFIG_TEMPLATE" == */* ]]; then
+      echo "Error: TF_CONFIG_TEMPLATE '$TF_CONFIG_TEMPLATE' must be a filename in $SCRIPT_DIR, not a path"
+      exit 1
+    fi
     if [[ ! -f "$SCRIPT_DIR/$TF_CONFIG_TEMPLATE" ]]; then
       echo "Error: TF_CONFIG_TEMPLATE '$TF_CONFIG_TEMPLATE' not found in $SCRIPT_DIR"
       exit 1
