@@ -164,9 +164,13 @@ jobs:
             # turns one wedged cluster into a permanently red daily job. It gets
             # its own alert, so the failure alert below keeps meaning "something
             # the cleanup could have fixed did not get fixed".
+            #
+            # Byte-identical to the block in the sibling ROSA cleanup workflow:
+            # the suite names itself through github.workflow, so neither copy can
+            # drift into describing the other one.
             - name: Describe ROSA clusters stuck in deletion
               id: stuck_clusters
-              if: always()
+              if: ${{ !cancelled() }}
               env:
                   # The retry step's list wins when it ran, being the later
                   # observation; the first pass's list is the fallback for the
@@ -174,11 +178,12 @@ jobs:
                   STUCK: ${{ steps.retry_delete_clusters.outputs.stuck-rosa-clusters || steps.delete_clusters.outputs.stuck-rosa-clusters }}
                   MENTION: ${{ env.IS_SCHEDULE == 'true' && ' cc @infraex-medic' || '' }}
                   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+                  WORKFLOW: ${{ github.workflow }}
               run: |
                   set -euo pipefail
                   [ -n "$STUCK" ] || exit 0
 
-                  TEXT=":hourglass_flowing_sand: *ROSA HCP dual region* — cluster(s) stuck in deletion for over 24h: \`${STUCK}\`."
+                  TEXT=":hourglass_flowing_sand: *${WORKFLOW}* — cluster(s) stuck in deletion for over 24h: \`${STUCK}\`."
                   TEXT="${TEXT} OCM still owns their teardown, so the cleanup left them alone instead of failing on them; they need a look on the Red Hat console."
                   TEXT="${TEXT} <${RUN_URL}|Cleanup run>${MENTION}"
 
