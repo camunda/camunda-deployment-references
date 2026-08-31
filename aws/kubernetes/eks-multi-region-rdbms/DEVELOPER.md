@@ -115,7 +115,7 @@ kubectl --context cluster-london -n camunda get serviceexports,serviceimports
 Almost always cross-region DNS. In order:
 
 ```bash
-./submariner/verify-submariner.sh          # are the tunnels up?
+./submariner/verify-submariner.sh          # is Lighthouse up and wired into CoreDNS?
 ./submariner/diagnose-submariner.sh        # full dump incl. cross-cluster nslookup
 kubectl --context cluster-london -n camunda logs camunda-zeebe-0 -c wait-clusterset-dns
 ```

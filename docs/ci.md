@@ -90,7 +90,7 @@ A full re-run reprovisions the clusters, so check the cloud quotas first when se
 
 ### A push can lose its run
 
-The cloud workflows declare `concurrency.cancel-in-progress: false`, so a run of the same workflow on the same ref never cancels the one before it. The cost is that a push landing while that group is still busy can produce no run at all: the other workflows appear on the new commit and this one silently does not.
+The long-running workflows, the integration suites and the daily cleanups, declare `concurrency.cancel-in-progress: false` so that a new run never cancels one that is still tearing infrastructure down. The cost is that a push landing while that group is busy can produce no run at all for that workflow: the ones that do cancel in progress, the golden-plan and lint workflows among them, appear on the new commit as usual, and the long-running one silently does not.
 
 Check before assuming the workflow is broken:
 

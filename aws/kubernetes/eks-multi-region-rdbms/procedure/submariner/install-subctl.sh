@@ -15,7 +15,13 @@ SUBCTL_VERSION=0.24.0
 
 VERSION="$SUBCTL_VERSION" bash submariner-install.sh
 
-export PATH=$PATH:~/.local/bin
-echo export PATH=\$PATH:~/.local/bin >>~/.profile
+# `$HOME` rather than `~`: the tilde does expand after a colon in an assignment,
+# but the rule is obscure enough that every reader has to look it up, and in the
+# profile line below `~` would be expanded when the line is WRITTEN, baking this
+# machine's home into a file meant to be read on any.
+export PATH="$PATH:$HOME/.local/bin"
+# shellcheck disable=SC2016 # deliberate: $PATH and $HOME must expand when the
+# profile is read, not when this line is written into it.
+echo 'export PATH="$PATH:$HOME/.local/bin"' >>~/.profile
 
 subctl version

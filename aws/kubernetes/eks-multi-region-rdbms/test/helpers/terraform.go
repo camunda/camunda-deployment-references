@@ -98,6 +98,17 @@ func ReadTerraformOutputs(t *testing.T, terraformDir string) TerraformOutputs {
 	// whole topology so an undeployed zone still has its replicas reserved.
 	decode("zone_names", &result.ZoneNames)
 
+	// A missing key would otherwise append the zero value and let the run
+	// continue, until something far downstream does the equivalent of
+	// `aws eks update-kubeconfig --name ""` and blames the cluster.
+	slotValue := func(m map[string]string, output string, slot int) string {
+		v, ok := m[fmt.Sprint(slot)]
+		if !ok || v == "" {
+			t.Fatalf("terraform output %s has no entry for slot %d", output, slot)
+		}
+		return v
+	}
+
 	for i := 0; i < result.ActiveRegionCount; i++ {
 		key := fmt.Sprint(i)
 		region, ok := regions[key]
@@ -106,9 +117,9 @@ func ReadTerraformOutputs(t *testing.T, terraformDir string) TerraformOutputs {
 		}
 		result.AWSRegions = append(result.AWSRegions, region.Region)
 		result.ShortNames = append(result.ShortNames, region.ShortName)
-		result.ClusterNames = append(result.ClusterNames, clusterNames[key])
-		result.VPCCidrBlocks = append(result.VPCCidrBlocks, vpcCidrs[key])
-		result.ServiceCidrBlocks = append(result.ServiceCidrBlocks, serviceCidrs[key])
+		result.ClusterNames = append(result.ClusterNames, slotValue(clusterNames, "cluster_names", i))
+		result.VPCCidrBlocks = append(result.VPCCidrBlocks, slotValue(vpcCidrs, "vpc_cidr_blocks", i))
+		result.ServiceCidrBlocks = append(result.ServiceCidrBlocks, slotValue(serviceCidrs, "service_cidr_blocks", i))
 	}
 
 	result.RdbmsURL = decodeOptionalString("camunda_rdbms_url")
