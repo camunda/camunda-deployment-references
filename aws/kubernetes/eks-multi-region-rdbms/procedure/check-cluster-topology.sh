@@ -105,6 +105,20 @@ fail() {
 [ "$actual_replication" = "$CAMUNDA_REPLICATION_FACTOR" ] ||
     fail "expected replicationFactor $CAMUNDA_REPLICATION_FACTOR, got $actual_replication"
 
+# Zone attribution reads `brokerId`, which a zone-aware broker reports as the
+# composite `<zone>_<index>`. Its presence proves nothing on its own: from 8.10 a
+# bare cluster populates it too, with just the numeric node ID. So the shape is
+# asserted rather than inferred, and a cluster that is not zone-aware is named as
+# such instead of being reported as a topology with every zone empty.
+bare_ids="$(jq -r '[.brokers[] | select(.brokerId | test("_[0-9]+$") | not) | .brokerId] | join(", ")' \
+    "$OUTPUT_FILE")"
+if [ -n "$bare_ids" ]; then
+    fail "brokers [$bare_ids] report a plain node ID, so this cluster is not zone-aware; this architecture deploys global.multiregion.mode=zoned"
+    echo
+    echo "$failures topology check(s) failed." >&2
+    exit 1
+fi
+
 read -r -a _zone_names <<<"$CAMUNDA_ZONE_NAMES"
 
 echo
