@@ -11,6 +11,11 @@
 # shellcheck shell=bash
 
 MANAGEMENT_LOCAL_PORT="${MANAGEMENT_LOCAL_PORT:-9600}"
+GATEWAY_LOCAL_PORT="${GATEWAY_LOCAL_PORT:-8080}"
+
+# Status of the last camunda::_request, for callers that distinguish "not ready
+# yet" from "wrong". A cold gateway answers 401 before its security layer is up.
+CAMUNDA_LAST_STATUS=""
 
 # camunda::zone_name <slot> -> the zone a region slot belongs to.
 camunda::zone_name() {
@@ -68,58 +73,86 @@ camunda::region_node_ids() {
     echo "${ids[@]}"
 }
 
-# camunda::management <context> <method> <path> [body]
+# camunda::_request <context> <local-port> <remote-port> <auth> <method> <path> [body]
 #
-# Performs a request against the management API of a region's gateway, prints
-# the response body, and returns non-zero on any status outside 2xx.
+# The one place that talks HTTP to a gateway. Prints the response body, sets
+# CAMUNDA_LAST_STATUS to the HTTP status, and returns non-zero outside 2xx.
 #
-# The status is not decoration. A rejected change otherwise reads exactly like an
-# accepted one, and the caller goes on to wait out its whole timeout polling for
+# CAMUNDA_LAST_STATUS is only visible to a caller that does NOT capture the body
+# through `$(...)`: command substitution runs the function in a subshell, and the
+# assignment dies with it. Redirect the body to a file instead:
+#
+#   camunda::gateway_get "$ctx" /v2/topology >"$OUTPUT_FILE" || echo "$CAMUNDA_LAST_STATUS"
+#
+# The tunnel is opened and closed per call on purpose. A long-lived one dies
+# whenever a broker restarts, which is routine while a cluster change is applied
+# and constant right after a region is lost, and every later request through it
+# then fails in a way that reads as "the cluster is gone" rather than "the tunnel
+# is gone".
+#
+# The status is not decoration either. A rejected change otherwise reads exactly
+# like an accepted one, and the caller waits out its whole timeout polling for
 # something the cluster never took:
 #
 #   {"message":"Changing the replication factor is not supported on zone-aware clusters."}
 #     waiting for the cluster change to complete (last status: unknown) ...
-#     waiting for the cluster change to complete (last status: unknown) ...
-camunda::management() {
-    local context="$1"
-    local method="$2"
-    local path="$3"
-    local body="${4:-}"
+camunda::_request() {
+    local context="$1" local_port="$2" remote_port="$3" auth="$4"
+    local method="$5" path="$6" body="${7:-}"
 
     kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
         port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" \
-        "${MANAGEMENT_LOCAL_PORT}:9600" >/dev/null 2>&1 &
+        "${local_port}:${remote_port}" >/dev/null 2>&1 &
     local pid=$!
-    # Give the tunnel time to establish; the port-forward is torn down below
-    # even when curl fails, so a stray process cannot leak.
     sleep 3
 
     local curl_args=(-sS -w '\n%{http_code}' -X "$method")
-    if [ -n "$body" ]; then
-        curl_args+=(-H 'Content-Type: application/json' -d "$body")
-    fi
+    [ -n "$auth" ] && curl_args+=(-u "$auth")
+    [ -n "$body" ] && curl_args+=(-H 'Content-Type: application/json' -d "$body")
 
     local response
-    response="$(curl "${curl_args[@]}" "http://localhost:${MANAGEMENT_LOCAL_PORT}${path}")" || true
+    response="$(curl "${curl_args[@]}" "http://localhost:${local_port}${path}")" || true
 
     kill "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
 
     # `-w` appends the status on its own line, so the body is everything before
     # it. curl reports 000 when it never got an answer at all.
-    local status="${response##*$'\n'}"
+    CAMUNDA_LAST_STATUS="${response##*$'\n'}"
+    CAMUNDA_LAST_STATUS="${CAMUNDA_LAST_STATUS:-000}"
     local payload="${response%$'\n'*}"
 
     echo "$payload"
 
-    case "$status" in
+    case "$CAMUNDA_LAST_STATUS" in
     2*) return 0 ;;
     *)
-        echo "ERROR: $method $path answered HTTP ${status:-000}" >&2
+        echo "ERROR: $method $path answered HTTP $CAMUNDA_LAST_STATUS" >&2
         echo "$payload" >&2
         return 1
         ;;
     esac
+}
+
+# camunda::management <context> <method> <path> [body]
+#
+# Cluster management API, port 9600, no authentication.
+camunda::management() {
+    local context="$1" method="$2" path="$3" body="${4:-}"
+    camunda::_request "$context" "$MANAGEMENT_LOCAL_PORT" 9600 "" \
+        "$method" "$path" "$body"
+}
+
+# camunda::gateway_get <context> <path>
+#
+# Orchestration Cluster REST API, port 8080, basic authentication. Used to read
+# `/v2/topology`, which is the list of brokers that actually registered, as
+# opposed to the membership `/actuator/cluster` reports from the configuration.
+camunda::gateway_get() {
+    local context="$1" path="$2"
+    camunda::_request "$context" "$GATEWAY_LOCAL_PORT" 8080 \
+        "${CAMUNDA_BASIC_AUTH_USER:-demo}:${CAMUNDA_BASIC_AUTH_PASSWORD:-demo}" \
+        GET "$path"
 }
 
 # camunda::wait_for_cluster_change <context> [timeout_seconds]

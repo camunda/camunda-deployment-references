@@ -25,30 +25,29 @@ LOST_SLOT="$1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=SCRIPTDIR/lib-management-api.sh
 . "$SCRIPT_DIR/lib-management-api.sh"
-CAMUNDA_BASIC_AUTH_USER="${CAMUNDA_BASIC_AUTH_USER:-demo}"
-CAMUNDA_BASIC_AUTH_PASSWORD="${CAMUNDA_BASIC_AUTH_PASSWORD:-demo}"
-LOCAL_PORT="${LOCAL_PORT:-8080}"
+OUTPUT_FILE="${OUTPUT_FILE:-degraded-topology.json}"
 
 survivor_context="$(camunda::survivor_context "$LOST_SLOT")"
 
 echo "Verifying the surviving cluster from $survivor_context"
-
-kubectl --context "$survivor_context" -n "$CAMUNDA_NAMESPACE" \
-    port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" "${LOCAL_PORT}:8080" >/dev/null 2>&1 &
-port_forward_pid=$!
-# shellcheck disable=SC2064
-trap "kill $port_forward_pid 2>/dev/null || true" EXIT
-sleep 5
 
 expected_survivors=$((CAMUNDA_BROKERS_PER_REGION * (CAMUNDA_ACTIVE_REGIONS - 1)))
 deadline=$((SECONDS + ${VERIFY_DEGRADED_TIMEOUT_SECONDS:-900}))
 
 echo "--> Waiting for the topology to converge on $expected_survivors surviving broker(s)"
 while true; do
-    topology="$(curl -sS -u "${CAMUNDA_BASIC_AUTH_USER}:${CAMUNDA_BASIC_AUTH_PASSWORD}" \
-        "http://localhost:${LOCAL_PORT}/v2/topology" || echo '{}')"
+    # A tunnel per poll. This runs right after a region was lost, when the
+    # surviving gateways are the most likely to restart, and a tunnel that died
+    # with one of them would otherwise report zero brokers until the deadline:
+    # "the cluster is gone" for what is only "the tunnel is gone".
+    # Redirected rather than captured: `$(...)` would run the helper in a
+    # subshell and CAMUNDA_LAST_STATUS would not survive it.
+    camunda::gateway_get "$survivor_context" /v2/topology >"$OUTPUT_FILE" 2>/dev/null || true
 
-    brokers="$(echo "$topology" | jq '.brokers | length // 0')"
+    # jq exits 0 on an empty file while printing nothing, so `|| echo 0` never
+    # fires and the comparison below would be `[ "" -ge n ]`.
+    brokers="$(jq '.brokers | length // 0' "$OUTPUT_FILE" 2>/dev/null || true)"
+    brokers="${brokers:-0}"
     if [ "$brokers" -ge "$expected_survivors" ]; then
         echo "    $brokers broker(s) reachable."
         break
@@ -56,7 +55,8 @@ while true; do
 
     if [ "$SECONDS" -ge "$deadline" ]; then
         echo "ERROR: only $brokers broker(s) reachable, expected at least $expected_survivors." >&2
-        echo "$topology" >&2
+        echo "       Last status: HTTP $CAMUNDA_LAST_STATUS." >&2
+        cat "$OUTPUT_FILE" >&2 2>/dev/null || true
         exit 1
     fi
 
@@ -65,30 +65,25 @@ while true; do
 done
 
 echo "--> Checking that every partition still has a leader"
-partitions="$(echo "$topology" | jq '.partitionsCount')"
-partitions_with_leader="$(echo "$topology" | jq '
-    [.brokers[].partitions[] | select(.role == "leader") | .partitionId] | unique | length')"
+partitions="$(jq '.partitionsCount' "$OUTPUT_FILE")"
+partitions_with_leader="$(jq '
+    [.brokers[].partitions[] | select(.role == "leader") | .partitionId] | unique | length' "$OUTPUT_FILE")"
 
 if [ "$partitions_with_leader" -lt "$partitions" ]; then
     echo "ERROR: only $partitions_with_leader of $partitions partitions have a leader." >&2
     echo "       The surviving regions did not keep a quorum. Check that" >&2
     echo "       replicationFactor equals the region slot count." >&2
-    echo "$topology" >&2
+    cat "$OUTPUT_FILE" >&2 2>/dev/null || true
     exit 1
 fi
 echo "    all $partitions partitions have a leader."
 
 echo "--> Checking that the gateway still serves the v2 API"
 # A quorum loss shows up to a client as a timeout or a 5xx. Anything the gateway
-# answers itself, including an authorisation error, proves it is serving.
-#
-# `|| true` rather than `|| echo 000`: curl already reports 000 through -w when
-# it cannot connect, so echoing a fallback appends a second one and reports
-# "HTTP 000000".
-response="$(curl -sS -o /dev/null -w '%{http_code}' \
-    -u "${CAMUNDA_BASIC_AUTH_USER}:${CAMUNDA_BASIC_AUTH_PASSWORD}" \
-    "http://localhost:${LOCAL_PORT}/v2/license" 2>/dev/null || true)"
-response="${response:-000}"
+# answers itself, including an authorisation error, proves it is serving, so the
+# status matters here and the body does not.
+camunda::gateway_get "$survivor_context" /v2/license >/dev/null 2>&1 || true
+response="$CAMUNDA_LAST_STATUS"
 
 case "$response" in
 2* | 401 | 403)

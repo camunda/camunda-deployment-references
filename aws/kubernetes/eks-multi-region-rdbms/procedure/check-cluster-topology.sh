@@ -26,40 +26,15 @@ set -euo pipefail
 : "${CAMUNDA_PARTITION_COUNT:?CAMUNDA_PARTITION_COUNT must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_REPLICATION_FACTOR:?CAMUNDA_REPLICATION_FACTOR must be set, source export_environment_prerequisites.sh}"
 
-CAMUNDA_BASIC_AUTH_USER="${CAMUNDA_BASIC_AUTH_USER:-demo}"
-CAMUNDA_BASIC_AUTH_PASSWORD="${CAMUNDA_BASIC_AUTH_PASSWORD:-demo}"
-LOCAL_PORT="${LOCAL_PORT:-8080}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=SCRIPTDIR/lib-management-api.sh
+. "$SCRIPT_DIR/lib-management-api.sh"
+
 OUTPUT_FILE="${OUTPUT_FILE:-zeebe-topology.json}"
 
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 # Query through the first active region; any gateway returns the whole topology.
 context="${contexts[0]}"
-
-# The port-forward has to survive a poll that can run for twenty-five minutes.
-# A single tunnel does not: kubectl drops it when the gateway pod restarts,
-# which a converging cluster does, and every later request then fails to
-# connect. Reported as "gateway unreachable", it looks exactly like a broken
-# deployment. So it is (re)established on demand instead.
-port_forward_pid=""
-
-stop_port_forward() {
-    [ -n "$port_forward_pid" ] || return 0
-    kill "$port_forward_pid" 2>/dev/null || true
-    wait "$port_forward_pid" 2>/dev/null || true
-    port_forward_pid=""
-}
-trap stop_port_forward EXIT
-
-start_port_forward() {
-    stop_port_forward
-
-    kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
-        port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" "${LOCAL_PORT}:8080" >/dev/null 2>&1 &
-    port_forward_pid=$!
-    sleep 5
-}
-
-start_port_forward
 
 # A stretched cluster does not converge instantly: brokers dial each other
 # across regions, and the README budgets 10-20 minutes for the Raft cluster to
@@ -70,20 +45,15 @@ deadline=$((SECONDS + ${TOPOLOGY_TIMEOUT_SECONDS:-1500}))
 
 echo "Waiting for $expected_brokers broker(s) to join the cluster ..."
 while true; do
-    # `|| true` is load-bearing twice over. curl already reports 000 through -w
-    # when it cannot connect, so a fallback `echo` would append a second one and
-    # produce the nonsense "HTTP 000000". But without SOME suppression, `set -e`
-    # kills the script on curl's exit status instead of letting the retry below
-    # re-establish the tunnel -- which is how a restarting gateway turned into
-    # `exit status 52` (empty reply: the port-forward is listening, the pod
-    # behind it is not).
-    http_code="$(curl -sS -u "${CAMUNDA_BASIC_AUTH_USER}:${CAMUNDA_BASIC_AUTH_PASSWORD}" \
-        -o "$OUTPUT_FILE" -w '%{http_code}' \
-        "http://localhost:${LOCAL_PORT}/v2/topology" 2>/dev/null || true)"
-    http_code="${http_code:-000}"
-
-    case "$http_code" in
-    401 | 403)
+    # Each poll opens its own tunnel, so a gateway that restarted between two of
+    # them costs one iteration rather than the rest of the wait.
+    if camunda::gateway_get "$context" /v2/topology >"$OUTPUT_FILE" 2>/dev/null; then
+        current="$(jq '.brokers | length // 0' "$OUTPUT_FILE" 2>/dev/null || echo 0)"
+        if [ "$current" -ge "$expected_brokers" ]; then
+            echo "  $current/$expected_brokers brokers present."
+            break
+        fi
+    elif [ "$CAMUNDA_LAST_STATUS" = "401" ] || [ "$CAMUNDA_LAST_STATUS" = "403" ]; then
         # Retryable, despite looking definitive. The gateway starts answering
         # before the security layer finishes initialising, so it rejects valid
         # credentials for the first minutes of a cold start. Treating this as a
@@ -91,26 +61,15 @@ while true; do
         # dual-region suite carries an equivalent wait for the same reason.
         # A genuine credentials mismatch simply never clears, and is reported
         # against the deadline below.
-        current="auth not ready (HTTP $http_code)"
-        ;;
-    2*)
-        current="$(jq '.brokers | length // 0' "$OUTPUT_FILE" 2>/dev/null || echo 0)"
-        if [ "$current" -ge "$expected_brokers" ]; then
-            echo "  $current/$expected_brokers brokers present."
-            break
-        fi
-        ;;
-    *)
-        # Anything that is not an HTTP answer is the tunnel, not the cluster.
-        current="gateway unreachable (HTTP $http_code), re-establishing the port-forward"
-        start_port_forward
-        ;;
-    esac
+        current="auth not ready (HTTP $CAMUNDA_LAST_STATUS)"
+    else
+        current="gateway unreachable (HTTP $CAMUNDA_LAST_STATUS)"
+    fi
 
     if [ "$SECONDS" -ge "$deadline" ]; then
         echo "ERROR: the cluster did not converge within ${TOPOLOGY_TIMEOUT_SECONDS:-1500}s." >&2
         echo "       Last observation: $current, expected $expected_brokers." >&2
-        case "$http_code" in
+        case "$CAMUNDA_LAST_STATUS" in
         401 | 403)
             echo "       The gateway never accepted the credentials, so this is a" >&2
             echo "       configuration problem rather than a slow start:" >&2
@@ -129,7 +88,6 @@ done
 echo "Topology written to $OUTPUT_FILE"
 jq . "$OUTPUT_FILE"
 
-expected_brokers=$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_ACTIVE_REGIONS))
 actual_brokers="$(jq '.brokers | length' "$OUTPUT_FILE")"
 actual_partitions="$(jq '.partitionsCount' "$OUTPUT_FILE")"
 actual_replication="$(jq '.replicationFactor' "$OUTPUT_FILE")"
