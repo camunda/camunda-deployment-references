@@ -130,7 +130,9 @@ resource "aws_rds_cluster" "this" {
         var.master_username != null &&
         var.master_password != null &&
         var.database_name != null &&
-        length(var.availability_zones) > 0
+        # Null-checked before `length`, which errors on null and would replace
+        # the message below with "Invalid function argument".
+        var.availability_zones != null && length(var.availability_zones) > 0
       )
       error_message = "is_primary = true requires master_username, master_password, database_name and availability_zones; a secondary member inherits them from the global cluster and must leave them unset."
     }
