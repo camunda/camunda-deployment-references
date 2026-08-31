@@ -50,6 +50,45 @@ camunda::survivor_context() {
     return 1
 }
 
+# camunda::use_surviving_region <excluded-slot>
+#
+# Points the AWS CLI at a region that is still up, when nothing else has.
+#
+# The RDS calls in failover.sh and failback.sh carry no `--region`, so they take
+# the CLI default. During a regional outage that default is the worst possible
+# choice if it happens to be the region that just went: the control-plane calls
+# meant to recover from the outage fail because of it. An explicit setting is
+# left alone, and only pointed out.
+camunda::use_surviving_region() {
+    local excluded="$1"
+    local regions
+    read -r -a regions <<<"${AWS_REGIONS:?AWS_REGIONS must be set, source export_environment_prerequisites.sh}"
+
+    local lost="${regions[$excluded]:-}"
+
+    if [ -n "${AWS_REGION:-}" ] || [ -n "${AWS_DEFAULT_REGION:-}" ]; then
+        local current="${AWS_REGION:-$AWS_DEFAULT_REGION}"
+        if [ -n "$lost" ] && [ "$current" = "$lost" ]; then
+            echo "WARNING: the AWS CLI is pointed at $current, the region being failed over." >&2
+            echo "         Its control plane may be exactly what is unavailable. Export" >&2
+            echo "         AWS_REGION to a surviving region if these calls hang or fail." >&2
+        fi
+        return 0
+    fi
+
+    local i
+    for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+        if [ "$i" -ne "$excluded" ]; then
+            export AWS_REGION="${regions[$i]}"
+            echo "    AWS CLI region: $AWS_REGION (surviving slot $i; neither AWS_REGION nor AWS_DEFAULT_REGION was set)"
+            return 0
+        fi
+    done
+
+    echo "ERROR: no surviving region left to drive the AWS CLI from." >&2
+    return 1
+}
+
 # camunda::region_node_ids <slot> -> space-separated broker IDs of a slot.
 #
 # Zone-aware brokers are addressed by the composite ID `<zone>_<index>`, where

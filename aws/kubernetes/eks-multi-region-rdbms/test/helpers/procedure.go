@@ -15,16 +15,27 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 )
 
 // ProcedureDir returns the absolute path of the procedure directory.
+//
+// Resolved from this source file rather than from the working directory, which
+// differs between the root test package and this one: `../procedure` is right
+// for the first and points at a directory that does not exist for the second.
 func ProcedureDir(t *testing.T) string {
 	t.Helper()
 
-	dir, err := filepath.Abs(filepath.Join("..", "procedure"))
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot resolve the procedure directory: no caller information")
+	}
+
+	// <arch>/test/helpers/procedure.go -> <arch>/procedure
+	dir, err := filepath.Abs(filepath.Join(filepath.Dir(thisFile), "..", "..", "procedure"))
 	if err != nil {
 		t.Fatalf("cannot resolve the procedure directory: %v", err)
 	}
