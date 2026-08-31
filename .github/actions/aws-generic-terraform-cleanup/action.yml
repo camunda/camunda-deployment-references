@@ -50,6 +50,15 @@ inputs:
         description: Specify whether to delete ghost rosa clusters (true or false)
         default: 'false'
 
+outputs:
+    stuck-rosa-clusters:
+        description: >-
+            Comma-separated names of the ROSA clusters this run stopped trying to delete because they
+            have been on the cleanup's candidate list for longer than the threshold (24h by default).
+            OCM still owns their teardown, so they are reported rather than failing the cleanup.
+            Empty when nothing is stuck.
+        value: ${{ steps.delete_resources.outputs.stuck_clusters }}
+
 runs:
     using: composite
     steps:
@@ -109,6 +118,14 @@ runs:
               INPUTS_TF_BUCKET: ${{ inputs.tf-bucket }}
               INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
               INPUTS_TF_BUCKET_REGION: ${{ inputs.tf-bucket-region }}
+              # Where cleanup-ghost-rosa-clusters.sh records when it first saw each
+              # candidate. OCM exposes no deletion-start timestamp, so without a
+              # store that outlives the run there is no way to tell a cluster Red Hat
+              # is still working through from one it has given up on. It rides in the
+              # terraform state bucket the cleanup already reads and writes; the key
+              # has no `/tfstate-<id>/` segment, so the destroy pass skips over it.
+              STUCK_STATE_BUCKET: ${{ inputs.tf-bucket }}
+              STUCK_STATE_KEY: ${{ inputs.tf-bucket-key-prefix }}ghost-rosa-cluster-deletion-state.json
           run: |
               set -euo pipefail
 
