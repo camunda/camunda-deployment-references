@@ -96,6 +96,30 @@ variable "regions" {
     error_message = "Every VPC and Kubernetes service CIDR block must be distinct across all region slots, service blocks included: Submariner runs without Globalnet and Transit Gateway cannot route duplicate prefixes."
   }
 
+  # Distinct is not enough: 10.0.0.0/16 and 10.0.128.0/17 are different strings
+  # that describe overlapping address space, which routes just as badly and fails
+  # later and less legibly, somewhere inside Submariner.
+  #
+  # Terraform has no overlap function. Two prefixes overlap exactly when they
+  # have the same network address once both are masked to the shorter of the two
+  # prefix lengths, and `cidrhost(addr/p, 0)` is that masking. Pairs where both
+  # sides are the same string are skipped; the validation above already rejects
+  # those, and here they would report every block as overlapping itself.
+  validation {
+    condition = alltrue([
+      for pair in setproduct(
+        concat([for r in var.regions : r.vpc_cidr_block], [for r in var.regions : r.service_cidr_block]),
+        concat([for r in var.regions : r.vpc_cidr_block], [for r in var.regions : r.service_cidr_block]),
+      ) :
+      pair[0] == pair[1] || (
+        cidrhost("${split("/", pair[0])[0]}/${min(tonumber(split("/", pair[0])[1]), tonumber(split("/", pair[1])[1]))}", 0)
+        !=
+        cidrhost("${split("/", pair[1])[0]}/${min(tonumber(split("/", pair[0])[1]), tonumber(split("/", pair[1])[1]))}", 0)
+      )
+    ])
+    error_message = "No VPC or Kubernetes service CIDR block may overlap another, across all region slots and across both kinds: Submariner runs without Globalnet and cannot disambiguate overlapping address space."
+  }
+
 }
 
 variable "active_region_count" {

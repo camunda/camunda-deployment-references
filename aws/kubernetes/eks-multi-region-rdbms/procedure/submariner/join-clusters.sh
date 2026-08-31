@@ -47,6 +47,12 @@ join_slot() {
 
     # --label-gateway=false because there is no gateway to schedule: the
     # connectivity component is not installed.
+    #
+    # The broker certificate is verified. Turning that off is what makes joining
+    # the wrong endpoint, or one in the middle, succeed quietly, and the join is
+    # how a cluster learns where to send its service discovery. Left as an escape
+    # hatch for a broker behind a certificate the joining cluster cannot chain to,
+    # which is a thing to fix rather than to carry.
     subctl join "$BROKER_INFO" \
         --context "${contexts[$slot]}" \
         --clusterid "${cluster_ids[$slot]}" \
@@ -54,7 +60,7 @@ join_slot() {
         --servicecidr "${service_cidrs[$slot]}" \
         --globalnet=false \
         --label-gateway=false \
-        --check-broker-certificate=false
+        --check-broker-certificate="${SUBMARINER_CHECK_BROKER_CERTIFICATE:-true}"
 }
 
 if [ $# -ge 1 ]; then
