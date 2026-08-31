@@ -34,36 +34,10 @@ Run all checks and report results as PASS/FAIL/WARN.
 ### 1. ECS Service Status
 
 ```bash
-# Region 0 orchestration (expect 4 running)
-aws ecs describe-services \
-  --cluster <cluster_name>-r0-cluster \
-  --services <cluster_name>-r0-oc-service \
-  --region <region_0> [--profile <profile>] \
-  --query 'services[0].runningCount'
-
-# Region 1 orchestration (expect 4 running)
-aws ecs describe-services \
-  --cluster <cluster_name>-r1-cluster \
-  --services <cluster_name>-r1-oc-service \
-  --region <region_1> [--profile <profile>] \
-  --query 'services[0].runningCount'
-
-# Region 0 connectors (expect 1 running)
-aws ecs describe-services \
-  --cluster <cluster_name>-r0-cluster \
-  --services <cluster_name>-r0-oc-connectors-service \
-  --region <region_0> [--profile <profile>] \
-  --query 'services[0].runningCount'
-
-# Region 1 connectors (expect 1 running)
-aws ecs describe-services \
-  --cluster <cluster_name>-r1-cluster \
-  --services <cluster_name>-r1-oc-connectors-service \
-  --region <region_1> [--profile <profile>] \
-  --query 'services[0].runningCount'
+../procedure/ecs_service_counts.sh <cluster_name> <region_0> <region_1> [<aws_profile>]
 ```
 
-PASS: 4+4 orchestration, 1+1 connectors running.
+PASS: the script exits 0 — 4+4 orchestration, 1+1 connectors running.
 
 ### 2. Zeebe Topology
 

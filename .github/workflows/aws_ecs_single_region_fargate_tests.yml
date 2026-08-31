@@ -348,7 +348,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup ECS cluster
-        if: always()
+        if: always() && needs.clusters-info.result != 'skipped'
         runs-on: ubuntu-latest
         needs:
             - clusters-info

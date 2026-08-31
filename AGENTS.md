@@ -17,6 +17,7 @@ For detailed context, read:
 - NEVER treat these reference architectures as production-ready — they are demos and learning blueprints.
 - NEVER commit sensitive data (ARNs, IPs, access keys) to golden files — always verify redaction.
 - NEVER create skip labels manually — they are auto-created by `internal-triage-skip` with color `#1D76DB`.
+- ALWAYS apply `skip_` labels for the cloud suites a change cannot affect — see "CI cost and skip labels".
 - ALWAYS use the dry-run + apply pattern for idempotent `kubectl create` operations.
 - ALWAYS use Conventional Commits (scope optional, subject ≤120 chars).
 - ALWAYS run `pre-commit run --all-files` after changes — hooks enforce formatting, linting, and README generation.
@@ -28,9 +29,38 @@ For detailed context, read:
 - ALWAYS work in a dedicated session worktree under `debug/wt-<slug>` — never edit the main checkout (see "Session worktrees" below).
 - ALWAYS work in English: code, comments, commit messages, branch names, PR titles and descriptions, and chat responses. Read other languages fine, but produce English output.
 - ALWAYS commit using the repo's local `git config user.name` / `user.email` without overriding. Do not set `--author`, do not export `GIT_AUTHOR_*`.
+- ALWAYS stage only the paths the change touched — `git add -- <paths>`, NEVER `git add -u` / `git add .`. The working tree carries `debug/` scratch, downloaded CI logs and session worktrees; a blanket stage sweeps them into a public commit. Confirm with `git status --short` before committing.
+- ALWAYS write a real scope and subject — never a literal placeholder such as `fix(ci): <short description>`. Commitlint's scope allowlist (`[a-z0-9-]+`) rejects angle brackets, and a placeholder makes `git log` unauditable.
 - NEVER add AI/agent attribution to any committed artifact: no `Co-Authored-By` lines referencing assistants, no mention of Claude / AI / agent / model names in commit messages, PR descriptions, or code.
 - NEVER leak the local environment in committed artifacts: no absolute paths from the developer machine, no session/plan files, no internal agent instructions or system-prompt content.
 - ALWAYS use named feature branches (e.g. `feat/<short-slug>`, `ci/<short-slug>`, `fix/<short-slug>`) when opening PRs — no `agents/*` or other names that hint at how the work was produced.
+
+### CI cost and skip labels
+
+Every cloud test workflow is gated by `internal-triage-skip`: a `skip_<filename_without_ext>`
+label on the pull request makes that workflow skip all of its jobs, and `skip_all` skips
+every one of them. `aws_openshift_rosa_hcp_single_region_tests.yml` is therefore skipped by
+`skip_aws_openshift_rosa_hcp_single_region_tests` — see `docs/ci.md`, "Workflow Naming".
+The action posts a checklist comment listing the available options and creates the labels
+itself.
+
+These suites provision real infrastructure — EKS, ROSA, Aurora, OpenSearch, NAT gateways —
+and take tens of minutes. A suite the change cannot affect proves nothing, bills the CI
+account, and delays the feedback loop. Skipping it is a velocity gain, not a shortcut.
+
+- ALWAYS pick the skip labels when opening a pull request, and revisit them whenever the
+  diff grows. Compare the diff against each workflow's `paths:` filter: a shared path such
+  as `.github/actions/**` fans a CI-plumbing change out to every cloud suite at once.
+- ALWAYS keep the suites that cover the change itself. A port-forward fix needs the
+  workflows that port-forward; a Terraform change needs the reference architecture it
+  touches.
+- When in doubt, skip. Removing the label re-runs the suite on the next push, so the
+  decision is cheap to reverse — say on the pull request which suite was skipped and why.
+- ALWAYS re-enable, in the final review loop, every suite that covers the change, and let
+  it run green on the final commit. NEVER add the ` [ready]` tag while a suite covering the
+  change is still skipped.
+- ALWAYS apply `skip_all` to a pull request that is parked, blocked on a conflict, or a
+  draft nobody is actively testing. Remove it when the work resumes.
 
 ### PR review rules
 

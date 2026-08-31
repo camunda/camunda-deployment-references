@@ -48,39 +48,14 @@ Use `run_in_background: true` on the Bash tool call. You will be notified when i
 
    App reads infra outputs via `terraform_remote_state` (default path: `../infra/terraform.tfstate`).
 
-3. **Monitor orchestration cluster services:**
+3. **Monitor the ECS services:**
 ```bash
-aws ecs describe-services \
-  --cluster <cluster_name>-r0-cluster \
-  --services <cluster_name>-r0-oc-service \
-  --region <region_0> [--profile <profile>] \
-  --query 'services[0].{desired:desiredCount,running:runningCount,pending:pendingCount}'
-
-aws ecs describe-services \
-  --cluster <cluster_name>-r1-cluster \
-  --services <cluster_name>-r1-oc-service \
-  --region <region_1> [--profile <profile>] \
-  --query 'services[0].{desired:desiredCount,running:runningCount,pending:pendingCount}'
+../procedure/ecs_service_counts.sh <cluster_name> <region_0> <region_1> [<aws_profile>]
 ```
-Wait until `running` equals `desired` (4) in both regions.
+Poll until it exits 0 — every service reports `running == desired` (4 orchestration
+per region, 1 connectors per region).
 
-4. **Monitor connectors services:**
-```bash
-aws ecs describe-services \
-  --cluster <cluster_name>-r0-cluster \
-  --services <cluster_name>-r0-oc-connectors-service \
-  --region <region_0> [--profile <profile>] \
-  --query 'services[0].{desired:desiredCount,running:runningCount,pending:pendingCount}'
-
-aws ecs describe-services \
-  --cluster <cluster_name>-r1-cluster \
-  --services <cluster_name>-r1-oc-connectors-service \
-  --region <region_1> [--profile <profile>] \
-  --query 'services[0].{desired:desiredCount,running:runningCount,pending:pendingCount}'
-```
-Wait until `running` equals `desired` (1) in both regions.
-
-5. **Wait for Raft quorum (~20 minutes):**
+4. **Wait for Raft quorum (~20 minutes):**
 
 Get the ALB endpoint from the app state (it re-exports infra outputs):
 ```bash
@@ -93,7 +68,7 @@ curl -s "http://${ALB_R0}/v2/topology" | jq '.brokers | length'
 ```
 Wait until this returns `8` (all brokers registered).
 
-6. **Verify partition leaders:**
+5. **Verify partition leaders:**
 ```bash
 curl -s "http://${ALB_R0}/v2/topology" | jq '[.brokers[].partitions[] | select(.role == "LEADER")] | length'
 ```
