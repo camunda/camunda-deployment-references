@@ -125,7 +125,7 @@ if [[ "${1:-}" == "selftest" ]]; then
 fi
 
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <workflow_file_name> | selftest" >&2
+    echo "Usage: $0 <workflow_file_name_without_extension> | selftest" >&2
     exit 1
 fi
 

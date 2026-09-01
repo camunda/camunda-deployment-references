@@ -15,7 +15,7 @@ set -euo pipefail
 #   CAMUNDA_HELM_CHART_GIT_URL       source repo URL
 #   CAMUNDA_HELM_CHART_GIT_REF       branch or tag to build (passed to git clone --branch)
 #   CAMUNDA_HELM_CHART_CHECKOUT_DIR  clone location; must be an absolute path
-#   CAMUNDA_HELM_CHART_CLONE_ATTEMPTS how many times to try the clone (default 3)
+#   CAMUNDA_HELM_CHART_CLONE_ATTEMPTS how many times to try the clone; positive integer, default 3
 
 # Fail fast with a clear message if a required tool is missing.
 for _tool in git helm; do
@@ -55,6 +55,16 @@ _chart_checkout_dir="${CAMUNDA_HELM_CHART_CHECKOUT_DIR:-$_default_checkout_dir}"
 # we only ever delete a checkout this script created. '--' below also keeps a value
 # starting with '-' from being read as a flag.
 _clone_marker=".built-by-build-camunda-chart"
+
+# Validated here rather than at first use: the attempt count is only read once
+# the clone is already failing, and a value bash cannot evaluate arithmetically
+# ('3x', 'a b') makes the `-ge` test error out and count as false -- so the retry
+# loop below would sleep and retry without ever reaching its limit.
+_clone_attempts="${CAMUNDA_HELM_CHART_CLONE_ATTEMPTS:-3}"
+if [[ ! "$_clone_attempts" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: CAMUNDA_HELM_CHART_CLONE_ATTEMPTS must be a positive integer, got: '$_clone_attempts'" >&2
+    exit 1
+fi
 if [[ "$_chart_checkout_dir" != /* ]]; then
     echo "ERROR: CAMUNDA_HELM_CHART_CHECKOUT_DIR must be an absolute path, got: '$_chart_checkout_dir'" >&2
     exit 1
@@ -98,7 +108,6 @@ rm -rf -- "$_chart_checkout_dir"
 # On a machine with a credential helper it would instead sit waiting for one, so
 # the prompt is disabled and the failure is retried a few times. Four separate CI
 # runs failed here on a tag that was public and present the whole time.
-_clone_attempts="${CAMUNDA_HELM_CHART_CLONE_ATTEMPTS:-3}"
 _clone_attempt=1
 while true; do
     if GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$_chart_git_ref" \
