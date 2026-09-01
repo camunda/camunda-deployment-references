@@ -156,6 +156,22 @@ repos:
             files: ^\.lint/cleanup-coverage/.*\.py$
             pass_filenames: false
 
+          - id: reporter-coverage
+            name: The CI events reporter watches every integration suite
+            entry: .lint/reporter-coverage/check-reporter-coverage.py
+            language: script
+            # yamllint disable-line rule:line-length
+            files: ^\.github/workflows/.*\.ya?ml$|^\.lint/reporter-coverage/
+            pass_filenames: false
+
+          - id: python-unittest-reporter-coverage
+            name: Python unit tests (reporter coverage)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/reporter-coverage -p 'test_*.py'
+            language: system
+            files: ^\.lint/reporter-coverage/.*\.py$
+            pass_filenames: false
+
           - id: matrix-skip-guard
             name: Forced jobs do not read a skipped job's matrix
             entry: .lint/matrix-skip-guard/check-matrix-skip-guard.py
