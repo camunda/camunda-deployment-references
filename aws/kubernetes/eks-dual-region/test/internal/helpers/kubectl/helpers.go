@@ -553,8 +553,11 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket,
 // `["none"]` excludes every feature state regardless of include_global_state.
 const snapshotPayload = `{"include_global_state":true,"feature_states":["none"]}`
 
-// securityIndex is the system index that must never appear in the snapshot or the restore.
-const securityIndex = ".security-7"
+// securityIndexPrefix matches the system indices of the `security` feature state
+// (`.security-7`, `.security-profile-8`, ...). None of them may appear in the snapshot
+// or the restore. Matching the prefix rather than one exact name keeps the guard working
+// across Elasticsearch versions that rename the index.
+const securityIndexPrefix = ".security"
 
 func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Creating Elasticsearch backup for cluster %s", cluster.ClusterName)
@@ -571,7 +574,7 @@ func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName strin
 	}
 
 	require.Contains(t, output, "\"failed\":0")
-	require.NotContains(t, output, securityIndex, "[ELASTICSEARCH BACKUP] the snapshot captured %s; restoring it would overwrite the secondary's elastic credential", securityIndex)
+	require.NotContains(t, output, securityIndexPrefix, "[ELASTICSEARCH BACKUP] the snapshot captured a %s* index; restoring it would overwrite the secondary's elastic credential", securityIndexPrefix)
 	t.Logf("[ELASTICSEARCH BACKUP] Created backup: %s", output)
 }
 
@@ -628,7 +631,7 @@ func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName stri
 	}
 
 	require.Contains(t, output, "\"failed\":0")
-	require.NotContains(t, output, securityIndex, "[ELASTICSEARCH BACKUP] the restore touched %s, overwriting this cluster's elastic credential", securityIndex)
+	require.NotContains(t, output, securityIndexPrefix, "[ELASTICSEARCH BACKUP] the restore touched a %s* index, overwriting this cluster's elastic credential", securityIndexPrefix)
 	t.Logf("[ELASTICSEARCH BACKUP] Restored backup: %s", output)
 
 }
