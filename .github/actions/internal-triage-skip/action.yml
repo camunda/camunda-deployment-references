@@ -248,7 +248,7 @@ runs:
         - name: Get the current workflow filename and check for skip labels
           id: check_labels
           shell: bash
-          run: |  # zizmor: ignore[github-env]
+          run: |
               set -euo pipefail
 
               if [[ "${{ github.event_name }}" != "pull_request" ]]; then
@@ -258,13 +258,19 @@ runs:
 
               workflow_file_name=$(echo "${GITHUB_WORKFLOW_REF}" | sed 's/@.*//')
               workflow_file_name=$(basename "$workflow_file_name" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
-              echo "workflow_file_name=$workflow_file_name" | tee -a "$GITHUB_ENV"
 
               labels=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
-              workflow_labels="skip_$workflow_file_name"
 
-              if echo "$labels" | grep -qE "$workflow_labels|testing-ci-not-necessary"; then
-                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
-              else
-                echo "workflow_should_skip=false" | tee -a "$GITHUB_OUTPUT"
-              fi
+              # The decision itself lives in a script so a pre-commit hook can
+              # run it. It used to be a `grep -qE` here that matched substrings,
+              # so a label naming one workflow silently skipped another whose
+              # name is a prefix of it.
+              #
+              # SKIP_CHECKLIST is deliberately not passed: this branch has never
+              # read the checklist comment it posts, and wiring that up is a
+              # behaviour change rather than a fix. The boxes stay decorative
+              # here, exactly as before.
+              should_skip=$(SKIP_LABELS="$labels" \
+                bash "${{ github.action_path }}/scripts/skip-decision.sh" "$workflow_file_name")
+
+              echo "workflow_should_skip=$should_skip" | tee -a "$GITHUB_OUTPUT"
