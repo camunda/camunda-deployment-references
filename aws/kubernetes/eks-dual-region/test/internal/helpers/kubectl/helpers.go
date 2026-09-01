@@ -542,6 +542,20 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket,
 	t.Logf("[ELASTICSEARCH] Success: %s", output)
 }
 
+// snapshotPayload is the request body shared by the snapshot and the restore calls.
+//
+// The global state carries the index templates, ILM policies and ingest pipelines the
+// restored Camunda indices depend on, so it stays included. Feature states must not be:
+// they pull in the `security` feature, whose `.security-7` index holds the `elastic`
+// credential. Restoring the primary's copy into the secondary overwrites the secondary's
+// own credential, every Zeebe broker instantly loses Elasticsearch authentication
+// (`unable to authenticate user [elastic]`), and the exporter can never be enabled.
+// `["none"]` excludes every feature state regardless of include_global_state.
+const snapshotPayload = `{"include_global_state":true,"feature_states":["none"]}`
+
+// securityIndex is the system index that must never appear in the snapshot or the restore.
+const securityIndex = ".security-7"
+
 func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Creating Elasticsearch backup for cluster %s", cluster.ClusterName)
 
@@ -550,13 +564,14 @@ func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName strin
 	// Delete any pre-existing snapshot with the same name to avoid snapshot_name_already_in_use_exception
 	k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "DELETE", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s", backupName))
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", snapshotPayload)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
 	}
 
 	require.Contains(t, output, "\"failed\":0")
+	require.NotContains(t, output, securityIndex, "[ELASTICSEARCH BACKUP] the snapshot captured %s; restoring it would overwrite the secondary's elastic credential", securityIndex)
 	t.Logf("[ELASTICSEARCH BACKUP] Created backup: %s", output)
 }
 
@@ -606,13 +621,14 @@ func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName stri
 
 	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", snapshotPayload)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
 	}
 
 	require.Contains(t, output, "\"failed\":0")
+	require.NotContains(t, output, securityIndex, "[ELASTICSEARCH BACKUP] the restore touched %s, overwriting this cluster's elastic credential", securityIndex)
 	t.Logf("[ELASTICSEARCH BACKUP] Restored backup: %s", output)
 
 }
