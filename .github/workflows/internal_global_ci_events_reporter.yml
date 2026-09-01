@@ -106,6 +106,7 @@ jobs:
                   REPO: ${{ github.repository }}
                   RUN_ID: ${{ github.event.workflow_run.id }}
                   RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+                  DISPLAY_TITLE: ${{ github.event.workflow_run.display_title }}
               run: |
                   set -uo pipefail
                   # Attempt-scoped: the run-level endpoint reports the latest
@@ -114,13 +115,24 @@ jobs:
                   # "unknown" must not be read as zero and raise a false alarm.
                   count=$(gh api "/repos/${REPO}/actions/runs/${RUN_ID}/attempts/${RUN_ATTEMPT}/jobs" \
                       --jq '.total_count' 2>/dev/null || echo "unknown")
+                  # The finished title is emitted here rather than a prefix the
+                  # caller concatenates: a separator split across two places is
+                  # how you end up with "never started:My Workflow", and a
+                  # trailing space in a key=value output is too fragile to rely
+                  # on. A delimiter block, since a display title is free text.
                   if [ "${count}" = "0" ]; then
                       echo "category=ci-never-started" | tee -a "$GITHUB_OUTPUT"
-                      echo "prefix=never started (0 jobs dispatched):" | tee -a "$GITHUB_OUTPUT"
+                      title="never started (0 jobs dispatched): ${DISPLAY_TITLE}"
                   else
                       echo "category=ci-failure" | tee -a "$GITHUB_OUTPUT"
-                      echo "prefix=" | tee -a "$GITHUB_OUTPUT"
+                      title="${DISPLAY_TITLE}"
                   fi
+                  {
+                    echo "title<<TITLE_EOF"
+                    printf '%s\n' "${title}"
+                    echo "TITLE_EOF"
+                  } >> "$GITHUB_OUTPUT"
+                  echo "[debug] title: ${title}"
                   echo "[debug] dispatched jobs: ${count}"
                   if [ "${count}" = "unknown" ]; then
                       # Say so rather than let the guard lapse into silence: a
@@ -141,7 +153,7 @@ jobs:
                   # proves nothing and says nothing, on any branch.
                   severity: ${{ (steps.dispatched.outputs.category == 'ci-never-started' || startsWith(github.event.workflow_run.head_branch, 'stable/'))
                       && 'critical' || 'warning' }}
-                  title: ${{ steps.dispatched.outputs.prefix }}${{ github.event.workflow_run.display_title }}
+                  title: ${{ steps.dispatched.outputs.title }}
                   branch: ${{ github.event.workflow_run.head_branch }}
                   workflow-name: ${{ github.event.workflow_run.name }}
                   run-id: ${{ github.event.workflow_run.id }}
