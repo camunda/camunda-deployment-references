@@ -352,7 +352,7 @@ runs:
           shell: bash
           env:
               GH_TOKEN: ${{ github.token }}
-          run: |  # zizmor: ignore[github-env]
+          run: |
               set -euo pipefail
 
               if [[ "${{ github.event_name }}" != "pull_request" ]]; then
@@ -362,45 +362,34 @@ runs:
 
               workflow_file_name=$(echo "${GITHUB_WORKFLOW_REF}" | sed 's/@.*//')
               workflow_file_name=$(basename "$workflow_file_name" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
-              echo "workflow_file_name=$workflow_file_name" | tee -a "$GITHUB_ENV"
 
-              # Fetch fresh labels from GitHub API using gh CLI
               pr_number="${{ github.event.pull_request.number }}"
               repo="${{ github.repository }}"
+              checklist_marker="<!-- skip-workflow-checklist -->"
 
-              echo "[debug] Fetching fresh labels for PR #$pr_number in $repo"
-              labels=$(gh pr view "$pr_number" --repo "$repo" --json labels --jq '.labels[].name')
+              # Labels and the checklist comment in a single call. Fetching both
+              # up front costs no more than the label-only path did when a label
+              # matched, and one request less when it did not -- which is worth
+              # having, because every workflow on the pull request makes this
+              # call at the same moment.
+              echo "[debug] Fetching labels and checklist for PR #$pr_number in $repo"
+              pr_json=$(gh pr view "$pr_number" --repo "$repo" --json labels,comments)
+
+              labels=$(jq -r '.labels[].name' <<<"$pr_json")
+              # --arg rather than inlining the marker into the program: it is a
+              # constant today, but a quote or backslash in it would otherwise
+              # break the jq expression rather than fail to match.
+              checklist=$(jq -r --arg marker "$checklist_marker" \
+                '[.comments[] | select(.body | contains($marker)) | .body] | first // ""' <<<"$pr_json")
 
               echo "[debug] Fresh labels from API:"
               echo "$labels"
 
-              skip_pattern="skip_$workflow_file_name"
+              # The decision itself lives in a script so a pre-commit hook can
+              # run it. It used to be a `grep -qE` here that matched substrings,
+              # so a label naming one workflow silently skipped another whose
+              # name is a prefix of it.
+              should_skip=$(SKIP_LABELS="$labels" SKIP_CHECKLIST="$checklist" \
+                bash "${{ github.action_path }}/scripts/skip-decision.sh" "$workflow_file_name")
 
-              # Check labels (skip_all and testing-ci-not-necessary skip everything)
-              if echo "$labels" | grep -qE "$skip_pattern|skip_all|testing-ci-not-necessary"; then
-                echo "[debug] Skip directive found in labels"
-                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
-                exit 0
-              fi
-
-              # Check for checked checkbox in the checklist comment
-              # Pattern: - [x] `skip_workflow_name` or - [X] `skip_workflow_name`
-              checklist_marker="<!-- skip-workflow-checklist -->"
-              checklist_comment=$(gh pr view "$pr_number" --repo "$repo" --json comments \
-                --jq "[.comments[] | select(.body | contains(\"$checklist_marker\")) | .body] | first // \"\"")
-
-              if echo "$checklist_comment" | grep -qE "\- \[[xX]\] \`$skip_pattern\`"; then
-                echo "[debug] Skip directive found in checklist (checkbox checked)"
-                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
-                exit 0
-              fi
-
-              # Check for skip_all checked in checklist
-              if echo "$checklist_comment" | grep -qE "\- \[[xX]\] \`skip_all\`"; then
-                echo "[debug] skip_all found checked in checklist"
-                echo "workflow_should_skip=true" | tee -a "$GITHUB_OUTPUT"
-                exit 0
-              fi
-
-              echo "[debug] No skip directive found"
-              echo "workflow_should_skip=false" | tee -a "$GITHUB_OUTPUT"
+              echo "workflow_should_skip=$should_skip" | tee -a "$GITHUB_OUTPUT"
