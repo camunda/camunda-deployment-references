@@ -276,7 +276,11 @@ runs:
               pr_json=$(gh pr view "$pr_number" --repo "$repo" --json labels,comments)
 
               labels=$(jq -r '.labels[].name' <<<"$pr_json")
-              checklist=$(jq -r "[.comments[] | select(.body | contains(\"$checklist_marker\")) | .body] | first // \"\"" <<<"$pr_json")
+              # --arg rather than inlining the marker into the program: it is a
+              # constant today, but a quote or backslash in it would otherwise
+              # break the jq expression rather than fail to match.
+              checklist=$(jq -r --arg marker "$checklist_marker" \
+                '[.comments[] | select(.body | contains($marker)) | .body] | first // ""' <<<"$pr_json")
 
               echo "[debug] Fresh labels from API:"
               echo "$labels"
