@@ -89,6 +89,15 @@ repos:
             types: [terraform]
             pass_filenames: false
 
+          - id: skip-decision-selftest
+            name: Skip-label decision self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/internal-triage-skip/scripts/skip-decision.sh selftest
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^\.github/actions/internal-triage-skip/scripts/skip-decision\.sh$
+            pass_filenames: false
+
           - id: cleanup-coverage
             name: Daily cleanups cover every test scenario
             entry: .lint/cleanup-coverage/check-cleanup-coverage.py
