@@ -21,7 +21,7 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 14.8.3
+    CAMUNDA_HELM_CHART_VERSION: 14.8.4
     # NOTE: keep in sync with generic_kubernetes_migration_test.yml
 
 jobs:
@@ -55,7 +55,7 @@ jobs:
                   sudo apt-get install -y -qq build-essential libssl-dev zlib1g-dev libffi-dev gettext-base
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
 
             - name: Import Secrets
               id: secrets

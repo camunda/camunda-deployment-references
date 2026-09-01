@@ -52,7 +52,7 @@ module "rosa_cluster_0" {
   replicas                   = 6
 
   # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-  openshift_version = "4.20.32"
+  openshift_version = "4.20.33"
 
   tags = local.rosa_cluster_0_tags
 }
