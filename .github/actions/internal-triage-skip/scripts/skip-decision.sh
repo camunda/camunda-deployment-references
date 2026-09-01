@@ -5,9 +5,9 @@ set -euo pipefail
 # skip-checklist comment on a pull request. Prints `true` or `false`.
 #
 # Lives in a script rather than inline in action.yml because this is the part
-# that got the answer wrong, and an inline `run:` block cannot be exercised
-# from a pre-commit hook. See ghost_selftest in
-# .github/actions/aws-generic-terraform-cleanup/scripts/ for the same shape.
+# that got the answer wrong, and an inline `run:` block cannot be exercised from
+# a pre-commit hook. Same shape as the other script self-tests wired into
+# .pre-commit-config.yaml.
 #
 # Usage:
 #   SKIP_LABELS=$'label-a\nlabel-b' SKIP_CHECKLIST="$comment_body" \
@@ -60,6 +60,12 @@ skip_decision() {
 selftest() {
     local failures=0
 
+    # skip_decision narrates to stderr for the job log. Thirteen of those would
+    # bury the ok/FAIL lines this hook exists to show, so the assertions call it
+    # through here. Silencing belongs in the test, not behind a flag in the code
+    # under test.
+    _decide() { skip_decision "$@" 2>/dev/null; }
+
     _expect() {
         local name="$1" got="$2" want="$3"
         if [[ "$got" == "$want" ]]; then
@@ -74,47 +80,47 @@ selftest() {
     local longer="skip_local_kubernetes_kind_single_region_tests_e2e"
 
     _expect "an exact label skips" \
-        "$(skip_decision "$kind" "skip_${kind}")" "true"
+        "$(_decide "$kind" "skip_${kind}")" "true"
 
     # The regression this file exists for: the label names a different workflow,
     # and this one's name is merely a prefix of it.
     _expect "a longer label that contains the name does not skip" \
-        "$(skip_decision "$kind" "$longer")" "false"
+        "$(_decide "$kind" "$longer")" "false"
 
     _expect "an unrelated label does not skip" \
-        "$(skip_decision "$kind" "skip_aws_compute_ec2_single_region_tests")" "false"
+        "$(_decide "$kind" "skip_aws_compute_ec2_single_region_tests")" "false"
 
     _expect "no labels and no checklist does not skip" \
-        "$(skip_decision "$kind")" "false"
+        "$(_decide "$kind")" "false"
 
     _expect "skip_all skips" \
-        "$(skip_decision "$kind" "skip_all")" "true"
+        "$(_decide "$kind" "skip_all")" "true"
 
     _expect "testing-ci-not-necessary skips" \
-        "$(skip_decision "$kind" "testing-ci-not-necessary")" "true"
+        "$(_decide "$kind" "testing-ci-not-necessary")" "true"
 
     # A label list is one name per line, and the match must not depend on where
     # in the list the name appears.
     _expect "the label is found among others" \
-        "$(skip_decision "$kind" "$(printf 'bug\n%s\nskip_aws_modules_eks_rds_os_tests\n' "skip_${kind}")")" "true"
+        "$(_decide "$kind" "$(printf 'bug\n%s\nskip_aws_modules_eks_rds_os_tests\n' "skip_${kind}")")" "true"
 
     _expect "a checked box skips" \
-        "$(skip_decision "$kind" "" "- [x] \`skip_${kind}\`")" "true"
+        "$(_decide "$kind" "" "- [x] \`skip_${kind}\`")" "true"
 
     _expect "an upper-case checked box skips" \
-        "$(skip_decision "$kind" "" "- [X] \`skip_${kind}\`")" "true"
+        "$(_decide "$kind" "" "- [X] \`skip_${kind}\`")" "true"
 
     _expect "an unchecked box does not skip" \
-        "$(skip_decision "$kind" "" "- [ ] \`skip_${kind}\`")" "false"
+        "$(_decide "$kind" "" "- [ ] \`skip_${kind}\`")" "false"
 
     _expect "a checked box for a longer label does not skip" \
-        "$(skip_decision "$kind" "" "- [x] \`${longer}\`")" "false"
+        "$(_decide "$kind" "" "- [x] \`${longer}\`")" "false"
 
     _expect "a checked skip_all box skips" \
-        "$(skip_decision "$kind" "" "- [x] \`skip_all\`")" "true"
+        "$(_decide "$kind" "" "- [x] \`skip_all\`")" "true"
 
     _expect "an unchecked skip_all box does not skip" \
-        "$(skip_decision "$kind" "" "- [ ] \`skip_all\`")" "false"
+        "$(_decide "$kind" "" "- [ ] \`skip_all\`")" "false"
 
     [[ "$failures" -eq 0 ]] || return 1
 }
