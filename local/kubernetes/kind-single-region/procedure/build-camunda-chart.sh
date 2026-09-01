@@ -13,6 +13,7 @@ set -euo pipefail
 #   CAMUNDA_HELM_CHART_GIT_URL       source repo URL
 #   CAMUNDA_HELM_CHART_GIT_REF       branch or tag to build (passed to git clone --branch)
 #   CAMUNDA_HELM_CHART_CHECKOUT_DIR  clone location; must be an absolute path
+#   CAMUNDA_HELM_CHART_CLONE_ATTEMPTS how many times to try the clone (default 3)
 #   CAMUNDA_PRERELEASE_ACK           set to 'true' (or pass --yes) to skip the prompt
 
 # Loudly warn that this deploys an unreleased, in-development build (to stderr so
@@ -109,12 +110,32 @@ fi
 # Progress goes to stderr so stdout carries only the chart path.
 echo "Building Camunda Helm chart 'camunda-platform-$_camunda_version' from source (ref: $_chart_git_ref)..." >&2
 rm -rf -- "$_chart_checkout_dir"
-if ! git clone --depth 1 --branch "$_chart_git_ref" -- "$_chart_git_url" "$_chart_checkout_dir" >&2; then
+
+# GitHub answers an anonymous request it is rate-limiting with a 401, and git
+# reports that as a missing username rather than as something transient:
+#
+#   fatal: could not read Username for 'https://github.com': No such device or address
+#
+# On a machine with a credential helper it would instead sit waiting for one, so
+# the prompt is disabled and the failure is retried a few times. Four separate CI
+# runs failed here on a tag that was public and present the whole time.
+_clone_attempts="${CAMUNDA_HELM_CHART_CLONE_ATTEMPTS:-3}"
+_clone_attempt=1
+while true; do
+    if GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$_chart_git_ref" \
+        -- "$_chart_git_url" "$_chart_checkout_dir" >&2; then
+        break
+    fi
     # Remove the partial checkout so the marker guard does not block a rerun.
     rm -rf -- "$_chart_checkout_dir"
-    echo "ERROR: failed to clone '$_chart_git_url' (ref '$_chart_git_ref')." >&2
-    exit 1
-fi
+    if [[ "$_clone_attempt" -ge "$_clone_attempts" ]]; then
+        echo "ERROR: failed to clone '$_chart_git_url' (ref '$_chart_git_ref') after ${_clone_attempt} attempts." >&2
+        exit 1
+    fi
+    echo "WARN: clone attempt ${_clone_attempt}/${_clone_attempts} failed, retrying in $((_clone_attempt * 5))s..." >&2
+    sleep "$((_clone_attempt * 5))"
+    _clone_attempt=$((_clone_attempt + 1))
+done
 if ! touch "$_chart_checkout_dir/$_clone_marker"; then
     # Remove the partial checkout so the marker guard does not block a rerun.
     rm -rf -- "$_chart_checkout_dir"
