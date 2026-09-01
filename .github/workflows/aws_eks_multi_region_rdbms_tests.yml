@@ -379,6 +379,12 @@ jobs:
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}
                   target: ${{ env.CLUSTER_NAME }}
                   modules-order: clusters
+                  # The action defaults to 12, which is right for the daily sweep
+                  # it was built for and wrong here: this state is minutes old, so
+                  # the age gate in destroy-resources.sh skipped every module and
+                  # the step reported success having destroyed nothing. Every other
+                  # test workflow in the repo passes 0 for the same reason.
+                  max-age-hours: 0
                   # The state binds resources to the region_1..region_3 provider
                   # aliases. The template the script infers from the module name
                   # declares neither, and `terraform destroy` then refuses to
