@@ -101,6 +101,11 @@ class WatchedWorkflowsTest(unittest.TestCase):
         """A step's `- name:` further down the file must not be read as an entry."""
         with tempfile.TemporaryDirectory() as tmp:
             names = watched_workflows(self._reporter(tmp))
+            # The expected string carries the `name: ` prefix on purpose:
+            # LIST_ENTRY captures everything after the dash, so a step line read
+            # by mistake arrives as `name: Tests - ...`, not as a bare title.
+            # Drop the guard that ends the list and this is the value that
+            # appears.
             self.assertNotIn("name: Tests - Integration - Not A Watched Entry", names)
             self.assertEqual(len(names), 2)
 
