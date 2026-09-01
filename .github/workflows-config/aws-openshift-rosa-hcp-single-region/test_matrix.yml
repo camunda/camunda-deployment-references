@@ -13,7 +13,17 @@ matrix:
           schedule_only: false
           private_vpc: true # latest always use vpn, olders use public
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-          version: 4.18.16
+          # 4.18 reached end of life on 2026-08-25 and this entry sat on 4.18.16, so cluster
+          # creation failed outright: `CLUSTERS-MGMT-400: Version 'openshift-v4.18.16'
+          # reached end of life`. Renovate never moves the minor on a maintenance branch —
+          # only patch updates are opened here — so the version drifted four minors behind
+          # what the annotation above claims to track, then died there.
+          #
+          # Red Hat currently supports 4.19 through 4.22. This is the only entry in the
+          # matrix, so there is no second leg to collide with, and the longest-lived
+          # supported release is the one least likely to strand this branch again: 4.22 is
+          # supported until 2027-12-31, where 4.19 expires on 2026-12-17.
+          version: 4.22.5
           # /!\ Warning: When a new minor version of OpenShift is released,
           # you must update the N-3 versions in this matrix.
           # rationale: Red Hat supports the last four minor versions of OpenShift.
