@@ -20,7 +20,9 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `tests-camunda-helm-chart-repo-path` | <p>Path to the Helm chart repository</p> | `false` | `./.camunda_helm_repo` |
 | `tests-c8-sm-checks-repo-ref` | <p>The branch, tag or commit to checkout for c8-sm-checks</p> | `false` | `main` |
 | `tests-c8-sm-checks-repo-path` | <p>Path to clone the c8-sm-checks repository</p> | `false` | `./.c8-sm-checks` |
-| `secrets` | <p>JSON wrapped secrets for easier secret passing</p> | `true` | `""` |
+| `vault-addr` | <p>The URL of the Vault server</p> | `true` | `""` |
+| `vault-role-id` | <p>The Vault Role ID</p> | `true` | `""` |
+| `vault-secret-id` | <p>The Vault Secret ID</p> | `true` | `""` |
 | `camunda-version` | <p>The version of the Camunda to test</p> | `true` | `""` |
 | `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `""` |
 | `camunda-domain-grpc` | <p>The domain to use for the gRPC tests</p> | `false` | `""` |
@@ -86,8 +88,20 @@ This action is a `composite` action.
     # Required: false
     # Default: ./.c8-sm-checks
 
-    secrets:
-    # JSON wrapped secrets for easier secret passing
+    vault-addr:
+    # The URL of the Vault server
+    #
+    # Required: true
+    # Default: ""
+
+    vault-role-id:
+    # The Vault Role ID
+    #
+    # Required: true
+    # Default: ""
+
+    vault-secret-id:
+    # The Vault Secret ID
     #
     # Required: true
     # Default: ""
