@@ -197,13 +197,34 @@ jobs:
                   BRANCH: ${{ github.event.workflow_run.head_branch }}
                   CONCLUSION: ${{ github.event.workflow_run.conclusion }}
                   RUN_URL: ${{ github.event.workflow_run.html_url }}
+                  # A shared branch losing a suite affects everyone, so it goes to
+                  # infraex-alerts and pings the group. Any other branch is one
+                  # person's work in progress: still worth a message, but to the
+                  # test channel and without waking anyone. Diagnosing #3336 meant
+                  # dispatching the broken workflow repeatedly, and every attempt
+                  # paged the group -- an alert that fires on someone's own branch
+                  # is how a channel gets muted.
+                  SHARED: ${{ github.event.workflow_run.head_branch == 'main' || startsWith(github.event.workflow_run.head_branch, 'stable/') }}
               run: |
                   set -euo pipefail
+
+                  if [ "${SHARED}" = "true" ]; then
+                      channel=C076N4G1162   # infraex-alerts
+                      # Raw Slack form. `@infraex-medic` is plain text in a
+                      # chat.postMessage payload and notifies nobody, which is how
+                      # it shipped. The subteam id is the one already used by
+                      # internal_global_alpha_availability_check.yml.
+                      mention=" cc <!subteam^S06NTRBMWUD>"
+                  else
+                      channel=C07E4FF6YMB   # infraex-alerts-test
+                      mention=""
+                  fi
+                  echo "channel=${channel}" | tee -a "$GITHUB_OUTPUT"
 
                   TEXT=":ghost: *${WORKFLOW}* dispatched no jobs on \`${BRANCH}\` (conclusion \`${CONCLUSION}\`)."
                   TEXT="${TEXT} A run with no jobs emits no check runs, so the pull request reports nothing and the suite proves nothing --"
                   TEXT="${TEXT} treat any green on that branch as unverified for this suite."
-                  TEXT="${TEXT} The reason is only on the run page: <${RUN_URL}|the run>. cc @infraex-medic"
+                  TEXT="${TEXT} The reason is only on the run page: <${RUN_URL}|the run>.${mention}"
 
                   {
                     echo "text<<NEVER_EOF"
@@ -219,7 +240,7 @@ jobs:
                   token: ${{ steps.slack-secret.outputs.SLACK_BOT_TOKEN }}
                   payload: |
                       {
-                        "channel": "C076N4G1162",
+                        "channel": ${{ toJSON(steps.never-started.outputs.channel) }},
                         "unfurl_links": false,
                         "unfurl_media": false,
                         "text": ${{ toJSON(steps.never-started.outputs.text) }}
