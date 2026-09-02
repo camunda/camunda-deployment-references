@@ -160,12 +160,36 @@ resource "aws_iam_role_policy_attachment" "task_execution_registry" {
 ################################################################
 
 locals {
-  # Secrets referenced in container definition 'secrets' (valueFrom is typically a Secrets Manager ARN)
-  ecs_task_secret_arns = [
-    aws_secretsmanager_secret.connectors_client_auth_password.arn,
-    aws_secretsmanager_secret.orchestration_admin_user_password.arn,
-    aws_secretsmanager_secret.db_admin_password.arn,
-  ]
+  # Secrets referenced in container definition 'secrets' (valueFrom is typically a Secrets Manager ARN).
+  # Built with concat() of flag-gated single-element lists rather than compact() over a list holding
+  # "known after apply" ARNs: compact() cannot determine its result length when elements are unknown,
+  # which makes the length()-based count on the policy below unknown at plan time. With concat(), each
+  # branch is a known-length list (0 or 1) gated on a plan-time-known bool, so the total length is known.
+  ecs_task_secret_arns = concat(
+    [
+      aws_secretsmanager_secret.connectors_client_auth_password.arn,
+      aws_secretsmanager_secret.orchestration_admin_user_password.arn,
+      aws_secretsmanager_secret.db_admin_password.arn,
+    ],
+    # Management Identity DB role password (only when OIDC/Identity is deployed).
+    local.oidc_enabled ? [aws_secretsmanager_secret.identity_db_password[0].arn] : [],
+    # Bundled Keycloak realm/client secrets (deploy_bundled_keycloak only).
+    local.deploy_bundled_keycloak ? [
+      aws_secretsmanager_secret.keycloak_db_password[0].arn,
+      aws_secretsmanager_secret.keycloak_admin_password[0].arn,
+      aws_secretsmanager_secret.realm_admin_user_password[0].arn,
+      aws_secretsmanager_secret.identity_client_secret[0].arn,
+      aws_secretsmanager_secret.orchestration_oidc_client_secret[0].arn,
+      aws_secretsmanager_secret.connectors_oidc_client_secret[0].arn,
+      aws_secretsmanager_secret.keycloak_realm_import[0].arn,
+    ] : [],
+    # External OIDC client secrets (external provider) - customer-provided ARNs.
+    local.use_external ? compact([
+      local.oidc.orchestration.client_secret_arn,
+      local.oidc.connectors.client_secret_arn,
+      local.oidc.identity.client_secret_arn,
+    ]) : [],
+  )
 }
 
 resource "aws_iam_policy" "ecs_task_secrets_policy" {

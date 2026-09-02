@@ -38,6 +38,10 @@ inputs:
         description: Reference architecture to deploy
         default: ecs-single-region-fargate
         required: false
+    authentication-mode:
+        description: "Platform authentication mode to deploy: 'basic' (built-in users) or 'oidc' (bundled Keycloak)."
+        default: basic
+        required: false
 
 outputs:
     terraform-state-url:
@@ -130,21 +134,24 @@ runs:
           run: |
               set -euo pipefail
 
-              # cut name as some resources have a character limit that we may run into
-              # e.g. target groups have a max length of 32 characters
-              # with 14 characters we're adding in Terraform
-              # + 4 from suffixes when calling the module
-              # therefore cut to 14 characters to be on the safe side
-              PREFIX=$(echo "${INPUTS_CLUSTER_NAME}" | cut -c1-14)
+              # Some resources cap names at 32 chars (e.g. target groups), and we add
+              # ~16 chars of Terraform/module suffixes, so the prefix must stay short.
+              # Truncating the cluster name to 14 chars would drop the scenario suffix
+              # and collide when several scenarios share a cluster-name base, so derive
+              # a short, deterministic, per-(run,scenario)-unique prefix by hashing the
+              # full cluster name (which already includes the scenario shortName).
+              PREFIX="ecs-$(printf '%s' "$INPUTS_CLUSTER_NAME" | sha1sum | cut -c1-9)"
               # Remove trailing dash if present
               PREFIX=${PREFIX%-}
 
               cat > terraform.tfvars <<EOF
-              default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              prefix       = "${PREFIX}"
+              default_tags        = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+              prefix              = "${PREFIX}"
+              authentication_mode = "${INPUTS_AUTHENTICATION_MODE}"
               EOF
           env:
               INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_AUTHENTICATION_MODE: ${{ inputs.authentication-mode }}
 
         - name: Terraform Plan
           id: plan

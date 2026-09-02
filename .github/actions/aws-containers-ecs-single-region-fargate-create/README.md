@@ -19,6 +19,7 @@ This GitHub Action automates the deployment of the aws/containers/ecs-single-reg
 | `tf-modules-path` | <p>Path where the tf ecs arch will be cloned</p> | `true` | `./.action-tf-modules/aws-containers-ecs-single-region-fargate-create/` |
 | `tf-modules-name` | <p>Name of the tf modules to use, the folder to refer to - cluster / vpn</p> | `true` | `cluster` |
 | `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `ecs-single-region-fargate` |
+| `authentication-mode` | <p>Platform authentication mode to deploy: 'basic' (built-in users) or 'oidc' (bundled Keycloak).</p> | `false` | `basic` |
 
 
 ## Outputs
@@ -96,4 +97,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ecs-single-region-fargate
+
+    authentication-mode:
+    # Platform authentication mode to deploy: 'basic' (built-in users) or 'oidc' (bundled Keycloak).
+    #
+    # Required: false
+    # Default: basic
 ```
