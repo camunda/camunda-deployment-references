@@ -15,6 +15,7 @@ on:
             - aws/kubernetes/eks-single-region*/**
             - '!aws/kubernetes/eks-single-region/terraform/*/test/golden/**'
             - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
+            - '!aws/kubernetes/eks-single-region-rdbms/terraform/*/test/golden/**'
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
 
@@ -59,6 +60,7 @@ jobs:
                 scenario:
                     - name: eks-single-region
                     - name: eks-single-region-irsa
+                    - name: eks-single-region-rdbms
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository

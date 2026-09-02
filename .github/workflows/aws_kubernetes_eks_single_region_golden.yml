@@ -12,6 +12,7 @@ on:
             - aws/modules/opensearch/**
             - aws/kubernetes/eks-single-region/terraform/**
             - aws/kubernetes/eks-single-region-irsa/terraform/**
+            - aws/kubernetes/eks-single-region-rdbms/terraform/**
             - .github/actions/aws-configure-cli/**
 
 # limit to a single execution per actor of this workflow
@@ -54,6 +55,11 @@ jobs:
 
                     - eks-single-region-irsa/terraform/cluster/
                     - eks-single-region-irsa/terraform/vpn/
+
+                    # The RDBMS variant only overrides the cluster state (no OpenSearch
+                    # domain, extra orchestration database); its vpn/ is a symlink to
+                    # eks-single-region and is already covered above.
+                    - eks-single-region-rdbms/terraform/cluster/
         permissions:
             contents: write
             pull-requests: write
