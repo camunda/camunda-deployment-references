@@ -12,7 +12,7 @@ set -euo pipefail
 #                      - postgres: Uses PostgreSQL RDBMS only (Optimize disabled)
 
 # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-export CAMUNDA_HELM_CHART_VERSION="14.4.1"
+export CAMUNDA_HELM_CHART_VERSION="14.8.3"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OPERATOR_VALUES_DIR="$SCRIPT_DIR/../../../../generic/kubernetes/operator-based"
@@ -58,6 +58,18 @@ else
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml" \
         --values helm-values/values-mkcert.yml
 fi
+
+# Wait (bounded, fail-open) for the public Keycloak issuer, then restart the app
+# pods so they recover from the first-start crash-loop instead of waiting out the
+# backoff. On timeout it warns and continues. Reuses the shared readiness script
+# (also shipped to customers and used by CI). Under CI the host may not trust the
+# mkcert CA (mkcert -install is best-effort), so default to skipping TLS
+# verification there; a caller can override via KEYCLOAK_WAIT_INSECURE, and local
+# runs stay secure by default.
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    export KEYCLOAK_WAIT_INSECURE="${KEYCLOAK_WAIT_INSECURE:-true}"
+fi
+"$SCRIPT_DIR/../../../../generic/kubernetes/single-region/procedure/wait-for-keycloak.sh"
 
 echo ""
 if [[ "$SECONDARY_STORAGE" == "postgres" ]]; then

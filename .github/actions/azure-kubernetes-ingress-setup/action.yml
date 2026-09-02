@@ -1,6 +1,6 @@
 ---
 name: Azure Kubernetes Ingress Setup
-description: Install and configure ingress-nginx, external-dns, and cert-manager for Azure AKS clusters
+description: Install and configure Contour, external-dns, and cert-manager for Azure AKS clusters
 
 inputs:
     cluster-name:
@@ -63,10 +63,10 @@ runs:
           with:
               namespace: external-dns
 
-        - name: 🏗️ Clean ingress-nginx operator namespace
+        - name: 🏗️ Clean Contour operator namespace
           uses: ./.github/actions/internal-clean-namespace
           with:
-              namespace: ingress-nginx
+              namespace: projectcontour
 
         - name: Setup ingress components for AKS cluster
           shell: bash
@@ -74,49 +74,49 @@ runs:
               set -euo pipefail
 
               echo "Setting up ingress components for AKS cluster..."
-              echo "Cluster: ${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
-              echo "Mail: ${{ inputs.mail }}"
-              echo "TLD: ${{ inputs.tld }}"
-              echo "Scenario: ${{ inputs.scenario-name }}"
-              echo "Use wildcard cert: ${{ inputs.use-wildcard-cert }}"
+              echo "Cluster: ${INPUTS_CLUSTER_NAME}-${INPUTS_SCENARIO_SHORT_NAME}"
+              echo "Mail: ${INPUTS_MAIL}"
+              echo "TLD: ${INPUTS_TLD}"
+              echo "Scenario: ${INPUTS_SCENARIO_NAME}"
+              echo "Use wildcard cert: ${INPUTS_USE_WILDCARD_CERT}"
 
               # Set required environment variables for ingress setup
-              export MAIL="${{ inputs.mail }}"
-              export MAIL_OVERWRITE="${{ inputs.mail }}"
-              export TLD="${{ inputs.tld }}"
+              export MAIL="${INPUTS_MAIL}"
+              export MAIL_OVERWRITE="${INPUTS_MAIL}"
+              export TLD="${INPUTS_TLD}"
 
               # Source ingress setup variables
               source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
 
-              # Install ingress-nginx
-              echo "Installing ingress-nginx..."
-              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-ingress-nginx.sh
+              # Install Contour
+              echo "Installing Contour..."
+              ./azure/kubernetes/${INPUTS_SCENARIO_NAME}/procedure/install-contour.sh
 
               # Install external-dns
               echo "Installing external-dns..."
-              export EXTERNAL_DNS_OWNER_ID="external-dns-${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
-              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-external-dns.sh
+              export EXTERNAL_DNS_OWNER_ID="external-dns-${INPUTS_CLUSTER_NAME}-${INPUTS_SCENARIO_SHORT_NAME}"
+              ./azure/kubernetes/${INPUTS_SCENARIO_NAME}/procedure/install-external-dns.sh
 
-              source azure/kubernetes/${{ inputs.scenario-name }}/procedure/export-domain-setup-vars.sh
+              source azure/kubernetes/${INPUTS_SCENARIO_NAME}/procedure/export-domain-setup-vars.sh
 
               # Configure external-dns with Azure credentials
               echo "Configuring external-dns with Azure credentials..."
-              export AZURE_DNS_RESOURCE_GROUP="${{ inputs.azure-dns-resource-group }}"
-              export AZURE_SUBSCRIPTION_ID="${{ inputs.azure-subscription-id }}"
-              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/external-dns-azure-config.sh
+              export AZURE_DNS_RESOURCE_GROUP="${INPUTS_AZURE_DNS_RESOURCE_GROUP}"
+              export AZURE_SUBSCRIPTION_ID="${INPUTS_AZURE_SUBSCRIPTION_ID}"
+              ./azure/kubernetes/${INPUTS_SCENARIO_NAME}/procedure/external-dns-azure-config.sh
 
 
               echo "Installing cert-manager CRDs..."
               ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
               echo "Installing cert-manager with ACME issuer as default..."
-              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-cert-manager.sh
+              ./azure/kubernetes/${INPUTS_SCENARIO_NAME}/procedure/install-cert-manager.sh
 
               echo "Installing ACME/Let's Encrypt issuer..."
-              export AZURE_DNS_ZONE="${{ inputs.tld }}"
-              ./azure/kubernetes/${{ inputs.scenario-name }}/procedure/install-cert-manager-issuer.sh
+              export AZURE_DNS_ZONE="${INPUTS_TLD}"
+              ./azure/kubernetes/${INPUTS_SCENARIO_NAME}/procedure/install-cert-manager-issuer.sh
 
-              if [[ "${{ inputs.use-wildcard-cert }}" == "true" ]]; then
+              if [[ "${INPUTS_USE_WILDCARD_CERT}" == "true" ]]; then
                   echo "🩹 Wildcard cert in use — patching cert-manager to drop ingress-shim default issuer"
                   echo "   (keeps ClusterIssuer/letsencrypt installed but stops auto-Certificates from"
                   echo "    'kubernetes.io/tls-acme' annotations, so sub-charts cannot burn LE quota)"
@@ -136,6 +136,15 @@ runs:
               fi
 
               echo "✅ Ingress setup completed successfully for AKS cluster."
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_SCENARIO_SHORT_NAME: ${{ inputs.scenario-short-name }}
+              INPUTS_MAIL: ${{ inputs.mail }}
+              INPUTS_TLD: ${{ inputs.tld }}
+              INPUTS_SCENARIO_NAME: ${{ inputs.scenario-name }}
+              INPUTS_USE_WILDCARD_CERT: ${{ inputs.use-wildcard-cert }}
+              INPUTS_AZURE_DNS_RESOURCE_GROUP: ${{ inputs.azure-dns-resource-group }}
+              INPUTS_AZURE_SUBSCRIPTION_ID: ${{ inputs.azure-subscription-id }}
 
         - name: Setup wildcard TLS certificate from Vault
           if: ${{ inputs.use-wildcard-cert == 'true' }}

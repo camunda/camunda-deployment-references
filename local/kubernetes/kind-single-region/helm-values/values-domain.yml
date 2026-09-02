@@ -66,13 +66,19 @@ identity:
     contextPath: /managementidentity
     fullURL: https://camunda.example.com/managementidentity
 
+    # Identity provisions the `camunda-platform` Keycloak realm on startup, and
+    # every other component blocks on that realm for OIDC discovery. If Identity
+    # is starved it is OOMKilled or throttled before the realm exists, and the
+    # whole platform crash-loops with a misleading 503/404 on the issuer URL.
+    # A Spring Boot JVM needs more than 512Mi/500m to get there reliably on a
+    # contended laptop, so keep this component comfortable.
     resources:
         requests:
-            cpu: 50m
-            memory: 128Mi
-        limits:
-            cpu: 500m
+            cpu: 100m
             memory: 512Mi
+        limits:
+            cpu: 1000m
+            memory: 1Gi
 
     firstUser:
         enabled: true

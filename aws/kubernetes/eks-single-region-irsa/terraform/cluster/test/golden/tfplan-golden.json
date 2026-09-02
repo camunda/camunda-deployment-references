@@ -328,11 +328,11 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.35.5-SUFFIX",
+                    "release_version": "1.35.6-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
-                        "desired_size": 4,
+                        "desired_size": 6,
                         "max_size": 10,
                         "min_size": 1
                       }
@@ -352,7 +352,8 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.35"
+                    "version": "1.35",
+                    "warm_pool_config": []
                   }
                 },
                 "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]": {
@@ -943,6 +944,9 @@
                   }
                 ],
                 "identity": [],
+                "kube_api_server_config": [],
+                "kube_controller_manager_config": [],
+                "kube_scheduler_config": [],
                 "kubernetes_network_config": [
                   {
                     "elastic_load_balancing": []
@@ -3590,6 +3594,12 @@
           }
         },
         "module.postgresql.aws_rds_cluster.aurora_cluster": {
+          "identity": {
+            "account_id": null,
+            "cluster_identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "aurora_cluster",
           "provider_name": "registry.terraform.io/hashicorp/aws",

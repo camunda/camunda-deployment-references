@@ -1,11 +1,12 @@
 {
+  // Renovate does not read this file.
+  //
+  // A base branch run reuses the configuration of the repository default branch
+  // unless `useBaseBranchConfig` is set, and it is not set here. Anything that
+  // must apply to this maintenance branch belongs in `.github/renovate.json5` on
+  // `main`, scoped with `matchBaseBranches`.
+  //
+  // This stub is kept so that a rule added here is not silently ignored.
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["github>camunda/infraex-common-config:default.json5"],
-  packageRules: [],
-  baseBranchPatterns: [
-    'main',
-    'stable/8.6',
-    'stable/8.7',
-    'stable/8.8',
-  ]
 }

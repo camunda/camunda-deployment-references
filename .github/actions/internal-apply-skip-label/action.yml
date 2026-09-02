@@ -18,10 +18,10 @@ runs:
         - name: Extract workflow file name
           id: extract_workflow_name
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
-              workflow_file_name=$(echo "${{ github.workflow_ref }}" | sed 's/@.*//')
+              workflow_file_name=$(echo "${GITHUB_WORKFLOW_REF}" | sed 's/@.*//')
               workflow_file_name=$(basename "$workflow_file_name" | sed 's/\(.*\)\(\.yaml\|\.yml\)$/\1/')
               echo "workflow_file_name=$workflow_file_name" | tee -a "$GITHUB_ENV"
               echo "skip_label_name=skip_${workflow_file_name}" | tee -a "$GITHUB_ENV"
@@ -29,14 +29,14 @@ runs:
         - name: Check if label exists
           id: check_label
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
-              if gh api repos/${{ github.repository }}/labels/${{ env.skip_label_name }} --jq '.name' > /dev/null 2>&1; then
-                echo "Label ${{ env.skip_label_name }} already exists."
+              if gh api repos/${GITHUB_REPOSITORY}/labels/${skip_label_name} --jq '.name' > /dev/null 2>&1; then
+                echo "Label ${skip_label_name} already exists."
                 echo "label_exists=true" | tee -a "$GITHUB_ENV"
               else
-                echo "Label ${{ env.skip_label_name }} does not exist."
+                echo "Label ${skip_label_name} does not exist."
                 echo "label_exists=false" | tee -a "$GITHUB_ENV"
               fi
 
@@ -46,7 +46,7 @@ runs:
           run: |
               set -euo pipefail
 
-              gh api -X POST repos/${{ github.repository }}/labels -f name="${{ env.skip_label_name }}" -f color="1D76DB"
+              gh api -X POST repos/${GITHUB_REPOSITORY}/labels -f name="${skip_label_name}" -f color="1D76DB"
 
         - name: Apply label to the current PR
           shell: bash
@@ -56,12 +56,12 @@ runs:
 
               pr_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
 
-              if gh pr view "$pr_number" --json labels | jq -e --arg LABEL "${{ env.skip_label_name }}" '.labels[] | select(.name == $LABEL)' > /dev/null; then
+              if gh pr view "$pr_number" --json labels | jq -e --arg LABEL "${skip_label_name}" '.labels[] | select(.name == $LABEL)' > /dev/null; then
                 echo "Label already present. Skipping."
                 echo "applied=false" | tee -a "$GITHUB_OUTPUT"
               else
-                echo "Applying label '${{ env.skip_label_name }}' to PR #$pr_number."
-                gh issue edit "$pr_number" --add-label "${{ env.skip_label_name }}"
+                echo "Applying label '${skip_label_name}' to PR #$pr_number."
+                gh issue edit "$pr_number" --add-label "${skip_label_name}"
                 echo "applied=true" | tee -a "$GITHUB_OUTPUT"
               fi
 
@@ -72,6 +72,8 @@ runs:
               set -euo pipefail
 
               pr_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-              comment="🏷️ The label [${{ env.skip_label_name }}](https://github.com/${{ github.repository }}/labels/${{ env.skip_label_name }}) \
-                has been applied ${{ inputs.comment-message }}"
-              gh api -X POST repos/${{ github.repository }}/issues/$pr_number/comments -f body="$comment"
+              comment="🏷️ The label [${skip_label_name}](https://github.com/${GITHUB_REPOSITORY}/labels/${skip_label_name}) \
+                has been applied ${INPUTS_COMMENT_MESSAGE}"
+              gh api -X POST repos/${GITHUB_REPOSITORY}/issues/$pr_number/comments -f body="$comment"
+          env:
+              INPUTS_COMMENT_MESSAGE: ${{ inputs.comment-message }}

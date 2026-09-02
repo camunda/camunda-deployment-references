@@ -42,7 +42,9 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              echo "Logging in to ${{ inputs.registry-host }} for OCI chart pull..."
-              echo "${{ steps.secrets.outputs.MACHINE_PWD }}" | helm registry login "${{ inputs.registry-host }}" \
+              echo "Logging in to ${INPUTS_REGISTRY_HOST} for OCI chart pull..."
+              echo "${{ steps.secrets.outputs.MACHINE_PWD }}" | helm registry login "${INPUTS_REGISTRY_HOST}" \
                 --username "${{ steps.secrets.outputs.MACHINE_USR }}" \
                 --password-stdin
+          env:
+              INPUTS_REGISTRY_HOST: ${{ inputs.registry-host }}

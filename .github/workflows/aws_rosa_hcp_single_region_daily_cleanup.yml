@@ -13,7 +13,7 @@ on:
             - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
             - .tool-versions
             - aws/openshift/rosa-hcp-single-region/**
-            - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
+            - '!aws/openshift/rosa-hcp-single-region/terraform/*/test/golden/**'
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
 
@@ -45,7 +45,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -57,13 +57,13 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
-              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Use repo .tool-version as global version
               run: cp .tool-versions ~/.tool-versions
@@ -86,6 +86,7 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
+                      secret/data/products/infrastructure-experience/ci/common SLACK_BOT_TOKEN;
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -135,10 +136,58 @@ jobs:
                   openshift: 'true'
                   delete-ghost-rosa-clusters: 'true'
 
+            # A cluster the ghost pass gave up on is not a cleanup failure: OCM
+            # still owns its teardown, and re-deleting it every night is what
+            # turns one wedged cluster into a permanently red daily job. It gets
+            # its own alert, so the failure alert below keeps meaning "something
+            # the cleanup could have fixed did not get fixed".
+            #
+            # Byte-identical to the block in the sibling ROSA cleanup workflow:
+            # the suite names itself through github.workflow, so neither copy can
+            # drift into describing the other one.
+            - name: Describe ROSA clusters stuck in deletion
+              id: stuck_clusters
+              if: ${{ !cancelled() }}
+              env:
+                  # The retry step's list wins when it ran, being the later
+                  # observation; the first pass's list is the fallback for the
+                  # runs where the retry never happened.
+                  STUCK: ${{ steps.retry_delete_clusters.outputs.stuck-rosa-clusters || steps.delete_clusters.outputs.stuck-rosa-clusters }}
+                  MENTION: ${{ env.IS_SCHEDULE == 'true' && ' cc @infraex-medic' || '' }}
+                  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+                  WORKFLOW: ${{ github.workflow }}
+              run: |
+                  set -euo pipefail
+                  [ -n "$STUCK" ] || exit 0
+
+                  TEXT=":hourglass_flowing_sand: *${WORKFLOW}* — cluster(s) stuck in deletion for over 24h: \`${STUCK}\`."
+                  TEXT="${TEXT} OCM still owns their teardown, so the cleanup left them alone instead of failing on them; they need a look on the Red Hat console."
+                  TEXT="${TEXT} <${RUN_URL}|Cleanup run>${MENTION}"
+
+                  {
+                    echo "text<<STUCK_EOF"
+                    printf '%s\n' "$TEXT"
+                    echo "STUCK_EOF"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Notify in Slack about ROSA clusters stuck in deletion
+              if: ${{ steps.stuck_clusters.outputs.text != '' }}
+              uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+              with:
+                  method: chat.postMessage
+                  token: ${{ steps.secrets.outputs.SLACK_BOT_TOKEN }}
+                  payload: |
+                      {
+                        "channel": ${{ toJSON(env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB') }},
+                        "unfurl_links": false,
+                        "unfurl_media": false,
+                        "text": ${{ toJSON(steps.stuck_clusters.outputs.text) }}
+                      }
+
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ failure() && steps.retry_delete_clusters.outcome == 'failure' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

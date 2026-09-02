@@ -18,9 +18,12 @@ inputs:
         required: true
         default: camunda-aks-cluster
     kubernetes-version:
-        description: Version of Kubernetes to install
+        description: |
+            Version of Kubernetes to install. Leave empty to keep the version
+            pinned in the reference architecture (renovate-managed), which is the
+            behaviour every caller has had so far.
         required: false
-        default: '1.32'
+        default: ''
     # using S3 backend for terraform state even with Azure, to profit from existing cleanup capabilities
     s3-backend-bucket:
         description: Name of the S3 bucket to store Terraform state
@@ -65,7 +68,7 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+          uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -73,20 +76,20 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.resource-group-name }}/${{ inputs.resource-group-name }}.tfstate"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_RESOURCE_GROUP_NAME}/${INPUTS_RESOURCE_GROUP_NAME}.tfstate"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
@@ -96,7 +99,14 @@ runs:
               terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_KEY}"
               echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
 
-              echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}" >> "$GITHUB_ENV"
+              echo "TF_MODULE_DIR=${INPUTS_TF_MODULES_PATH}/azure/kubernetes/${INPUTS_REF_ARCH}" >> "$GITHUB_ENV"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
+              INPUTS_REF_ARCH: ${{ inputs.ref-arch }}
 
         - name: Copy config_override.tf to module root
           shell: bash
@@ -125,6 +135,15 @@ runs:
           id: prepare
           working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
+          # Passed as env, never interpolated into the script: the values reach
+          # jq as data, so nothing below has to be quoted or escaped.
+          env:
+              CLUSTER_NAME: ${{ inputs.cluster-name }}
+              RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
+              LOCATION: ${{ inputs.location }}
+              KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
+              INPUTS_RESOURCE_PREFIX: ${{ inputs.resource-prefix }}
+              INPUTS_TAGS: ${{ inputs.tags }}
           run: |
               set -euo pipefail
 
@@ -132,18 +151,53 @@ runs:
               pwd
               ls
 
-              # We use sed instead of -var because the module presented to the user
-              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(aks_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
-                     -e 's/\(kubernetes_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.kubernetes-version }}\2/' \
-                     -e 's/\(resource_group_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.resource-group-name }}\2/' \
-                     -e 's/\(location\s*=\s*"\)[^"]*\("\)/\1${{ inputs.location }}\2/' \
-                     main.tf
+              # Terraform's own override mechanism, rather than rewriting in place
+              # the reference files we ship to users. Terraform *rejects* an
+              # override for a local that no longer exists, so a rename in the
+              # reference architecture fails the plan loudly.
+              #
+              # That is not theoretical here: the previous `sed -i ... main.tf`
+              # also targeted `aks_cluster_name` and `kubernetes_version`, which
+              # both live in aks.tf, so those two substitutions silently matched
+              # nothing and the kubernetes-version input was discarded.
+              #
+              # It also stops `sed -i` from turning the aks-single-region-rdbms
+              # main.tf/aks.tf symlinks into regular files on every run.
+              #
+              # Module arguments are merged rather than validated, so the one we
+              # set is checked explicitly below.
+              overrides=$(jq -n \
+                  --arg rg "${RESOURCE_GROUP_NAME}" \
+                  --arg loc "${LOCATION}" \
+                  --arg name "${CLUSTER_NAME}" \
+                  '{
+                      locals: { resource_group_name: $rg, location: $loc },
+                      module: { aks: { aks_cluster_name: $name } }
+                  }')
 
-              cat main.tf
+              # Empty means "keep the reference architecture's version", which is
+              # renovate-pinned. The substitution never worked, so the input's own
+              # default had drifted far behind; overriding with it unconditionally
+              # would silently downgrade the cluster.
+              if [ -n "${KUBERNETES_VERSION}" ]; then
+                  overrides=$(jq --arg v "${KUBERNETES_VERSION}" '.locals.kubernetes_version = $v' <<< "${overrides}")
+              fi
+
+              # Scoped to the module block: aks_cluster_name also appears as an
+              # output name in outputs.tf, and searching the whole tree would let
+              # that mask a removed argument.
+              aks_block=$(awk '/^module "aks"/ { inside = 1 }
+                                 inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' aks.tf)
+              if ! grep -qE '^[[:space:]]*aks_cluster_name[[:space:]]*=' <<< "${aks_block}"; then
+                  echo "::error::No 'aks_cluster_name' argument in the aks module block of aks.tf;" \
+                      "the CI override would be silently ignored. Update this action."
+                  exit 1
+              fi
+
+              jq '.' <<< "${overrides}" | tee ci_override.tf.json
 
               # Set resource_prefix_placeholder to an empty string if not provided
-              resource_prefix_placeholder="${{ inputs.resource-prefix }}"
+              resource_prefix_placeholder="${INPUTS_RESOURCE_PREFIX}"
               if [ -z "$resource_prefix_placeholder" ]; then
                 resource_prefix_placeholder=""
               fi
@@ -152,7 +206,7 @@ runs:
 
               # Default tags are not supported
               # https://github.com/hashicorp/terraform-provider-azurerm/issues/13776
-              raw_tags='${{ inputs.tags }}'
+              raw_tags="${INPUTS_TAGS}"
 
               # Default tags from azure/kubernetes/aks-single-region/variables.tf
               static_tags='{
@@ -192,7 +246,9 @@ runs:
                   -no-color \
                   -out tf.plan \
                   -var-file=terraform.tfvars \
-                  -var-file="${{ inputs.tfvars }}"
+                  -var-file="${INPUTS_TFVARS}"
+          env:
+              INPUTS_TFVARS: ${{ inputs.tfvars }}
 
         - name: Terraform Apply
           id: apply
@@ -208,7 +264,7 @@ runs:
           with:
               working-directory: ${{ env.TF_MODULE_DIR }}
               plan-extra-args: |
-                  -var-file=terraform.tfvars \
+                  -var-file=terraform.tfvars
                   -var-file="${{ inputs.tfvars }}"
 
         - name: Login and generate kubeconfig
@@ -216,10 +272,13 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              az aks get-credentials --resource-group ${{ inputs.resource-group-name }} --name ${{ inputs.cluster-name }} --overwrite-existing
+              az aks get-credentials --resource-group ${INPUTS_RESOURCE_GROUP_NAME} --name ${INPUTS_CLUSTER_NAME} --overwrite-existing
 
               kubectl config current-context
               kubectl get nodes
+          env:
+              INPUTS_RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Apply and verify storage class
           shell: bash

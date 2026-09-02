@@ -23,9 +23,13 @@ CLUSTER_NAME ?= camunda-platform-local
 CAMUNDA_NAMESPACE ?= camunda
 CAMUNDA_RELEASE_NAME ?= camunda
 CERT_DIR ?= .certs
+# Bound `camunda.wait` so a stuck deployment reports its cause instead of looping
+# forever. A local kind cluster that has not converged in 15 minutes is broken.
+DEPLOYMENT_READY_TIMEOUT_SECONDS ?= 900
 # SECONDARY_STORAGE has no default - must be explicitly set to 'elasticsearch' or 'postgres'
 
 export CLUSTER_NAME CAMUNDA_NAMESPACE CAMUNDA_RELEASE_NAME CERT_DIR SECONDARY_STORAGE
+export DEPLOYMENT_READY_TIMEOUT_SECONDS
 
 # Paths
 PROCEDURE_DIR := ./procedure
@@ -276,7 +280,9 @@ camunda.uninstall:
 .PHONY: camunda.wait
 camunda.wait:
 	@echo "Waiting for Camunda pods to be ready..."
-	@CAMUNDA_NAMESPACE=$(CAMUNDA_NAMESPACE) ../../../generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+	@CAMUNDA_NAMESPACE=$(CAMUNDA_NAMESPACE) \
+		DEPLOYMENT_READY_TIMEOUT_SECONDS=$(DEPLOYMENT_READY_TIMEOUT_SECONDS) \
+		../../../generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
 # =============================================================================
 # Utilities

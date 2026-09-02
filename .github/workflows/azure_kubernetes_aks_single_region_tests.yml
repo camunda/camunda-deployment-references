@@ -2,9 +2,7 @@
 name: Tests - Integration - Azure Kubernetes AKS Single Region
 
 permissions:
-    id-token: write # this is required for azure login
-    contents: write # allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     schedule:
@@ -114,8 +112,11 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -128,7 +129,7 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.gen.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
             - name: Generate Tests Matrix
               id: gen
@@ -153,14 +154,17 @@ jobs:
         env:
             TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-${{ matrix.scenario.name }}-create/
             CAMUNDA_NAMESPACE: camunda
+        permissions:
+            contents: read
+            id-token: write # OIDC token for the cloud login in this job
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -187,7 +191,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -277,12 +281,17 @@ jobs:
     access-info:
         name: Read outputs from matrix
         runs-on: ubuntu-latest
-        if: always()
+        # always() so the downstream cleanup still gets its configuration when
+        # prepare-clusters FAILED, but not when it was SKIPPED: there is then no
+        # matrix artifact to read and the step dies with "no artifact named
+        # 'prepare-clusters' was found", turning a deliberately skipped run into
+        # a red check.
+        if: always() && needs.prepare-clusters.result != 'skipped'
         needs: prepare-clusters
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@475528365f4010480dccff71ccac554cc3352e7c # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -312,11 +321,15 @@ jobs:
             TEST_CLUSTER_TYPE: kubernetes
             # Do not change this secret name without updating manifests that reference this TLS secret
             WILDCARD_TLS_SECRET_NAME: camunda-c8-tls
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
+            id-token: write # OIDC token for the cloud login in this job
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -371,7 +384,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -636,7 +649,7 @@ jobs:
               uses: ./.github/actions/kubernetes-keycloak-operator
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain' || 'no-domain' }}
+                  keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain-contour' || 'no-domain' }}
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
             - name: Helm registry login
@@ -702,18 +715,94 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
+            - name: ⏳ Wait for the OIDC issuer to be reachable
+              if: matrix.declination.name == 'domain'
+              # The action is fail-open on its own 600s budget; this only stops
+              # a wedged step from running unbounded.
+              timeout-minutes: 15
+              uses: ./.github/actions/internal-wait-oidc-issuer
+              with:
+                  issuer-url: https://${{ env.CAMUNDA_DOMAIN }}/auth/realms/camunda-platform
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  insecure: ${{ steps.cert-config.outputs.use-wildcard-cert }}
+                  # Wait only: the workloads are bounced after CoreDNS is refreshed (next steps).
+                  restart-workloads: 'false'
+
+            # CoreDNS is bounced here — after the (fail-open) issuer-reachability wait,
+            # so the ingress DNS record normally exists by now, and BEFORE the health
+            # wait — to flush the stale negative DNS cache. Otherwise the OIDC components
+            # (identity/connectors/zeebe) keep hitting UnknownHostException on the
+            # domain at startup and CrashLoopBackOff until the readiness window expires.
+            - name: 🔄 Restart CoreDNS
+              if: matrix.declination.name == 'domain'
+              uses: ./.github/actions/kubernetes-restart-coredns
+              timeout-minutes: 10
+              with:
+                  cluster-type: kubernetes
+
+            # DNS cache is fresh now — bounce the OIDC workloads so they reconnect
+            # with working in-cluster + domain resolution instead of a stale
+            # (negative) view cached before the CoreDNS refresh. Readiness is then
+            # verified by the health wait below.
+            - name: 🔁 Restart Camunda workloads after DNS refresh
+              if: matrix.declination.name == 'domain'
+              timeout-minutes: 15
+              run: |
+                  set -uo pipefail
+                  ns="${{ env.CAMUNDA_NAMESPACE }}"
+                  rel="${{ env.CAMUNDA_RELEASE_NAME }}"
+                  restarted=()
+                  for wl in "statefulset/${rel}-zeebe" "deployment/${rel}-connectors" "deployment/${rel}-identity"; do
+                      # Distinguish a genuine "absent" (empty, exit 0) from a real
+                      # query error (RBAC/kubeconfig) so failures stay visible.
+                      if ! found=$(kubectl -n "$ns" get "$wl" --ignore-not-found -o name 2>&1); then
+                          echo "::warning::Could not query ${wl}: ${found}"
+                      elif [ -n "$found" ]; then
+                          if kubectl -n "$ns" rollout restart "$wl"; then
+                              restarted+=("$wl")
+                          else
+                              echo "::warning::rollout restart ${wl} failed"
+                          fi
+                      else
+                          echo "Skipping ${wl}: not present in namespace ${ns}."
+                      fi
+                  done
+
+                  # `rollout restart` only patches the pod template and returns
+                  # immediately; the rotation then proceeds in the background, and
+                  # a StatefulSet rotates in reverse-ordinal order. Moments later
+                  # most pods are therefore still the *old* ones, so every
+                  # "is every pod Ready?" gate downstream happily passes on a
+                  # namespace that is about to churn, and the health wait or the
+                  # C8-SM deployment check trips over a pod that drops into
+                  # ContainerCreating behind them. Await the rotations here so the
+                  # restarts are genuinely finished before anything asserts health.
+                  # Restarts are all issued first so the rollouts overlap instead
+                  # of running back-to-back.
+                  # One shared budget rather than a per-workload one: the
+                  # rollouts overlap in the cluster (every restart was issued
+                  # before the first wait), so the worst case is the slowest
+                  # rollout, not their sum. A shared deadline also keeps the whole
+                  # loop below this step's own timeout-minutes, so a stuck rollout
+                  # still degrades to a warning instead of killing the step with
+                  # an opaque "The action has timed out".
+                  rollout_deadline=$(( $(date +%s) + 600 ))
+                  for wl in ${restarted[@]+"${restarted[@]}"}; do
+                      remaining=$(( rollout_deadline - $(date +%s) ))
+                      if [ "$remaining" -le 0 ]; then
+                          echo "::warning::rollout wait budget exhausted; not waiting for ${wl}"
+                          continue
+                      fi
+                      kubectl -n "$ns" rollout status "$wl" --timeout="${remaining}s" ||
+                          echo "::warning::rollout status ${wl} did not complete within the remaining budget"
+                  done
+
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
               run: |
                   set -euo pipefail
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
-
-            - name: 🔄 Restart CoreDNS
-              if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
-              uses: ./.github/actions/kubernetes-restart-coredns
-              timeout-minutes: 10
-              with:
-                  cluster-type: kubernetes
 
             - name: 📐 Set current Camunda version
               id: camunda-version
@@ -836,7 +925,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup AKS clusters
-        if: always()
+        if: always() && needs.clusters-info.result != 'skipped'
         needs:
             - prepare-clusters
             - clusters-info
@@ -848,15 +937,18 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
 
+        permissions:
+            contents: read
+            id-token: write # OIDC token for the cloud login in this job
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -874,7 +966,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
 
             - name: Azure Login with OIDC
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
               if: env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 10
               with:
@@ -925,8 +1017,11 @@ jobs:
         needs:
             - integration-tests
             - cleanup-clusters
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -944,7 +1039,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

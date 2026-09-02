@@ -959,7 +959,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.35.5-SUFFIX",
+                    "release_version": "1.35.6-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -983,7 +983,8 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.35"
+                    "version": "1.35",
+                    "warm_pool_config": []
                   }
                 },
                 "module.eks_cluster_region_0.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]": {
@@ -1574,6 +1575,9 @@
                   }
                 ],
                 "identity": [],
+                "kube_api_server_config": [],
+                "kube_controller_manager_config": [],
+                "kube_scheduler_config": [],
                 "kubernetes_network_config": [
                   {
                     "elastic_load_balancing": []
@@ -3970,7 +3974,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-3",
-                    "release_version": "1.35.5-SUFFIX",
+                    "release_version": "1.35.6-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -3994,7 +3998,8 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.35"
+                    "version": "1.35",
+                    "warm_pool_config": []
                   }
                 },
                 "module.eks_cluster_region_1.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]": {
@@ -4585,6 +4590,9 @@
                   }
                 ],
                 "identity": [],
+                "kube_api_server_config": [],
+                "kube_controller_manager_config": [],
+                "kube_scheduler_config": [],
                 "kubernetes_network_config": [
                   {
                     "elastic_load_balancing": []

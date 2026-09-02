@@ -2,12 +2,13 @@ package core
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/camunda/camunda-deployment-references/tests/integration/helpers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,15 +37,26 @@ func TestOrchestrationGRPC(t *testing.T) {
 	}
 
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
-	conn, err := tls.DialWithDialer(dialer, "tcp", addr, &tls.Config{
-		ServerName: host,
-		MinVersion: tls.VersionTLS12,
-		NextProtos: []string{"h2"},
-	})
-	require.NoError(t, err, "TLS dial to %s should succeed", addr)
-	defer conn.Close()
 
-	state := conn.ConnectionState()
-	assert.Equal(t, "h2", state.NegotiatedProtocol,
-		"gRPC requires HTTP/2: ingress must negotiate ALPN h2 (got %q)", state.NegotiatedProtocol)
+	// Retry the dial + ALPN handshake: right after deployment the public gRPC
+	// hostname may not resolve yet (external-DNS / ingress propagation lag),
+	// which otherwise fails the very first attempt with "no such host". Mirror
+	// the retry/warmup the REST topology test already uses.
+	err := helpers.Retry(cfg.RetryAttempts, cfg.RetryDelay, func() error {
+		conn, err := tls.DialWithDialer(dialer, "tcp", addr, &tls.Config{
+			ServerName: host,
+			MinVersion: tls.VersionTLS12,
+			NextProtos: []string{"h2"},
+		})
+		if err != nil {
+			return fmt.Errorf("TLS dial to %s failed: %w", addr, err)
+		}
+		defer conn.Close()
+
+		if proto := conn.ConnectionState().NegotiatedProtocol; proto != "h2" {
+			return fmt.Errorf("gRPC requires HTTP/2: ingress must negotiate ALPN h2 (got %q)", proto)
+		}
+		return nil
+	})
+	require.NoError(t, err, "gRPC endpoint %s should be reachable over TLS negotiating ALPN h2", addr)
 }

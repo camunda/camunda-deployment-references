@@ -33,7 +33,7 @@ inputs:
         description: Version of the OpenShift to install
         required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.20.3
+        default: 4.20.32
     replicas:
         description: Number of replicas for the ROSA cluster (empty will fallback on default value of the module)
         default: ''
@@ -105,7 +105,7 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+          uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -113,16 +113,18 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
         # TODO: when available on asdf, migrate this to it
         - name: Install ROSA CLI
           shell: bash
           working-directory: /tmp
+          env:
+              INPUTS_ROSA_CLI_VERSION: ${{ inputs.rosa-cli-version }}
           run: |
               set -euo pipefail
 
-              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${INPUTS_ROSA_CLI_VERSION}/rosa-linux.tar.gz"
               tar -xvf rosa-linux.tar.gz
               sudo mv rosa /usr/local/bin/rosa
               chmod +x /usr/local/bin/rosa
@@ -130,35 +132,28 @@ runs:
               rosa version
 
         - name: Install CLI tools from OpenShift Mirror
-          uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+          uses: redhat-actions/openshift-tools-installer@ebd96c3fc72fc10a62663eac5e1421192152e6aa # v2
           with:
               oc: ${{ inputs.openshift-version }}
 
-        - name: Set AWS Region and associated AZs
-          id: construct_azs
+        - name: Set AWS Region
+          id: set_aws_region
           shell: bash
-          run: |
+          env:
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
-              echo "AWS_REGION=${{ inputs.aws-region }}" | tee -a "$GITHUB_ENV"
-
-              IFS=',' read -r -a az_letters <<< "${{ inputs.availability-zones }}"
-              FULL_AZS=()
-              for az in "${az_letters[@]}"; do
-                FULL_AZS+=("\"${AWS_REGION}${az}\"")  # Add double quotes around each AZ
-              done
-
-              # Join the AZs with commas
-              FULL_AZS_STRING=$(IFS=,; echo "${FULL_AZS[*]}")
-              echo "FULL_AZS=$FULL_AZS_STRING" | tee -a "$GITHUB_ENV"
-
+              echo "AWS_REGION=${INPUTS_AWS_REGION}" | tee -a "$GITHUB_ENV"
 
         - name: Login to Red Hat Hybrid Cloud Console
           shell: bash
+          env:
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
           run: |
               set -euo pipefail
 
-              rosa login --token="${{ inputs.rh-token }}"
+              rosa login --token="${INPUTS_RH_TOKEN}"
               rosa whoami
 
         - name: Verify and enable HCP ROSA on AWS Marketplace
@@ -173,41 +168,49 @@ runs:
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
-          run: |
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME}/"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
 
-              echo "TF_DIR_CLUSTER=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/cluster/" >> "$GITHUB_ENV"
-              echo "TF_DIR_VPN=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-single-region/terraform/vpn/" >> "$GITHUB_ENV"
+              echo "TF_DIR_CLUSTER=${INPUTS_TF_MODULES_PATH}/aws/openshift/rosa-hcp-single-region/terraform/cluster/" >> "$GITHUB_ENV"
+              echo "TF_DIR_VPN=${INPUTS_TF_MODULES_PATH}/aws/openshift/rosa-hcp-single-region/terraform/vpn/" >> "$GITHUB_ENV"
 
         - name: Check if S3 bucket exists
           id: create-s3-bucket
           shell: bash
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
           run: |
               set -euo pipefail
 
-              if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
+              if aws s3api head-bucket --bucket ${INPUTS_S3_BACKEND_BUCKET} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
                 echo "Bucket already exists"
               else
                 echo "Bucket does not exist, creating..."
-                aws s3api create-bucket --bucket ${{ inputs.s3-backend-bucket }} \
+                aws s3api create-bucket --bucket ${INPUTS_S3_BACKEND_BUCKET} \
                     --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
                     --create-bucket-configuration LocationConstraint=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
               fi
 
-              aws s3api put-public-access-block --bucket ${{ inputs.s3-backend-bucket }} \
+              aws s3api put-public-access-block --bucket ${INPUTS_S3_BACKEND_BUCKET} \
                 --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
                 --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
 
@@ -253,8 +256,16 @@ runs:
         - name: Terraform Plan - Cluster
           id: plan-cluster
           working-directory: ${{ env.TF_DIR_CLUSTER }}
+          # Passed as env, never interpolated into the script: the values reach
+          # jq as data, so nothing below has to be quoted or escaped.
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
+              CLUSTER_NAME: ${{ inputs.cluster-name }}
+              ADMIN_USERNAME: ${{ inputs.admin-username }}
+              OPENSHIFT_VERSION: ${{ inputs.openshift-version }}
+              AVAILABILITY_ZONES: ${{ inputs.availability-zones }}
+              REPLICAS: ${{ inputs.replicas }}
+              PRIVATE_VPC: ${{ inputs.private-vpc }}
           shell: bash
           run: |
               set -euo pipefail
@@ -263,28 +274,85 @@ runs:
               pwd
               ls
 
-              # We use sed instead of -var because the module presented to the user
-              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(rosa_cluster_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name }}\2/' \
-                     -e 's/\(rosa_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username }}\2/' \
-                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version }}\2/' \
-                     -e "s/\(rosa_cluster_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS]/" \
-                     cluster.tf
-
-              if [ -n "${{ inputs.replicas }}" ]; then
-                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas }}/' cluster.tf
-              else
-                echo "No replicas value provided, skipping replica modification."
+              # Terraform's own override mechanism, rather than rewriting in place
+              # the reference files we ship to users. Terraform *rejects* an
+              # override for a local that no longer exists ("An override file can
+              # only override a local value that was already defined in a primary
+              # configuration file"), so a rename in the reference architecture
+              # fails the plan loudly instead of silently testing the reference
+              # defaults.
+              #
+              # Module arguments are merged rather than validated, so those get an
+              # explicit presence check below.
+              #
+              # Building the file with jq keeps every value literal: no quoting,
+              # no regex, no shell interpolation.
+              zones=$(jq -n --arg region "${AWS_REGION}" --arg letters "${AVAILABILITY_ZONES}" \
+                  '[$letters | split(",") | .[] | sub("^\\s+";"") | sub("\\s+$";"") | select(length > 0) | $region + .]')
+              if ! jq -e 'length > 0' <<< "${zones}" > /dev/null; then
+                  echo "::error::availability-zones resolved to an empty list (got '${AVAILABILITY_ZONES}')."
+                  exit 1
               fi
 
-              if [ -n "${{ inputs.private-vpc }}" ]; then
-                sed -i -E "s/(^\s*rosa_private_cluster\s*=\s*)[a-z]+/\1${{ inputs.private-vpc }}/" cluster.tf
+              overrides=$(jq -n \
+                  --arg name "${CLUSTER_NAME}" \
+                  --arg admin "${ADMIN_USERNAME}" \
+                  --argjson zones "${zones}" \
+                  --arg version "${OPENSHIFT_VERSION}" \
+                  '{
+                      locals: {
+                          rosa_cluster_name: $name,
+                          rosa_admin_username: $admin,
+                          rosa_cluster_zones: $zones
+                      },
+                      module: { rosa_cluster: { openshift_version: $version } }
+                  }')
+
+              if [ -n "${REPLICAS}" ]; then
+                  # jq --argjson would reject a leading zero with an opaque parse
+                  # error, so constrain the shape here and keep the clear message.
+                  if ! [[ "${REPLICAS}" =~ ^[1-9][0-9]*$ ]]; then
+                      echo "::error::Invalid replicas '${REPLICAS}'; expected a positive integer."
+                      exit 1
+                  fi
+                  overrides=$(jq --argjson v "${REPLICAS}" '.module.rosa_cluster.replicas = $v' <<< "${overrides}")
               else
-                echo "No private-vpc value provided, skipping private modification."
+                  echo "No replicas value provided, keeping the reference default."
               fi
 
-              echo "Displaying templated cluster.tf file:"
-              cat cluster.tf
+              if [ -n "${PRIVATE_VPC}" ]; then
+                  case "${PRIVATE_VPC}" in
+                    true|false) ;;
+                    *)
+                      echo "::error::Invalid private-vpc '${PRIVATE_VPC}'; expected the boolean true or false."
+                      exit 1
+                      ;;
+                  esac
+                  overrides=$(jq --argjson v "${PRIVATE_VPC}" '.locals.rosa_private_cluster = $v' <<< "${overrides}")
+              else
+                  echo "No private-vpc value provided, keeping the reference default."
+              fi
+
+              # Terraform silently ignores an unknown argument in a module
+              # override block, so assert the ones we set are still there. The
+              # search is scoped to the module block: the same key may legitimately
+              # appear elsewhere in the file (a local, another module) and would
+              # otherwise mask a removed argument.
+              module_block=$(awk '/^module "rosa_cluster"/ { inside = 1 }
+                                 inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' cluster.tf)
+              if [ -z "${module_block}" ]; then
+                  echo "::error::No 'module \\"rosa_cluster\\"' block found in cluster.tf; update this action."
+                  exit 1
+              fi
+              for key in $(jq -r '.module.rosa_cluster | keys[]' <<< "${overrides}"); do
+                  if ! grep -qE "^[[:space:]]*${key}[[:space:]]*=" <<< "${module_block}"; then
+                      echo "::error::No '${key}' argument in the rosa_cluster module block of cluster.tf;" \
+                          "the CI override would be silently ignored. Update this action."
+                      exit 1
+                  fi
+              done
+
+              jq '.' <<< "${overrides}" | tee ci_override.tf.json
 
               terraform plan -no-color -var-file=terraform.tfvars -out rosa.plan
 
@@ -360,6 +428,10 @@ runs:
           if: inputs.vpn-enabled == 'true'
           working-directory: ${{ env.TF_DIR_VPN }}
           shell: bash
+          # Passed as env, never interpolated into the script, as in the cluster
+          # plan step above.
+          env:
+              CLUSTER_NAME: ${{ inputs.cluster-name }}
           run: |
               set -euo pipefail
 
@@ -367,12 +439,21 @@ runs:
               pwd
               ls
 
-              sed -i -E \
-                -e "s/(^\s*vpn_name\s*=\s*\")[^\"]*(\")/\1${{ inputs.cluster-name }}-vpn\2/" \
-                vpn.tf
+              # Same approach as the cluster plan step: override rather than edit
+              # the reference file. vpn_name is a literal module argument, and
+              # Terraform silently ignores an unknown argument in a module
+              # override block, so check it is still there first — scoped to the
+              # module block, so the same key elsewhere cannot mask its removal.
+              vpn_block=$(awk '/^module "vpn"/ { inside = 1 }
+                                 inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' vpn.tf)
+              if ! grep -qE '^[[:space:]]*vpn_name[[:space:]]*=' <<< "${vpn_block}"; then
+                  echo "::error::No 'vpn_name' argument in the vpn module block of vpn.tf;" \
+                      "the CI override would be silently ignored. Update this action."
+                  exit 1
+              fi
 
-              echo "Displaying templated vpn.tf file:"
-              cat vpn.tf
+              jq -n --arg name "${CLUSTER_NAME}-vpn" \
+                  '{module: {vpn: {vpn_name: $name}}}' | tee ci_override.tf.json
 
               terraform plan -no-color \
                 -var-file=terraform.tfvars \
@@ -488,7 +569,9 @@ runs:
         - name: Clean up cloned modules
           if: always() && inputs.cleanup-tf-modules-path == 'true'
           shell: bash
+          env:
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
           run: |
               set -euo pipefail
 
-              rm -rf "${{ inputs.tf-modules-path }}"
+              rm -rf "${INPUTS_TF_MODULES_PATH}"

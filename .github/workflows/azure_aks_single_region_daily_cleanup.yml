@@ -2,9 +2,7 @@
 name: Tests - Daily Cleanup - Azure Kubernetes AKS Single Region
 
 permissions:
-    id-token: write # this is required for azure login
-    contents: write # allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     workflow_dispatch:
@@ -16,6 +14,7 @@ on:
     pull_request:
         paths:
             - .github/workflows/azure_aks_single_region_daily_cleanup.yml
+            - .github/workflows-config/azure-kubernetes-aks-single-region/test_matrix.yml
             - .tool-versions
             - azure/kubernetes/aks-single-region*/**
             - '!azure/kubernetes/aks-single-region/test/golden/**'
@@ -36,6 +35,7 @@ env:
     MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
 
     # please keep those variables synced with azure_kubernetes_aks_single_region_tests.yml
+    CI_MATRIX_FILE: .github/workflows-config/azure-kubernetes-aks-single-region/test_matrix.yml
     AWS_PROFILE: infex
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
@@ -49,26 +49,61 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # comments and labels on the pull request
         steps:
-            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
 
-    cleanup-clusters:
+    # The tests workflow stores one terraform state tree per scenario
+    # (azure/kubernetes/<scenario>/). Deriving the cleanup matrix from the very same
+    # test matrix file guarantees that a newly added scenario is cleaned up as well.
+    scenarios:
+        name: Generate cleanup matrix
+        runs-on: ubuntu-latest
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
+        outputs:
+            scenario-matrix: ${{ steps.gen.outputs.scenario_matrix }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Compute scenario matrix
+              id: gen
+              run: |
+                  set -euo pipefail
+                  scenario_matrix="$(yq '[.matrix.scenario[] | {"name": .name}]' \
+                    --indent=0 --output-format json "${CI_MATRIX_FILE}")"
+
+                  echo "${scenario_matrix}" | jq
+                  echo "scenario_matrix=${scenario_matrix}" | tee -a "$GITHUB_OUTPUT"
+
+    cleanup-clusters:
+        needs:
+            - triage
+            - scenarios
+        if: needs.triage.outputs.should_skip == 'false'
+        strategy:
+            fail-fast: false
+            matrix:
+                scenario: ${{ fromJson(needs.scenarios.outputs.scenario-matrix) }}
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write # OIDC token for the cloud login in this job
         steps:
             - name: Checkout repository
-              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -85,7 +120,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
 
             - name: Azure Login with OIDC
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -114,7 +149,7 @@ jobs:
               id: s3_prefix
               run: |
                   set -euo pipefail
-                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/aks-single-region/" | tee -a "$GITHUB_OUTPUT"
+                  echo "S3_BACKEND_BUCKET_PREFIX=azure/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
 
             - name: Delete clusters
               id: delete_clusters
@@ -136,7 +171,7 @@ jobs:
             # Login again to Azure with OIDC to gain a new token
             - name: Azure Login with OIDC
               if: steps.delete_clusters.outcome == 'failure'
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -166,7 +201,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

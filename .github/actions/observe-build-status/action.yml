@@ -1,0 +1,102 @@
+---
+# TODO: [build-monitoring] temporary vendored copy. Remove once build-status collection is
+# centralised: the duration calculation moves into submit-build-status
+# (camunda/infra-global-github-actions#751), and job duration/queue time may move out of the
+# job entirely to the Actions API (camunda/team-infrastructure#1128).
+# Tracking: camunda/team-infrastructure#1051
+name: Observe Build Status
+
+description: Records the build status remotely for analytic purposes
+
+inputs:
+    build_status:
+        description: 'The status of the job, one of: success, failure, cancelled'
+        required: true
+    user_reason:
+        description: Optional string (200 chars max) the user can submit to indicate the reason why a build ended with a certain status.
+        required: false
+    user_description:
+        description: Optional string (1000 chars max) for the build entry.
+        required: false
+    job_name:
+        description: Optional string, the job whose status is being observed; defaults to $GITHUB_JOB when omitted
+        required: false
+    secret_vault_address:
+        description: Vault server URL
+        required: false
+    secret_vault_role_id:
+        description: Vault AppRole role ID
+        required: false
+    secret_vault_secret_id:
+        description: Vault AppRole secret ID
+        required: false
+
+runs:
+    using: composite
+    steps:
+        - name: Import Secrets
+          id: secrets
+          # Composite actions cannot access the secrets context directly; callers must
+          # pass vault config as inputs so they resolve correctly here via inputs.*.
+          continue-on-error: true
+          uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+          if: >
+              inputs.secret_vault_address != ''
+              && inputs.secret_vault_role_id != ''
+              && inputs.secret_vault_secret_id != ''
+          with:
+              url: ${{ inputs.secret_vault_address }}
+              method: approle
+              roleId: ${{ inputs.secret_vault_role_id }}
+              secretId: ${{ inputs.secret_vault_secret_id }}
+              exportEnv: false # we rely on step outputs, no need for environment variables
+              # This repository's AppRole is scoped to infrastructure-experience secrets.
+              secrets: |
+                  secret/data/products/infrastructure-experience/ci/ci-analytics gcloud_sa_key;
+
+        - name: Check CI Analytics secret availability
+          if: >-
+              inputs.secret_vault_address != ''
+              && inputs.secret_vault_role_id != ''
+              && inputs.secret_vault_secret_id != ''
+              && steps.secrets.outputs.gcloud_sa_key == ''
+          shell: bash
+          run: echo "::warning::Not sending CI health metrics because the CI Analytics Vault secret is unavailable."
+
+        ######################## Calculate build duration #########################
+        - name: Get build duration in milliseconds
+          id: get-build-duration-millis
+          if: ${{ steps.secrets.outputs.gcloud_sa_key != '' }}
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              if [ ! -f /tmp/_monitor-start.pid ]; then
+                echo "::warning::Not sending build duration because start-build-monitor did not create /tmp/_monitor-start.pid."
+                echo "result=" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+
+              start=$(date -r /tmp/_monitor-start.pid +"%s")
+              now=$(date +'%s')
+              duration=$(( now - start ))
+
+              # only submit plausible durations between 0 and 72 hours
+              if (( duration >= 0 && duration <= 259200 )); then
+                echo "result=$(( duration * 1000 ))" >> "$GITHUB_OUTPUT"
+              else
+                echo "::warning::Not sending build duration because the calculated duration is outside the expected range."
+                echo "result=" >> "$GITHUB_OUTPUT"
+              fi
+
+
+        ######################## Report build result #############################
+        - uses: camunda/infra-global-github-actions/submit-build-status@475528365f4010480dccff71ccac554cc3352e7c # main
+          if: ${{ always() && steps.secrets.outputs.gcloud_sa_key != '' }}
+          with:
+              job_name_override: ${{ inputs.job_name }}
+              build_status: ${{ inputs.build_status }}
+              build_duration_millis: ${{ steps.get-build-duration-millis.outputs.result }}
+              user_reason: ${{ inputs.user_reason }}
+              user_description: ${{ inputs.user_description }}
+              gcp_credentials_json: ${{ steps.secrets.outputs.gcloud_sa_key }}

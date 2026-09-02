@@ -38,12 +38,12 @@ runs:
               set -euo pipefail
 
               # Generate cluster name.
-              distro_indexes="$(yq '.matrix.distro | to_entries | .[] | .key' "${{ inputs.ci_matrix_file }}")"
+              distro_indexes="$(yq '.matrix.distro | to_entries | .[] | .key' "${INPUTS_CI_MATRIX_FILE}")"
 
               for distro_index in ${distro_indexes}; do
                 # limiting factor are OpenSearch domains of maximum 28 characters
-                cluster_name_fallback="${{ inputs.cluster_prefix }}$(cat /proc/sys/kernel/random/uuid | head -c 5)"
-                export cluster_name="${{ inputs.cluster_name || '' }}"
+                cluster_name_fallback="${INPUTS_CLUSTER_PREFIX}$(cat /proc/sys/kernel/random/uuid | head -c 5)"
+                export cluster_name="${INPUTS_CLUSTER_NAME:-}"
                 if [[ -z "$cluster_name" ]]; then
                   cluster_name="$cluster_name_fallback"
                 fi
@@ -54,29 +54,29 @@ runs:
                 cluster_name="${cluster_name:0:28}"
                 export cluster_name="${cluster_name}"
 
-                yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${{ inputs.ci_matrix_file }}"
+                yq -i '.matrix.distro[env(distro_index)].clusterName = env(cluster_name)' "${INPUTS_CI_MATRIX_FILE}"
               done
 
-              echo "Filtering the matrix with strategy IS_SCHEDULE=${{ inputs.is_schedule }} or IS_RENOVATE_PR=${{ inputs.is_renovate_pr }}"
-              if [[ "${{ inputs.is_schedule }}" == "true" ]]; then
+              echo "Filtering the matrix with strategy IS_SCHEDULE=${INPUTS_IS_SCHEDULE} or IS_RENOVATE_PR=${INPUTS_IS_RENOVATE_PR}"
+              if [[ "${INPUTS_IS_SCHEDULE}" == "true" ]]; then
                 echo "This is a scheduled run, we test all scenarios without filtering."
-                platform_matrix="$(yq '.matrix' --indent=0 --output-format json "${{ inputs.ci_matrix_file }}")"
-              elif [[ "${{ inputs.is_renovate_pr }}" == "true" ]]; then
+                platform_matrix="$(yq '.matrix' --indent=0 --output-format json "${INPUTS_CI_MATRIX_FILE}")"
+              elif [[ "${INPUTS_IS_RENOVATE_PR}" == "true" ]]; then
                 echo "This PR is from Renovate, we include all scenarios but exclude weekly_schedule_only."
                 platform_matrix="$(yq '(.matrix |= (.distro |= map(select(.weekly_schedule_only == null or .weekly_schedule_only == false)))) | .matrix' \
-                  --indent=0 --output-format json "${{ inputs.ci_matrix_file }}")"
+                  --indent=0 --output-format json "${INPUTS_CI_MATRIX_FILE}")"
               else
                 echo "This is a regular PR, we exclude schedule_only and weekly_schedule_only scenarios."
                 platform_matrix="$(yq '(.matrix |= (.distro |= map(select(
                     (.schedule_only == null or .schedule_only == false)
                     and (.weekly_schedule_only == null or .weekly_schedule_only == false)
                   )))) | .matrix' \
-                  --indent=0 --output-format json "${{ inputs.ci_matrix_file }}")"
+                  --indent=0 --output-format json "${INPUTS_CI_MATRIX_FILE}")"
               fi
 
-              if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.ref_arch }}" != "" ]]; then
-                echo "Filtering based on supplied ref_arch: ${{ inputs.ref_arch }}"
-                platform_matrix="$(echo "${platform_matrix}" | yq '(.scenario |= map(select(.name == "${{ inputs.ref_arch }}")))' -o=json)"
+              if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${INPUTS_REF_ARCH}" != "" ]]; then
+                echo "Filtering based on supplied ref_arch: ${INPUTS_REF_ARCH}"
+                platform_matrix="$(echo "${platform_matrix}" | yq '(.scenario |= map(select(.name == env(INPUTS_REF_ARCH))))' -o=json)"
               fi
 
               # Add shortName (short SHA of scenario.name)
@@ -88,3 +88,10 @@ runs:
 
               echo "${platform_matrix}" | jq
               echo "platform_matrix=${platform_matrix}" >> "$GITHUB_OUTPUT"
+          env:
+              INPUTS_CI_MATRIX_FILE: ${{ inputs.ci_matrix_file }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster_name }}
+              INPUTS_CLUSTER_PREFIX: ${{ inputs.cluster_prefix }}
+              INPUTS_IS_SCHEDULE: ${{ inputs.is_schedule }}
+              INPUTS_IS_RENOVATE_PR: ${{ inputs.is_renovate_pr }}
+              INPUTS_REF_ARCH: ${{ inputs.ref_arch }}

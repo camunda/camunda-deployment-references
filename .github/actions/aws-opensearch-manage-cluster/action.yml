@@ -113,7 +113,7 @@ runs:
     steps:
         - name: Use Utility Actions
           id: utility
-          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@f923f83ae5325eda8ab8d740da073f15d19a2fc3 # main
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@9b1b431dd63f486a8006075f940ee4ebf058a060 # main
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.tf-terraform-version }}
@@ -130,7 +130,7 @@ runs:
               tf-terraform-wrapper: ${{ inputs.tf-terraform-wrapper }}
 
         - name: Checkout Repository OpenSearch modules
-          uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+          uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -139,7 +139,9 @@ runs:
 
         - name: Set working directory
           shell: bash
-          run: echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/aws/modules/opensearch/" >> "$GITHUB_ENV"
+          run: echo "TF_MODULE_DIR=${INPUTS_TF_MODULES_PATH}/aws/modules/opensearch/" >> "$GITHUB_ENV"  # zizmor: ignore[github-env]
+          env:
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
 
         - name: Terraform Init
           shell: bash
@@ -167,17 +169,26 @@ runs:
           run: |
               set -euo pipefail
 
-              echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
+              printf '%s\n' "${INPUTS_ADDITIONAL_TERRAFORM_VARS}" > /tmp/var.tfvars.json
               terraform plan -no-color -out opensearch.plan \
                 -var-file=/tmp/var.tfvars.json \
                 -var 'default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
-                -var "domain_name=${{ inputs.domain-name }}" \
-                -var "engine_version=${{ inputs.engine-version }}" \
-                -var 'subnet_ids=${{ inputs.subnet-ids }}' \
-                -var "vpc_id=${{ inputs.vpc-id }}" \
-                -var 'cidr_blocks=${{ inputs.cidr-blocks }}' \
-                -var "instance_type=${{ inputs.instance-type }}" \
-                -var "instance_count=${{ inputs.instance-count }}"
+                -var "domain_name=${INPUTS_DOMAIN_NAME}" \
+                -var "engine_version=${INPUTS_ENGINE_VERSION}" \
+                -var "subnet_ids=${INPUTS_SUBNET_IDS}" \
+                -var "vpc_id=${INPUTS_VPC_ID}" \
+                -var "cidr_blocks=${INPUTS_CIDR_BLOCKS}" \
+                -var "instance_type=${INPUTS_INSTANCE_TYPE}" \
+                -var "instance_count=${INPUTS_INSTANCE_COUNT}"
+          env:
+              INPUTS_ADDITIONAL_TERRAFORM_VARS: ${{ inputs.additional-terraform-vars }}
+              INPUTS_DOMAIN_NAME: ${{ inputs.domain-name }}
+              INPUTS_ENGINE_VERSION: ${{ inputs.engine-version }}
+              INPUTS_SUBNET_IDS: ${{ inputs.subnet-ids }}
+              INPUTS_VPC_ID: ${{ inputs.vpc-id }}
+              INPUTS_CIDR_BLOCKS: ${{ inputs.cidr-blocks }}
+              INPUTS_INSTANCE_TYPE: ${{ inputs.instance-type }}
+              INPUTS_INSTANCE_COUNT: ${{ inputs.instance-count }}
 
         - name: Terraform Apply
           shell: bash
