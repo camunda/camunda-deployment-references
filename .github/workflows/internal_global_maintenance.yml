@@ -103,7 +103,7 @@ jobs:
                   persist-credentials: false
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
 
             - name: Import Secrets
               id: secrets
@@ -197,7 +197,7 @@ jobs:
         # patch, refuses what it should not commit, applies it, mints a repository-scoped app
         # token last and commits through the API. It runs no repository code -- which is the
         # whole point, since everything that produced this patch ran in `regenerate`.
-        uses: camunda/infraex-common-config/.github/workflows/commit-patch-global.yml@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+        uses: camunda/infraex-common-config/.github/workflows/commit-patch-global.yml@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
         with:
             # Literals, deliberately, and not read from `regenerate`'s outputs: that job runs
             # branch code, which can write to $GITHUB_ENV and so influence anything it
