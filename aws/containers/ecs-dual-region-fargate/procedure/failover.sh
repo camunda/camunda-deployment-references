@@ -20,19 +20,29 @@
 #   --force-timeout  120 (seconds to wait for auto-reconfigure before force) #
 #                                                                             #
 # Prerequisites:                                                              #
-#   . ./export_environment_prerequisites.sh                                   #
+#   Environment variables are sourced automatically from                      #
+#   export_environment_prerequisites.sh unless already set in the shell.      #
 ###############################################################################
 
 set -euo pipefail
 
-: "${REGION_0:?REGION_0 must be set — source export_environment_prerequisites.sh first}"
-: "${REGION_1:?REGION_1 must be set}"
-: "${CLUSTER_0:?CLUSTER_0 must be set}"
-: "${CLUSTER_1:?CLUSTER_1 must be set}"
-: "${ALB_ENDPOINT_0:?ALB_ENDPOINT_0 must be set}"
-: "${ALB_ENDPOINT_1:?ALB_ENDPOINT_1 must be set}"
-: "${ADMIN_USER:?ADMIN_USER must be set (default: admin)}"
-: "${ADMIN_PASS:?ADMIN_PASS must be set}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+
+# Declare expected exports so shellcheck can track them across the source boundary.
+# shellcheck disable=SC2034
+REGION_0="${REGION_0:-}" REGION_1="${REGION_1:-}"
+# shellcheck disable=SC2034
+CLUSTER_0="${CLUSTER_0:-}" CLUSTER_1="${CLUSTER_1:-}"
+# shellcheck disable=SC2034
+ALB_ENDPOINT_0="${ALB_ENDPOINT_0:-}" ALB_ENDPOINT_1="${ALB_ENDPOINT_1:-}"
+ADMIN_USER="${ADMIN_USER:-admin}"
+ADMIN_PASS="${ADMIN_PASS:-}"
+
+# Auto-source prerequisites if the key variables are not already in the environment.
+if [[ -z "${REGION_0}" || -z "${CLUSTER_0}" || -z "${ADMIN_PASS}" ]]; then
+  # shellcheck disable=SC1091
+  . "${SCRIPT_DIR}/export_environment_prerequisites.sh"
+fi
 
 ###############################################################################
 # Argument parsing                                                            #
@@ -58,16 +68,36 @@ fi
 if [[ "$FAILED_REGION" == "0" ]]; then
   FAILED_CLUSTER="$CLUSTER_0"
   FAILED_AWS_REGION="$REGION_0"
+  SURVIVING_CLUSTER="$CLUSTER_1"
+  SURVIVING_AWS_REGION="$REGION_1"
   SURVIVING_ALB="$ALB_ENDPOINT_1"
-  # Region 0 = even broker IDs, Region 1 = odd
-  BROKERS_TO_REMOVE="0,2,4,6"
 else
   FAILED_CLUSTER="$CLUSTER_1"
   FAILED_AWS_REGION="$REGION_1"
+  SURVIVING_CLUSTER="$CLUSTER_0"
+  SURVIVING_AWS_REGION="$REGION_0"
   SURVIVING_ALB="$ALB_ENDPOINT_0"
-  BROKERS_TO_REMOVE="1,3,5,7"
 fi
 
+# This cluster uses CAMUNDA_CLUSTER_PARTITIONING_SCHEME=ZONE_AWARE with
+# CAMUNDA_CLUSTER_ZONE set to the AWS region name. In zone-aware clusters the
+# legacy integer nodeId is only unique *within* its zone — the S3 node-id
+# leaser hands out 0..brokers_per_region-1 independently in each region, so
+# both regions' brokers can carry the same nodeId. The globally-unique
+# identifier is `brokerId`, formatted "<zone>_<nodeId>" (e.g. "us-east-1_0").
+# See https://github.com/camunda/camunda/commit/3c93915b5783120ac811739574434f9852ee18b3
+# and PATCH /actuator/cluster's BrokerId schema, which rejects bare integers
+# on zone-aware clusters. BROKERS_TO_REMOVE is therefore computed from the
+# live topology below, not hardcoded.
+FAILED_ZONE="$FAILED_AWS_REGION"
+
+# MGMT_URL only reaches the REST/webapp port (8080) via the public ALB, where
+# /v2/topology lives. The management port (9600) — where /actuator/cluster
+# lives — has no ALB route (enable_alb_http_management_listener_rule=false in
+# camunda.tf) and is unauthenticated, so it's deliberately not exposed on the
+# public internet. /actuator/cluster calls instead run inside a running
+# broker task via `aws ecs execute-command` (see exec_broker below), reaching
+# localhost:9600 from within the task's own network namespace.
 MGMT_URL="http://${SURVIVING_ALB}"
 RETRY_INTERVAL=15
 
@@ -78,15 +108,72 @@ RETRY_INTERVAL=15
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 err() { echo "[$(date '+%H:%M:%S')] ERROR: $*" >&2; }
 
+if ! command -v session-manager-plugin > /dev/null 2>&1; then
+  err "session-manager-plugin not found."
+  err "It's required by 'aws ecs execute-command', used to reach the management"
+  err "port (9600) which is intentionally not exposed on the public ALB."
+  err "Install: https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html"
+  exit 1
+fi
+
 zeebe_topology() {
   curl -sf --max-time 15 \
     -u "${ADMIN_USER}:${ADMIN_PASS}" \
     "${MGMT_URL}/v2/topology" 2>/dev/null || echo ""
 }
 
+# Finds a running orchestration-cluster task in the surviving region.
+# Never propagates failure — under `set -e`, a plain assignment like
+# `x=$(surviving_broker_task)` would abort the whole script on a transient
+# AWS API error, which we want treated as "not available yet" instead.
+surviving_broker_task() {
+  local service_arn
+  service_arn=$(aws ecs list-services \
+    --region "${SURVIVING_AWS_REGION}" \
+    --cluster "${SURVIVING_CLUSTER}" \
+    --query "serviceArns[?contains(@, 'orchestration')] | [0]" \
+    --output text 2>/dev/null) || true
+  [[ -z "$service_arn" || "$service_arn" == "None" ]] && { echo ""; return; }
+
+  aws ecs list-tasks \
+    --region "${SURVIVING_AWS_REGION}" \
+    --cluster "${SURVIVING_CLUSTER}" \
+    --service-name "${service_arn##*/}" \
+    --desired-status RUNNING \
+    --query 'taskArns[0]' \
+    --output text 2>/dev/null || true
+}
+
+# Runs a shell script inside a broker task via ECS Exec (SSM) and returns its
+# stdout, stripped of the SSM session banner via a random marker. Always
+# exits 0 (see surviving_broker_task comment above for why).
+exec_broker() {
+  local script="$1"
+  local task_arn
+  task_arn=$(surviving_broker_task)
+  [[ -z "$task_arn" || "$task_arn" == "None" ]] && { echo ""; return; }
+
+  local marker="___FAILOVER_${RANDOM}${RANDOM}___"
+  local encoded
+  encoded=$(printf '%s' "$script" | base64 | tr -d '\n')
+
+  aws ecs execute-command \
+    --region "${SURVIVING_AWS_REGION}" \
+    --cluster "${SURVIVING_CLUSTER}" \
+    --task "${task_arn}" \
+    --container orchestration-cluster \
+    --interactive \
+    --command "/bin/sh -c 'echo ${marker}; echo ${encoded} | base64 -d | /bin/sh; echo ${marker}'" \
+    2>/dev/null | tr -d '\r' | awk -v marker="${marker}" '
+      $0 == marker { count++; next }
+      count == 1 { print }
+    ' || true
+}
+
+# The orchestration-cluster image (Minimus "MinimOS" base) has no curl —
+# only wget (GNU Wget, supports --method) and nc are available inside it.
 zeebe_cluster_state() {
-  curl -sf --max-time 15 \
-    "${MGMT_URL}/actuator/cluster" 2>/dev/null || echo ""
+  exec_broker 'wget -q -O - --timeout=15 http://localhost:9600/actuator/cluster 2>/dev/null' || echo ""
 }
 
 # Returns 0 if Zeebe has no pending change and all partitions have a leader
@@ -112,17 +199,34 @@ zeebe_is_stable() {
 
 log "=== Pre-flight: verify surviving region is reachable ==="
 
-if ! zeebe_topology > /dev/null; then
+PREFLIGHT_TOPOLOGY=$(zeebe_topology)
+if [[ -z "$PREFLIGHT_TOPOLOGY" ]]; then
   err "Cannot reach Zeebe topology at ${MGMT_URL}"
   err "Is the surviving region (failed-region=${FAILED_REGION}) endpoint correct?"
   exit 1
 fi
 
 log "Surviving region is reachable."
+
+# Identify brokers belonging to the failed zone via the globally-unique
+# brokerId ("<zone>_<nodeId>") rather than the zone-local nodeId.
+BROKERS_TO_REMOVE_JSON=$(echo "$PREFLIGHT_TOPOLOGY" | jq -c \
+  --arg prefix "${FAILED_ZONE}_" \
+  '[.brokers[].brokerId | select(startswith($prefix))]')
+BROKERS_TO_REMOVE_COUNT=$(echo "$BROKERS_TO_REMOVE_JSON" | jq 'length')
+
+if [[ "$BROKERS_TO_REMOVE_COUNT" -eq 0 ]]; then
+  err "No brokers found with zone prefix '${FAILED_ZONE}_' in the topology."
+  err "Check that CAMUNDA_CLUSTER_ZONE for region ${FAILED_REGION} is indeed '${FAILED_ZONE}'."
+  exit 1
+fi
+
+BROKERS_TO_REMOVE_DISPLAY=$(echo "$BROKERS_TO_REMOVE_JSON" | jq -r 'join(", ")')
+
 log ""
 log "Failing over region:  ${FAILED_REGION} (${FAILED_AWS_REGION})"
 log "Surviving endpoint:   ${MGMT_URL}"
-log "Brokers to remove:    [${BROKERS_TO_REMOVE}]"
+log "Brokers to remove:    [${BROKERS_TO_REMOVE_DISPLAY}]"
 log "Force timeout:        ${FORCE_TIMEOUT}s"
 log ""
 
@@ -193,12 +297,23 @@ done
 if [[ "$AUTO_HEALED" == "false" ]]; then
   log ""
   log "=== Step 3: Zeebe did not self-heal — forcing reconfiguration ==="
-  log "  Removing brokers [${BROKERS_TO_REMOVE}] via PATCH /actuator/cluster?force=true..."
+  log "  Removing brokers [${BROKERS_TO_REMOVE_DISPLAY}] via PATCH /actuator/cluster?force=true..."
 
-  RESPONSE=$(curl -s -w "\n%{http_code}" -X PATCH \
-    "${MGMT_URL}/actuator/cluster?force=true" \
-    -H "Content-Type: application/json" \
-    -d "{\"brokers\":{\"remove\":[${BROKERS_TO_REMOVE}]}}")
+  # No curl in the image — use wget --method=PATCH, capturing the status line
+  # via -S (server-response) since wget doesn't expose it on stdout directly.
+  # --content-on-error keeps the JSON error body on 4xx/5xx (wget drops it by
+  # default). printf/$(...) guarantees exactly one trailing newline after the
+  # body so the appended status code lands on its own line for `tail -1`.
+  PATCH_SCRIPT=$(cat <<'EOF'
+wget -q -S --content-on-error --method=PATCH --header='Content-Type: application/json' --body-data='{"brokers":{"remove":__BROKERS_JSON__}}' -O /tmp/.failover_body "http://localhost:9600/actuator/cluster?force=true" 2>/tmp/.failover_hdr
+CODE=$(grep -oE 'HTTP/[0-9.]+ [0-9]+' /tmp/.failover_hdr | tail -1 | awk '{print $2}')
+printf '%s\n' "$(cat /tmp/.failover_body)"
+echo "$CODE"
+rm -f /tmp/.failover_body /tmp/.failover_hdr
+EOF
+)
+  PATCH_SCRIPT="${PATCH_SCRIPT//__BROKERS_JSON__/$BROKERS_TO_REMOVE_JSON}"
+  RESPONSE=$(exec_broker "$PATCH_SCRIPT")
 
   HTTP_CODE=$(echo "$RESPONSE" | tail -1)
   BODY=$(echo "$RESPONSE" | sed '$d')
@@ -269,7 +384,7 @@ log "Replication factor: ${REPLICATION_FACTOR}"
 
 echo "$TOPOLOGY" | jq -r '
   .brokers[] |
-  "  Broker \(.nodeId) — partitions: \([.partitions[] | "\(.partitionId)(\(.role))"] | join(", "))"
+  "  Broker \(.brokerId) — partitions: \([.partitions[] | "\(.partitionId)(\(.role))"] | join(", "))"
 '
 
 if [[ "$BROKER_COUNT" -ge 4 ]]; then
@@ -289,7 +404,7 @@ log "═════════════════════════
 if [[ "$AUTO_HEALED" == "true" ]]; then
   log "Failover complete — Zeebe self-healed without force reconfiguration."
 else
-  log "Failover complete — Zeebe reconfigured via force (brokers [${BROKERS_TO_REMOVE}] removed)."
+  log "Failover complete — Zeebe reconfigured via force (brokers [${BROKERS_TO_REMOVE_DISPLAY}] removed)."
 fi
 log ""
 log "Failed region ${FAILED_REGION}:  scaled down (0 ECS tasks)"
