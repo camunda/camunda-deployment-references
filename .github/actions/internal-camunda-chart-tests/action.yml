@@ -93,6 +93,13 @@ inputs:
     skip-c8sm-connectivity-ingress-class-check:
         description: Whether to skip the ingress class check part of the C8 SM Kubernetes connectivity check
         default: 'false'
+    c8sm-connectivity-timeout-seconds:
+        description: >
+            Upper bound, in seconds, for the C8 SM Kubernetes connectivity sweep.
+            Must stay above the duration of a healthy sweep and below the
+            `timeout-minutes` the caller sets on the step, otherwise the guard
+            never fires and the step dies on the opaque GitHub Actions timeout.
+        default: '1200'
     enable-c8sm-irsa-check:
         description: Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)
         default: 'false'
@@ -119,7 +126,7 @@ runs:
     using: composite
     steps:
         - name: 🧙‍♂️ Clone camunda/c8-sm-checks
-          uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+          uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
           with:
               repository: camunda/c8-sm-checks
               ref: ${{ inputs.tests-c8-sm-checks-repo-ref }}
@@ -136,36 +143,51 @@ runs:
               echo "======================================"
               echo ""
               echo "Tests enabled:"
-              echo "  - Deployment Check: ${{ inputs.enable-c8sm-deployment-check }}"
-              echo "  - Kubernetes Connectivity Check: ${{ inputs.enable-c8sm-connectivity-check }}"
-              echo "  - AWS IRSA Check: ${{ inputs.enable-c8sm-irsa-check }}"
-              echo "  - Zeebe Token Generation Check: ${{ inputs.enable-c8sm-zeebe-token-check }}"
-              echo "  - Zeebe Connectivity Check: ${{ inputs.enable-c8sm-zeebe-connectivity-check }}"
+              echo "  - Deployment Check: ${INPUTS_ENABLE_C8SM_DEPLOYMENT_CHECK}"
+              echo "  - Kubernetes Connectivity Check: ${INPUTS_ENABLE_C8SM_CONNECTIVITY_CHECK}"
+              echo "  - AWS IRSA Check: ${INPUTS_ENABLE_C8SM_IRSA_CHECK}"
+              echo "  - Zeebe Token Generation Check: ${INPUTS_ENABLE_C8SM_ZEEBE_TOKEN_CHECK}"
+              echo "  - Zeebe Connectivity Check: ${INPUTS_ENABLE_C8SM_ZEEBE_CONNECTIVITY_CHECK}"
               echo ""
               echo "Configuration:"
-              echo "  - Namespace: ${{ inputs.test-namespace }}"
-              echo "  - Release Name: ${{ inputs.test-release-name }}"
-              echo "  - Cluster Type: ${{ inputs.test-cluster-type }}"
-              echo "  - Domain: ${{ inputs.camunda-domain || '(not configured)' }}"
-              echo "  - WebModeler Enabled: ${{ inputs.webmodeler-enabled }}"
-              echo "  - Console Enabled: ${{ inputs.console-enabled }}"
-              echo "  - Elasticsearch Enabled: ${{ inputs.elasticsearch-enabled }}"
+              echo "  - Namespace: ${INPUTS_TEST_NAMESPACE}"
+              echo "  - Release Name: ${INPUTS_TEST_RELEASE_NAME}"
+              echo "  - Cluster Type: ${INPUTS_TEST_CLUSTER_TYPE}"
+              echo "  - Domain: ${INPUTS_CAMUNDA_DOMAIN:-(not configured)}"
+              echo "  - WebModeler Enabled: ${INPUTS_WEBMODELER_ENABLED}"
+              echo "  - Console Enabled: ${INPUTS_CONSOLE_ENABLED}"
+              echo "  - Elasticsearch Enabled: ${INPUTS_ELASTICSEARCH_ENABLED}"
               echo ""
               echo "======================================"
+          env:
+              INPUTS_ENABLE_C8SM_DEPLOYMENT_CHECK: ${{ inputs.enable-c8sm-deployment-check }}
+              INPUTS_ENABLE_C8SM_CONNECTIVITY_CHECK: ${{ inputs.enable-c8sm-connectivity-check }}
+              INPUTS_ENABLE_C8SM_IRSA_CHECK: ${{ inputs.enable-c8sm-irsa-check }}
+              INPUTS_ENABLE_C8SM_ZEEBE_TOKEN_CHECK: ${{ inputs.enable-c8sm-zeebe-token-check }}
+              INPUTS_ENABLE_C8SM_ZEEBE_CONNECTIVITY_CHECK: ${{ inputs.enable-c8sm-zeebe-connectivity-check }}
+              INPUTS_TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              INPUTS_TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
+              INPUTS_TEST_CLUSTER_TYPE: ${{ inputs.test-cluster-type }}
+              INPUTS_CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              INPUTS_WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
+              INPUTS_CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              INPUTS_ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
 
         - name: 🔧 Configure service references
           shell: bash
           env:
               CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name }}
-          run: |
+              INPUTS_KEYCLOAK_SERVICE_NAME: ${{ inputs.keycloak-service-name }}
+              INPUTS_ELASTICSEARCH_SERVICE_NAME: ${{ inputs.elasticsearch-service-name }}
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
               # Configure Keycloak service reference
-              KEYCLOAK_SERVICE_INPUT="${{ inputs.keycloak-service-name }}"
+              KEYCLOAK_SERVICE_INPUT="${INPUTS_KEYCLOAK_SERVICE_NAME}"
               KEYCLOAK_TARGET="${KEYCLOAK_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-keycloak:8080}"
 
               # Configure Elasticsearch service reference
-              ELASTICSEARCH_SERVICE_INPUT="${{ inputs.elasticsearch-service-name }}"
+              ELASTICSEARCH_SERVICE_INPUT="${INPUTS_ELASTICSEARCH_SERVICE_NAME}"
               ELASTICSEARCH_TARGET="${ELASTICSEARCH_SERVICE_INPUT:-${CAMUNDA_RELEASE_NAME}-elasticsearch:9200}"
 
               # Export service configurations for subsequent steps
@@ -182,20 +204,25 @@ runs:
               CAMUNDA_NAMESPACE_0: ${{ inputs.camunda-namespace-0 || '' }}
               CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name || '' }}
               TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              INPUTS_ZEEBE_TOPOLOGY_GOLDEN_FILE: ${{ inputs.zeebe-topology-golden-file }}
+              INPUTS_ZEEBE_TOPOLOGY_CHECK_SCRIPT: ${{ inputs.zeebe-topology-check-script }}
+              INPUTS_ZEEBE_AUTHENTICATED: ${{ inputs.zeebe-authenticated }}
+              INPUTS_TEST_CLIENT_ID: ${{ inputs.test-client-id }}
+              INPUTS_TEST_CLIENT_SECRET: ${{ inputs.test-client-secret }}
           run: |
               set -euo pipefail
 
-              reference_file="${{ inputs.zeebe-topology-golden-file }}"
-              topology_check_script="${{ inputs.zeebe-topology-check-script }}"
-              zeebe_authenticated="${{ inputs.zeebe-authenticated }}"
+              reference_file="${INPUTS_ZEEBE_TOPOLOGY_GOLDEN_FILE}"
+              topology_check_script="${INPUTS_ZEEBE_TOPOLOGY_CHECK_SCRIPT}"
+              zeebe_authenticated="${INPUTS_ZEEBE_AUTHENTICATED}"
 
               echo "Using golden reference file to compare against: $reference_file"
               echo "Using topology check script: $topology_check_script"
 
               if [[ "$zeebe_authenticated" == "true" ]]; then
                 echo "Using authenticated Zeebe client credentials..."
-                export ZEEBE_CLIENT_ID="${{ inputs.test-client-id }}"
-                export ZEEBE_CLIENT_SECRET="${{ inputs.test-client-secret }}"
+                export ZEEBE_CLIENT_ID="${INPUTS_TEST_CLIENT_ID}"
+                export ZEEBE_CLIENT_SECRET="${INPUTS_TEST_CLIENT_SECRET}"
               fi
 
               # function to help with port-forwarding in the background
@@ -250,6 +277,15 @@ runs:
 
               golden_zeebe_topology_cluster_size=$(jq '.clusterSize' < "$reference_file")
               golden_zeebe_topology_partitions_count=$(jq '.partitionsCount' < "$reference_file")
+              # Total partition replicas the golden topology expects (sum of every
+              # broker's partitions). A broker can join the cluster (so clusterSize
+              # already matches) before it has loaded its partitions, reporting
+              # "partitions": []. That empty broker contributes nothing to the
+              # flattened health check and is still counted by clusterSize, so the
+              # aggregate checks below all pass; without this total the loop would
+              # exit "ready" against a still-converging topology and then flake on
+              # the golden-file diff.
+              golden_zeebe_topology_total_replicas=$(jq '[.brokers[].partitions[]] | length' < "$reference_file")
 
               # The Zeebe cluster can take a while to fully form after the Helm
               # release reports ready. Retry fetching the topology until it
@@ -288,16 +324,19 @@ runs:
                 check_zeebe_topology_all_healthy=$(echo "$check_zeebe_topology_output" | jq -r "$healthy_filter" 2>/dev/null || echo "false")
                 check_zeebe_topology_cluster_size=$(echo "$check_zeebe_topology_output" | jq -r '.clusterSize // empty' 2>/dev/null || echo "")
                 check_zeebe_topology_partitions_count=$(echo "$check_zeebe_topology_output" | jq -r '.partitionsCount // empty' 2>/dev/null || echo "")
+                check_zeebe_topology_total_replicas=$(echo "$check_zeebe_topology_output" | jq -r '[.brokers[]?.partitions[]?] | length' 2>/dev/null || echo "0")
 
                 if [ "$check_zeebe_topology_all_healthy" = "true" ] \
                   && [ "$check_zeebe_topology_cluster_size" = "$golden_zeebe_topology_cluster_size" ] \
-                  && [ "$check_zeebe_topology_partitions_count" = "$golden_zeebe_topology_partitions_count" ]; then
+                  && [ "$check_zeebe_topology_partitions_count" = "$golden_zeebe_topology_partitions_count" ] \
+                  && [ "$check_zeebe_topology_total_replicas" = "$golden_zeebe_topology_total_replicas" ]; then
                   echo "✅ Zeebe topology is ready."
                   break
                 fi
 
                 echo "Topology not ready yet (size='${check_zeebe_topology_cluster_size:-<empty>}'," \
                   "partitions='${check_zeebe_topology_partitions_count:-<empty>}'," \
+                  "replicas='${check_zeebe_topology_total_replicas:-<empty>}'/'${golden_zeebe_topology_total_replicas}'," \
                   "healthy='${check_zeebe_topology_all_healthy}')."
                 # Only sleep when another attempt will follow, to avoid an
                 # unnecessary delay after the final attempt.
@@ -338,6 +377,15 @@ runs:
                 echo "✅ Partitions count is $check_zeebe_topology_partitions_count."
               else
                 echo "❌ Partitions count is not $golden_zeebe_topology_partitions_count (got '${check_zeebe_topology_partitions_count:-<empty>}')."
+                error_found=true
+              fi
+
+              if [[ "$check_zeebe_topology_total_replicas" =~ ^[0-9]+$ ]] && [ "$check_zeebe_topology_total_replicas" -eq "$golden_zeebe_topology_total_replicas" ]; then
+                echo "✅ Partition replicas total is $check_zeebe_topology_total_replicas (every broker loaded its partitions)."
+              else
+                echo "❌ Partition replicas total is not $golden_zeebe_topology_total_replicas" \
+                  "(got '${check_zeebe_topology_total_replicas:-<empty>}');" \
+                  "topology not fully converged (a broker is missing partitions or the output was incomplete)."
                 error_found=true
               fi
 
@@ -405,40 +453,92 @@ runs:
               fi
               echo "✅ The cluster meets all the expected criteria."
 
+        - name: ⏳ C8-SM-CHECKS - Wait for all pods to be stably Ready
+          if: ${{ inputs.enable-c8sm-deployment-check == 'true' || inputs.enable-c8sm-connectivity-check == 'true' }}
+          shell: bash
+          env:
+              NAMESPACE: ${{ inputs.test-namespace }}
+          run: |
+              set -euo pipefail
+
+              # Gate for both checks below. The deployment check asserts that no
+              # pod is in an unhealthy state, and the connectivity check probes
+              # every Service from every pod with a single-shot TCP test — both
+              # are point-in-time assertions, so either one trips over a pod that
+              # is still rotating (a workload the caller bounced, a slow
+              # readiness probe on Connectors) even though the namespace is
+              # perfectly healthy a few seconds later.
+              # Require every pod's pod-level Ready condition to be True
+              # (this honours readiness gates and matches what Service
+              # endpoints key off — per-container .ready does not), stable
+              # across a few consecutive polls, before running them.
+              # Completed Job/init pods (Succeeded/Failed) and pods being
+              # deleted (deletionTimestamp) are ignored, and the wait is
+              # bounded so a genuinely broken pod still surfaces (warning +
+              # the checks' own failure) instead of hanging here.
+              READY_TIMEOUT_SECONDS="${READY_TIMEOUT_SECONDS:-300}"
+              STABLE_POLLS_REQUIRED="${STABLE_POLLS_REQUIRED:-3}"
+              POLL_INTERVAL_SECONDS="${POLL_INTERVAL_SECONDS:-10}"
+
+              deadline=$(( $(date +%s) + READY_TIMEOUT_SECONDS ))
+              stable=0
+
+              while true; do
+                  not_ready=$(kubectl get pods -n "$NAMESPACE" -o json | jq '
+                    [ .items[]
+                      | select(.status.phase != "Succeeded" and .status.phase != "Failed")
+                      | select(.metadata.deletionTimestamp == null)
+                      | select( ( [ .status.conditions[]? | select(.type == "Ready") | .status ] | first // "False" ) != "True" )
+                    ] | length')
+
+                  if [[ "$not_ready" -eq 0 ]]; then
+                      stable=$(( stable + 1 ))
+                      echo "✅ All pods Ready (stable ${stable}/${STABLE_POLLS_REQUIRED})."
+                      if [[ "$stable" -ge "$STABLE_POLLS_REQUIRED" ]]; then
+                          break
+                      fi
+                  else
+                      stable=0
+                      echo "⏳ ${not_ready} pod(s) not yet Ready, waiting..."
+                  fi
+
+                  if [[ "$(date +%s)" -ge "$deadline" ]]; then
+                      echo "::warning::Pods were not stably Ready within ${READY_TIMEOUT_SECONDS}s; running the C8-SM checks anyway."
+                      kubectl get pods -n "$NAMESPACE" -o wide || true
+                      break
+                  fi
+
+                  sleep "$POLL_INTERVAL_SECONDS"
+              done
+
         - name: 🧪 C8-SM-CHECKS - Run Deployment Check
           if: ${{ inputs.enable-c8sm-deployment-check == 'true' }}
           shell: bash
           env:
               NAMESPACE: ${{ inputs.test-namespace }}
               HELM_DEPLOYMENT_NAME: ${{ inputs.test-release-name }}
+              INPUTS_CAMUNDA_VERSION: ${{ inputs.camunda-version }}
+              INPUTS_OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
+              INPUTS_WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
+              INPUTS_CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
           run: |
               set -euo pipefail
-
               echo "🔍 Running deployment check..."
-
-              # Determine required containers based on what's enabled and Camunda version
-              # For Camunda 8.8+, zeebe components are unified under 'orchestration'
-              CAMUNDA_MAJOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f1)
-              CAMUNDA_MINOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f2)
-
+              # Determine required containers based on what's enabled
               # Camunda 8.8+ uses 'zeebe' instead of 'zeebe,zeebe-gateway'
               REQUIRED_CONTAINERS="connector,zeebe"
-
-              if [[ "${{ inputs.optimize-enabled }}" == "true" ]]; then
+              if [[ "${INPUTS_OPTIMIZE_ENABLED}" == "true" ]]; then
                 REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},optimize"
               fi
-
-              if [[ "${{ inputs.webmodeler-enabled }}" == "true" ]]; then
+              if [[ "${INPUTS_WEBMODELER_ENABLED}" == "true" ]]; then
                 REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},web-modeler"
               fi
-
-              if [[ "${{ inputs.console-enabled }}" == "true" ]]; then
+              if [[ "${INPUTS_CONSOLE_ENABLED}" == "true" ]]; then
                 REQUIRED_CONTAINERS="${REQUIRED_CONTAINERS},console"
               fi
-
-              echo "Required containers for Camunda ${{ inputs.camunda-version }}: $REQUIRED_CONTAINERS"
-
-              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              echo "Required containers for Camunda ${INPUTS_CAMUNDA_VERSION}: $REQUIRED_CONTAINERS"
+              C8_SM_CHECKS_PATH="${INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/kube/deployment.sh"
               "$C8_SM_CHECKS_PATH/checks/kube/deployment.sh" \
                 -n "$NAMESPACE" \
@@ -451,21 +551,64 @@ runs:
           env:
               NAMESPACE: ${{ inputs.test-namespace }}
               CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              C8SM_CONNECTIVITY_TIMEOUT_SECONDS: ${{ inputs.c8sm-connectivity-timeout-seconds }}
+              INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
+              INPUTS_SKIP_C8SM_CONNECTIVITY_INGRESS_CLASS_CHECK: ${{ inputs.skip-c8sm-connectivity-ingress-class-check }}
           run: |
               set -euo pipefail
 
               echo "🔍 Running Kubernetes connectivity check..."
 
-              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              C8_SM_CHECKS_PATH="${INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh"
 
-              # Skip ingress checks if no domain is configured
-              if [[ -z "$CAMUNDA_DOMAIN" ]] || [[ "${{ inputs.skip-c8sm-connectivity-ingress-class-check }}" == "true" ]]; then
-                echo "ℹ️ No domain configured, skipping ingress checks"
-                "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" -n "$NAMESPACE" -i
-              else
-                "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" -n "$NAMESPACE"
+              # Build the connectivity.sh arguments, skipping the ingress
+              # checks when there is no domain to resolve, or when the caller
+              # explicitly opts out (distinct messages so the logs are clear).
+              connectivity_args=(-n "$NAMESPACE")
+              if [[ -z "$CAMUNDA_DOMAIN" ]]; then
+                echo "ℹ️ No domain configured; skipping ingress checks."
+                connectivity_args+=(-i)
+              elif [[ "${INPUTS_SKIP_C8SM_CONNECTIVITY_INGRESS_CLASS_CHECK}" == "true" ]]; then
+                echo "ℹ️ skip-c8sm-connectivity-ingress-class-check=true; skipping ingress checks."
+                connectivity_args+=(-i)
               fi
+
+              # The sweep runs `kubectl exec` into every pod to probe every
+              # Service. `kubectl exec` has no client-side deadline, so a pod
+              # that goes momentarily unresponsive mid-sweep (restart, node or
+              # volume hiccup) makes a single exec hang and would otherwise
+              # silently consume the whole step timeout, failing with an opaque
+              # "The action has timed out". Bound the sweep with `timeout` so a
+              # wedged exec fails fast with a clear message instead. The budget
+              # is deliberately generous: a healthy sweep of a large namespace
+              # probes hundreds of Service×pod pairs and legitimately takes
+              # ~10-15 min, so it must stay well above that to avoid killing a
+              # slow-but-healthy run. It must also stay below the caller's own
+              # step `timeout-minutes`, otherwise the step dies first and the
+              # guard never fires — hence the per-caller override.
+              if ! [[ "$C8SM_CONNECTIVITY_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
+                  echo "::error::c8sm-connectivity-timeout-seconds must be a positive integer (got '$C8SM_CONNECTIVITY_TIMEOUT_SECONDS')."
+                  exit 1
+              fi
+
+              # -k 30 escalates to SIGKILL 30s after the initial SIGTERM so a
+              # wedged exec cannot linger past the budget.
+              rc=0
+              timeout -k 30 "$C8SM_CONNECTIVITY_TIMEOUT_SECONDS" \
+                  "$C8_SM_CHECKS_PATH/checks/kube/connectivity.sh" "${connectivity_args[@]}" || rc=$?
+              if [[ "$rc" -ne 0 ]]; then
+                  # GNU timeout exits 124 when it interrupted the command, and
+                  # 137 (128+SIGKILL) when the command ignored SIGTERM and the
+                  # `-k` escalation had to kill it — both mean "timed out".
+                  if [[ "$rc" -eq 124 || "$rc" -eq 137 ]]; then
+                      echo "::error::Connectivity check timed out after ${C8SM_CONNECTIVITY_TIMEOUT_SECONDS}s (a pod likely went unresponsive mid-sweep); re-run to retry."
+                  else
+                      echo "::error::Kubernetes connectivity check failed (exit ${rc})."
+                  fi
+                  exit 1
+              fi
+              echo "✅ Kubernetes connectivity check passed."
 
         - name: 🧪 C8-SM-CHECKS - Run AWS IRSA Check
           if: ${{ inputs.enable-c8sm-irsa-check == 'true' }}
@@ -474,12 +617,15 @@ runs:
               NAMESPACE: ${{ inputs.test-namespace }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
               KEYCLOAK_SERVICE_NAME: ${{ inputs.keycloak-service-name }}
+              INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
+              INPUTS_OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
+              INPUTS_WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
           run: |
               set -euo pipefail
 
               echo "🔍 Running AWS IRSA check..."
 
-              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              C8_SM_CHECKS_PATH="${INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/kube/aws-irsa.sh"
 
               # Exclude components based on configuration
@@ -489,14 +635,10 @@ runs:
                 exit 0
               fi
 
-              # Build component lists based on Camunda version
-              CAMUNDA_MAJOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f1)
-              CAMUNDA_MINOR_VERSION=$(echo "${{ inputs.camunda-version }}" | cut -d. -f2)
-
               # Camunda 8.8+ uses 'orchestration' and 'optimize' for OpenSearch
               OS_COMPONENTS="orchestration"
 
-              if [[ "${{ inputs.optimize-enabled }}" == "true" ]]; then
+              if [[ "${INPUTS_OPTIMIZE_ENABLED}" == "true" ]]; then
                 OS_COMPONENTS="${OS_COMPONENTS},optimize"
               fi
 
@@ -514,7 +656,7 @@ runs:
                 echo "ℹ️ External/operator Keycloak detected ($KEYCLOAK_SERVICE_NAME); excluding bundled identityKeycloak from IRSA checks"
               fi
 
-              if [[ "${{ inputs.webmodeler-enabled }}" == "true" ]]; then
+              if [[ "${INPUTS_WEBMODELER_ENABLED}" == "true" ]]; then
                 PG_COMPONENTS="${PG_COMPONENTS},webModeler"
               fi
 
@@ -568,12 +710,13 @@ runs:
               ZEEBE_CLIENT_ID: ${{ inputs.test-client-id }}
               ZEEBE_CLIENT_SECRET: ${{ inputs.test-client-secret }}
               ZEEBE_TOKEN_AUDIENCE: orchestration-api
+              INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
           run: |
               set -euo pipefail
 
               echo "🔍 Running Zeebe token generation check..."
 
-              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              C8_SM_CHECKS_PATH="${INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/zeebe/token.sh"
 
               "$C8_SM_CHECKS_PATH/checks/zeebe/token.sh" \
@@ -593,19 +736,57 @@ runs:
               ZEEBE_CLIENT_SECRET: ${{ inputs.test-client-secret }}
               ZEEBE_TOKEN_AUDIENCE: orchestration-api
               ZEEBE_DEFAULT_VERSION: ${{ inputs.camunda-version }}
+              INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH: ${{ inputs.tests-c8-sm-checks-repo-path }}
           run: |
               set -euo pipefail
 
               echo "🔍 Running Zeebe connectivity check..."
 
-              C8_SM_CHECKS_PATH="${{ inputs.tests-c8-sm-checks-repo-path }}"
+              C8_SM_CHECKS_PATH="${INPUTS_TESTS_C8_SM_CHECKS_REPO_PATH}"
               chmod +x "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh"
 
-              "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh" \
-                -H "$ZEEBE_ADDRESS" \
-                -p "$ZEEBE_DEFAULT_VERSION" \
-                -a "$ZEEBE_AUTHORIZATION_SERVER_URL" \
-                -i "$ZEEBE_CLIENT_ID" \
-                -s "$ZEEBE_CLIENT_SECRET" \
-                -u "$ZEEBE_TOKEN_AUDIENCE" \
-                -q grpc
+              # The gRPC probe mints a fresh Keycloak token and calls
+              # Gateway/Topology. Right after deployment the orchestration/Zeebe
+              # gateway can momentarily reject an otherwise valid token
+              # ("Unauthenticated: Invalid bearer token") until its OIDC issuer
+              # signing keys (JWKS) are fetched and cached. Retry the one-shot
+              # check a bounded number of times so this transient propagation
+              # window does not fail the smoke test; a genuine misconfiguration
+              # still fails after the budget is exhausted.
+              ZEEBE_CONNECTIVITY_RETRIES="${ZEEBE_CONNECTIVITY_RETRIES:-5}"
+              ZEEBE_CONNECTIVITY_RETRY_DELAY="${ZEEBE_CONNECTIVITY_RETRY_DELAY:-15}"
+
+              # Validate the (overridable) tuning knobs up front: retries must be a
+              # positive integer and the delay a non-negative integer. Otherwise the
+              # `[[ ... -ge ... ]]` / `sleep` below would fail mid-loop with a terse
+              # bash error under `set -euo pipefail` that is harder to diagnose.
+              if ! [[ "$ZEEBE_CONNECTIVITY_RETRIES" =~ ^[1-9][0-9]*$ ]]; then
+                  echo "::error::ZEEBE_CONNECTIVITY_RETRIES must be a positive integer (got '$ZEEBE_CONNECTIVITY_RETRIES')."
+                  exit 1
+              fi
+              if ! [[ "$ZEEBE_CONNECTIVITY_RETRY_DELAY" =~ ^[0-9]+$ ]]; then
+                  echo "::error::ZEEBE_CONNECTIVITY_RETRY_DELAY must be a non-negative integer (got '$ZEEBE_CONNECTIVITY_RETRY_DELAY')."
+                  exit 1
+              fi
+
+              attempt=1
+              while true; do
+                  if "$C8_SM_CHECKS_PATH/checks/zeebe/connectivity.sh" \
+                    -H "$ZEEBE_ADDRESS" \
+                    -p "$ZEEBE_DEFAULT_VERSION" \
+                    -a "$ZEEBE_AUTHORIZATION_SERVER_URL" \
+                    -i "$ZEEBE_CLIENT_ID" \
+                    -s "$ZEEBE_CLIENT_SECRET" \
+                    -u "$ZEEBE_TOKEN_AUDIENCE" \
+                    -q grpc; then
+                      echo "✅ Zeebe gRPC connectivity check passed (attempt ${attempt}/${ZEEBE_CONNECTIVITY_RETRIES})."
+                      break
+                  fi
+                  if [[ "$attempt" -ge "$ZEEBE_CONNECTIVITY_RETRIES" ]]; then
+                      echo "::error::Zeebe gRPC connectivity check failed after ${ZEEBE_CONNECTIVITY_RETRIES} attempt(s)."
+                      exit 1
+                  fi
+                  echo "::warning::Zeebe gRPC connectivity check failed (attempt ${attempt}/${ZEEBE_CONNECTIVITY_RETRIES}); retrying in ${ZEEBE_CONNECTIVITY_RETRY_DELAY}s..."
+                  attempt=$(( attempt + 1 ))
+                  sleep "$ZEEBE_CONNECTIVITY_RETRY_DELAY"
+              done

@@ -48,7 +48,7 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+          uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -56,30 +56,38 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME}/"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" >> "$GITHUB_OUTPUT"
 
-              terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_BASE_KEY}${{ inputs.tf-modules-name }}.tfstate"
+              terraform_state_url="s3://${TFSTATE_BUCKET}/${TFSTATE_BASE_KEY}${INPUTS_TF_MODULES_NAME}.tfstate"
               echo "terraform-state-url=${terraform_state_url}" >> "$GITHUB_OUTPUT"
 
-              echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/aws/containers/${{ inputs.ref-arch }}/terraform/${{ inputs.tf-modules-name }}" >> "$GITHUB_ENV"
+              echo "TF_MODULE_DIR=${INPUTS_TF_MODULES_PATH}/aws/containers/${INPUTS_REF_ARCH}/terraform/${INPUTS_TF_MODULES_NAME}" >> "$GITHUB_ENV"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_TF_MODULES_NAME: ${{ inputs.tf-modules-name }}
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
+              INPUTS_REF_ARCH: ${{ inputs.ref-arch }}
 
         - name: Copy CI fixtures
           shell: bash
@@ -102,10 +110,12 @@ runs:
 
               terraform init \
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
-                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}${{ inputs.tf-modules-name }}.tfstate" \
+                -backend-config="key=${{ steps.set-terraform-variables.outputs.TFSTATE_BASE_KEY }}${INPUTS_TF_MODULES_NAME}.tfstate" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}"
 
               terraform validate -no-color
+          env:
+              INPUTS_TF_MODULES_NAME: ${{ inputs.tf-modules-name }}
 
         - name: Sanitize Tags
           id: sanitize-tags
@@ -125,7 +135,7 @@ runs:
               # with 14 characters we're adding in Terraform
               # + 4 from suffixes when calling the module
               # therefore cut to 14 characters to be on the safe side
-              PREFIX=$(echo "${{ inputs.cluster-name }}" | cut -c1-14)
+              PREFIX=$(echo "${INPUTS_CLUSTER_NAME}" | cut -c1-14)
               # Remove trailing dash if present
               PREFIX=${PREFIX%-}
 
@@ -133,6 +143,8 @@ runs:
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
               prefix       = "${PREFIX}"
               EOF
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Terraform Plan
           id: plan
@@ -140,11 +152,13 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              export AWS_REGION="${{ inputs.aws-region }}"
+              export AWS_REGION="${INPUTS_AWS_REGION}"
 
               terraform plan -no-color \
                 -var-file=terraform.tfvars \
                 -out tf.plan
+          env:
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
 
         - name: Terraform Apply
           id: apply

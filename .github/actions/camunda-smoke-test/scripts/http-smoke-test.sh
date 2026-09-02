@@ -16,6 +16,20 @@ fail_test(){ echo "[$(date -u +%H:%M:%S)] FAIL: $*"; FAILURES=$((FAILURES + 1));
 
 FAILURES=0
 
+# curl already prints "000" through -w "%{http_code}" when a transfer fails, so
+# pairing it with a `|| echo "000"` fallback yielded "000000" and every
+# `== "000"` comparison downstream silently never matched. Capture with
+# `|| true` to satisfy `set -e`, then normalise here: three digits or nothing
+# usable, in which case the transfer never produced a status.
+normalize_http_code() {
+    local code="${1:-}"
+    if [[ "$code" =~ ^[0-9]{3}$ ]]; then
+        printf '%s' "$code"
+    else
+        printf '000'
+    fi
+}
+
 # ── Configuration from environment ──────────────────────────────────
 ZEEBE_URL="${SMOKE_ZEEBE_REST_URL:?SMOKE_ZEEBE_REST_URL is required}"
 AUTH_MODE="${SMOKE_AUTH_MODE:-basic}"
@@ -71,7 +85,7 @@ refresh_auth() {
 
 if [[ "$AUTH_MODE" == "basic" ]]; then
     if [[ -z "$BASIC_USER" || -z "$BASIC_PASSWORD" ]]; then
-        fail_test "basic auth requires SMOKE_BASIC_USER and SMOKE_BASIC_PASSWORD (refusing to fall back to demo:demo — see INC-5340)"
+        fail_test "basic auth requires SMOKE_BASIC_USER and SMOKE_BASIC_PASSWORD (refusing to fall back to demo:demo — see INC-5340)" # no-demo-credentials:ignore
         exit 1
     fi
     AUTH_ARGS=(-u "${BASIC_USER}:${BASIC_PASSWORD}")
@@ -103,9 +117,9 @@ api_call() {
 log "=== Waiting for Zeebe REST API at ${ZEEBE_URL} ==="
 READY=false
 for i in $(seq 1 30); do
-    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+    HTTP_CODE=$(normalize_http_code "$(curl -s -o /dev/null -w "%{http_code}" \
         --connect-timeout 10 --max-time 15 \
-        "${AUTH_ARGS[@]}" "${ZEEBE_URL}/v2/topology" 2>/dev/null || echo "000")
+        "${AUTH_ARGS[@]}" "${ZEEBE_URL}/v2/topology" 2>/dev/null || true)")
     if [[ "$HTTP_CODE" == "200" ]]; then
         READY=true
         log "Zeebe REST API is ready"
@@ -150,12 +164,12 @@ DEPLOY_RESP=""
 DEPLOY_CODE="000"
 for attempt in $(seq 1 12); do
     DEPLOY_BODY_FILE=$(mktemp /tmp/smoke-deploy-resp-XXXXXX)
-    DEPLOY_CODE=$(curl -s -o "$DEPLOY_BODY_FILE" -w "%{http_code}" \
+    DEPLOY_CODE=$(normalize_http_code "$(curl -s -o "$DEPLOY_BODY_FILE" -w "%{http_code}" \
         --connect-timeout 10 --max-time 60 \
         "${AUTH_ARGS[@]}" \
         -X POST "${ZEEBE_URL}/v2/deployments" \
         -H "Accept: application/json" \
-        -F "resources=@${BPMN_FILE}" 2>/dev/null || echo "000")
+        -F "resources=@${BPMN_FILE}" 2>/dev/null || true)")
     DEPLOY_RESP=$(cat "$DEPLOY_BODY_FILE")
     rm -f "$DEPLOY_BODY_FILE"
     if [[ "$DEPLOY_CODE" =~ ^2[0-9][0-9]$ ]]; then
@@ -244,7 +258,7 @@ log "=== Waiting ${PROPAGATION_WAIT}s for search index propagation ==="
 # A bare `sleep 60` lets the SPDY/TCP idle timer (typically 4 min on
 # managed cloud LBs, but as low as 60s on AKS LB / Azure ILB / some
 # CNIs) close both port-forward streams. When they die, every
-# subsequent verify call returns HTTP 000000 even though Zeebe and
+# subsequent verify call returns HTTP 000 even though Zeebe and
 # Keycloak are healthy. Probing /v2/topology and the OIDC token
 # endpoint every 10s keeps both PFs warm.
 KEEPALIVE_INTERVAL=10
@@ -281,13 +295,13 @@ search_process_instances() {
     local body="$1"
     local resp_file
     resp_file=$(mktemp /tmp/smoke-search-resp-XXXXXX)
-    SEARCH_CODE=$(curl -s -o "$resp_file" -w "%{http_code}" \
+    SEARCH_CODE=$(normalize_http_code "$(curl -s -o "$resp_file" -w "%{http_code}" \
         --connect-timeout 10 --max-time 30 \
         "${AUTH_ARGS[@]}" \
         -X POST "${ZEEBE_URL}/v2/process-instances/search" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json" \
-        -d "$body" 2>/dev/null || echo "000")
+        -d "$body" 2>/dev/null || true)")
     SEARCH_RESP=$(cat "$resp_file")
     rm -f "$resp_file"
 }
@@ -302,6 +316,13 @@ SEARCH_CODE="000"
 # indexing on cold ROSA HCP clusters. Combined with the 60s propagation
 # wait above, total tolerance is ~6 min.
 SEARCH_MAX_ATTEMPTS=30
+# A search that cannot connect costs up to --max-time 30 plus the 10s wait, so
+# 30 attempts against a dead socket overrun the step's timeout-minutes and the
+# job is killed before the summary below is printed. Give up early instead: a
+# connection that fails this many times in a row is not going to recover on its
+# own, and an explicit failure is worth more than a timeout with no output.
+CONNECTION_FAILURES=0
+MAX_CONSECUTIVE_CONNECTION_FAILURES=5
 for attempt in $(seq 1 "$SEARCH_MAX_ATTEMPTS"); do
     refresh_auth
     search_process_instances \
@@ -319,14 +340,21 @@ for attempt in $(seq 1 "$SEARCH_MAX_ATTEMPTS"); do
         break
     fi
     log "  Attempt ${attempt}/${SEARCH_MAX_ATTEMPTS}: HTTP ${SEARCH_CODE}, found ${FOUND} (need >= ${MIN_EXPECTED}), waiting 10s..."
-    # If the search returned HTTP 000000 (connection refused / port-forward
+    # If the search returned HTTP 000 (connection refused / port-forward
     # dead), warn loudly so it is obvious in the logs that the issue is
     # client-side, not Camunda-side. The actual port-forward is owned by
     # the action.yml step; we cannot restart it from here, but the
     # /v2/topology probe below keeps the SPDY stream warm and may let
     # kubectl reopen the underlying connection on next attempt.
     if [[ "$SEARCH_CODE" == "000" ]]; then
+        CONNECTION_FAILURES=$((CONNECTION_FAILURES + 1))
         log "  WARN: Got HTTP 000 — likely a dropped kubectl port-forward, not a Camunda issue."
+        if [[ "$CONNECTION_FAILURES" -ge "$MAX_CONSECUTIVE_CONNECTION_FAILURES" ]]; then
+            log "  Aborting the search loop after ${CONNECTION_FAILURES} consecutive connection failures."
+            break
+        fi
+    else
+        CONNECTION_FAILURES=0
     fi
     # Split the 10s wait into 2x 5s with a topology ping in the middle so
     # the Zeebe port-forward never sits idle long enough to be reaped.

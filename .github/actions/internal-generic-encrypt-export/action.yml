@@ -27,15 +27,15 @@ runs:
           run: |
               set -euo pipefail
 
-              if [[ ! -f "${{ inputs.file_path }}" ]]; then
-                echo "File not found: ${{ inputs.file_path }}"
+              if [[ ! -f "${INPUTS_FILE_PATH}" ]]; then
+                echo "File not found: ${INPUTS_FILE_PATH}"
                 exit 1
               fi
 
               openssl enc -aes-256-cbc -salt \
-                -in "${{ inputs.file_path }}" \
+                -in "${INPUTS_FILE_PATH}" \
                 -out encrypted_file.enc \
-                -pass pass:"${{ inputs.encryption_key }}" \
+                -pass pass:"${INPUTS_ENCRYPTION_KEY}" \
                 -pbkdf2
 
               encrypted_file_base64=$(base64 -w 0 encrypted_file.enc)
@@ -43,3 +43,6 @@ runs:
               echo "encrypted_file_base64=$encrypted_file_base64" >> "$GITHUB_OUTPUT"
 
               rm -f encrypted_file.enc
+          env:
+              INPUTS_FILE_PATH: ${{ inputs.file_path }}
+              INPUTS_ENCRYPTION_KEY: ${{ inputs.encryption_key }}

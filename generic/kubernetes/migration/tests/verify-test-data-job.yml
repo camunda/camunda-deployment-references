@@ -181,7 +181,7 @@ spec:
                                     -d "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}" 2>/dev/null || echo '{}')
                             else
                                 if [ -z "${DEMO_USER}" ] || [ -z "${DEMO_PASS}" ]; then
-                                    fail_test "Basic auth requested but CAMUNDA_BASIC_AUTH_USER/PASSWORD are empty (refusing to fall back to demo:demo — see INC-5340)"
+                                    fail_test "Basic auth requested but CAMUNDA_BASIC_AUTH_USER/PASSWORD are empty (refusing to fall back to defaults — see INC-5340)"
                                     break
                                 fi
                                 SEARCH_RESP=$(curl -sf --connect-timeout 5 --max-time 30 \

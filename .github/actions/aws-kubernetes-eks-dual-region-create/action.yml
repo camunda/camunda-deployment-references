@@ -60,18 +60,24 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name }}/"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME}/"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
-                export TFSTATE_REGION="${{ inputs.aws-region }}"
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
+                export TFSTATE_REGION="${INPUTS_AWS_REGION}"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
 
         - name: Sanitize Tags
           id: sanitize-tags
@@ -80,8 +86,10 @@ runs:
               raw-tags: ${{ inputs.tags }}
         - name: Export Cluster Name
           shell: bash
-          run: |
-              echo "CLUSTER_NAME=${{ inputs.cluster-name }}" >> "$GITHUB_ENV"
+          run: |  # zizmor: ignore[github-env]
+              echo "CLUSTER_NAME=${INPUTS_CLUSTER_NAME}" >> "$GITHUB_ENV"
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Terraform Init - Cluster
           id: init-cluster
@@ -111,15 +119,19 @@ runs:
               set -euo pipefail
 
               cat > terraform-cluster.tfvars <<EOF
-              cluster_name = "${{ inputs.cluster-name }}"
-              kubernetes_version = "${{ inputs.kubernetes-version }}"
-              single_nat_gateway = ${{ inputs.single-nat-gateway }}
+              cluster_name = "${INPUTS_CLUSTER_NAME}"
+              kubernetes_version = "${INPUTS_KUBERNETES_VERSION}"
+              single_nat_gateway = ${INPUTS_SINGLE_NAT_GATEWAY}
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
               aws_profile = "infraex"
               EOF
 
               echo "Generated tfvars file:"
               cat terraform-cluster.tfvars
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_KUBERNETES_VERSION: ${{ inputs.kubernetes-version }}
+              INPUTS_SINGLE_NAT_GATEWAY: ${{ inputs.single-nat-gateway }}
 
         - name: Terraform Plan - Cluster
           id: plan-cluster

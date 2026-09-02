@@ -88,18 +88,18 @@ runs:
               set -euo pipefail
 
               echo "Setting up ingress components for EKS cluster..."
-              echo "Cluster: ${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
-              echo "Region: ${{ inputs.aws-region }}"
-              echo "Mail: ${{ inputs.mail }}"
-              echo "TLD: ${{ inputs.tld }}"
-              echo "Ref-arch: ${{ inputs.ref-arch }}"
-              echo "Ingress controller: ${{ inputs.ingress-controller }}"
-              echo "Use wildcard cert: ${{ inputs.use-wildcard-cert }}"
+              echo "Cluster: ${INPUTS_CLUSTER_NAME}-${INPUTS_SCENARIO_SHORT_NAME}"
+              echo "Region: ${INPUTS_AWS_REGION}"
+              echo "Mail: ${INPUTS_MAIL}"
+              echo "TLD: ${INPUTS_TLD}"
+              echo "Ref-arch: ${INPUTS_REF_ARCH}"
+              echo "Ingress controller: ${INPUTS_INGRESS_CONTROLLER}"
+              echo "Use wildcard cert: ${INPUTS_USE_WILDCARD_CERT}"
 
               # Set required environment variables for ingress setup
-              export REGION="${{ inputs.aws-region }}"
-              export MAIL_OVERWRITE="${{ inputs.mail }}"
-              export TLD="${{ inputs.tld }}"
+              export REGION="${INPUTS_AWS_REGION}"
+              export MAIL_OVERWRITE="${INPUTS_MAIL}"
+              export TLD="${INPUTS_TLD}"
 
               # Source ingress setup variables
               source generic/kubernetes/single-region/procedure/export-ingress-setup-vars.sh
@@ -122,44 +122,62 @@ runs:
               echo "✅ Found cert-manager IRSA ARN: $CERT_MANAGER_IRSA_ARN"
 
               # Install the selected ingress controller
-              case "${{ inputs.ingress-controller }}" in
+              case "${INPUTS_INGRESS_CONTROLLER}" in
                   nginx)
-                      install_script="./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-ingress-nginx.sh"
+                      install_script="./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-ingress-nginx.sh"
                       ;;
                   contour)
-                      install_script="./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-contour.sh"
+                      install_script="./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-contour.sh"
                       ;;
                   *)
-                      echo "❌ ERROR: unsupported ingress-controller '${{ inputs.ingress-controller }}'. Supported: nginx, contour" >&2
+                      echo "❌ ERROR: unsupported ingress-controller '${INPUTS_INGRESS_CONTROLLER}'. Supported: nginx, contour" >&2
                       exit 1
                       ;;
               esac
 
               if [[ ! -f "$install_script" ]]; then
                   echo "❌ ERROR: ingress controller install script not found: $install_script" >&2
-                  echo "The '${{ inputs.ingress-controller }}' controller is not available for ref-arch '${{ inputs.ref-arch }}'." >&2
+                  echo "The '${INPUTS_INGRESS_CONTROLLER}' controller is not available for ref-arch '${INPUTS_REF_ARCH}'." >&2
                   exit 1
               fi
 
-              echo "Installing ingress controller '${{ inputs.ingress-controller }}' via $install_script ..."
+              echo "Installing ingress controller '${INPUTS_INGRESS_CONTROLLER}' via $install_script ..."
               "$install_script"
+
+              # Tag the ingress controller load balancer for the AWS MAP program.
+              # The NLB is provisioned by the in-tree AWS cloud provider from the Service
+              # object, so it does not inherit the Terraform provider default_tags that
+              # carry the map-migrated tag. The tag is applied here, in CI only, so the
+              # reference procedures (which are rendered in the docs) stay free of
+              # Camunda's MAP id; the cloud provider then propagates it onto the NLB.
+              map_lb_service=""
+              map_lb_namespace=""
+              case "${INPUTS_INGRESS_CONTROLLER}" in
+                  nginx)   map_lb_service="ingress-nginx-controller"; map_lb_namespace="ingress-nginx" ;;
+                  contour) map_lb_service="contour-envoy";            map_lb_namespace="projectcontour" ;;
+              esac
+              if [[ -n "$map_lb_service" ]]; then
+                  echo "Tagging ${map_lb_service} (${map_lb_namespace}) load balancer with map-migrated for AWS MAP ..."
+                  kubectl annotate service "$map_lb_service" --namespace "$map_lb_namespace" --overwrite \
+                      'service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags=map-migrated=migARUADZHVWZ'
+              fi
 
               # Install external-dns
               echo "Installing external-dns..."
-              export EXTERNAL_DNS_OWNER_ID="external-dns-${{ inputs.cluster-name }}-${{ inputs.scenario-short-name }}"
-              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-external-dns.sh
+              export EXTERNAL_DNS_OWNER_ID="external-dns-${INPUTS_CLUSTER_NAME}-${INPUTS_SCENARIO_SHORT_NAME}"
+              ./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-external-dns.sh
 
               # Install cert-manager CRDs
               echo "Installing cert-manager CRDs..."
               ./generic/kubernetes/single-region/procedure/install-cert-manager-crds.sh
 
               echo "Installing cert-manager..."
-              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager.sh
+              ./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-cert-manager.sh
 
               echo "Installing ACME/Let's Encrypt issuer..."
-              ./aws/kubernetes/${{ inputs.ref-arch }}/procedure/install-cert-manager-issuer.sh
+              ./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-cert-manager-issuer.sh
 
-              if [[ "${{ inputs.use-wildcard-cert }}" == "true" ]]; then
+              if [[ "${INPUTS_USE_WILDCARD_CERT}" == "true" ]]; then
                   echo "🩹 Wildcard cert in use — patching cert-manager to drop ingress-shim default issuer"
                   echo "   (keeps ClusterIssuer/letsencrypt installed but stops auto-Certificates from"
                   echo "    'kubernetes.io/tls-acme' annotations, so sub-charts cannot burn LE quota)"
@@ -179,6 +197,15 @@ runs:
               fi
 
               echo "✅ Ingress setup completed successfully for EKS cluster."
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_SCENARIO_SHORT_NAME: ${{ inputs.scenario-short-name }}
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+              INPUTS_MAIL: ${{ inputs.mail }}
+              INPUTS_TLD: ${{ inputs.tld }}
+              INPUTS_REF_ARCH: ${{ inputs.ref-arch }}
+              INPUTS_INGRESS_CONTROLLER: ${{ inputs.ingress-controller }}
+              INPUTS_USE_WILDCARD_CERT: ${{ inputs.use-wildcard-cert }}
 
         - name: 🔐 Setup wildcard TLS certificate from Vault
           if: ${{ inputs.use-wildcard-cert == 'true' }}

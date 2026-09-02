@@ -25,7 +25,7 @@ aws_openshift_rosa_hcp_single_region_tests.yml
 
 ### Workflow Filename Length Constraint
 
-Workflow filenames must be short enough so that the corresponding skip label (`skip_<workflow_name>`) does not exceed **50 characters** (GitHub's maximum label length).
+Workflow filenames must be short enough so that the corresponding skip label (`skip_<filename_without_ext>`) does not exceed **50 characters** (GitHub's maximum label length).
 
 For example, a workflow named `aws_containers_ecs_single_region_fargate_daily_cleanup.yml` would produce the label `skip_aws_containers_ecs_single_region_fargate_daily_cleanup` (59 chars) — which is too long.
 
@@ -100,7 +100,7 @@ clusters-info:
 
 A label can be added to a pull request or issue to skip a specific workflow execution. For example, adding the label [`skip_aws_compute_ec2_single_region_tests`](https://github.com/camunda/camunda-deployment-references/labels/skip_aws_compute_ec2_single_region_tests) prevents unnecessary resource usage.
 
-Skip labels (e.g. `skip_<workflow_name>`) are **created automatically** by the `internal-triage-skip` action if they don't already exist, with the color `#1D76DB`. There is no need to create them manually.
+Skip labels (e.g. `skip_<filename_without_ext>`) are **created automatically** by the `internal-triage-skip` action if they don't already exist, with the color `#1D76DB`. There is no need to create them manually.
 
 _Note:_ One should apply the label during the creation of the PR; otherwise, the first run will trigger all workflows.
 

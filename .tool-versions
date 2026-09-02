@@ -17,14 +17,14 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.12
 
-awscli 2.34.63
+awscli 2.34.64
 
 delta 0.18.2
 
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
 eksctl 0.225.0
 
-golang 1.26.4
+golang 1.26.6
 
 # renovate: datasource=github-tags depName=fullstorydev/grpcurl
 grpcurl 1.9.3
@@ -39,7 +39,7 @@ just 1.48.1
 # renovate: datasource=github-tags depName=kubernetes-sigs/kind
 kind 0.31.0
 
-kubectl 1.35.3
+kubectl 1.35.7
 
 kustomize 5.8.1 # used by the tests
 
@@ -48,7 +48,7 @@ mkcert 1.4.4
 
 pre-commit 4.5.1
 
-python 3.14.6
+python 3.14.7
 
 shellcheck 0.11.0
 

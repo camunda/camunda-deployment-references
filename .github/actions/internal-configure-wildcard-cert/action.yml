@@ -41,7 +41,7 @@ runs:
               echo "🔍 Checking for cert-manager changes in Renovate PR..."
 
               # Check if PR contains changes to cert-manager
-              CHANGED_FILES=$(git diff --name-only origin/${{ inputs.base-ref }}...HEAD || echo "")
+              CHANGED_FILES=$(git diff --name-only origin/${INPUTS_BASE_REF}...HEAD || echo "")
 
               if echo "$CHANGED_FILES" | grep -qE "cert-manager"; then
                   echo "HAS_CERT_MANAGER_CHANGES=true" | tee -a "$GITHUB_OUTPUT"
@@ -50,6 +50,8 @@ runs:
                   echo "HAS_CERT_MANAGER_CHANGES=false" | tee -a "$GITHUB_OUTPUT"
                   echo "ℹ️  No cert-manager changes detected, will use wildcard certificate"
               fi
+          env:
+              INPUTS_BASE_REF: ${{ inputs.base-ref }}
 
         - name: Configure wildcard certificate usage
           id: configure
@@ -64,12 +66,12 @@ runs:
               # - Then use Let's Encrypt ONLY for Renovate PRs on main with cert-manager changes
               # - All other cases use wildcard certificate (default)
 
-              if [[ -n "${{ inputs.manual-wildcard-cert }}" ]]; then
-                  USE_WILDCARD="${{ inputs.manual-wildcard-cert }}"
+              if [[ -n "${INPUTS_MANUAL_WILDCARD_CERT}" ]]; then
+                  USE_WILDCARD="${INPUTS_MANUAL_WILDCARD_CERT}"
                   echo "📋 Manual override: USE_WILDCARD_CERT=$USE_WILDCARD"
               elif [[ "${{ github.event_name }}" == "pull_request" && \
-                    "${{ inputs.is-renovate-pr }}" == "true" && \
-                    "${{ inputs.base-ref }}" == "main" && \
+                    "${INPUTS_IS_RENOVATE_PR}" == "true" && \
+                    "${INPUTS_BASE_REF}" == "main" && \
                     "${{ steps.check_cert_manager_changes.outputs.HAS_CERT_MANAGER_CHANGES }}" == "true" ]]; then
                   USE_WILDCARD="false"
                   echo "🎫 Renovate PR targeting main with cert-manager changes: Using Let's Encrypt to test cert-manager"
@@ -81,9 +83,14 @@ runs:
               echo "USE_WILDCARD_CERT=$USE_WILDCARD" | tee -a "$GITHUB_OUTPUT"
               echo ""
               echo "📊 Summary:"
-              echo "  - Manual override: ${{ inputs.manual-wildcard-cert }}"
-              echo "  - Is Renovate PR: ${{ inputs.is-renovate-pr }}"
-              echo "  - Target branch: ${{ inputs.base-ref }}"
-              echo "  - Is Schedule: ${{ inputs.is-schedule }}"
+              echo "  - Manual override: ${INPUTS_MANUAL_WILDCARD_CERT}"
+              echo "  - Is Renovate PR: ${INPUTS_IS_RENOVATE_PR}"
+              echo "  - Target branch: ${INPUTS_BASE_REF}"
+              echo "  - Is Schedule: ${INPUTS_IS_SCHEDULE}"
               echo "  - Has cert-manager Changes: ${{ steps.check_cert_manager_changes.outputs.HAS_CERT_MANAGER_CHANGES || 'N/A' }}"
               echo "  - Final Decision: USE_WILDCARD_CERT=$USE_WILDCARD"
+          env:
+              INPUTS_MANUAL_WILDCARD_CERT: ${{ inputs.manual-wildcard-cert }}
+              INPUTS_IS_RENOVATE_PR: ${{ inputs.is-renovate-pr }}
+              INPUTS_BASE_REF: ${{ inputs.base-ref }}
+              INPUTS_IS_SCHEDULE: ${{ inputs.is-schedule }}

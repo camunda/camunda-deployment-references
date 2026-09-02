@@ -3,7 +3,7 @@ name: Internal — Camunda CI basic-auth credentials
 description: |
     Fetches a shared Camunda basic-auth user/password from Vault and exposes
     them to the workflow so that publicly reachable CI deployments never run
-    with the chart/config default `demo:demo` credentials (see incident
+    with the chart/config default `demo` credentials (see incident
     INC-5340).
 
     Outputs:

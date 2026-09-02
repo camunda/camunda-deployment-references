@@ -24,9 +24,9 @@ runs:
           run: |
               set -euo pipefail
 
-              echo "🔄 Restarting CoreDNS for cluster type: ${{ inputs.cluster-type }}"
+              echo "🔄 Restarting CoreDNS for cluster type: ${INPUTS_CLUSTER_TYPE}"
 
-              if [[ "${{ inputs.cluster-type }}" == "openshift" ]]; then
+              if [[ "${INPUTS_CLUSTER_TYPE}" == "openshift" ]]; then
                 echo "🔍 Detecting OpenShift DNS configuration..."
 
                 # Check if DNS operator exists (OpenShift 4.x)
@@ -104,7 +104,10 @@ runs:
                 kubectl get pods -n kube-system -l k8s-app=kube-dns
               fi
 
-              echo "⏳ Waiting additional ${{ inputs.stabilization-wait }}s for DNS to stabilize..."
-              sleep ${{ inputs.stabilization-wait }}
+              echo "⏳ Waiting additional ${INPUTS_STABILIZATION_WAIT}s for DNS to stabilize..."
+              sleep ${INPUTS_STABILIZATION_WAIT}
 
               echo "✅ CoreDNS restart completed successfully!"
+          env:
+              INPUTS_CLUSTER_TYPE: ${{ inputs.cluster-type }}
+              INPUTS_STABILIZATION_WAIT: ${{ inputs.stabilization-wait }}

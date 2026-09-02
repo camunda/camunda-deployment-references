@@ -51,6 +51,9 @@ module "rosa_cluster_0" {
   compute_node_instance_type = "m7i.xlarge"
   replicas                   = 6
 
+  # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
+  openshift_version = "4.20.32"
+
   tags = local.rosa_cluster_0_tags
 }
 

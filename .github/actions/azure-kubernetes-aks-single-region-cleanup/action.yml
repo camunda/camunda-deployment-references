@@ -29,32 +29,45 @@ runs:
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
-
-        # In order to be able to list RGs that are older than the specified min-age, we need to install the resource graph extension
-        - name: Install Resource Graph extension
-          shell: bash
-          run: |
-              az extension add --name resource-graph --only-show-errors
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
         - name: Delete clusters
           id: delete_clusters
           shell: bash
           run: |
-              if [ -n "${{ inputs.tf-bucket-region }}" ]; then
-                export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
+              if [ -n "${INPUTS_TF_BUCKET_REGION}" ]; then
+                export AWS_S3_REGION="${INPUTS_TF_BUCKET_REGION}"
               fi
 
               # Use repo .tool-version as global version
               cp .tool-versions ~/.tool-versions
 
-              ${{ github.action_path }}/scripts/destroy-clusters.sh "${{ inputs.tf-bucket }}" \
-                ${{ inputs.max-age-hours-cluster }} ${{ inputs.target }} ${{ inputs.tf-bucket-key-prefix }}
+              ${{ github.action_path }}/scripts/destroy-clusters.sh "${INPUTS_TF_BUCKET}" \
+                ${INPUTS_MAX_AGE_HOURS_CLUSTER} ${INPUTS_TARGET} ${INPUTS_TF_BUCKET_KEY_PREFIX}
+          env:
+              INPUTS_TF_BUCKET_REGION: ${{ inputs.tf-bucket-region }}
+              INPUTS_TF_BUCKET: ${{ inputs.tf-bucket }}
+              INPUTS_MAX_AGE_HOURS_CLUSTER: ${{ inputs.max-age-hours-cluster }}
+              INPUTS_TARGET: ${{ inputs.target }}
+              INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
+
+        # Required for matrix jobs: without it, every scenario would upload the same
+        # artifact name and the upload would fail on conflict.
+        - name: Convert key prefix into slug
+          id: key-prefix-slug
+          if: always()
+          shell: bash
+          run: |
+              set -euo pipefail
+              SLUG=$(echo "${INPUTS_TF_BUCKET_KEY_PREFIX}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              echo "PREFIX_SLUG=${SLUG%-}" | tee -a "$GITHUB_OUTPUT"
+          env:
+              INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
 
         - name: Upload cleanup logs
           if: always()
           uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
           with:
-              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}
+              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG }}
               path: ./logs/
               retention-days: 7
