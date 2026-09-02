@@ -68,10 +68,46 @@ When a new version is ready for release, we need to cut the `main` branch to cre
 
 7. **Update Renovate branch patterns**
 
-   * In `.github/renovate.json5`, update the `baseBranchPatterns` list:
+   Renovate reads its configuration from the **default branch** only. A run against `stable/8.x` reuses `main`'s `.github/renovate.json5` rather than the copy sitting on the branch, because [`useBaseBranchConfig`](https://docs.renovatebot.com/configuration-options/#usebasebranchconfig) is not set. Both steps below follow from that.
+
+   * On `main`, in `.github/renovate.json5`, update the `baseBranchPatterns` list:
      * Add the newly created `stable/8.x` branch.
      * Remove any branches whose maintenance period has ended.
    * This ensures Renovate only creates dependency update PRs for actively maintained branches.
+   * On the newly created `stable/8.x` branch, replace the inherited `.github/renovate.json5` with the pointer stub already used by the other maintenance branches:
+
+     ```json5
+     {
+       // Renovate does not read this file.
+       //
+       // A base branch run reuses the configuration of the repository default branch
+       // unless `useBaseBranchConfig` is set, and it is not set here. Anything that
+       // must apply to this maintenance branch belongs in `.github/renovate.json5` on
+       // `main`, scoped with `matchBaseBranches`.
+       //
+       // This stub is kept so that a rule added here is not silently ignored.
+       $schema: "https://docs.renovatebot.com/renovate-schema.json",
+       extends: ["github>camunda/infraex-common-config:default.json5"],
+     }
+     ```
+
+     Skipping this leaves the branch carrying a `baseBranchPatterns` list frozen on the day of the cut, and invites the next person to add a rule there that Renovate will never apply. Anything genuinely specific to a maintenance branch goes on `main`, scoped with `matchBaseBranches`.
+
+8. **Delete the `gh-pages` publishers from the new branch**
+
+   On the freshly cut `stable/8.x`, delete the five workflows carrying a `TODO: [release-duty]` marker that says so — `git grep -l 'TODO: \[release-duty\] delete this workflow'` lists them:
+
+   ```sh
+   git rm .github/workflows/internal_openshift_artifact_rosa_versions.yml \
+          .github/workflows/internal_openshift_artifact_acm_versions.yml \
+          .github/workflows/internal_aws_artifact_aurora_versions.yml \
+          .github/workflows/internal_aws_artifact_opensearch_versions.yml \
+          .github/workflows/internal_bitnami_artifact_image_versions.yml
+   ```
+
+   These workflows publish version artifacts to this repository's single `gh-pages` branch, and the shared Renovate preset reads one URL per artifact for every repository and every branch. Whatever runs last wins, everywhere, so `main` is the only legitimate producer.
+
+   A copy left behind does not sit idle, it ages. By the time it was found on 2026-08-20, the `stable/8.7`, `stable/8.8` and `stable/8.9` copies published the ROSA classic list without the `--hosted-cp` merge `main` had since added, and the ACM and OpenSearch ones predated the guard that refuses to publish an empty artifact — so a run from a maintenance branch replaced the global artifact with a degraded one until `main` republished it the following night. Scheduled workflows only run on the default branch, so none of that was ever on purpose: a `pull_request` run did it until #3145, and a `workflow_dispatch` still could until #3153, #3154 and #3155.
 
 ---
 

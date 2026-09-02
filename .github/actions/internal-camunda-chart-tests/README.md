@@ -22,8 +22,7 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `camunda-version` | <p>The version of the Camunda to test</p> | `true` | `""` |
 | `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `""` |
 | `camunda-domain-grpc` | <p>The domain to use for the gRPC tests</p> | `false` | `""` |
-| `webmodeler-enabled` | <p>Whether the Webmodeler is enabled in the chart</p> | `false` | `false` |
-| `console-enabled` | <p>Whether the Console is enabled in the chart</p> | `false` | `false` |
+| `hub-enabled` | <p>Whether Camunda Hub (Web Modeler) is enabled in the chart</p> | `false` | `false` |
 | `optimize-enabled` | <p>Whether Optimize is enabled in the chart</p> | `false` | `true` |
 | `elasticsearch-enabled` | <p>Whether the Elasticsearch is enabled in the chart</p> | `false` | `true` |
 | `test-namespace` | <p>The namespace to use for the helm tests</p> | `false` | `camunda` |
@@ -43,6 +42,7 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 | `enable-c8sm-deployment-check` | <p>Whether the C8 SM deployment check should be run</p> | `false` | `true` |
 | `enable-c8sm-connectivity-check` | <p>Whether the C8 SM Kubernetes connectivity check should be run</p> | `false` | `true` |
 | `skip-c8sm-connectivity-ingress-class-check` | <p>Whether to skip the ingress class check part of the C8 SM Kubernetes connectivity check</p> | `false` | `false` |
+| `c8sm-connectivity-timeout-seconds` | <p>Upper bound, in seconds, for the C8 SM Kubernetes connectivity sweep. Must stay above the duration of a healthy sweep and below the <code>timeout-minutes</code> the caller sets on the step, otherwise the guard never fires and the step dies on the opaque GitHub Actions timeout.</p> | `false` | `1200` |
 | `enable-c8sm-irsa-check` | <p>Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)</p> | `false` | `false` |
 | `enable-c8sm-zeebe-token-check` | <p>Whether the C8 SM Zeebe token generation check should be run</p> | `false` | `true` |
 | `enable-c8sm-zeebe-connectivity-check` | <p>Whether the C8 SM Zeebe connectivity check should be run</p> | `false` | `true` |
@@ -89,14 +89,8 @@ This action is a `composite` action.
     # Required: false
     # Default: ""
 
-    webmodeler-enabled:
-    # Whether the Webmodeler is enabled in the chart
-    #
-    # Required: false
-    # Default: false
-
-    console-enabled:
-    # Whether the Console is enabled in the chart
+    hub-enabled:
+    # Whether Camunda Hub (Web Modeler) is enabled in the chart
     #
     # Required: false
     # Default: false
@@ -214,6 +208,12 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: false
+
+    c8sm-connectivity-timeout-seconds:
+    # Upper bound, in seconds, for the C8 SM Kubernetes connectivity sweep. Must stay above the duration of a healthy sweep and below the `timeout-minutes` the caller sets on the step, otherwise the guard never fires and the step dies on the opaque GitHub Actions timeout.
+    #
+    # Required: false
+    # Default: 1200
 
     enable-c8sm-irsa-check:
     # Whether the C8 SM AWS IRSA check should be run (only applicable for EKS)

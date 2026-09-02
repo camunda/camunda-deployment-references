@@ -2,8 +2,7 @@
 name: Tests - Integration - AWS OpenShift ROSA HCP Single Region
 
 permissions:
-    contents: read # don't allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     schedule:
@@ -16,11 +15,11 @@ on:
             - generic/kubernetes/single-region/**
             - generic/openshift/single-region/**
             - aws/openshift/rosa-hcp-single-region/**
-            - '!aws/openshift/rosa-hcp-single-region/test/golden/**'
+            - '!aws/openshift/rosa-hcp-single-region/terraform/*/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
-            - .github/actions/internal-helm-chart-tests/**
+            - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
@@ -88,8 +87,7 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
     # Components that are not enabled by default in the doc, but enabled in our tests to have a better coverage
-    WEBMODELER_ENABLED: 'true'
-    CONSOLE_ENABLED: 'true'
+    HUB_ENABLED: 'true'
 
     ROSA_CLI_VERSION: latest
 
@@ -98,8 +96,11 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -113,12 +114,12 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -141,13 +142,13 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -287,7 +288,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -317,14 +318,17 @@ jobs:
         env:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: openshift
+        permissions:
+            contents: read
+            pull-requests: write # internal-helm-deprecation-check upserts a comment on the pull request
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Install CLI tools from OpenShift Mirror
-              uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+              uses: redhat-actions/openshift-tools-installer@ebd96c3fc72fc10a62663eac5e1421192152e6aa # v2
               with:
                   oc: ${{ matrix.distro.version }}
 
@@ -530,7 +534,7 @@ jobs:
                     exit 1
                   fi
 
-                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                  if [ "$HUB_ENABLED" == "true" ]; then
                     echo "Enabling WebModeler with CNPG PostgreSQL"
                     OPERATOR_PG_PATH="generic/kubernetes/operator-based/postgresql"
                     yq ". *+ load(\"${OPERATOR_PG_PATH}/camunda-webmodeler-values.yml\")" values.yml > values-merged.yml
@@ -543,12 +547,18 @@ jobs:
                   yq ". *+ load(\"${OPERATOR_PG_PATH}/camunda-identity-values.yml\")" values.yml > values-merged.yml
                   cat values-merged.yml && mv values-merged.yml values.yml
 
-                  # Chart 15.x consolidates Console + WebModeler under
-                  # `camundaHub.enabled: true`. The legacy `console.enabled` /
-                  # `webModeler.enabled` keys are deprecated and emit warnings.
-                  if [ "$WEBMODELER_ENABLED" == "true" ] || [ "$CONSOLE_ENABLED" == "true" ]; then
-                    echo "Enabling Camunda Hub (Console + WebModeler)"
+                  # Chart 15.x consolidates WebModeler under `camundaHub.enabled:
+                  # true`. The legacy `webModeler.enabled` key is deprecated and
+                  # emits warnings.
+                  if [ "$HUB_ENABLED" == "true" ]; then
+                    echo "Enabling Camunda Hub (WebModeler)"
                     yq -i '.camundaHub.enabled = true' values.yml
+                    # TODO: [release-duty] drop this SNAPSHOT pin once
+                    # camunda/camunda-platform-helm#6567 is fixed. The released alpha3
+                    # chart pins camunda/hub:8.10.0-alpha3-rc1, which rejects the
+                    # `hub`/`admin` cluster app types; the rolling SNAPSHOT tag accepts
+                    # them (as kind already does).
+                    yq -i '.camundaHub.webModeler.image.tag = "SNAPSHOT"' values.yml
                   fi
 
                   # Add integration tests values
@@ -599,20 +609,12 @@ jobs:
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
             - name: 🐘 Deploy CNPG cluster pg-webmodeler
-              if: env.WEBMODELER_ENABLED == 'true'
+              if: env.HUB_ENABLED == 'true'
               timeout-minutes: 10
               uses: ./.github/actions/kubernetes-cnpg-cluster
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   cluster-name: pg-webmodeler
-
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 10
@@ -627,7 +629,7 @@ jobs:
                   # For 'oidc', secrets are created in a separate step (if added)
 
                   # Create WebModeler SMTP secret
-                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                  if [ "$HUB_ENABLED" == "true" ]; then
                     ./generic/openshift/single-region/procedure/create-webmodeler-secret.sh
                   fi
 
@@ -660,19 +662,95 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
+            - name: ⏳ Wait for the OIDC issuer to be reachable
+              if: matrix.declination.declination_mode == 'domain'
+              # The action is fail-open on its own 600s budget; this only stops
+              # a wedged step from running unbounded.
+              timeout-minutes: 15
+              uses: ./.github/actions/internal-wait-oidc-issuer
+              with:
+                  issuer-url: https://${{ env.CAMUNDA_DOMAIN }}/auth/realms/camunda-platform
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  insecure: 'true'
+                  # Wait only: the workloads are bounced after CoreDNS is refreshed (next steps).
+                  restart-workloads: 'false'
+
+            # CoreDNS is bounced here — after the (fail-open) issuer-reachability wait,
+            # so the ingress DNS record normally exists by now, and BEFORE the health
+            # wait — to flush the stale negative DNS cache. Otherwise the OIDC components
+            # (identity/connectors/zeebe) keep hitting UnknownHostException on the
+            # domain at startup and CrashLoopBackOff until the readiness window expires.
+            - name: 🔄 Restart CoreDNS
+              if: matrix.declination.declination_mode == 'domain'
+              uses: ./.github/actions/kubernetes-restart-coredns
+              timeout-minutes: 10
+              with:
+                  cluster-type: openshift
+
+            # DNS cache is fresh now — bounce the OIDC workloads so they reconnect
+            # with working in-cluster + domain resolution instead of a stale
+            # (negative) view cached before the CoreDNS refresh. Readiness is then
+            # verified by the health wait below.
+            - name: 🔁 Restart Camunda workloads after DNS refresh
+              if: matrix.declination.declination_mode == 'domain'
+              timeout-minutes: 15
+              run: |
+                  set -uo pipefail
+                  ns="${{ env.CAMUNDA_NAMESPACE }}"
+                  rel="${{ env.CAMUNDA_RELEASE_NAME }}"
+                  restarted=()
+                  for wl in "statefulset/${rel}-zeebe" "deployment/${rel}-connectors" "deployment/${rel}-identity"; do
+                      # Distinguish a genuine "absent" (empty, exit 0) from a real
+                      # query error (RBAC/kubeconfig) so failures stay visible.
+                      if ! found=$(kubectl -n "$ns" get "$wl" --ignore-not-found -o name 2>&1); then
+                          echo "::warning::Could not query ${wl}: ${found}"
+                      elif [ -n "$found" ]; then
+                          if kubectl -n "$ns" rollout restart "$wl"; then
+                              restarted+=("$wl")
+                          else
+                              echo "::warning::rollout restart ${wl} failed"
+                          fi
+                      else
+                          echo "Skipping ${wl}: not present in namespace ${ns}."
+                      fi
+                  done
+
+                  # `rollout restart` only patches the pod template and returns
+                  # immediately; the rotation then proceeds in the background, and
+                  # a StatefulSet rotates in reverse-ordinal order. Moments later
+                  # most pods are therefore still the *old* ones, so every
+                  # "is every pod Ready?" gate downstream happily passes on a
+                  # namespace that is about to churn, and the health wait or the
+                  # C8-SM deployment check trips over a pod that drops into
+                  # ContainerCreating behind them. Await the rotations here so the
+                  # restarts are genuinely finished before anything asserts health.
+                  # Restarts are all issued first so the rollouts overlap instead
+                  # of running back-to-back.
+                  # One shared budget rather than a per-workload one: the
+                  # rollouts overlap in the cluster (every restart was issued
+                  # before the first wait), so the worst case is the slowest
+                  # rollout, not their sum. A shared deadline also keeps the whole
+                  # loop below this step's own timeout-minutes, so a stuck rollout
+                  # still degrades to a warning instead of killing the step with
+                  # an opaque "The action has timed out".
+                  rollout_deadline=$(( $(date +%s) + 600 ))
+                  for wl in ${restarted[@]+"${restarted[@]}"}; do
+                      remaining=$(( rollout_deadline - $(date +%s) ))
+                      if [ "$remaining" -le 0 ]; then
+                          echo "::warning::rollout wait budget exhausted; not waiting for ${wl}"
+                          continue
+                      fi
+                      kubectl -n "$ns" rollout status "$wl" --timeout="${remaining}s" ||
+                          echo "::warning::rollout status ${wl} did not complete within the remaining budget"
+                  done
+
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
               run: |
                   set -euo pipefail
 
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
-
-            - name: 🔄 Restart CoreDNS
-              if: matrix.declination.declination_mode == 'domain' && env.CLEANUP_CLUSTERS == 'false'
-              uses: ./.github/actions/kubernetes-restart-coredns
-              timeout-minutes: 10
-              with:
-                  cluster-type: openshift
 
             - name: Set current Camunda version
               id: camunda-version
@@ -722,8 +800,7 @@ jobs:
                   connectors-context-path: ${{ matrix.declination.declination_mode == 'domain' && '/connectors' || '' }}
                   elasticsearch-enabled: 'false'
                   optimize-enabled: ${{ matrix.declination.secondary_storage != 'rdbms' && 'true' || 'false' }}
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  hub-enabled: ${{ env.HUB_ENABLED }}
 
             - name: 🧪 Run C8 SM checks & Zeebe client tests
               if: env.TESTS_ENABLED == 'true'
@@ -733,8 +810,7 @@ jobs:
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  hub-enabled: ${{ env.HUB_ENABLED }}
                   optimize-enabled: ${{ matrix.declination.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   elasticsearch-enabled: ${{ matrix.declination.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -768,7 +844,7 @@ jobs:
                   cluster-name: pg-identity
 
             - name: 🧹 Cleanup CNPG cluster pg-webmodeler
-              if: always() && env.CLEANUP_CLUSTERS == 'true' && env.WEBMODELER_ENABLED == 'true'
+              if: always() && env.CLEANUP_CLUSTERS == 'true' && env.HUB_ENABLED == 'true'
               uses: ./.github/actions/kubernetes-cnpg-cluster-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -811,7 +887,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
-        if: always()
+        if: always() && needs.clusters-info.result != 'skipped'
         runs-on: ubuntu-latest
         needs:
             - clusters-info
@@ -823,14 +899,14 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
 
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -874,6 +950,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   openshift: 'true'
                   delete-ghost-rosa-clusters: 'false'
@@ -886,8 +963,11 @@ jobs:
         needs:
             - integration-tests
             - cleanup-clusters
+        permissions:
+            contents: read
+            pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -905,7 +985,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

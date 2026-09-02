@@ -3,7 +3,6 @@ name: Tests - Integration - Local Kubernetes Kind Single Region
 
 permissions:
     contents: read
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
 
 on:
     schedule:
@@ -19,6 +18,7 @@ on:
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-integration-tests/**
+            - .github/actions/observe-build-status/**
             - generic/kubernetes/single-region/tests/integration/**
             - .tool-versions
             - generic/kubernetes/operator-based/postgresql/**
@@ -43,8 +43,11 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -57,10 +60,10 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -90,12 +93,23 @@ jobs:
             CAMUNDA_NAMESPACE: camunda
             CAMUNDA_RELEASE_NAME: camunda
             TEST_CLUSTER_TYPE: kubernetes
+            # Non-interactive acknowledgement of the pre-release chart build.
+            # TODO: [release-duty] remove this together with the source-build (procedure/build-camunda-chart.sh).
+            CAMUNDA_PRERELEASE_ACK: 'true'
+        permissions:
+            contents: read
+            pull-requests: write # internal-helm-deprecation-check upserts a comment on the pull request
         steps:
+            # Telemetry must never block the job: a monitoring outage may cost a
+            # duration metric, never a teardown.
+            - continue-on-error: true
+              uses: camunda/infra-global-github-actions/start-build-monitor@02b3f0e49b00b98fffc76af690ebc83c28f24dae # main
+
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Install envsubst
               run: |
@@ -185,22 +199,6 @@ jobs:
             - name: Create identity secrets
               working-directory: ${{ env.REF_ARCH_PATH }}
               run: ./procedure/create-identity-secrets.sh
-
-            - name: Extract Helm chart version
-              id: chart-version
-              working-directory: ${{ env.REF_ARCH_PATH }}
-              run: |
-                  SCRIPT=${{ matrix.declination.use_tls && 'procedure/camunda-deploy-domain.sh' || 'procedure/camunda-deploy-no-domain.sh' }}
-                  VERSION=$(grep -oP 'CAMUNDA_HELM_CHART_VERSION="\K[^"]+' "$SCRIPT")
-                  echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ steps.chart-version.outputs.version }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             # Deploy Camunda
             - name: Deploy Camunda (domain mode)
@@ -344,10 +342,9 @@ jobs:
                           -o jsonpath="{.data.$1}" 2>/dev/null | base64 -d || true
                   }
                   M2M_JSON='{}'
-                  # NOTE: 'console' is a Keycloak public client (no
-                  # service account) — client_credentials grant is not allowed
-                  # for it, so it must NOT be added here. Venom only covered
-                  # connectors / optimize / orchestration anyway.
+                  # Only components with a Keycloak service account support the
+                  # client_credentials (M2M) grant; Venom covered
+                  # connectors / optimize / orchestration.
                   ENTRIES=(
                       "orchestration:identity-orchestration-client-token"
                       "connectors:identity-connectors-client-token"
@@ -397,8 +394,7 @@ jobs:
                   oidc-m2m-clients: ${{ steps.local-credentials.outputs.LOCAL_M2M_CLIENTS }}
                   keycloak-url: http://keycloak-service:18080/auth
                   elasticsearch-enabled: 'false'
-                  webmodeler-enabled: 'true'
-                  console-enabled: 'true'
+                  hub-enabled: 'true'
                   # Optimize requires Elasticsearch; disabled in pg-only mode
                   # (matches the helm install flag set in deploy step).
                   optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
@@ -415,8 +411,7 @@ jobs:
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_GRPC_DOMAIN }}
-                  webmodeler-enabled: 'true'
-                  console-enabled: 'true'
+                  hub-enabled: 'true'
                   # Optimize requires Elasticsearch, so it's disabled in RDBMS-only mode
                   optimize-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
                   elasticsearch-enabled: ${{ matrix.declination.secondary_storage == 'postgres' && 'false' || 'true' }}
@@ -433,6 +428,11 @@ jobs:
                   enable-c8sm-deployment-check: 'true'
                   enable-c8sm-connectivity-check: 'true'
                   skip-c8sm-connectivity-ingress-class-check: 'true'
+                  # This step's budget is 15 min and it also runs the deployment
+                  # and Zeebe checks, so the connectivity sweep gets a tighter
+                  # bound than the 20 min default: the Kind namespace is small
+                  # and its sweep completes in well under a minute.
+                  c8sm-connectivity-timeout-seconds: '300'
                   enable-c8sm-irsa-check: 'false'  # Not applicable for Kind
                   # Enable Zeebe token/connectivity checks using auto-generated credentials
                   enable-c8sm-zeebe-token-check: ${{ matrix.declination.use_tls && steps.local-credentials.outputs.LOCAL_CLIENT_SECRET != '' && 'true' ||
@@ -459,14 +459,28 @@ jobs:
                   echo "Cleaning up Kind cluster: ${{ env.CLUSTER_NAME }}"
                   kind delete cluster --name "${{ env.CLUSTER_NAME }}" || true
 
+            - name: Observe build status
+              if: always()
+              continue-on-error: true
+              uses: ./.github/actions/observe-build-status
+              with:
+                  job_name: ${{ github.job }}/${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+                  build_status: ${{ job.status }}
+                  secret_vault_address: ${{ secrets.VAULT_ADDR }}
+                  secret_vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  secret_vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+
     report-success:
         name: Report success
         if: ${{ !failure() && !cancelled() }}
         runs-on: ubuntu-latest
         needs:
             - integration-tests
+        permissions:
+            contents: read
+            pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -484,7 +498,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

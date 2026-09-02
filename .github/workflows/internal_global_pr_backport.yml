@@ -17,6 +17,14 @@ jobs:
         runs-on: ubuntu-latest
         # Run when pull request is merged or when a comment starting with `/backport`
         # Exclude the backport action bot (user ID 97796249) to prevent infinite loops
+        #
+        # `issue_comment` runs in the base repository with access to the secrets, and this
+        # job mints an App token from them, so the comment path is restricted by the
+        # commenter's `author_association`: the repository owner, a member of the owning
+        # organisation, or an invited collaborator. That is a statement about the
+        # relationship to the repository, not a permission level -- a member with read-only
+        # access still passes -- but it keeps a drive-by commenter on a public pull request
+        # from starting a run that holds a token with the `workflows` scope.
         if: >
             (
               github.event_name == 'pull_request' &&
@@ -25,13 +33,49 @@ jobs:
               github.event_name == 'issue_comment' &&
               github.event.issue.pull_request &&
               github.event.comment.user.id != 97796249 &&
-              startsWith(github.event.comment.body, '/backport')
+              startsWith(github.event.comment.body, '/backport') &&
+              contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
             )
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-            - name: Create backport PRs
-              uses: korthout/backport-action@66065406958f46e82238fd59546f5a99e69e22aa # v4.5.2
+            # GITHUB_TOKEN cannot push anything under .github/workflows/, whatever permissions
+            # the workflow declares -- `workflows` is an App/PAT scope, not a GITHUB_TOKEN one.
+            # Every backport of a pull request that touched a workflow file was therefore
+            # rejected with "refusing to allow a GitHub App to create or update workflow ...
+            # without `workflows` permission", while this job still reported success and left
+            # only a comment on the source pull request. An App token carries the scope.
+            - name: Generate token for GitHub
+              id: generate-github-token
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
               with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  repositories: ${{ github.event.repository.name }}
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+
+            # backport-action pushes with a bare `git push`, so the credential it uses is
+            # whatever checkout wrote into the git config -- not its `github_token` input,
+            # which only serves the API calls. The token therefore has to be in place
+            # before the checkout, and has to stay in the config for the push to use it.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  token: ${{ steps.generate-github-token.outputs.token }}
+                  persist-credentials: true
+
+            # A side effect worth knowing about: GitHub suppresses workflow runs for anything
+            # created with GITHUB_TOKEN, so backport pull requests currently open with no
+            # checks on them at all and get merged unvalidated. Opened by the App instead,
+            # they trigger the usual `pull_request` workflows, so a backport whose paths
+            # match an integration test suite will now run it.
+            - name: Create backport PRs
+              id: backport
+              uses: korthout/backport-action@2e830a1d0b8269505846ddd407a70876913ad1f8 # v4.6.0
+              with:
+                  github_token: ${{ steps.generate-github-token.outputs.token }}
                   add_author_as_assignee: true
                   copy_assignees: true
                   experimental: >
@@ -47,10 +91,36 @@ jobs:
 
                       relates to ${issue_refs}
 
+            # The title of a backport is the source title verbatim, so a source merged
+            # with the ` [ready]` tag this repository appends to a validated pull request
+            # hands that tag to a backport nobody has looked at: conflict markers
+            # committed by `draft_commit_conflicts`, no review, and a title claiming the
+            # opposite. The tag cannot be filtered inside `pull_title` -- it is a template
+            # over the raw title -- so it is dropped here, before anyone reads it.
+            - name: Drop the readiness tag from the backport titles
+              if: steps.backport.outputs.created_pull_numbers != ''
+              env:
+                  CREATED_PULL_NUMBERS: ${{ steps.backport.outputs.created_pull_numbers }}
+                  GH_TOKEN: ${{ steps.generate-github-token.outputs.token }}
+                  REPOSITORY: ${{ github.repository }}
+              run: |
+                  set -euo pipefail
+
+                  read -ra numbers <<< "${CREATED_PULL_NUMBERS}"
+                  for number in "${numbers[@]}"; do
+                      title=$(gh pr view "${number}" --repo "${REPOSITORY}" --json title --jq .title)
+                      untagged=${title%" [ready]"}
+                      if [ "${untagged}" = "${title}" ]; then
+                          continue
+                      fi
+                      echo "Retitling #${number}: ${title} -> ${untagged}"
+                      gh pr edit "${number}" --repo "${REPOSITORY}" --title "${untagged}"
+                  done
+
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure() && (github.event_name == 'pull_request' || github.event_name == 'issue_comment')
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

@@ -29,7 +29,7 @@
       "interval": 30,
       "timeout": 5,
       "retries": 3,
-      "startPeriod": 120
+      "startPeriod": ${container_health_check_start_period_seconds}
     },
     "stopTimeout": 30,
     %{ if registry_credentials_arn != "" ~}

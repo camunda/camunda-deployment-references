@@ -35,7 +35,7 @@ variable "postgres_version" {
   type        = string
   # AKS Flexible Server only supports the major version, so we pin to major only.
   # renovate: datasource=endoflife-date depName=postgresql versioning=loose extractVersion=^(?<version>\d+)
-  default = "17"
+  default = "18"
 }
 
 variable "sku_tier" {

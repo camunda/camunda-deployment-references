@@ -1,10 +1,37 @@
 {
+  // This is the only Renovate configuration this repository has.
+  //
+  // `useBaseBranchConfig` is not set, so a base branch run reuses this file
+  // instead of the copy sitting on the branch it targets. Every rule that has to
+  // apply to a maintenance branch belongs here, scoped with `matchBaseBranches`;
+  // put it on the branch itself and Renovate will never see it.
+  //
+  // TODO: [release-duty] when `main` is cut into a new `stable/8.x`, the new
+  // branch inherits a copy of this file that Renovate will never read. Left as
+  // is, the copy freezes the `baseBranchPatterns` list as it was on the day of
+  // the cut, and any rule someone later adds to it is silently ignored -- which
+  // is exactly how stable/8.7, stable/8.8 and stable/8.9 ended up carrying rules
+  // that never ran. Replace it on the new branch with the pointer stub those
+  // three now use. See MAINTENANCE.md, "Release duty".
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["github>camunda/infraex-common-config:default.json5"],
-  packageRules: [],
+  packageRules: [
+    {
+      // The Keycloak operator manifests and the Keycloak server image have to be the same
+      // version: Keycloak releases them together and expects them to match. Both are
+      // annotated against camunda/keycloak -- the CRs in
+      // generic/kubernetes/operator-based/keycloak/keycloak-instance-*.yml carry the
+      // prefixed tag, deploy.sh carries the bare version the manifest URLs need -- so they
+      // already resolve to the same release. Grouping makes them land in the same pull
+      // request too, instead of leaving the pair split across two merges.
+      matchDatasources: ['docker'],
+      matchPackageNames: ['camunda/keycloak'],
+      groupName: 'camunda keycloak operator and image',
+    },
+  ],
   baseBranchPatterns: [
     'main',
-    // TODO [release-duty]: remove branches whose maintenance period has ended and add the new stable branch
+    // TODO: [release-duty] remove branches whose maintenance period has ended and add the new stable branch
     'stable/8.7',
     'stable/8.8',
     'stable/8.9',

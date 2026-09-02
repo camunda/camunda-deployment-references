@@ -23,10 +23,6 @@ global:
 
     identity:
         auth:
-            identity:
-                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
-            console:
-                redirectUrl: https://${CAMUNDA_DOMAIN}/console
             webModeler:
                 redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
             optimize:
@@ -51,17 +47,10 @@ orchestration:
     service:
         annotations:
             projectcontour.io/upstream-protocol.h2c: '26500'
-    security:
-        authentication:
-            oidc:
-                redirectUrl: https://${CAMUNDA_DOMAIN}
-
 
 optimize:
     contextPath: /optimize
 
-console:
-    contextPath: /console
 
 webModeler:
     contextPath: /modeler

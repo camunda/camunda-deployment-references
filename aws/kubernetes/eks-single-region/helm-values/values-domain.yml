@@ -28,10 +28,6 @@ global:
     identity:
         auth:
             enabled: true
-            identity:
-                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
-            console:
-                redirectUrl: https://${CAMUNDA_DOMAIN}/console
             webModeler:
                 redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
             optimize:
@@ -118,11 +114,6 @@ orchestration:
             projectcontour.io/upstream-protocol.h2c: '26500'
 
 
-console:
-    enabled: false # by default, console is not enabled
-    contextPath: /console
-
-
 webModeler:
     enabled: false # by default, webModeler is not enabled
     contextPath: /modeler
@@ -141,4 +132,12 @@ webModeler:
             secret:
                 existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
-            fromAddress: changeme@example.com   # change this required value
+        # from-address is deprecated as a values key in chart 8.10 (removed in v16),
+        # so the sender address is supplied via unified configuration instead.
+        extraConfiguration:
+            - file: webmodeler-mail.yaml
+              content: |
+                  camunda:
+                    modeler:
+                      mail:
+                        from-address: changeme@example.com   # change this required value

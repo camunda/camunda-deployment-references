@@ -12,15 +12,17 @@ Workflow filenames mirror the folder structure of the architecture they test:
 
 **Abbreviation rules** (apply when the solution name implies the category):
 
-| Long form | Short form |
-|-----------|-----------|
-| `aws_kubernetes_eks_` | `aws_eks_` |
-| `aws_containers_ecs_` | `aws_ecs_` |
-| `aws_openshift_rosa_hcp_` | `aws_rosa_hcp_` |
-| `azure_kubernetes_aks_` | `azure_aks_` |
-| `local_kubernetes_kind_` | `local_kind_` |
+| Long form | Short form | Reason |
+|-----------|-----------|--------|
+| `aws_kubernetes_eks_` | `aws_eks_` | EKS already implies Kubernetes |
+| `aws_containers_ecs_` | `aws_ecs_` | ECS already implies containers |
+| `aws_openshift_rosa_hcp_` | `aws_rosa_hcp_` | ROSA already implies OpenShift |
+| `azure_kubernetes_aks_` | `azure_aks_` | AKS already implies Kubernetes |
+| `local_kubernetes_kind_` | `local_kind_` | Kind already implies Kubernetes |
 
-**Constraint:** The resulting skip label (`skip_<filename_without_ext>`) must be ≤ 50 characters (GitHub label limit). The `internal-triage-skip` action validates this at runtime and fails if exceeded.
+**Constraint:** The resulting skip label (`skip_<filename_without_ext>`) must be ≤ 50 characters (GitHub label limit). The `internal-triage-skip` action validates this at runtime and fails if exceeded, printing the offending filename.
+
+Unabbreviated, `aws_containers_ecs_single_region_fargate_daily_cleanup.yml` would need the label `skip_aws_containers_ecs_single_region_fargate_daily_cleanup` — 59 characters, rejected. The short form fits.
 
 ### Display Names
 
@@ -67,6 +69,34 @@ Skip labels are auto-created by the action (color `#1D76DB`). Apply them at PR c
 | Golden file tests | Terraform plan output compared against stored JSON fixtures |
 | Daily cleanup | Scheduled destroy jobs to prevent orphaned cloud resources |
 | Module unit tests | Go-based Terratest for `modules/` — fast, no real infra |
+
+### Re-running a failed cloud workflow
+
+Use a **full** re-run, not `gh run rerun --failed`.
+
+The cloud integration workflows pass cluster coordinates from the `Prepare clusters` job to the test jobs as an encrypted artifact, decrypted downstream with `openssl enc -d`. A partial re-run does not regenerate that artifact consistently: the intermediate matrix-output job can succeed while carrying an empty payload from the previous attempt, and every downstream job then fails with
+
+```
+error reading input file
+##[error]Process completed with exit code 1
+```
+
+followed by `kubernetes cluster unreachable`, which looks like a broken deployment but is a re-run artifact. Prefer:
+
+```bash
+gh run rerun <run-id>          # full re-run, regenerates every artifact
+gh run rerun <run-id> --failed # avoid on cloud workflows
+```
+
+A full re-run reprovisions the clusters, so check the cloud quotas first when several runs are in flight.
+
+## CI Status Reporting
+
+CI emits complementary operational signals:
+
+- `internal_global_ci_events_reporter.yml` records workflow-run failures and warnings in a Google Sheet.
+- `report-failure-on-slack` notifies the responsible Slack channel when a workflow fails.
+- Onboarded jobs use `start-build-monitor` as their first step and `observe-build-status` as their final, non-blocking step to record status and duration in the `build_status_v2` BigQuery table. The action uses the workflow's existing Vault AppRole credentials to retrieve its upload key.
 
 ## Workflow Scheduling
 

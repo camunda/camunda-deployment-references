@@ -11,7 +11,8 @@ set -euo pipefail
 #                      - elasticsearch: Uses Elasticsearch (full platform with Optimize)
 #                      - postgres: Uses PostgreSQL RDBMS only (Optimize disabled)
 
-# renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+# Parked: pre-GA dev chart tag until 8.10 GA.
+# renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io renovate-inert-ok
 export CAMUNDA_HELM_CHART_VERSION="15-dev-latest"
 # TODO: [release-duty] before the release, update this!
 # TODO: [release-duty] adjust renovate comment to bump the major version
@@ -33,11 +34,14 @@ if [[ "$SECONDARY_STORAGE" != "elasticsearch" && "$SECONDARY_STORAGE" != "postgr
     exit 1
 fi
 
+# Pre-release only: build the chart from source so no registry login is needed.
+# TODO: [release-duty] drop this and build-camunda-chart.sh; use the standard Helm install below.
+LOCAL_CHART="$("$SCRIPT_DIR/build-camunda-chart.sh")"
+
 if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
     echo "Installing Camunda Platform (domain mode, Elasticsearch)..."
 
-    helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
-        --version "$CAMUNDA_HELM_CHART_VERSION" \
+    helm upgrade --install "camunda" "$LOCAL_CHART" \
         --namespace "camunda" \
         --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \
         --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
@@ -48,8 +52,7 @@ if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
 else
     echo "Installing Camunda Platform (domain mode, PostgreSQL RDBMS)..."
 
-    helm upgrade --install "camunda" oci://registry.camunda.cloud/team-distribution/camunda-platform \
-        --version "$CAMUNDA_HELM_CHART_VERSION" \
+    helm upgrade --install "camunda" "$LOCAL_CHART" \
         --namespace "camunda" \
         --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
@@ -59,8 +62,19 @@ else
         --values helm-values/values-mkcert.yml
 fi
 
-# TODO: [release-duty] before the release, update this by removing the oci pull above
-# and uncomment the installation instruction below
+# Wait (bounded, fail-open) for the public Keycloak issuer, then restart the app
+# pods so they recover from the first-start crash-loop instead of waiting out the
+# backoff. On timeout it warns and continues. Reuses the shared readiness script
+# (also shipped to customers and used by CI). Under CI the host may not trust the
+# mkcert CA (mkcert -install is best-effort), so default to skipping TLS
+# verification there; a caller can override via KEYCLOAK_WAIT_INSECURE, and local
+# runs stay secure by default.
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    export KEYCLOAK_WAIT_INSECURE="${KEYCLOAK_WAIT_INSECURE:-true}"
+fi
+"$SCRIPT_DIR/../../../../generic/kubernetes/single-region/procedure/wait-for-keycloak.sh"
+
+# TODO: [release-duty] remove the source-build above and uncomment the standard Helm install below.
 
 # if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
 #     helm upgrade --install "camunda" camunda-platform \

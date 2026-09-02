@@ -9,8 +9,17 @@
 #   - CAMUNDA_DOMAIN: Your domain name
 
 orchestration:
-    security:
-        authentication:
-            oidc:
-                # Note: The Helm chart appends '/sso-callback' to this URL
-                redirectUrl: https://${CAMUNDA_DOMAIN}
+    extraConfiguration:
+        - file: orchestration-oidc.yaml
+          content: |
+              camunda:
+                security:
+                  authentication:
+                    oidc:
+                      redirect-uri: https://${CAMUNDA_DOMAIN}/sso-callback
+                operate:
+                  identity:
+                    redirectRootUrl: https://${CAMUNDA_DOMAIN}/operate
+                tasklist:
+                  identity:
+                    redirectRootUrl: https://${CAMUNDA_DOMAIN}/tasklist

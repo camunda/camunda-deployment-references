@@ -733,7 +733,8 @@
         "name": "camunda-oc1-connectors-client-auth-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.db_admin_password": {
@@ -756,7 +757,8 @@
         "name": "camunda-db-admin-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret.orchestration_admin_user_password": {
@@ -779,7 +781,8 @@
         "name": "camunda-oc1-admin-user-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
-        "tags": null
+        "tags": null,
+        "type": null
       }
     },
     "aws_secretsmanager_secret_version.connectors_client_auth_password": {
@@ -2034,6 +2037,13 @@
           }
         },
         "module.orchestration_cluster.aws_cloudwatch_log_stream.orchestration_cluster_log_stream": {
+          "identity": {
+            "account_id": null,
+            "log_group_name": null,
+            "name": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "orchestration_cluster_log_stream",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3214,6 +3224,12 @@
           }
         },
         "module.postgresql.aws_rds_cluster.aurora_cluster": {
+          "identity": {
+            "account_id": null,
+            "cluster_identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "aurora_cluster",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3263,7 +3279,7 @@
             "enabled_cloudwatch_logs_exports": null,
             "engine": "aurora-postgresql",
             "engine_mode": "provisioned",
-            "engine_version": "17.9",
+            "engine_version": "18.4",
             "final_snapshot_identifier": null,
             "global_cluster_identifier": null,
             "iam_database_authentication_enabled": true,
@@ -3306,7 +3322,7 @@
             "custom_iam_instance_profile": null,
             "db_subnet_group_name": "camunda-camunda-db-cluster",
             "engine": "aurora-postgresql",
-            "engine_version": "17.9",
+            "engine_version": "18.4",
             "force_destroy": false,
             "identifier": "camunda-camunda-db-cluster-0",
             "instance_class": "db.t3.medium",

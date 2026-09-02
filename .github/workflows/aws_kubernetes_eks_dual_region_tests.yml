@@ -2,8 +2,7 @@
 name: Tests - Integration - AWS Kubernetes EKS Dual Region
 
 permissions:
-    contents: read # don't allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     schedule:
@@ -34,7 +33,7 @@ on:
     pull_request:
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
-            - .github/actions/setup-aws/action.yml
+            - .github/actions/aws-configure-cli/**
             - .github/actions/kubernetes-eck-operator/**
             - .github/actions/kubernetes-eck-operator-cleanup/**
             - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
@@ -43,7 +42,7 @@ on:
             - aws/kubernetes/eks-dual-region/terraform/**
             - aws/kubernetes/eks-dual-region/test/**
             - generic/kubernetes/operator-based/elasticsearch/**
-            - .tools-versions
+            - .tool-versions
             - .github/actions/internal-multi-region-tests/**
             - .github/actions/internal-helm-deprecation-check/**
 # limit to a single execution per actor of this workflow
@@ -77,7 +76,8 @@ env:
     CAMUNDA_NAMESPACE_1: c8-snap-cluster-1
     CAMUNDA_RELEASE_NAME: camunda
 
-    # renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+    # Parked: pre-GA dev chart tag until 8.10 GA.
+    # renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io renovate-inert-ok
     CAMUNDA_HELM_CHART_VERSION: 15-dev-latest
     # TODO: [release-duty] before the release, update this!
     # TODO: [release-duty] adjust renovate comment to bump the major version
@@ -87,8 +87,11 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -102,12 +105,12 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -134,10 +137,10 @@ jobs:
         env:
             CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -234,7 +237,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -252,10 +255,13 @@ jobs:
         timeout-minutes: 120
         env:
             CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-multi-region-tests -> internal-helm-deprecation-check upserts a comment
         steps:
             ################## Checkout ##################
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Register environment variables
               run: |
@@ -276,7 +282,7 @@ jobs:
                   } >> "$GITHUB_ENV"
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -396,14 +402,6 @@ jobs:
 
                   bash ./aws/kubernetes/eks-dual-region/procedure/sync_elasticsearch_passwords.sh
 
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
             # Fetches CAMUNDA_BASIC_AUTH_USER/PASSWORD from Vault and writes a
             # Helm overlay values file so the CI cluster is not protected by
             # the chart default demo:demo admin (see incident INC-5340).
@@ -495,7 +493,7 @@ jobs:
     cleanup-clusters:
         runs-on: ubuntu-latest
         timeout-minutes: 60
-        if: always()
+        if: always() && needs.clusters-info.result != 'skipped'
         needs:
             - integration-tests
             - access-info
@@ -508,10 +506,10 @@ jobs:
         steps:
             ################## Checkout ##################
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -592,6 +590,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: clusters
               env:
@@ -605,8 +604,11 @@ jobs:
         needs:
             - integration-tests
             - cleanup-clusters
+        permissions:
+            contents: read
+            pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -624,7 +626,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

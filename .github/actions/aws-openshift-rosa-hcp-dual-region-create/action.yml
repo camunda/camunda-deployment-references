@@ -41,11 +41,11 @@ inputs:
     openshift-version-cluster-0:
         description: Version of the OpenShift to install
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.21.15
+        default: 4.22.5
     openshift-version-cluster-1:
         description: Version of the OpenShift to install
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.21.15
+        default: 4.22.5
     replicas-cluster-0:
         description: Number of replicas for the ROSA cluster 0 (empty will fallback on default value of the module)
         default: ''
@@ -131,7 +131,7 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -139,56 +139,34 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
         # TODO: when available on asdf, migrate this to it
         - name: Install ROSA CLI
           shell: bash
           working-directory: /tmp
           run: |
-              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${INPUTS_ROSA_CLI_VERSION}/rosa-linux.tar.gz"
               tar -xvf rosa-linux.tar.gz
               sudo mv rosa /usr/local/bin/rosa
               chmod +x /usr/local/bin/rosa
               rm -f rosa-linux.tar.gz
               rosa version
+          env:
+              INPUTS_ROSA_CLI_VERSION: ${{ inputs.rosa-cli-version }}
 
         - name: Install CLI tools from OpenShift Mirror
-          uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+          uses: redhat-actions/openshift-tools-installer@ebd96c3fc72fc10a62663eac5e1421192152e6aa # v2
           with:
               oc: ${{ inputs.openshift-version-cluster-0 }}
-
-        - name: Set AWS Region and associated AZs
-          id: construct_azs
-          shell: bash
-          run: |
-              IFS=',' read -r -a az_cluster_0 <<< "${{ inputs.availability-zones-cluster-0 }}"
-              IFS=',' read -r -a az_cluster_1 <<< "${{ inputs.availability-zones-cluster-1 }}"
-
-              FULL_AZS_CLUSTER_0=()
-              FULL_AZS_CLUSTER_1=()
-
-              for az in "${az_cluster_0[@]}"; do
-                FULL_AZS_CLUSTER_0+=("\"${{ inputs.aws-region-cluster-0 }}${az}\"")
-              done
-
-              for az in "${az_cluster_1[@]}"; do
-                FULL_AZS_CLUSTER_1+=("\"${{ inputs.aws-region-cluster-1 }}${az}\"")
-              done
-
-              # Join the AZs with commas
-              FULL_AZS_CLUSTER_0_STRING=$(IFS=,; echo "${FULL_AZS_CLUSTER_0[*]}")
-              FULL_AZS_CLUSTER_1_STRING=$(IFS=,; echo "${FULL_AZS_CLUSTER_1[*]}")
-
-              echo "FULL_AZS_CLUSTER_0=$FULL_AZS_CLUSTER_0_STRING" | tee -a "$GITHUB_ENV"
-              echo "FULL_AZS_CLUSTER_1=$FULL_AZS_CLUSTER_1_STRING" | tee -a "$GITHUB_ENV"
-
 
         - name: Login to Red Hat Hybrid Cloud Console
           shell: bash
           run: |
-              rosa login --token="${{ inputs.rh-token }}"
+              rosa login --token="${INPUTS_RH_TOKEN}"
               rosa whoami
+          env:
+              INPUTS_RH_TOKEN: ${{ inputs.rh-token }}
 
         - name: Verify and enable HCP ROSA on AWS Marketplace
           shell: bash
@@ -200,18 +178,18 @@ runs:
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
-          run: |
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
-              export TFSTATE_BASE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.cluster-name-0 }}-oOo-${{ inputs.cluster-name-1 }}/"
+          run: |  # zizmor: ignore[github-env]
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
+              export TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME_0}-oOo-${INPUTS_CLUSTER_NAME_1}/"
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" | tee -a "$GITHUB_OUTPUT"
               echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}" | tee -a "$GITHUB_OUTPUT"
 
-              echo "TF_DIR_CLUSTERS=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/" >> "$GITHUB_ENV"
-              echo "TF_DIR_PEERING=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/peering/" >> "$GITHUB_ENV"
-              echo "TF_DIR_BACKUP_BUCKET=${{ inputs.tf-modules-path }}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/" >> "$GITHUB_ENV"
+              echo "TF_DIR_CLUSTERS=${INPUTS_TF_MODULES_PATH}/aws/openshift/rosa-hcp-dual-region/terraform/clusters/" >> "$GITHUB_ENV"
+              echo "TF_DIR_PEERING=${INPUTS_TF_MODULES_PATH}/aws/openshift/rosa-hcp-dual-region/terraform/peering/" >> "$GITHUB_ENV"
+              echo "TF_DIR_BACKUP_BUCKET=${INPUTS_TF_MODULES_PATH}/aws/openshift/rosa-hcp-dual-region/terraform/backup_bucket/" >> "$GITHUB_ENV"
 
               # Make `terraform init` resilient to transient registry.terraform.io
               # failures (502 responses and client timeouts while resolving and
@@ -222,31 +200,42 @@ runs:
               # by every terraform command in this action.
               echo "TF_REGISTRY_DISCOVERY_RETRY=5" >> "$GITHUB_ENV"
               echo "TF_REGISTRY_CLIENT_TIMEOUT=20" >> "$GITHUB_ENV"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_CLUSTER_NAME_0: ${{ inputs.cluster-name-0 }}
+              INPUTS_CLUSTER_NAME_1: ${{ inputs.cluster-name-1 }}
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
 
         - name: Check if S3 bucket exists
           id: create-s3-bucket
           shell: bash
           run: |
-              if aws s3api head-bucket --bucket ${{ inputs.s3-backend-bucket }} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
+              if aws s3api head-bucket --bucket ${INPUTS_S3_BACKEND_BUCKET} --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} 2>/dev/null; then
                 echo "Bucket already exists"
               else
                 echo "Bucket does not exist, creating..."
-                aws s3api create-bucket --bucket ${{ inputs.s3-backend-bucket }} \
+                aws s3api create-bucket --bucket ${INPUTS_S3_BACKEND_BUCKET} \
                     --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
                     --create-bucket-configuration LocationConstraint=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}
               fi
 
-              aws s3api put-public-access-block --bucket ${{ inputs.s3-backend-bucket }} \
+              aws s3api put-public-access-block --bucket ${INPUTS_S3_BACKEND_BUCKET} \
                 --region ${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }} \
                 --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
 
-      ### Clusters
+        ### Clusters
 
         - name: Terraform Init - Clusters
           id: init-clusters
           working-directory: ${{ env.TF_DIR_CLUSTERS }}
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
+              INPUTS_AWS_REGION_CLUSTER_0: ${{ inputs.aws-region-cluster-0 }}
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
           shell: bash
           run: |
               set -euo pipefail
@@ -262,8 +251,8 @@ runs:
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
                 -backend-config="key=$terraform_state_key" \
-                -var="cluster_0_region=${{ inputs.aws-region-cluster-0 }}" \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}"
+                -var="cluster_0_region=${INPUTS_AWS_REGION_CLUSTER_0}" \
+                -var="cluster_1_region=${INPUTS_AWS_REGION_CLUSTER_1}"
 
               terraform validate -no-color
 
@@ -282,15 +271,32 @@ runs:
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              cluster_0_region="${{ inputs.aws-region-cluster-0 }}"
-              cluster_1_region="${{ inputs.aws-region-cluster-1 }}"
+              cluster_0_region="${INPUTS_AWS_REGION_CLUSTER_0}"
+              cluster_1_region="${INPUTS_AWS_REGION_CLUSTER_1}"
               EOF
+          env:
+              INPUTS_AWS_REGION_CLUSTER_0: ${{ inputs.aws-region-cluster-0 }}
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
 
         - name: Terraform Plan - Clusters
           id: plan-clusters
           working-directory: ${{ env.TF_DIR_CLUSTERS }}
+          # Passed as env, never interpolated into the script: the values reach
+          # jq as data, so nothing below has to be quoted or escaped.
           env:
               RHCS_TOKEN: ${{ inputs.rh-token }}
+              CLUSTER_0_NAME: ${{ inputs.cluster-name-0 }}
+              CLUSTER_1_NAME: ${{ inputs.cluster-name-1 }}
+              CLUSTER_0_ADMIN: ${{ inputs.admin-username-cluster-0 }}
+              CLUSTER_1_ADMIN: ${{ inputs.admin-username-cluster-1 }}
+              CLUSTER_0_REGION: ${{ inputs.aws-region-cluster-0 }}
+              CLUSTER_1_REGION: ${{ inputs.aws-region-cluster-1 }}
+              CLUSTER_0_ZONES: ${{ inputs.availability-zones-cluster-0 }}
+              CLUSTER_1_ZONES: ${{ inputs.availability-zones-cluster-1 }}
+              CLUSTER_0_VERSION: ${{ inputs.openshift-version-cluster-0 }}
+              CLUSTER_1_VERSION: ${{ inputs.openshift-version-cluster-1 }}
+              CLUSTER_0_REPLICAS: ${{ inputs.replicas-cluster-0 }}
+              CLUSTER_1_REPLICAS: ${{ inputs.replicas-cluster-1 }}
           shell: bash
           run: |
               set -euo pipefail
@@ -299,43 +305,85 @@ runs:
               pwd
               ls
 
-              ## Cluster 0
+              # Terraform's own override mechanism, rather than rewriting in place
+              # the reference files we ship to users. Terraform *rejects* an
+              # override for a local that no longer exists ("An override file can
+              # only override a local value that was already defined in a primary
+              # configuration file"), so a rename in the reference architecture
+              # fails the plan loudly instead of silently testing the reference
+              # defaults.
+              #
+              # Both clusters live in the same Terraform directory, so a single
+              # override file carries them.
+              #
+              # Module arguments are merged rather than validated, so those get an
+              # explicit presence check below.
+              overrides='{"locals": {}, "module": {}}'
 
-              # We use sed instead of -var because the module presented to the user
-              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(rosa_cluster_0_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name-0 }}\2/' \
-                     -e 's/\(rosa_cluster_0_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username-cluster-0 }}\2/' \
-                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version-cluster-0 }}\2/' \
-                     -e "s/\(rosa_cluster_0_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_0]/" \
-                     cluster_region_0.tf
+              add_cluster() {
+                  local idx="$1" name="$2" admin="$3" region="$4" letters="$5" version="$6" replicas="$7"
+                  local file="cluster_region_${idx}.tf" module="rosa_cluster_${idx}" zones
 
-              if [ -n "${{ inputs.replicas-cluster-0 }}" ]; then
-                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas-cluster-0 }}/' cluster_region_0.tf
-              else
-                echo "No replicas value provided, skipping replica modification."
-              fi
+                  zones=$(jq -n --arg region "${region}" --arg letters "${letters}" \
+                      '[$letters | split(",") | .[] | sub("^\\s+";"") | sub("\\s+$";"") | select(length > 0) | $region + .]')
+                  if ! jq -e 'length > 0' <<< "${zones}" > /dev/null; then
+                      echo "::error::availability-zones-cluster-${idx} resolved to an empty list (got '${letters}')."
+                      exit 1
+                  fi
 
-              echo "Displaying templated cluster_cluster_0.tf file:"
-              cat cluster_region_0.tf
+                  overrides=$(jq \
+                      --arg name "${name}" \
+                      --arg admin "${admin}" \
+                      --argjson zones "${zones}" \
+                      --arg version "${version}" \
+                      --arg module "${module}" \
+                      --arg idx "${idx}" \
+                      '.locals["rosa_cluster_\($idx)_name"] = $name
+                       | .locals["rosa_cluster_\($idx)_admin_username"] = $admin
+                       | .locals["rosa_cluster_\($idx)_zones"] = $zones
+                       | .module[$module].openshift_version = $version' <<< "${overrides}")
 
-              ## Cluster 1
+                  if [ -n "${replicas}" ]; then
+                      # jq --argjson would reject a leading zero with an opaque
+                      # parse error, so constrain the shape and keep the message.
+                      if ! [[ "${replicas}" =~ ^[1-9][0-9]*$ ]]; then
+                          echo "::error::Invalid replicas-cluster-${idx} '${replicas}'; expected a positive integer."
+                          exit 1
+                      fi
+                      overrides=$(jq --arg module "${module}" --argjson v "${replicas}" \
+                          '.module[$module].replicas = $v' <<< "${overrides}")
+                  else
+                      echo "No replicas value provided for cluster ${idx}, keeping the reference default."
+                  fi
 
-              # We use sed instead of -var because the module presented to the user
-              # uses locals for simplicity. Locals cannot be overwritten with the CLI.
-              sed -i -e 's/\(rosa_cluster_1_name\s*=\s*"\)[^"]*\("\)/\1${{ inputs.cluster-name-1 }}\2/' \
-                     -e 's/\(rosa_cluster_1_admin_username\s*=\s*"\)[^"]*\("\)/\1${{ inputs.admin-username-cluster-1 }}\2/' \
-                     -e 's/\(openshift_version\s*=\s*"\)[^"]*\("\)/\1${{ inputs.openshift-version-cluster-1 }}\2/' \
-                     -e "s/\(rosa_cluster_1_zones\s*=\s*\)[^]]*\]/\1[$FULL_AZS_CLUSTER_1]/" \
-                     cluster_region_1.tf
+                  # Terraform silently ignores an unknown argument in a module
+                  # override block, so assert the ones we set are still there. The
+                  # search is scoped to the module block: the same key may
+                  # legitimately appear elsewhere and would otherwise mask a
+                  # removed argument.
+                  local block
+                  block=$(awk -v want="^module \"${module}\"" '$0 ~ want { inside = 1 }
+                              inside { print; depth += gsub(/\{/, "{"); depth -= gsub(/\}/, "}"); if (depth == 0) exit }' "${file}")
+                  if [ -z "${block}" ]; then
+                      echo "::error::No 'module \"${module}\"' block found in ${file}; update this action."
+                      exit 1
+                  fi
+                  local key
+                  for key in $(jq -r --arg module "${module}" '.module[$module] | keys[]' <<< "${overrides}"); do
+                      if ! grep -qE "^[[:space:]]*${key}[[:space:]]*=" <<< "${block}"; then
+                          echo "::error::No '${key}' argument in the ${module} module block of ${file};" \
+                              "the CI override would be silently ignored. Update this action."
+                          exit 1
+                      fi
+                  done
+              }
 
-              if [ -n "${{ inputs.replicas-cluster-1 }}" ]; then
-                sed -i -e 's/\(replicas\s*=\s*\)[0-9]\+/\1${{ inputs.replicas-cluster-1 }}/' cluster_region_1.tf
-              else
-                echo "No replicas value provided, skipping replica modification."
-              fi
+              add_cluster 0 "${CLUSTER_0_NAME}" "${CLUSTER_0_ADMIN}" "${CLUSTER_0_REGION}" \
+                  "${CLUSTER_0_ZONES}" "${CLUSTER_0_VERSION}" "${CLUSTER_0_REPLICAS}"
+              add_cluster 1 "${CLUSTER_1_NAME}" "${CLUSTER_1_ADMIN}" "${CLUSTER_1_REGION}" \
+                  "${CLUSTER_1_ZONES}" "${CLUSTER_1_VERSION}" "${CLUSTER_1_REPLICAS}"
 
-              echo "Displaying templated cluster_cluster_1.tf file:"
-              cat cluster_region_1.tf
+              jq '.' <<< "${overrides}" | tee ci_override.tf.json
 
               terraform plan -no-color -out clusters.plan  \
                 -var-file=terraform.tfvars
@@ -441,7 +489,7 @@ runs:
                       kubectl config rename-context "$(oc config current-context)" "${{ inputs.cluster-name-1 }}"
                   fi
 
-      ### VPC Peering
+        ### VPC Peering
 
         - name: Terraform Init - Peering
           id: init-peering
@@ -461,10 +509,13 @@ runs:
                 -backend-config="bucket=${{ steps.set-terraform-variables.outputs.TFSTATE_BUCKET }}" \
                 -backend-config="region=${{ steps.set-terraform-variables.outputs.TFSTATE_REGION }}" \
                 -backend-config="key=$terraform_state_key"  \
-                -var="cluster_0_region=${{ inputs.aws-region-cluster-0 }}" \
-                -var="cluster_1_region=${{ inputs.aws-region-cluster-1 }}"
+                -var="cluster_0_region=${INPUTS_AWS_REGION_CLUSTER_0}" \
+                -var="cluster_1_region=${INPUTS_AWS_REGION_CLUSTER_1}"
 
               terraform validate -no-color
+          env:
+              INPUTS_AWS_REGION_CLUSTER_0: ${{ inputs.aws-region-cluster-0 }}
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
 
         - name: Generate tfvars file - Peering
           id: generate-tfvars-peering
@@ -475,11 +526,14 @@ runs:
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              cluster_0_region="${{ inputs.aws-region-cluster-0 }}"
-              cluster_1_region="${{ inputs.aws-region-cluster-1 }}"
+              cluster_0_region="${INPUTS_AWS_REGION_CLUSTER_0}"
+              cluster_1_region="${INPUTS_AWS_REGION_CLUSTER_1}"
               cluster_0_vpc_id="${{ steps.terraform_outputs_clusters.outputs.cluster_0_vpc_id }}"
               cluster_1_vpc_id="${{ steps.terraform_outputs_clusters.outputs.cluster_1_vpc_id }}"
               EOF
+          env:
+              INPUTS_AWS_REGION_CLUSTER_0: ${{ inputs.aws-region-cluster-0 }}
+              INPUTS_AWS_REGION_CLUSTER_1: ${{ inputs.aws-region-cluster-1 }}
 
         - name: Terraform Plan - Peering
           id: plan-peering
@@ -509,7 +563,7 @@ runs:
               plan-extra-args: |
                   -var-file=terraform.tfvars
 
-      ### Backup bucket
+        ### Backup bucket
 
         - name: Terraform Init - Backup bucket
           id: init-backup-bucket
@@ -541,12 +595,15 @@ runs:
           run: |
               set -euo pipefail
 
-              hash=$(echo -n "${{ inputs.cluster-name-0 }}-oOo-${{ inputs.cluster-name-1 }}" | sha256sum | cut -c1-8)
+              hash=$(echo -n "${INPUTS_CLUSTER_NAME_0}-oOo-${INPUTS_CLUSTER_NAME_1}" | sha256sum | cut -c1-8)
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
               bucket_name="cb-${hash}"
               EOF
+          env:
+              INPUTS_CLUSTER_NAME_0: ${{ inputs.cluster-name-0 }}
+              INPUTS_CLUSTER_NAME_1: ${{ inputs.cluster-name-1 }}
 
         - name: Terraform Plan - Backup bucket
           id: plan-backup-bucket
@@ -595,4 +652,6 @@ runs:
           if: always() && inputs.cleanup-tf-modules-path == 'true'
           shell: bash
           run: |
-              rm -rf "${{ inputs.tf-modules-path }}"
+              rm -rf "${INPUTS_TF_MODULES_PATH}"
+          env:
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}

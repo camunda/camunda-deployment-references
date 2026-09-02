@@ -60,9 +60,6 @@ optimize:
                 # Amazon OpenSearch Service listens on port 443 opposed to the usual port 9200.
                 port: 443
 
-console:
-    enabled: false # by default, console is not enabled
-
 
 webModeler:
     enabled: false # by default, webModeler is not enabled
@@ -81,7 +78,15 @@ webModeler:
             secret:
                 existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
-            fromAddress: changeme@example.com   # change this required value
+        # from-address is deprecated as a values key in chart 8.10 (removed in v16),
+        # so the sender address is supplied via unified configuration instead.
+        extraConfiguration:
+            - file: webmodeler-mail.yaml
+              content: |
+                  camunda:
+                    modeler:
+                      mail:
+                        from-address: changeme@example.com   # change this required value
 
 orchestration:
     data:

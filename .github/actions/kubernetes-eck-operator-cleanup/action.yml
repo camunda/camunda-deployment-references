@@ -22,24 +22,26 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              echo "Deleting Elasticsearch clusters in namespace ${{ inputs.namespace }}..."
-              if kubectl get elasticsearch -n "${{ inputs.namespace }}" &>/dev/null; then
-                kubectl delete elasticsearch --all -n "${{ inputs.namespace }}" --timeout=120s || true
+              echo "Deleting Elasticsearch clusters in namespace ${INPUTS_NAMESPACE}..."
+              if kubectl get elasticsearch -n "${INPUTS_NAMESPACE}" &>/dev/null; then
+                kubectl delete elasticsearch --all -n "${INPUTS_NAMESPACE}" --timeout=120s || true
                 echo "Deleted Elasticsearch clusters"
               else
                 echo "No Elasticsearch clusters found, skipping..."
               fi
+          env:
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
 
         - name: 🗑️ Delete Elasticsearch secrets
           shell: bash
           run: |
               set -euo pipefail
-              echo "Deleting Elasticsearch secrets in namespace ${{ inputs.namespace }}..."
+              echo "Deleting Elasticsearch secrets in namespace ${INPUTS_NAMESPACE}..."
 
               # Find all secrets associated with Elasticsearch resources via the common ECK label.
               # This will match secrets for any Elasticsearch cluster name in the namespace.
               mapfile -t ES_SECRETS < <(kubectl get secret \
-                -n "${{ inputs.namespace }}" \
+                -n "${INPUTS_NAMESPACE}" \
                 -l 'common.k8s.elastic.co/type=elasticsearch' \
                 -o name 2>/dev/null || true)
 
@@ -50,10 +52,12 @@ runs:
                 for s in "${ES_SECRETS[@]}"; do
                   echo "  $s"
                 done
-                kubectl delete -n "${{ inputs.namespace }}" \
+                kubectl delete -n "${INPUTS_NAMESPACE}" \
                   "${ES_SECRETS[@]}" || true
                 echo "Deleted Elasticsearch secrets"
               fi
+          env:
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
 
         - name: 🗑️ Uninstall ECK Operator
           if: inputs.skip-operator-uninstall != 'true'

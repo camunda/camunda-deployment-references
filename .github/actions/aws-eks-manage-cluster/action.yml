@@ -99,7 +99,7 @@ runs:
           # see https://github.com/orgs/community/discussions/41927 it's not possible to optimize this yet
           # steps.uses  cannot access the github context.
           # uses: ${{ github.action_repository }}/aws-utility-action@${{ github.action_ref }}
-          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@4f3c7204d76df59b3a6edc1780c303acee70b5e9 # main
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@d4bccfaaa2ac2e33ced96a73a4354edee55bf428 # main
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.terraform-version }}
@@ -115,7 +115,7 @@ runs:
               tf-terraform-wrapper: ${{ inputs.tf-terraform-wrapper }}
 
         - name: Checkout Repository EKS modules
-          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -124,7 +124,9 @@ runs:
 
         - name: Set working directory
           shell: bash
-          run: echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/aws/modules/eks-cluster/" >> "$GITHUB_ENV"
+          run: echo "TF_MODULE_DIR=${INPUTS_TF_MODULES_PATH}/aws/modules/eks-cluster/" >> "$GITHUB_ENV"  # zizmor: ignore[github-env]
+          env:
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
 
         - name: Terraform Init
           shell: bash
@@ -152,14 +154,19 @@ runs:
           run: |
               set -euo pipefail
 
-              echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
+              printf '%s\n' "${INPUTS_ADDITIONAL_TERRAFORM_VARS}" > /tmp/var.tfvars.json
               terraform plan -no-color -out eks.plan \
                 -var 'default_tags=${{ steps.sanitize-tags.outputs.sanitized_tags }}' \
                 -var-file=/tmp/var.tfvars.json \
-                -var "name=${{ inputs.cluster-name }}" \
-                -var "region=${{ inputs.aws-region }}" \
-                -var "name=${{ inputs.cluster-name }}" \
-                -var "single_nat_gateway=${{ inputs.single-nat-gateway }}"
+                -var "name=${INPUTS_CLUSTER_NAME}" \
+                -var "region=${INPUTS_AWS_REGION}" \
+                -var "name=${INPUTS_CLUSTER_NAME}" \
+                -var "single_nat_gateway=${INPUTS_SINGLE_NAT_GATEWAY}"
+          env:
+              INPUTS_ADDITIONAL_TERRAFORM_VARS: ${{ inputs.additional-terraform-vars }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+              INPUTS_SINGLE_NAT_GATEWAY: ${{ inputs.single-nat-gateway }}
 
         - name: Terraform Apply
           shell: bash
@@ -185,7 +192,10 @@ runs:
           run: |
               set -euo pipefail
 
-              aws eks --region ${{ inputs.aws-region }} update-kubeconfig --name ${{ inputs.cluster-name }}
+              aws eks --region "${INPUTS_AWS_REGION}" update-kubeconfig --name "${INPUTS_CLUSTER_NAME}"
+          env:
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
 
         - name: Output Kube Config
           shell: bash

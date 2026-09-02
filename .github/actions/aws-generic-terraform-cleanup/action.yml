@@ -44,25 +44,55 @@ inputs:
         description: Version of the OpenShift to install
         required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.21.15
+        default: 4.22.5
 
     delete-ghost-rosa-clusters:
         description: Specify whether to delete ghost rosa clusters (true or false)
         default: 'false'
+
+    destroy-pass-timeout-minutes:
+        description: |
+            Wall-clock budget for the first destroy pass — the one that tears the whole
+            reference architecture down, so it has to fit a full teardown. A healthy single
+            ROSA HCP cluster measured 55min (11 for the vpn module, 40 for the cluster), and
+            a daily sweep may carry several groups, hence the headroom.
+        default: '85'
+
+    retry-destroy-pass-timeout-minutes:
+        description: |
+            Wall-clock budget for the cloud-nuke retry pass. Smaller than the first on purpose:
+            it only runs when the first pass failed, and cloud-nuke removes the VPC blockers up
+            front, so the destroy behind it is a sweep rather than a full teardown.
+
+            Keep both budgets plus room for the ghost pass and the log upload under the caller's
+            step-level `timeout-minutes` — the defaults sum to 115 under the daily cleanups' 125.
+            Nothing enforces it, and a step the runner kills takes the log upload down with it,
+            which is how the 2026-08-29 EC2 and ECS cleanups ended with no artifact and no
+            verdict. A caller on a shorter leash has to lower both, or it gets no protection.
+        default: '30'
+
+outputs:
+    stuck-rosa-clusters:
+        description: >-
+            Comma-separated names of the ROSA clusters this run stopped trying to delete because they
+            have been on the cleanup's candidate list for longer than the threshold (24h by default).
+            OCM still owns their teardown, so they are reported rather than failing the cleanup.
+            Empty when nothing is stuck.
+        value: ${{ steps.delete_resources.outputs.stuck_clusters }}
 
 runs:
     using: composite
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
         - name: Install Cloud Nuke for retry
           shell: bash
           working-directory: /tmp
           env:
               # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
-              CLOUD_NUKE_VERSION: v0.50.0
+              CLOUD_NUKE_VERSION: v0.52.0
           run: |
               curl -LO \
                   --retry 5 \
@@ -79,16 +109,18 @@ runs:
           run: |
               set -euo pipefail
 
-              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${{ inputs.rosa-cli-version }}/rosa-linux.tar.gz"
+              curl -LO "https://mirror.openshift.com/pub/openshift-v4/clients/rosa/${INPUTS_ROSA_CLI_VERSION}/rosa-linux.tar.gz"
               tar -xvf rosa-linux.tar.gz
               sudo mv rosa /usr/local/bin/rosa
               chmod +x /usr/local/bin/rosa
               rm -f rosa-linux.tar.gz
               rosa version
+          env:
+              INPUTS_ROSA_CLI_VERSION: ${{ inputs.rosa-cli-version }}
 
         - name: Install CLI tools from OpenShift Mirror
           if: ${{ inputs.openshift == 'true' }}
-          uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
+          uses: redhat-actions/openshift-tools-installer@ebd96c3fc72fc10a62663eac5e1421192152e6aa # v2
           with:
               oc: ${{ inputs.openshift-version }}
 
@@ -98,44 +130,117 @@ runs:
           env:
               OPENSHIFT: ${{ inputs.openshift }}   # as an indicator in the script whether EKS vs ROSA
               DISABLE_TELEMETRY: true # Disable telemetry for cloud-nuke
+              INPUTS_TF_BUCKET_REGION: ${{ inputs.tf-bucket-region }}
+              INPUTS_TF_BUCKET: ${{ inputs.tf-bucket }}
+              INPUTS_MAX_AGE_HOURS: ${{ inputs.max-age-hours }}
+              INPUTS_TARGET: ${{ inputs.target }}
+              INPUTS_MODULES_ORDER: ${{ inputs.modules-order }}
+              INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
+              INPUTS_FAIL_ON_NOT_FOUND: ${{ inputs.fail-on-not-found }}
+              INPUTS_DELETE_GHOST_ROSA_CLUSTERS: ${{ inputs.delete-ghost-rosa-clusters }}
+              # Where cleanup-ghost-rosa-clusters.sh records when it first saw each
+              # candidate. OCM exposes no deletion-start timestamp, so without a
+              # store that outlives the run there is no way to tell a cluster Red Hat
+              # is still working through from one it has given up on. It rides in the
+              # terraform state bucket the cleanup already reads and writes; the key
+              # has no `/tfstate-<id>/` segment, so the destroy pass skips over it.
+              STUCK_STATE_BUCKET: ${{ inputs.tf-bucket }}
+              STUCK_STATE_KEY: ${{ inputs.tf-bucket-key-prefix }}ghost-rosa-cluster-deletion-state.json
+              INPUTS_DESTROY_PASS_TIMEOUT_MINUTES: ${{ inputs.destroy-pass-timeout-minutes }}
+              INPUTS_RETRY_DESTROY_PASS_TIMEOUT_MINUTES: ${{ inputs.retry-destroy-pass-timeout-minutes }}
+              ACTION_PATH: ${{ github.action_path }}
           run: |
               set -euo pipefail
 
-              if [ -n "${{ inputs.tf-bucket-region }}" ]; then
-                export AWS_S3_REGION="${{ inputs.tf-bucket-region }}"
+              # The ROSA CLI is only installed when openshift is true, so a caller
+              # asking for the ghost pass without it would fail on `rosa: command
+              # not found` after the destroy, or — the way it actually happened —
+              # never notice the repair was not wired up at all.
+              if [ "${INPUTS_DELETE_GHOST_ROSA_CLUSTERS}" == "true" ] && [ "${OPENSHIFT}" != "true" ]; then
+                echo "::error::delete-ghost-rosa-clusters needs openshift: 'true'; the ROSA CLI is only installed then."
+                exit 1
+              fi
+
+              if [ -n "${INPUTS_TF_BUCKET_REGION}" ]; then
+                export AWS_S3_REGION="${INPUTS_TF_BUCKET_REGION}"
               fi
 
               # Use repo .tool-version as global version
               cp .tool-versions ~/.tool-versions
 
+              # Both passes are bounded, because an unbounded first pass can eat the
+              # caller's entire step budget. On 2026-08-29 the EC2 and ECS cleanups spent
+              # 109 of their 125 minutes on pass 1, then the runner killed the step
+              # mid-destroy: no verdict, no uploaded log, and — worst of all — the
+              # cloud-nuke pass, which exists precisely for the resources terraform cannot
+              # delete on its own, never started. A pass that runs out of budget is a
+              # result too, so long as the step survives to act on it.
+              run_destroy_pass() {
+                local label="$1" budget="$2" status=0
+
+                # --kill-after: terraform ignoring TERM must not outlive the budget either.
+                timeout --signal=TERM --kill-after=2m "${budget}m" \
+                  "${ACTION_PATH}/scripts/destroy-resources.sh" "${INPUTS_TF_BUCKET}" \
+                  ${INPUTS_MAX_AGE_HOURS} ${INPUTS_TARGET} ${INPUTS_MODULES_ORDER} ${INPUTS_TF_BUCKET_KEY_PREFIX} \
+                  $([[ "${INPUTS_FAIL_ON_NOT_FOUND}" == "true" ]] && echo "--fail-on-not-found") || status=$?
+
+                if [ "$status" -eq 124 ]; then
+                  echo "::warning::${label} exhausted its ${budget}m budget and was stopped;" \
+                       "see the uploaded cleanup logs for the module it was still on."
+                fi
+                return "$status"
+              }
+
               # First attempt without RETRY_DESTROY
+              destroy_status=0
               echo "🚀 First attempt: Running destroy without cloud-nuke retry..."
-              if ${{ github.action_path }}/scripts/destroy-resources.sh "${{ inputs.tf-bucket }}" \
-                ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.modules-order }} ${{ inputs.tf-bucket-key-prefix }} \
-                $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found"); then
+              if run_destroy_pass "the first destroy pass" "${INPUTS_DESTROY_PASS_TIMEOUT_MINUTES}"; then
                   echo "✅ Destroy succeeded without retry"
               else
                   echo "⚠️  First attempt failed, retrying with cloud-nuke..."
                   # RETRY_DESTROY enables cloud-nuke to clean up resources created outside of Terraform
                   # such as Load Balancers created by ingress-nginx, EBS volumes, etc.
                   export RETRY_DESTROY='true'
-                  ${{ github.action_path }}/scripts/destroy-resources.sh "${{ inputs.tf-bucket }}" \
-                    ${{ inputs.max-age-hours }} ${{ inputs.target }} ${{ inputs.modules-order }} ${{ inputs.tf-bucket-key-prefix }} \
-                    $([[ "${{ inputs.fail-on-not-found }}" == "true" ]] && echo "--fail-on-not-found")
+                  run_destroy_pass "the cloud-nuke destroy pass" "${INPUTS_RETRY_DESTROY_PASS_TIMEOUT_MINUTES}" || destroy_status=$?
+                  unset RETRY_DESTROY
               fi
 
-              if [ "${{ inputs.delete-ghost-rosa-clusters }}" == "true" ]; then
-                ${{ github.action_path }}/scripts/cleanup-ghost-rosa-clusters.sh ${{ inputs.max-age-hours }}
+              # The ghost pass repairs the very thing that makes the destroy above
+              # fail: a ROSA cluster whose installer role is gone cannot be deleted
+              # by OCM, so terraform cannot delete it either. Under `set -e` the
+              # unguarded retry used to end the step here, leaving the repair
+              # unreachable in exactly the situation it exists for. Record the
+              # status instead and report it once both passes have run.
+              ghost_status=0
+              if [ "${INPUTS_DELETE_GHOST_ROSA_CLUSTERS}" == "true" ]; then
+                ${ACTION_PATH}/scripts/cleanup-ghost-rosa-clusters.sh ${INPUTS_MAX_AGE_HOURS} || ghost_status=$?
+              fi
+
+              if [ "$destroy_status" -ne 0 ]; then
+                echo "::error::Destroy failed (exit ${destroy_status}) even after the cloud-nuke retry."
+              fi
+              if [ "$ghost_status" -ne 0 ]; then
+                echo "::error::Ghost ROSA cluster cleanup failed (exit ${ghost_status})."
+              fi
+              if [ "$destroy_status" -ne 0 ] || [ "$ghost_status" -ne 0 ]; then
+                exit 1
               fi
 
         # Required for matrix jobs
         - name: Convert key prefix into slug
           id: key-prefix-slug
+          # The upload below is `always()`, so this has to be too: skipping it on a failed
+          # destroy leaves the artifact name without its prefix, and two matrix legs
+          # failing together would then race for the same name — losing the logs in the
+          # one case they are worth reading.
+          if: always()
           shell: bash
           run: |
               set -euo pipefail
-              SLUG=$(echo "${{ inputs.tf-bucket-key-prefix }}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              SLUG=$(echo "${INPUTS_TF_BUCKET_KEY_PREFIX}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
               echo "PREFIX_SLUG=${SLUG::-1}" | tee -a "$GITHUB_OUTPUT"
+          env:
+              INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
 
         - name: Upload cleanup logs
           if: always()

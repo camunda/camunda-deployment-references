@@ -30,14 +30,19 @@ runs:
           run: |
               set -euo pipefail
 
-              just regenerate-golden-file "${{ inputs.module-dir }}" "${{ inputs.s3-bucket-region }}" \
-                 "${{ inputs.s3-backend-bucket }}" "${{ inputs.s3-bucket-key }}" "./compare/"
+              just regenerate-golden-file "${INPUTS_MODULE_DIR}" "${INPUTS_S3_BUCKET_REGION}" \
+                 "${INPUTS_S3_BACKEND_BUCKET}" "${INPUTS_S3_BUCKET_KEY}" "./compare/"
 
-              module_dir="${{ inputs.module-dir }}"
+              module_dir="${INPUTS_MODULE_DIR}"
               module_dir_key="${module_dir//\//-}"
               # Remove trailing . and -
               module_dir_key=$(echo "$module_dir_key" | sed 's/^[.-]*//;s/[-.]*$//')
               echo "module_dir_key=$module_dir_key" | tee -a "$GITHUB_OUTPUT"
+          env:
+              INPUTS_MODULE_DIR: ${{ inputs.module-dir }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY: ${{ inputs.s3-bucket-key }}
 
         - name: Upload pipeline golden result
           uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -48,22 +53,27 @@ runs:
 
         - name: Compare Terraform plan with golden file
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
-              delta "${{ inputs.module-dir }}test/golden/tfplan-golden.json" "${{ inputs.module-dir }}compare/tfplan-golden.json"
+              delta "${INPUTS_MODULE_DIR}test/golden/tfplan-golden.json" "${INPUTS_MODULE_DIR}compare/tfplan-golden.json"
               delta_exit_code=$?
               echo "delta_exit_code=$delta_exit_code" | tee -a "$GITHUB_ENV"
               exit $delta_exit_code
+          env:
+              INPUTS_MODULE_DIR: ${{ inputs.module-dir }}
 
         - name: Manage Terraform diff comment
           if: always() && github.event_name == 'pull_request'
           shell: bash
-          run: |
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
-              diff_comment_url=$(gh pr view "${{ github.event.pull_request.number }}" --json comments \
-                  --jq ".comments[] | select(.body | contains(\"## Module ${{ inputs.module-dir }} - Terraform Golden Plan Diff\")) | .url")
+              # The module directory is passed to jq as data, so the program stays a
+              # constant and a quote or a backslash in the path cannot rewrite it.
+              diff_comment_url=$(gh pr view "${PR_NUMBER}" --json comments \
+                  | jq -r --arg marker "## Module ${INPUTS_MODULE_DIR} - Terraform Golden Plan Diff" \
+                      '.comments[] | select(.body | contains($marker)) | .url')
 
               has_diff_comment=false
               has_diff=false
@@ -72,14 +82,14 @@ runs:
                   has_diff_comment=true
               fi
 
-              if [[ "${{ env.delta_exit_code }}" != "0" ]]; then
+              if [[ "${delta_exit_code:-}" != "0" ]]; then
                   has_diff=true
               fi
 
               if [[ "$has_diff_comment" == "true" && "$has_diff" == "false" ]]; then
                   comment_id=$(echo "$diff_comment_url" | sed 's/.*#issuecomment-\([^ ]*\)/\1/')
                   echo "Deleting diff comment $diff_comment_url (#$comment_id)"
-                  gh api --method DELETE -H "Accept: application/vnd.github+json" "/repos/${{ github.repository }}/issues/comments/$comment_id"
+                  gh api --method DELETE -H "Accept: application/vnd.github+json" "/repos/${GITHUB_REPOSITORY}/issues/comments/$comment_id"
                   echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
               elif [[ "$has_diff" == "true" ]]; then
                   echo "Diff exists, keeping or updating the comment."
@@ -88,18 +98,21 @@ runs:
                   echo "No diff and no existing comment, nothing to do."
                   echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
               fi
+          env:
+              INPUTS_MODULE_DIR: ${{ inputs.module-dir }}
+              PR_NUMBER: ${{ github.event.pull_request.number }}
 
         - name: Compute diff
           id: diff
           if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
-          uses: int128/diff-action@b0bc0ea799d424de77a5836a9d2417a99e897f8b # v2
+          uses: int128/diff-action@d568d28eca4411ad141d5cd5f84c7b739a0956ce # v2
           with:
               base: ${{ inputs.module-dir }}test/golden/tfplan-golden.json
               head: ${{ inputs.module-dir }}compare/tfplan-golden.json
 
         - name: Post diff on PR
           if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
-          uses: int128/comment-action@e33d43559e432a48069c6f282ec4220bc22f6bc7 # v1
+          uses: int128/comment-action@9448863881c42b4c69f213d9a67c8b37e7c0f105 # v1
           with:
               update-if-exists: replace
               post: |

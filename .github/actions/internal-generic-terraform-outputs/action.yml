@@ -31,27 +31,33 @@ runs:
     using: composite
     steps:
         - name: Checkout Repository
-          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
           run: |
               set -euo pipefail
-              export TFSTATE_BUCKET="${{ inputs.s3-backend-bucket }}"
-              export TFSTATE_KEY="${{ inputs.s3-bucket-key-prefix }}tfstate-${{ inputs.tf-state-suffix }}/${{ inputs.tf-modules-name }}.tfstate"
+              export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"
+              export TFSTATE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_TF_STATE_SUFFIX}/${INPUTS_TF_MODULES_NAME}.tfstate"
 
-              if [ -z "${{ inputs.s3-bucket-region }}" ]; then
+              if [ -z "${INPUTS_S3_BUCKET_REGION}" ]; then
                 export TFSTATE_REGION="$AWS_REGION"
               else
-                export TFSTATE_REGION="${{ inputs.s3-bucket-region }}"
+                export TFSTATE_REGION="${INPUTS_S3_BUCKET_REGION}"
               fi
 
               echo "TFSTATE_BUCKET=${TFSTATE_BUCKET}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_REGION=${TFSTATE_REGION}" >> "$GITHUB_OUTPUT"
               echo "TFSTATE_KEY=${TFSTATE_KEY}" >> "$GITHUB_OUTPUT"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_TF_STATE_SUFFIX: ${{ inputs.tf-state-suffix }}
+              INPUTS_TF_MODULES_NAME: ${{ inputs.tf-modules-name }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
 
         - name: Terraform Init
           id: init

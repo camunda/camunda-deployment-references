@@ -245,9 +245,8 @@ func TestLoginPages(t *testing.T) {
 		skip bool
 	}{
 		{name: "Keycloak", url: cfg.KeycloakURL, skip: cfg.AuthMode != "oidc"},
-		{name: "Console", url: cfg.ConsoleURL, skip: !cfg.ConsoleEnabled},
 		{name: "Optimize", url: cfg.OptimizeURL, skip: !cfg.OptimizeEnabled},
-		{name: "WebModeler", url: cfg.WebModelerURL, skip: !cfg.WebModelerEnabled},
+		{name: "WebModeler", url: cfg.WebModelerURL, skip: !cfg.HubEnabled},
 	}
 
 	for _, p := range pages {

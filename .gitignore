@@ -135,6 +135,9 @@ debug/**
 debug
 camunda-platform-helm
 camunda-platform-helm/**
+# Local chart checkout created by the shared build-camunda-chart.sh helper.
+.camunda-platform-helm
+.camunda-platform-helm/**
 
 # Exclude actionlint binary
 actionlint
@@ -142,3 +145,7 @@ actionlint
 # Claude Code local agent state (lock files, user-local settings)
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
+
+# Python bytecode cache
+__pycache__/
+*.pyc

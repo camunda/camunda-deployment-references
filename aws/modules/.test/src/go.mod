@@ -3,58 +3,59 @@ module github.com/camunda/camunda-tf-eks-module
 go 1.26.3
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.41.9
-	github.com/aws/aws-sdk-go-v2/config v1.32.18
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.304.0
-	github.com/aws/aws-sdk-go-v2/service/eks v1.84.0
-	github.com/aws/aws-sdk-go-v2/service/iam v1.53.10
-	github.com/aws/aws-sdk-go-v2/service/kms v1.52.0
-	github.com/aws/aws-sdk-go-v2/service/opensearch v1.70.2
-	github.com/aws/aws-sdk-go-v2/service/rds v1.118.2
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.102.2
-	github.com/aws/aws-sdk-go-v2/service/sts v1.42.1
-	github.com/aws/smithy-go v1.26.0
-	github.com/gruntwork-io/terratest v1.0.0
-	github.com/sethvargo/go-password v0.3.1
+	github.com/aws/aws-sdk-go-v2 v1.43.3
+	github.com/aws/aws-sdk-go-v2/config v1.32.31
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.318.1
+	github.com/aws/aws-sdk-go-v2/service/eks v1.90.0
+	github.com/aws/aws-sdk-go-v2/service/iam v1.57.1
+	github.com/aws/aws-sdk-go-v2/service/kms v1.55.0
+	github.com/aws/aws-sdk-go-v2/service/opensearch v1.75.0
+	github.com/aws/aws-sdk-go-v2/service/rds v1.124.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.0
+	github.com/aws/aws-sdk-go-v2/service/sts v1.45.0
+	github.com/aws/smithy-go v1.27.6
+	github.com/gruntwork-io/terratest v1.0.1
+	github.com/sethvargo/go-password v0.4.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.28.0
-	k8s.io/api v0.36.1
-	k8s.io/apimachinery v0.36.1
-	k8s.io/client-go v0.36.1
-	sigs.k8s.io/aws-iam-authenticator v0.7.16
+	k8s.io/api v0.36.2
+	k8s.io/apimachinery v0.36.2
+	k8s.io/client-go v0.36.2
+	sigs.k8s.io/aws-iam-authenticator v0.7.18
 )
 
 require (
 	filippo.io/edwards25519 v1.1.1 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.11 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.19.17 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.23 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.14 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.30 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.31 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.1.17 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.25 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.25 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.26 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.34 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.34 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.32 // indirect
 	github.com/aws/aws-sdk-go-v2/service/acm v1.38.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.66.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.69.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecr v1.57.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.39.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ecs v1.78.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.10 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.18 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.15 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.24 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.11.22 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.25 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.25 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.34 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.32 // indirect
 	github.com/aws/aws-sdk-go-v2/service/lambda v1.89.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.62.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.41.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.0.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.5.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sns v1.39.16 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.42.26 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.68.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.30.17 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.36.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.33.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.38.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
@@ -119,21 +120,21 @@ require (
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/tmccombs/hcl2json v0.6.4 // indirect
-	github.com/ulikunitz/xz v0.5.14 // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/urfave/cli v1.22.16 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/zclconf/go-cty v1.15.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.50.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/mod v0.35.0 // indirect
-	golang.org/x/net v0.53.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/term v0.42.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/term v0.43.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
@@ -143,7 +144,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
-	k8s.io/streaming v0.36.1 // indirect
+	k8s.io/streaming v0.36.2 // indirect
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect

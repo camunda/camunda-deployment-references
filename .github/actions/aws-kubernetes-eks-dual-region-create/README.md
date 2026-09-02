@@ -12,7 +12,7 @@ It creates two EKS clusters in different regions (eu-west-2/London and eu-west-3
 | --- | --- | --- | --- |
 | `cluster-name` | <p>Name of the EKS cluster to deploy (will be suffixed with region names)</p> | `true` | `""` |
 | `aws-region` | <p>Primary AWS region (owner region) for the EKS cluster</p> | `false` | `eu-west-2` |
-| `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.35` |
+| `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.36` |
 | `single-nat-gateway` | <p>Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.</p> | `false` | `true` |
 | `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
@@ -56,7 +56,7 @@ This action is a `composite` action.
     # Version of Kubernetes to install
     #
     # Required: false
-    # Default: 1.35
+    # Default: 1.36
 
     single-nat-gateway:
     # Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.

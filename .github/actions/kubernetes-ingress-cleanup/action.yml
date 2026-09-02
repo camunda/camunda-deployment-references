@@ -21,13 +21,13 @@ runs:
               set -euo pipefail
 
               echo "Cleaning up ingress components..."
-              echo "Wait for DNS cleanup: ${{ inputs.wait-for-dns-cleanup }}"
-              echo "DNS cleanup wait time: ${{ inputs.dns-cleanup-wait-seconds }} seconds"
+              echo "Wait for DNS cleanup: ${INPUTS_WAIT_FOR_DNS_CLEANUP}"
+              echo "DNS cleanup wait time: ${INPUTS_DNS_CLEANUP_WAIT_SECONDS} seconds"
 
               # Wait for external-dns to clean up domain records if requested
-              if [[ "${{ inputs.wait-for-dns-cleanup }}" == "true" ]]; then
+              if [[ "${INPUTS_WAIT_FOR_DNS_CLEANUP}" == "true" ]]; then
                   echo "Waiting for external-dns to remove domain records..."
-                  sleep ${{ inputs.dns-cleanup-wait-seconds }}
+                  sleep ${INPUTS_DNS_CLEANUP_WAIT_SECONDS}
               fi
 
               # Uninstall ingress components (ignore errors if not present)
@@ -57,3 +57,6 @@ runs:
               kubectl delete namespace cert-manager --wait --timeout=60s || echo "cert-manager namespace not found, skipping..."
 
               echo "✅ Ingress components and namespaces cleanup completed successfully."
+          env:
+              INPUTS_WAIT_FOR_DNS_CLEANUP: ${{ inputs.wait-for-dns-cleanup }}
+              INPUTS_DNS_CLEANUP_WAIT_SECONDS: ${{ inputs.dns-cleanup-wait-seconds }}

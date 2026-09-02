@@ -7,11 +7,17 @@ optimize:
 connectors:
     enabled: true
 
-# Chart 15.x consolidates Console + WebModeler under Camunda Hub.
-# `console.enabled` / `webModeler.enabled` are deprecated; sub-component
-# overrides still pass through via the chart's `or` fallback.
+# Chart 15.x consolidates WebModeler (and the Console feature) under Camunda
+# Hub. `webModeler.enabled` is deprecated in favour of `camundaHub.enabled`.
 camundaHub:
     enabled: true
+    # TODO: [release-duty] drop this SNAPSHOT pin once
+    # camunda/camunda-platform-helm#6567 is fixed. The released alpha3 chart pins
+    # camunda/hub:8.10.0-alpha3-rc1, which rejects the `hub`/`admin` cluster app
+    # types; the rolling SNAPSHOT tag accepts them (as kind already does).
+    webModeler:
+        image:
+            tag: SNAPSHOT
 
 identity:
     enabled: true

@@ -36,6 +36,8 @@ runs:
           env:
               CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
               CLUSTER_FILTER: ${{ inputs.cluster-name }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
           run: |
               set -euo pipefail
 
@@ -44,4 +46,4 @@ runs:
               # deploy.sh installs the operator (idempotent), creates secrets, and deploys the cluster
               ./deploy.sh
 
-              echo "✓ CNPG cluster ${{ inputs.cluster-name }} deployed in namespace ${{ inputs.namespace }}"
+              echo "✓ CNPG cluster ${INPUTS_CLUSTER_NAME} deployed in namespace ${INPUTS_NAMESPACE}"

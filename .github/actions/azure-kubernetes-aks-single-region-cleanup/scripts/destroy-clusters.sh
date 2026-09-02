@@ -129,13 +129,16 @@ if [ $aws_exit_code -ne 0 ] && [ "$all_objects" != "" ]; then
 fi
 
 # Filter groups IDs
+# A group folder holds more than the state file alone (backups, lock files), so the
+# same id can be extracted several times. Deduplicate it, otherwise the loop below
+# starts concurrent destroys that share the same /tmp/<group_id> working directory.
 if [ "$ID_OR_ALL" == "all" ]; then
   groups=$(echo "$all_objects" | awk '{print $NF}' \
-    | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
+    | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
 else
   groups=$(echo "$all_objects" | awk '{print $NF}' \
     | grep "tfstate-$ID_OR_ALL/" \
-    | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p')
+    | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
 fi
 
 if [ -z "$groups" ]; then

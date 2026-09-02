@@ -116,7 +116,7 @@ runs:
           id: utility
           # see https://github.com/orgs/community/discussions/41927 it's not possible to optimize this yet
           # steps.uses  cannot access the github context.
-          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@4f3c7204d76df59b3a6edc1780c303acee70b5e9 # main
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@d4bccfaaa2ac2e33ced96a73a4354edee55bf428 # main
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.terraform-version }}
@@ -133,7 +133,7 @@ runs:
               tf-terraform-wrapper: ${{ inputs.tf-terraform-wrapper }}
 
         - name: Checkout Repository Aurora modules
-          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
           with:
               repository: camunda/camunda-deployment-references
               ref: ${{ inputs.tf-modules-revision }}
@@ -142,7 +142,9 @@ runs:
 
         - name: Set working directory
           shell: bash
-          run: echo "TF_MODULE_DIR=${{ inputs.tf-modules-path }}/aws/modules/aurora" >> "$GITHUB_ENV"
+          run: echo "TF_MODULE_DIR=${INPUTS_TF_MODULES_PATH}/aws/modules/aurora" >> "$GITHUB_ENV"  # zizmor: ignore[github-env]
+          env:
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
 
         - name: Terraform Init
           shell: bash
@@ -171,18 +173,26 @@ runs:
               set -euo pipefail
 
               # protect sensitive values
-              echo "::add-mask::${{ inputs.password }}"
+              echo "::add-mask::${INPUTS_PASSWORD}"
 
               cat > terraform.tfvars <<EOF
               default_tags = ${{ steps.sanitize-tags.outputs.sanitized_tags }}
-              cluster_name = "${{ inputs.cluster-name }}"
-              username     = "${{ inputs.username }}"
-              password     = "${{ inputs.password }}"
-              availability_zones = ${{ inputs.availability-zones }}
-              vpc_id       = "${{ inputs.vpc-id }}"
-              subnet_ids   = ${{ inputs.subnet-ids }}
-              cidr_blocks  = ${{ inputs.cidr-blocks }}
+              cluster_name = "${INPUTS_CLUSTER_NAME}"
+              username     = "${INPUTS_USERNAME}"
+              password     = "${INPUTS_PASSWORD}"
+              availability_zones = ${INPUTS_AVAILABILITY_ZONES}
+              vpc_id       = "${INPUTS_VPC_ID}"
+              subnet_ids   = ${INPUTS_SUBNET_IDS}
+              cidr_blocks  = ${INPUTS_CIDR_BLOCKS}
               EOF
+          env:
+              INPUTS_PASSWORD: ${{ inputs.password }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_USERNAME: ${{ inputs.username }}
+              INPUTS_AVAILABILITY_ZONES: ${{ inputs.availability-zones }}
+              INPUTS_VPC_ID: ${{ inputs.vpc-id }}
+              INPUTS_SUBNET_IDS: ${{ inputs.subnet-ids }}
+              INPUTS_CIDR_BLOCKS: ${{ inputs.cidr-blocks }}
 
         - name: Terraform Plan
           shell: bash
@@ -191,10 +201,12 @@ runs:
           run: |
               set -euo pipefail
 
-              echo '${{ inputs.additional-terraform-vars }}' > /tmp/var.tfvars.json
+              printf '%s\n' "${INPUTS_ADDITIONAL_TERRAFORM_VARS}" > /tmp/var.tfvars.json
               terraform plan -no-color -out aurora.plan \
                 -var-file=/tmp/var.tfvars.json \
                 -var-file=terraform.tfvars
+          env:
+              INPUTS_ADDITIONAL_TERRAFORM_VARS: ${{ inputs.additional-terraform-vars }}
 
         - name: Terraform Apply
           shell: bash

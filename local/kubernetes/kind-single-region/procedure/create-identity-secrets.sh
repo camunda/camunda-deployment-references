@@ -14,7 +14,6 @@ echo "🔐 Creating camunda-credentials in namespace '$NAMESPACE'..."
 
 # Generate random secrets for all components
 CONNECTORS_SECRET="$(openssl rand -hex 16)"
-CONSOLE_SECRET="$(openssl rand -hex 16)"
 WEB_MODELER_SECRET="$(openssl rand -hex 16)"
 ORCHESTRATION_SECRET="$(openssl rand -hex 16)"
 OPTIMIZE_SECRET="$(openssl rand -hex 16)"
@@ -26,7 +25,6 @@ PUSHER_APP_KEY="$(openssl rand -hex 16)"
 kubectl create secret generic camunda-credentials \
     --namespace "$NAMESPACE" \
     --from-literal=identity-connectors-client-token="$CONNECTORS_SECRET" \
-    --from-literal=identity-console-client-token="$CONSOLE_SECRET" \
     --from-literal=identity-webmodeler-client-token="$WEB_MODELER_SECRET" \
     --from-literal=identity-orchestration-client-token="$ORCHESTRATION_SECRET" \
     --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \

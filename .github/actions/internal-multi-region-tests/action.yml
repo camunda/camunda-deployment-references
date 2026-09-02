@@ -97,10 +97,10 @@ runs:
     steps:
         - name: Set working directory
           shell: bash
-          run: echo "TEST_DIR=${TEST_DIR:-./aws/kubernetes/eks-dual-region/test}" >> "$GITHUB_ENV"
+          run: echo "TEST_DIR=${TEST_DIR:-./aws/kubernetes/eks-dual-region/test}" >> "$GITHUB_ENV"  # zizmor: ignore[github-env]
 
         # Explicitly set up Go for caching of packages
-        - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6
+        - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
           with:
               go-version-file: ${{ env.TEST_DIR }}/go.mod
               cache-dependency-path: ${{ env.TEST_DIR }}/go.sum
@@ -120,21 +120,46 @@ runs:
                 kubectl config view --minify --flatten --context="$ctx" > "kubeconfig-${ctx}.yaml"
               done
 
-              cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-london"
-              cp "kubeconfig-${{ inputs.cluster-1-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig-paris"
+              cp "kubeconfig-${INPUTS_CLUSTER_0_NAME}.yaml" "${{ env.TEST_DIR }}/kubeconfig-london"
+              cp "kubeconfig-${INPUTS_CLUSTER_1_NAME}.yaml" "${{ env.TEST_DIR }}/kubeconfig-paris"
 
-              if [[ "${{ inputs.cluster-0-name }}" == "${{ inputs.cluster-1-name }}" ]]; then
-                cp "kubeconfig-${{ inputs.cluster-0-name }}.yaml" "${{ env.TEST_DIR }}/kubeconfig"
+              if [[ "${INPUTS_CLUSTER_0_NAME}" == "${INPUTS_CLUSTER_1_NAME}" ]]; then
+                cp "kubeconfig-${INPUTS_CLUSTER_0_NAME}.yaml" "${{ env.TEST_DIR }}/kubeconfig"
               fi
+          env:
+              INPUTS_CLUSTER_0_NAME: ${{ inputs.cluster-0-name }}
+              INPUTS_CLUSTER_1_NAME: ${{ inputs.cluster-1-name }}
 
         - name: Set Up Environment Variables
           shell: bash
           run: |
               set -euo pipefail
 
-              if [[ "${{ inputs.helm-version }}" =~ dev-latest ]]; then
+              if [[ "${INPUTS_HELM_VERSION}" =~ dev-latest ]]; then
+                # The pre-release dev chart is not published to the public Helm repo,
+                # so build it from source instead of pulling the private OCI registry:
+                # clone the pinned tag, resolve its in-repo (file://) dependency, and
+                # point the test at the local chart directory. InstallUpgradeC8Helm
+                # skips `helm repo add` and `--version` for a local chart path.
+                # The pre-release (dev-latest) chart isn't on the public Helm repo, so
+                # build it from source; released versions use the public repo via the
+                # `else` branch, so GA needs no manual switch here (the workflow's
+                # helm-version flips to a released value and this block is bypassed).
+                # TODO: [release-duty] when the pre-release line moves to the next major,
+                # bump CHART_GIT_REF and the hardcoded 8.10 in the renovate regex below.
+                # A release tag carries the previous version in Chart.yaml (tag N ships
+                # version N-1), so the built chart is one prerelease behind CHART_GIT_REF (this
+                # is intentional — the known-good set the integration tests validate).
+                # Parked: pre-GA alpha chart until 8.10 GA.
+                # renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$ renovate-inert-ok
+                CHART_GIT_REF="camunda-platform-8.10-15.0.0-alpha3"
+                CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
+                CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"
+                git clone --depth 1 --branch "$CHART_GIT_REF" \
+                  https://github.com/camunda/camunda-platform-helm.git "$CHART_CHECKOUT"
+                helm dependency update "$CHART_CHECKOUT/charts/camunda-platform-$CAMUNDA_VERSION"
                 {
-                  echo "HELM_CHART_NAME=oci://registry.camunda.cloud/team-distribution/camunda-platform"
+                  echo "HELM_CHART_NAME=$CHART_CHECKOUT/charts/camunda-platform-$CAMUNDA_VERSION"
                 } >> "$GITHUB_ENV"
               else
                 {
@@ -145,21 +170,33 @@ runs:
               # create empty file if not exists
               # OpenShift specific fix but doesn't harm others
               # OpenShift already delivers ready2go region files, so we don't do the overlaying / patching anymore
-              touch "${{ inputs.default-values-yaml }}"
+              touch "${INPUTS_DEFAULT_VALUES_YAML}"
 
               {
-                echo "CAMUNDA_NAMESPACE_0=${{ inputs.cluster-0-namespace }}"
-                echo "CAMUNDA_NAMESPACE_1=${{ inputs.cluster-1-namespace }}"
-                echo "CLUSTER_0_NAME=${{ inputs.cluster-0-name }}"
-                echo "CLUSTER_1_NAME=${{ inputs.cluster-1-name }}"
-                echo "HELM_CHART_VERSION=${{ inputs.helm-version }}"
-                echo "BACKUP_NAME=${{ inputs.backup-name }}"
-                echo "BACKUP_BUCKET=${{ inputs.backup-bucket }}"
-                echo "DEFAULT_VALUES_YAML=${{ inputs.default-values-yaml }}"
-                echo "REGION0_VALUES_YAML=${{ inputs.region-0-values-yaml }}"
-                echo "REGION1_VALUES_YAML=${{ inputs.region-1-values-yaml }}"
-                echo "EXTRA_VALUES_YAML=${{ inputs.extra-values-yaml }}"
+                echo "CAMUNDA_NAMESPACE_0=${INPUTS_CLUSTER_0_NAMESPACE}"
+                echo "CAMUNDA_NAMESPACE_1=${INPUTS_CLUSTER_1_NAMESPACE}"
+                echo "CLUSTER_0_NAME=${INPUTS_CLUSTER_0_NAME}"
+                echo "CLUSTER_1_NAME=${INPUTS_CLUSTER_1_NAME}"
+                echo "HELM_CHART_VERSION=${INPUTS_HELM_VERSION}"
+                echo "BACKUP_NAME=${INPUTS_BACKUP_NAME}"
+                echo "BACKUP_BUCKET=${INPUTS_BACKUP_BUCKET}"
+                echo "DEFAULT_VALUES_YAML=${INPUTS_DEFAULT_VALUES_YAML}"
+                echo "REGION0_VALUES_YAML=${INPUTS_REGION_0_VALUES_YAML}"
+                echo "REGION1_VALUES_YAML=${INPUTS_REGION_1_VALUES_YAML}"
+                echo "EXTRA_VALUES_YAML=${INPUTS_EXTRA_VALUES_YAML}"
               } >> "$GITHUB_ENV"
+          env:
+              INPUTS_HELM_VERSION: ${{ inputs.helm-version }}
+              INPUTS_DEFAULT_VALUES_YAML: ${{ inputs.default-values-yaml }}
+              INPUTS_CLUSTER_0_NAMESPACE: ${{ inputs.cluster-0-namespace }}
+              INPUTS_CLUSTER_1_NAMESPACE: ${{ inputs.cluster-1-namespace }}
+              INPUTS_CLUSTER_0_NAME: ${{ inputs.cluster-0-name }}
+              INPUTS_CLUSTER_1_NAME: ${{ inputs.cluster-1-name }}
+              INPUTS_BACKUP_NAME: ${{ inputs.backup-name }}
+              INPUTS_BACKUP_BUCKET: ${{ inputs.backup-bucket }}
+              INPUTS_REGION_0_VALUES_YAML: ${{ inputs.region-0-values-yaml }}
+              INPUTS_REGION_1_VALUES_YAML: ${{ inputs.region-1-values-yaml }}
+              INPUTS_EXTRA_VALUES_YAML: ${{ inputs.extra-values-yaml }}
 
         - name: Clean Environment
           if: inputs.skip-cleanup != 'true'
@@ -187,6 +224,7 @@ runs:
               kube-context: ${{ inputs.cluster-0-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
               vault-secret-id: ${{ inputs.vault-secret-id }}
@@ -201,6 +239,7 @@ runs:
               kube-context: ${{ inputs.cluster-1-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
               vault-secret-id: ${{ inputs.vault-secret-id }}
@@ -232,8 +271,10 @@ runs:
               duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
               echo $duration
               if [ "$duration" -gt 900 ]; then
-              echo "::error::Failover of ${{ inputs.helm-version }} is taking longer than 15 minutes"
+              echo "::error::Failover of ${INPUTS_HELM_VERSION} is taking longer than 15 minutes"
               fi
+          env:
+              INPUTS_HELM_VERSION: ${{ inputs.helm-version }}
 
         - name: Set start timestamp for Failback
           shell: bash
@@ -258,7 +299,9 @@ runs:
               set -euo pipefail
 
               echo "Running post-failback script to re-export services..."
-              ${{ inputs.post-failback-script }}
+              ${INPUTS_POST_FAILBACK_SCRIPT}
+          env:
+              INPUTS_POST_FAILBACK_SCRIPT: ${{ inputs.post-failback-script }}
 
         - name: Calculate Failback duration
           shell: bash
@@ -269,8 +312,10 @@ runs:
               duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
               echo $duration
               if [ "$duration" -gt 1500 ]; then
-                echo "::error::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
+                echo "::error::Failback of ${INPUTS_HELM_VERSION} is taking longer than 25 minutes"
               fi
+          env:
+              INPUTS_HELM_VERSION: ${{ inputs.helm-version }}
 
         - name: Test multi-tenancy
           shell: bash
@@ -320,7 +365,9 @@ runs:
               set -euo pipefail
 
               echo "Running post-failback script to re-export services to expose mock server..."
-              ${{ inputs.post-failback-script }}
+              ${INPUTS_POST_FAILBACK_SCRIPT}
+          env:
+              INPUTS_POST_FAILBACK_SCRIPT: ${{ inputs.post-failback-script }}
 
         - name: Test connector webhook flow in multi-region setup
           shell: bash

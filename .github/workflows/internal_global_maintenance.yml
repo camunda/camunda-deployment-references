@@ -8,6 +8,49 @@ name: Internal - Global - Maintenance
 #
 # This helps keep the repository in sync with dependency updates and
 # ensures golden files remain current with the latest infrastructure changes.
+#
+# It is split in two jobs on purpose, and the split is a security boundary:
+#
+#   regenerate  runs the repository's own code -- asdf plugins, `go mod tidy`,
+#               terraform providers, `just` recipes -- all of it taken from the
+#               Renovate branch, i.e. from whatever the dependency update brought
+#               in. It therefore holds no GitHub write credential: no app token,
+#               and `persist-credentials: false` so the job's own GITHUB_TOKEN is
+#               not left in `.git/config` either. It emits a patch as an artifact.
+#
+#   commit      holds the Vault-backed GitHub App token, and runs no repository
+#               code: only SHA-pinned third-party actions plus `git apply` of the
+#               artifact. Applying a patch does not execute it. The token is
+#               minted last, after the untrusted patch has been measured and
+#               applied.
+#
+#               Its steps live in infraex-common-config's commit-patch-global.yml,
+#               shared with lint-global's auto-fix. A remote workflow pinned to a
+#               SHA is fetched at that pin rather than from this branch, so it is
+#               not branch code -- unlike `uses: ./...`, which would be.
+#
+# Before the split both lived in one job, so a dependency update could execute
+# arbitrary code next to a GitHub App token with write access to this repository.
+# That is the shape of INC-7027, where a malicious payload reached a Renovate pull
+# request.
+#
+# What the split does not remove: `regenerate` still holds the Vault AppRole used to
+# fetch the cloud credentials, and that AppRole can read the same Vault path the app
+# private key lives at. Branch code that exfiltrates it can therefore still mint an
+# app token for itself. The split removes the token sitting in the job; it does not
+# remove the escalation. Closing that means either a Vault role scoped away from the
+# app key, or dropping golden regeneration from pull requests -- both out of scope
+# here, both tracked in camunda/team-infrastructure#1126.
+#
+# The cloud credentials stay in `regenerate` because `just regenerate-golden-file-all`
+# runs `terraform init` against a real S3 backend and `terraform plan` against AWS and
+# Azure; the job cannot do its work without them. They are scoped test credentials for
+# a test state bucket in a test region.
+
+# The workflow-level default is the floor for both jobs: neither of them writes to the
+# repository with GITHUB_TOKEN. The write is carried by the app token in `commit` alone.
+permissions:
+    contents: read
 
 on:
     pull_request:
@@ -21,36 +64,46 @@ env:
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     S3_BUCKET_KEY: golden.tfstate
+    PATCH_ARTIFACT_NAME: maintenance-patch
+    PATCH_FILE_NAME: maintenance.patch
+    # Refuse to auto-commit a patch larger than this. Deliberately loose: a full
+    # regeneration of every golden file rewrites ~1.5 MB of pretty-printed plan JSON,
+    # so a limit tight enough to keep the commit human-readable would refuse every
+    # legitimate provider bump. This is not an injection defence either -- a hostile
+    # patch needs three lines, not ten megabytes. What it catches is a runaway: a
+    # .gitignore miss dumping `.terraform/` provider binaries into the patch, or a
+    # broken recipe rewriting the tree.
+    MAX_PATCH_BYTES: 10485760
 
 jobs:
-    maintenance:
+    regenerate:
         name: Automated maintenance
         runs-on: ubuntu-latest
         permissions:
             id-token: write # required for azure login
-            contents: write # allow commits
-        if: github.event.pull_request.user.login == 'renovate[bot]'
+            contents: read # this job must never be able to write to the repository
+        # Renovate branches live in this repository. A fork pull request would get no
+        # secrets anyway, but stating it keeps the trust boundary readable.
+        if: >-
+            github.event.pull_request.user.login == 'renovate[bot]'
+            && github.event.pull_request.head.repo.full_name == github.repository
+        outputs:
+            changes: ${{ steps.build-patch.outputs.changes }}
         steps:
-            - name: Generate token for GitHub
-              id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@75437e16ff99edfa0accbd05115905f1947f4ffc # main
-              with:
-                  github-app-id-vault-key: GITHUB_APP_ID
-                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
-                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
-                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
-                  vault-auth-method: approle
-                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-                  vault-url: ${{ secrets.VAULT_ADDR }}
-
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
-                  token: ${{ steps.generate-github-token.outputs.token }}
+                  # The head commit, not the default `refs/pull/N/merge` and not the branch
+                  # name: the patch is produced here and replayed by the `commit` job, so both
+                  # jobs have to stand on exactly the same tree. A branch name would let a push
+                  # in between move the ground under the second job.
+                  ref: ${{ github.event.pull_request.head.sha }}
+                  # Everything below this point runs code coming from the pull request.
+                  # Leaving a credential in `.git/config` would hand it to that code.
+                  persist-credentials: false
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -94,18 +147,84 @@ jobs:
                   just regenerate-golden-file-all
                   echo "✅ 'just regenerate-golden-file-all' completed successfully"
 
-            - name: Check for changes
-              id: check-changes
+            - name: Build the patch
+              id: build-patch
               run: |
-                  if [[ -n $(git status --porcelain) ]]; then
-                    echo "changes=true" >> "$GITHUB_OUTPUT"
-                  else
-                    echo "changes=false" >> "$GITHUB_OUTPUT"
+                  set -euo pipefail
+
+                  # `git add -A` honours .gitignore, so terraform provider caches and
+                  # state files stay out of the patch.
+                  git add -A
+
+                  if git diff --cached --quiet; then
+                      echo "No changes produced by maintenance."
+                      echo "changes=false" | tee -a "$GITHUB_OUTPUT"
+                      exit 0
                   fi
 
-            - name: Commit changes
-              if: steps.check-changes.outputs.changes == 'true'
-              uses: getsentry/action-github-commit@5972d5f578ad77306063449e718c0c2a6fbc4ae1 # main
+                  git diff --cached --binary > "${RUNNER_TEMP}/${PATCH_FILE_NAME}"
+                  echo "changes=true" | tee -a "$GITHUB_OUTPUT"
+
+                  echo "Patch summary:"
+                  git diff --cached --stat
+
+                  # Resource guard only, NOT a security control: branch code has already
+                  # run in this job, so anything measured here can be lied to. It exists to
+                  # avoid uploading a multi-gigabyte artifact and minting a token for a patch
+                  # the `commit` job is going to refuse anyway. The authoritative check runs
+                  # there, on a runner where no branch code has executed.
+                  bytes=$(wc -c < "${RUNNER_TEMP}/${PATCH_FILE_NAME}" | tr -d ' ')
+                  if [ "$bytes" -gt "$MAX_PATCH_BYTES" ]; then
+                      echo "::error::Maintenance produced a ${bytes}-byte patch, over the ${MAX_PATCH_BYTES}-byte limit; not auto-committing it."
+                      echo "::error::Run 'go mod tidy' and 'just regenerate-golden-file-all' locally and commit the result yourself, or raise MAX_PATCH_BYTES."
+                      exit 1
+                  fi
+
+            - name: Upload the patch
+              if: steps.build-patch.outputs.changes == 'true'
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
-                  github-token: ${{ steps.generate-github-token.outputs.token }}
-                  message: 'chore: update from scheduled maintenance (go mod tidy & just regenerate)'
+                  name: ${{ env.PATCH_ARTIFACT_NAME }}
+                  path: ${{ runner.temp }}/${{ env.PATCH_FILE_NAME }}
+                  if-no-files-found: error
+                  retention-days: 1
+
+    commit:
+        name: Commit maintenance changes
+        needs: regenerate
+        if: needs.regenerate.outputs.changes == 'true'
+        # The privileged half of the split, shared with lint-global's auto-fix. It downloads the
+        # patch, refuses what it should not commit, applies it, mints a repository-scoped app
+        # token last and commits through the API. It runs no repository code -- which is the
+        # whole point, since everything that produced this patch ran in `regenerate`.
+        uses: camunda/infraex-common-config/.github/workflows/commit-patch-global.yml@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+        with:
+            # Literals, deliberately, and not read from `regenerate`'s outputs: that job runs
+            # branch code, which can write to $GITHUB_ENV and so influence anything it
+            # publishes. Naming them here keeps every value the privileged job acts on out of
+            # reach of the untrusted one. They must match the env above; if they ever stop
+            # matching, the download fails immediately and loudly.
+            artifact-name: maintenance-patch
+            patch-file-name: maintenance.patch
+            head-sha: ${{ github.event.pull_request.head.sha }}
+            head-ref: ${{ github.event.pull_request.head.ref }}
+            commit-message: 'chore: update from scheduled maintenance (go mod tidy & just regenerate)'
+            # Deliberately loose: a full regeneration rewrites over a megabyte of pretty-printed
+            # plan JSON, so this catches a runaway -- a .gitignore miss dumping provider binaries
+            # into the patch -- not a targeted payload, which needs three lines.
+            max-patch-bytes: 10485760
+            # Disabled: golden plans are machine-written JSON, so a changed-line count measures
+            # nothing useful and any threshold tight enough to be readable refuses every
+            # legitimate provider bump.
+            max-changed-lines: 0
+            # Neither `go mod tidy` nor `just regenerate-golden-file-all` has any reason to write
+            # CI definitions, and the result lands as an app commit after any review already
+            # given. Not all of `.github/`: .github/skills/ci-feedback-loop/go.mod is a real
+            # module that `go mod tidy` legitimately updates.
+            refuse-paths-regex: \.github/(workflows|actions)/|(^|/)\.gitmodules$
+        secrets:
+            # Mapped rather than inherited: the callee names its secrets vault-addr and so on,
+            # while this repository supplies VAULT_ADDR.
+            vault-addr: ${{ secrets.VAULT_ADDR }}
+            vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+            vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}

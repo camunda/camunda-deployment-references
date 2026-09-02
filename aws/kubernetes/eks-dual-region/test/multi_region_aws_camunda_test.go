@@ -32,9 +32,11 @@ var (
 	// TODO: [release-duty] before the release, update this!
 	// TODO: [release-duty] adjust renovate comment to bump the major version
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "14.3.0")
-	// TODO: [release-duty] before the release, switch back to "camunda/camunda-platform" (non-OCI)
-	remoteChartName = helpers.GetEnv("HELM_CHART_NAME", "oci://registry.camunda.cloud/team-distribution/camunda-platform")  // OCI registry
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "14.8.0")
+	// The default targets the public Helm repo (no private registry auth). CI overrides
+	// HELM_CHART_NAME to a local, source-built chart directory for the pre-release
+	// (dev-latest) line, since that chart is not published to the public repo.
+	remoteChartName = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform")
 	globalImageTag  = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                                                // allows overwriting the image tag via GHA of every Camunda image
 	clusterName     = helpers.GetEnv("CLUSTER_NAME", "nightly")                                                             // allows supplying random cluster name via GHA
 	cluster0Name    = helpers.GetEnv("CLUSTER_0_NAME", fmt.Sprintf("%s-london", helpers.GetEnv("CLUSTER_NAME", "nightly"))) // kubectl context name for cluster 0
@@ -228,6 +230,13 @@ func TestAWSDualRegCleanup(t *testing.T) {
 func initKubernetesHelpers(t *testing.T) {
 
 	if helpers.IsTeleportEnabled() {
+		// Teleport-proxied clusters are slower on every wait, so widen the budgets
+		// once, here, rather than as a side effect of whichever deploy step happens
+		// to run first: a suite such as the failback one reaches its waits before
+		// any deploy step, and used to run them on the non-Teleport budget.
+		timeout = "1800s"
+		retries = 100
+
 		t.Log("[K8S INIT] Initializing Kubernetes helpers with Teleport 🚀")
 		primary = helpers.Cluster{
 			Region:           "eu-west-2",
@@ -261,10 +270,6 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 
 	setStringValues := map[string]string{}
 
-	if helpers.IsTeleportEnabled() {
-		timeout = "1800s"
-		retries = 100
-	}
 	// avoid pod anti-affinity limitations
 	baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 
@@ -299,12 +304,22 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	kubectlHelpers.WaitForGatewayAuthReady(t, &secondary.KubectlNamespace, 30, 10*time.Second)
 
 	// connectors last as they depend on the Orchestration Cluster
-	err := k8s.WaitUntilDeploymentAvailableE(t, &primary.KubectlNamespace, "camunda-connectors", retries, 20*time.Second)
-	if err != nil {
-		t.Log("[C8 HELM] camunda-connectors deployment not available, dumping container logs...")
-		output, _ := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "logs", "-l", "app.kubernetes.io/component=connectors", "--tail=200", "--all-containers=true")
-		t.Logf("[C8 HELM] camunda-connectors logs:\n%s", output)
-		t.Fatalf("[C8 HELM] camunda-connectors deployment failed to become available: %v", err)
+	waitForConnectorsAvailable(t)
+}
+
+// waitForConnectorsAvailable waits for the connectors deployment of both regions.
+// Each region runs its own, so both have to become available: a secondary region
+// whose connectors never start would otherwise only surface much later, as a
+// connector flow that silently never runs there.
+func waitForConnectorsAvailable(t *testing.T) {
+	for _, kubectlOptions := range []*k8s.KubectlOptions{&primary.KubectlNamespace, &secondary.KubectlNamespace} {
+		err := k8s.WaitUntilDeploymentAvailableE(t, kubectlOptions, "camunda-connectors", retries, 20*time.Second)
+		if err != nil {
+			t.Logf("[C8 HELM] camunda-connectors deployment not available in %s, dumping container logs...", kubectlOptions.Namespace)
+			output, _ := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "logs", "-l", "app.kubernetes.io/component=connectors", "--tail=200", "--all-containers=true")
+			t.Logf("[C8 HELM] camunda-connectors logs:\n%s", output)
+			t.Fatalf("[C8 HELM] camunda-connectors deployment failed to become available in %s: %v", kubectlOptions.Namespace, err)
+		}
 	}
 }
 
@@ -508,7 +523,6 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 	setStringValues := map[string]string{}
 
 	if helpers.IsTeleportEnabled() {
-		timeout = "1800s"
 		baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 	}
 
@@ -830,5 +844,5 @@ func addSecondaryBrokers(t *testing.T) {
 	// Check that the new brokers have become ready, now that they're integrated in the zeebe cluster again
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=300s", "statefulset/camunda-zeebe")
 
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-connectors", retries, 15*time.Second)
+	waitForConnectorsAvailable(t)
 }

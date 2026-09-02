@@ -2154,7 +2154,7 @@
                 "enabled": true
               }
             ],
-            "engine_version": "OpenSearch_3.5",
+            "engine_version": "OpenSearch_3.7",
             "identity_center_options": [],
             "ip_address_type": "ipv4",
             "log_publishing_options": [],

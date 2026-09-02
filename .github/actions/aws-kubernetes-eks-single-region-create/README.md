@@ -13,7 +13,7 @@ Supports conditional deployment of Aurora PostgreSQL and OpenSearch.
 | --- | --- | --- | --- |
 | `cluster-name` | <p>Name of the EKS cluster to deploy</p> | `true` | `""` |
 | `aws-region` | <p>AWS region where the EKS cluster will be deployed</p> | `true` | `""` |
-| `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.35` |
+| `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.36` |
 | `single-nat-gateway` | <p>Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.</p> | `false` | `true` |
 | `tags` | <p>Tags to apply to the cluster and related resources, in JSON format</p> | `false` | `{}` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
@@ -27,6 +27,8 @@ Supports conditional deployment of Aurora PostgreSQL and OpenSearch.
 | `private-vpc` | <p>The VPC within which the cluster resides will only have private subnets, meaning that it cannot be accessed at all from the public Internet (empty will fallback on default value of the module)</p> | `false` | `""` |
 | `deploy-aurora` | <p>Deploy Aurora PostgreSQL database</p> | `false` | `true` |
 | `deploy-opensearch` | <p>Deploy OpenSearch domain</p> | `false` | `true` |
+| `np-capacity-type` | <p>Override the node pool capacity type (ON_DEMAND or SPOT). When empty, the value defined in the reference cluster.tf is used. Tests use SPOT for cost efficiency (see https://github.com/camunda/camunda-deployment-references/issues/109).</p> | `false` | `""` |
+| `np-instance-types` | <p>Override the node pool instance types as a comma-separated list (e.g. "m6i.xlarge,m5.xlarge,m5a.xlarge"). When empty, the value defined in the reference cluster.tf is used. Providing several same-size types improves SPOT availability.</p> | `false` | `""` |
 
 
 ## Outputs
@@ -65,7 +67,7 @@ This action is a `composite` action.
     # Version of Kubernetes to install
     #
     # Required: false
-    # Default: 1.35
+    # Default: 1.36
 
     single-nat-gateway:
     # Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.
@@ -144,4 +146,20 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    np-capacity-type:
+    # Override the node pool capacity type (ON_DEMAND or SPOT). When empty, the value
+    # defined in the reference cluster.tf is used. Tests use SPOT for cost efficiency
+    # (see https://github.com/camunda/camunda-deployment-references/issues/109).
+    #
+    # Required: false
+    # Default: ""
+
+    np-instance-types:
+    # Override the node pool instance types as a comma-separated list (e.g.
+    # "m6i.xlarge,m5.xlarge,m5a.xlarge"). When empty, the value defined in the reference
+    # cluster.tf is used. Providing several same-size types improves SPOT availability.
+    #
+    # Required: false
+    # Default: ""
 ```

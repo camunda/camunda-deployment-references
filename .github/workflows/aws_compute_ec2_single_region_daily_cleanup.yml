@@ -13,9 +13,10 @@ on:
             - .github/workflows/aws_compute_ec2_single_region_daily_cleanup.yml
             - .tool-versions
             - aws/compute/ec2-single-region*/**
-            - '!aws/compute/ec2-single-region/test/golden/**'
+            - '!aws/compute/ec2-single-region/terraform/*/test/golden/**'
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
+            - .github/actions/observe-build-status/**
 
     schedule:
         - cron: 0 1 * * * # At 01:00 everyday.
@@ -44,7 +45,7 @@ jobs:
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -55,14 +56,19 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         steps:
+            # Telemetry must never block the job: a monitoring outage may cost a
+            # duration metric, never a teardown.
+            - continue-on-error: true
+              uses: camunda/infra-global-github-actions/start-build-monitor@02b3f0e49b00b98fffc76af690ebc83c28f24dae # main
+
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Use repo .tool-version as global version
               run: cp .tool-versions ~/.tool-versions
@@ -114,6 +120,16 @@ jobs:
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: cluster
 
+            - name: Observe build status
+              if: always()
+              continue-on-error: true
+              uses: ./.github/actions/observe-build-status
+              with:
+                  build_status: ${{ job.status }}
+                  secret_vault_address: ${{ secrets.VAULT_ADDR }}
+                  secret_vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  secret_vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+
     report-failure:
         name: Report failures
         if: needs.triage.outputs.should_skip == 'false' && (failure())
@@ -124,7 +140,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

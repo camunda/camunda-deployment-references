@@ -22,13 +22,17 @@ runs:
           run: |
               set -euo pipefail
 
-              echo "${{ inputs.encrypted_file_base64 }}" | base64 --decode > encrypted_file.enc
-              mkdir -p "$(dirname "${{ inputs.output_path }}")"
+              echo "${INPUTS_ENCRYPTED_FILE_BASE64}" | base64 --decode > encrypted_file.enc
+              mkdir -p "$(dirname "${INPUTS_OUTPUT_PATH}")"
 
               openssl enc -aes-256-cbc -d \
                 -in encrypted_file.enc \
-                -out "${{ inputs.output_path }}" \
-                -pass pass:"${{ inputs.encryption_key }}" \
+                -out "${INPUTS_OUTPUT_PATH}" \
+                -pass pass:"${INPUTS_ENCRYPTION_KEY}" \
                 -pbkdf2
               rm encrypted_file.enc
-              chmod 600 "${{ inputs.output_path }}"
+              chmod 600 "${INPUTS_OUTPUT_PATH}"
+          env:
+              INPUTS_ENCRYPTED_FILE_BASE64: ${{ inputs.encrypted_file_base64 }}
+              INPUTS_OUTPUT_PATH: ${{ inputs.output_path }}
+              INPUTS_ENCRYPTION_KEY: ${{ inputs.encryption_key }}

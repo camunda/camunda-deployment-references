@@ -51,9 +51,11 @@ Camunda 8 deployments consist of two logical clusters:
 - Tasklist (human task UI)
 - Admin (auth/authz) — named Identity in ≤ 8.8
 
-**Secondary Storage (choose one per deployment, migration between them is not supported):**
-- Elasticsearch / OpenSearch (search-heavy workloads)
-- RDBMS/PostgreSQL (relational preference)
+**Secondary Storage (choose one family per deployment; in-place migration between families is not supported):**
+- Elasticsearch / OpenSearch (search-heavy / analytics workloads)
+- RDBMS / PostgreSQL (relational preference; Optimize still requires Elasticsearch/OpenSearch)
+
+RDBMS secondary storage is available since 8.9 for the Orchestration Cluster (Operate, Tasklist, v2 REST API). For backend trade-offs and benchmarks, see [secondary storage architecture](https://docs.camunda.io/docs/self-managed/reference-architecture/reference-architecture/#secondary-storage-architecture) and [RDBMS benchmark results](https://docs.camunda.io/docs/self-managed/concepts/secondary-storage/rdbms-benchmark-results/) in the product documentation. Reference implementations with a dedicated RDBMS variant: `azure/kubernetes/aks-single-region-rdbms` (the `*-rdbms` declination of a ref-arch uses a relational database instead of a document store).
 
 **Production baseline:** Minimum 3 Zeebe brokers across 3 availability zones.
 

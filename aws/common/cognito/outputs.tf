@@ -74,11 +74,6 @@ output "orchestration_client_id" {
   value       = aws_cognito_user_pool_client.orchestration.id
 }
 
-output "console_client_id" {
-  description = "Console App Client ID (empty if not enabled)"
-  value       = var.enable_console ? aws_cognito_user_pool_client.console[0].id : ""
-}
-
 output "connectors_client_id" {
   description = "Connectors App Client ID"
   value       = aws_cognito_user_pool_client.connectors.id

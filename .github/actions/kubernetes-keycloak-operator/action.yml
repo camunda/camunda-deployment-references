@@ -48,10 +48,11 @@ runs:
           env:
               CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
               CAMUNDA_DOMAIN: ${{ inputs.domain-name }}
+              INPUTS_KEYCLOAK_MODE: ${{ inputs.keycloak-mode }}
           run: |
               set -euo pipefail
 
-              MODE="${{ inputs.keycloak-mode }}"
+              MODE="${INPUTS_KEYCLOAK_MODE}"
               KEYCLOAK_DIR="generic/kubernetes/operator-based/keycloak"
 
               # Select the right config file based on mode
@@ -88,7 +89,7 @@ runs:
           run: |
               set -euo pipefail
 
-              NAMESPACE="${{ inputs.namespace }}"
+              NAMESPACE="${INPUTS_NAMESPACE}"
 
               if kubectl get secret keycloak-initial-admin -n "$NAMESPACE" >/dev/null 2>&1; then
                   echo "✓ keycloak-initial-admin secret exists"
@@ -96,19 +97,20 @@ runs:
                   echo "❌ ERROR: keycloak-initial-admin secret not found!"
                   exit 1
               fi
+          env:
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
 
         - name: Create identity secrets for components
           shell: bash
           run: |
               set -euo pipefail
 
-              NAMESPACE="${{ inputs.namespace }}"
+              NAMESPACE="${INPUTS_NAMESPACE}"
 
               echo "🔐 Creating identity-secret-for-components..."
 
               # Generate random secrets for all components
               CONNECTORS_SECRET="$(openssl rand -hex 16)"
-              CONSOLE_SECRET="$(openssl rand -hex 16)"
               WEB_MODELER_SECRET="$(openssl rand -hex 16)"
               ORCHESTRATION_SECRET="$(openssl rand -hex 16)"
               OPTIMIZE_SECRET="$(openssl rand -hex 16)"
@@ -121,7 +123,6 @@ runs:
               kubectl create secret generic identity-secret-for-components \
                   --namespace "$NAMESPACE" \
                   --from-literal=identity-connectors-client-token="$CONNECTORS_SECRET" \
-                  --from-literal=identity-console-client-token="$CONSOLE_SECRET" \
                   --from-literal=identity-webmodeler-client-token="$WEB_MODELER_SECRET" \
                   --from-literal=identity-orchestration-client-token="$ORCHESTRATION_SECRET" \
                   --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \
@@ -132,3 +133,5 @@ runs:
                   --dry-run=client -o yaml | kubectl apply -f -
 
               echo "✓ identity-secret-for-components created"
+          env:
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}

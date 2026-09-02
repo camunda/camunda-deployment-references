@@ -29,7 +29,6 @@ echo "  - Optimize:          localhost:8083"
 fi
 echo "  - Web Modeler:       localhost:8070"
 echo "  - Connectors:        localhost:8088"
-echo "  - Console:           localhost:8087"
 echo "  - Identity:          localhost:8085"
 echo "  - Keycloak:          keycloak-service:18080/auth (requires /etc/hosts entry)"
 echo ""
@@ -43,7 +42,6 @@ if kubectl get svc camunda-optimize -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; the
 fi
 kubectl port-forward svc/camunda-web-modeler-restapi 8070:80 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/camunda-connectors 8088:8080 -n "$CAMUNDA_NAMESPACE" &
-kubectl port-forward svc/camunda-console 8087:80 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/camunda-identity 8085:80 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/keycloak-service 18080:18080 -n "$CAMUNDA_NAMESPACE" &
 wait

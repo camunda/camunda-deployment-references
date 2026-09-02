@@ -1,1 +1,4 @@
 .certs/
+# Local checkout of the Camunda Helm chart source, created by
+# procedure/build-camunda-chart.sh during the pre-release phase.
+.camunda-platform-helm/

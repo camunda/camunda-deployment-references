@@ -15,11 +15,7 @@ inputs:
         required: false
         default: ''
     enable-webmodeler:
-        description: Enable Web Modeler component
-        required: false
-        default: 'false'
-    enable-console:
-        description: Enable Console component
+        description: Enable WebModeler component
         required: false
         default: 'false'
     create-test-user:
@@ -98,9 +94,6 @@ outputs:
     connectors-client-secret:
         description: Connectors component client secret
         value: ${{ steps.outputs.outputs.connectors_client_secret }}
-    console-client-id:
-        description: Console component client ID
-        value: ${{ steps.outputs.outputs.console_client_id }}
     webmodeler-ui-client-id:
         description: WebModeler UI client ID
         value: ${{ steps.outputs.outputs.webmodeler_ui_client_id }}
@@ -122,32 +115,44 @@ runs:
     steps:
         - name: Set working directory
           shell: bash
-          run: echo "TF_MODULE_DIR=${{ github.workspace }}/aws/common/cognito" >> "$GITHUB_ENV"
+          run: echo "TF_MODULE_DIR=${{ github.workspace }}/aws/common/cognito" >> "$GITHUB_ENV"  # zizmor: ignore[github-env]
 
         - name: Terraform Init
           shell: bash
           working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               terraform init -upgrade \
-                -backend-config="bucket=${{ inputs.terraform-backend-bucket }}" \
-                -backend-config="key=${{ inputs.terraform-backend-key }}" \
-                -backend-config="region=${{ inputs.terraform-backend-region }}" \
-                -backend-config="profile=${{ inputs.aws-profile }}"
+                -backend-config="bucket=${INPUTS_TERRAFORM_BACKEND_BUCKET}" \
+                -backend-config="key=${INPUTS_TERRAFORM_BACKEND_KEY}" \
+                -backend-config="region=${INPUTS_TERRAFORM_BACKEND_REGION}" \
+                -backend-config="profile=${INPUTS_AWS_PROFILE}"
+          env:
+              INPUTS_TERRAFORM_BACKEND_BUCKET: ${{ inputs.terraform-backend-bucket }}
+              INPUTS_TERRAFORM_BACKEND_KEY: ${{ inputs.terraform-backend-key }}
+              INPUTS_TERRAFORM_BACKEND_REGION: ${{ inputs.terraform-backend-region }}
+              INPUTS_AWS_PROFILE: ${{ inputs.aws-profile }}
 
         - name: Generate tfvars file
           shell: bash
           working-directory: ${{ env.TF_MODULE_DIR }}
           run: |
               cat > ci.tfvars <<EOF
-              resource_prefix     = "${{ inputs.resource-prefix }}"
-              domain_name         = "${{ inputs.domain-name }}"
-              enable_webmodeler   = ${{ inputs.enable-webmodeler }}
-              enable_console      = ${{ inputs.enable-console }}
-              create_test_user    = ${{ inputs.create-test-user }}
-              test_user_name      = "${{ inputs.test-user-name }}"
-              test_user_password  = "${{ inputs.test-user-password }}"
-              auto_cleanup_hours  = ${{ inputs.auto-cleanup-hours }}
+              resource_prefix     = "${INPUTS_RESOURCE_PREFIX}"
+              domain_name         = "${INPUTS_DOMAIN_NAME}"
+              enable_webmodeler   = ${INPUTS_ENABLE_WEBMODELER}
+              create_test_user    = ${INPUTS_CREATE_TEST_USER}
+              test_user_name      = "${INPUTS_TEST_USER_NAME}"
+              test_user_password  = "${INPUTS_TEST_USER_PASSWORD}"
+              auto_cleanup_hours  = ${INPUTS_AUTO_CLEANUP_HOURS}
               EOF
+          env:
+              INPUTS_RESOURCE_PREFIX: ${{ inputs.resource-prefix }}
+              INPUTS_DOMAIN_NAME: ${{ inputs.domain-name }}
+              INPUTS_ENABLE_WEBMODELER: ${{ inputs.enable-webmodeler }}
+              INPUTS_CREATE_TEST_USER: ${{ inputs.create-test-user }}
+              INPUTS_TEST_USER_NAME: ${{ inputs.test-user-name }}
+              INPUTS_TEST_USER_PASSWORD: ${{ inputs.test-user-password }}
+              INPUTS_AUTO_CLEANUP_HOURS: ${{ inputs.auto-cleanup-hours }}
 
         - name: Terraform Plan
           shell: bash
@@ -180,6 +185,9 @@ runs:
         - name: Save state file location
           shell: bash
           run: |
-              echo "Cognito Terraform state: s3://${{ inputs.terraform-backend-bucket }}/${{ inputs.terraform-backend-key }}" >> $GITHUB_STEP_SUMMARY
+              echo "Cognito Terraform state: s3://${INPUTS_TERRAFORM_BACKEND_BUCKET}/${INPUTS_TERRAFORM_BACKEND_KEY}" >> $GITHUB_STEP_SUMMARY
               echo "User Pool ID: ${{ steps.outputs.outputs.user_pool_id }}" >> $GITHUB_STEP_SUMMARY
               echo "Issuer URL: ${{ steps.outputs.outputs.issuer_url }}" >> $GITHUB_STEP_SUMMARY
+          env:
+              INPUTS_TERRAFORM_BACKEND_BUCKET: ${{ inputs.terraform-backend-bucket }}
+              INPUTS_TERRAFORM_BACKEND_KEY: ${{ inputs.terraform-backend-key }}

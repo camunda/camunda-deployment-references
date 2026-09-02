@@ -1,12 +1,24 @@
 ---
 name: Internal - Global - Pull Request Labeler
+
+# `pull_request_target` is required, not incidental: `actions/labeler` needs
+# `pull-requests: write`, and a `pull_request` run from a fork gets a read-only
+# token, so fork pull requests would silently stop being labelled.
+#
+# The usual danger of `pull_request_target` -- base-repository secrets handed to
+# a job that also checks out the pull request -- does not apply: this workflow
+# has no checkout step at all. `actions/labeler` reads the diff through the API,
+# and the Slack step only runs on failure. Nothing here executes code from the
+# pull request, so there is nothing to hand the token to.
+#
+# A `pull_request` trigger used to sit alongside, filtered on
+# `.github/workflows/labeler.yml`. No such file exists -- the configuration is
+# `.github/labeler.yml` -- so that trigger could never fire. Removed rather than
+# repaired: `pull_request_target` already covers every pull request.
 on:
     pull_request_target:
     schedule:
         - cron: 0 1 * * 1
-    pull_request:
-        paths:
-            - .github/workflows/labeler.yml
 
 jobs:
     labeler:
@@ -15,12 +27,12 @@ jobs:
             pull-requests: write # only allow updates of the tags
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/labeler@f27b608878404679385c85cfa523b85ccb86e213 # v6
+            - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7
 
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure()
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

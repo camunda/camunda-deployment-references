@@ -14,7 +14,7 @@ This module is designed for:
 - ✅ Cognito User Pool with email-based authentication
 - ✅ Pre-configured OIDC clients for all Camunda components
 - ✅ Optional test user creation for automated testing
-- ✅ Support for WebModeler and Console components
+- ✅ Support for Camunda Hub (Web Modeler) OIDC clients
 - ✅ M2M (machine-to-machine) client for Connectors
 - ✅ Auto-cleanup tracking via tags
 
@@ -27,7 +27,6 @@ module "cognito_test" {
   resource_prefix    = "my-test-cluster"
   domain_name        = "camunda.example.com"
   enable_webmodeler  = true
-  enable_console     = true
   create_test_user   = true
   test_user_name     = "test@example.com"
   test_user_password = "SecureP@ssw0rd123!"
@@ -42,7 +41,6 @@ module "cognito_test" {
 | `resource_prefix` | Prefix for Cognito resources | `string` | `"camunda-test"` | no |
 | `domain_name` | Domain name for Camunda deployment | `string` | `""` | no |
 | `enable_webmodeler` | Enable Web Modeler component | `bool` | `false` | no |
-| `enable_console` | Enable Console component | `bool` | `false` | no |
 | `create_test_user` | Create a test user | `bool` | `false` | no |
 | `test_user_name` | Email for the test user | `string` | `"camunda-test@example.com"` | no |
 | `test_user_password` | Password for the test user | `string` | `"CamundaTest123!"` | no |
@@ -70,7 +68,6 @@ Each Camunda component has its own client:
 - `orchestration_client_id` / `orchestration_client_secret`
 - `connectors_client_id` / `connectors_client_secret`
 - `webmodeler_api_client_id` / `webmodeler_api_client_secret`
-- `console_client_id` (public client, no secret)
 - `webmodeler_ui_client_id` (public client, no secret)
 
 ## Comparison with EntraID Module
@@ -107,7 +104,6 @@ No modules.
 | [aws_cognito_user.test](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user) | resource |
 | [aws_cognito_user_pool.camunda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool) | resource |
 | [aws_cognito_user_pool_client.connectors](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
-| [aws_cognito_user_pool_client.console](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
 | [aws_cognito_user_pool_client.identity](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
 | [aws_cognito_user_pool_client.optimize](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
 | [aws_cognito_user_pool_client.orchestration](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
@@ -126,7 +122,6 @@ No modules.
 | <a name="input_auto_cleanup_hours"></a> [auto\_cleanup\_hours](#input\_auto\_cleanup\_hours) | Hours after which this Cognito pool should be automatically cleaned up (for CI tracking) | `number` | `72` | no |
 | <a name="input_create_test_user"></a> [create\_test\_user](#input\_create\_test\_user) | Create a test user for simulating human login | `bool` | `false` | no |
 | <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | Bare hostname for Camunda deployment (e.g., my-cluster.camunda.example.com). No protocol, no trailing slash. Used to construct OIDC callback URLs. | `string` | `""` | no |
-| <a name="input_enable_console"></a> [enable\_console](#input\_enable\_console) | Enable Console component (creates additional client) | `bool` | `false` | no |
 | <a name="input_enable_webmodeler"></a> [enable\_webmodeler](#input\_enable\_webmodeler) | Enable Web Modeler component (creates additional client) | `bool` | `false` | no |
 | <a name="input_mfa_enabled"></a> [mfa\_enabled](#input\_mfa\_enabled) | Enable MFA for Cognito users (OPTIONAL mode) | `bool` | `false` | no |
 | <a name="input_resource_prefix"></a> [resource\_prefix](#input\_resource\_prefix) | Prefix for Cognito resources. If empty, uses 'camunda-test' | `string` | `""` | no |
@@ -142,7 +137,6 @@ No modules.
 | <a name="output_cognito_domain"></a> [cognito\_domain](#output\_cognito\_domain) | Cognito User Pool domain prefix |
 | <a name="output_connectors_client_id"></a> [connectors\_client\_id](#output\_connectors\_client\_id) | Connectors App Client ID |
 | <a name="output_connectors_client_secret"></a> [connectors\_client\_secret](#output\_connectors\_client\_secret) | Connectors App Client Secret |
-| <a name="output_console_client_id"></a> [console\_client\_id](#output\_console\_client\_id) | Console App Client ID (empty if not enabled) |
 | <a name="output_created_at"></a> [created\_at](#output\_created\_at) | Timestamp when this Cognito pool was created |
 | <a name="output_expires_at"></a> [expires\_at](#output\_expires\_at) | Timestamp when this Cognito pool should be cleaned up |
 | <a name="output_identity_client_id"></a> [identity\_client\_id](#output\_identity\_client\_id) | Identity App Client ID |

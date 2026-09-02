@@ -2,8 +2,7 @@
 name: Tests - Golden - AWS OpenShift ROSA HCP Dual Region
 
 permissions:
-    contents: read # don't allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 on:
     workflow_dispatch:
     pull_request:
@@ -37,8 +36,11 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -49,14 +51,14 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         permissions:
-            contents: write
-            pull-requests: write
+            contents: read
+            pull-requests: write # internal-terraform-golden-plan upserts the plan diff comment
         steps:
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets

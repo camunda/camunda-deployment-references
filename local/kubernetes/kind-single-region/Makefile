@@ -23,9 +23,13 @@ CLUSTER_NAME ?= camunda-platform-local
 CAMUNDA_NAMESPACE ?= camunda
 CAMUNDA_RELEASE_NAME ?= camunda
 CERT_DIR ?= .certs
+# Bound `camunda.wait` so a stuck deployment reports its cause instead of looping
+# forever. A local kind cluster that has not converged in 15 minutes is broken.
+DEPLOYMENT_READY_TIMEOUT_SECONDS ?= 900
 # SECONDARY_STORAGE has no default - must be explicitly set to 'elasticsearch' or 'postgres'
 
 export CLUSTER_NAME CAMUNDA_NAMESPACE CAMUNDA_RELEASE_NAME CERT_DIR SECONDARY_STORAGE
+export DEPLOYMENT_READY_TIMEOUT_SECONDS
 
 # Paths
 PROCEDURE_DIR := ./procedure
@@ -130,7 +134,8 @@ domain.infra: cluster.create ingress.deploy coredns.config hosts.add certs.gener
 	@echo "  Before installing Camunda, create the required credentials secret (camunda-credentials):"
 	@echo "    make identity-secrets.create"
 	@echo "  Deploy Camunda with your own values:"
-	@echo "    helm upgrade --install camunda oci://registry.camunda.cloud/team-distribution/camunda-platform --version <CHART_VERSION> -n camunda --create-namespace -f your-values.yaml"
+	@echo "    helm upgrade --install camunda <LOCAL_CHART> -n camunda --create-namespace -f your-values.yaml   # <LOCAL_CHART>: run ./procedure/build-camunda-chart.sh (prints the local chart path)"
+	@# TODO: [release-duty] at GA, revert the hint above to the published chart (helm upgrade --install camunda camunda-platform --repo https://helm.camunda.io --version <CHART_VERSION> ...); the pre-release build-camunda-chart.sh is deleted then.
 	@echo ""
 
 .PHONY: no-domain.infra
@@ -140,7 +145,8 @@ no-domain.infra: cluster.create hosts.add-keycloak operators.deploy-no-domain
 	@echo "  Before installing Camunda, create the required credentials secret (camunda-credentials):"
 	@echo "    make identity-secrets.create"
 	@echo "  Deploy Camunda with your own values:"
-	@echo "    helm upgrade --install camunda oci://registry.camunda.cloud/team-distribution/camunda-platform --version <CHART_VERSION> -n camunda --create-namespace -f your-values.yaml"
+	@echo "    helm upgrade --install camunda <LOCAL_CHART> -n camunda --create-namespace -f your-values.yaml   # <LOCAL_CHART>: run ./procedure/build-camunda-chart.sh (prints the local chart path)"
+	@# TODO: [release-duty] at GA, revert the hint above to the published chart (helm upgrade --install camunda camunda-platform --repo https://helm.camunda.io --version <CHART_VERSION> ...); the pre-release build-camunda-chart.sh is deleted then.
 	@echo ""
 
 .PHONY: no-domain.clean
@@ -276,7 +282,9 @@ camunda.uninstall:
 .PHONY: camunda.wait
 camunda.wait:
 	@echo "Waiting for Camunda pods to be ready..."
-	@CAMUNDA_NAMESPACE=$(CAMUNDA_NAMESPACE) ../../../generic/kubernetes/single-region/procedure/check-deployment-ready.sh
+	@CAMUNDA_NAMESPACE=$(CAMUNDA_NAMESPACE) \
+		DEPLOYMENT_READY_TIMEOUT_SECONDS=$(DEPLOYMENT_READY_TIMEOUT_SECONDS) \
+		../../../generic/kubernetes/single-region/procedure/check-deployment-ready.sh
 
 # =============================================================================
 # Utilities

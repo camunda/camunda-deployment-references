@@ -2,9 +2,7 @@
 name: Tests - Integration - Azure Kubernetes AKS Single Region
 
 permissions:
-    id-token: write # this is required for azure login
-    contents: write # allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     schedule:
@@ -106,16 +104,18 @@ env:
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
     # Optional components that are not enabled by default in the doc
-    WEBMODELER_ENABLED: 'true'
-    CONSOLE_ENABLED: 'true'
+    HUB_ENABLED: 'true'
 
 jobs:
     triage:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -128,7 +128,7 @@ jobs:
         outputs:
             platform-matrix: ${{ steps.gen.outputs.platform_matrix }}
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Generate Tests Matrix
               id: gen
@@ -153,14 +153,17 @@ jobs:
         env:
             TF_MODULES_PATH: ./.action-tf-modules/azure-kubernetes-${{ matrix.scenario.name }}-create/
             CAMUNDA_NAMESPACE: camunda
+        permissions:
+            contents: read
+            id-token: write # required for azure/login
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -277,12 +280,17 @@ jobs:
     access-info:
         name: Read outputs from matrix
         runs-on: ubuntu-latest
-        if: always()
+        # always() so the downstream cleanup still gets its configuration when
+        # prepare-clusters FAILED, but not when it was SKIPPED: there is then no
+        # matrix artifact to read and the step dies with "no artifact named
+        # 'prepare-clusters' was found", turning a deliberately skipped run into
+        # a red check.
+        if: always() && needs.prepare-clusters.result != 'skipped'
         needs: prepare-clusters
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: cloudposse/github-action-matrix-outputs-read@33cac12fa9282a7230a418d859b93fdbc4f27b5a # v1
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -312,11 +320,15 @@ jobs:
             TEST_CLUSTER_TYPE: kubernetes
             # Do not change this secret name without updating manifests that reference this TLS secret
             WILDCARD_TLS_SECRET_NAME: camunda-c8-tls
+        permissions:
+            contents: read
+            id-token: write # required for azure/login
+            pull-requests: write # internal-helm-deprecation-check upserts a comment on the pull request
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -537,12 +549,18 @@ jobs:
                   fi
 
 
-                  # Chart 15.x consolidates Console + WebModeler under
-                  # `camundaHub.enabled: true`. The legacy `console.enabled` /
-                  # `webModeler.enabled` keys are deprecated and emit warnings.
-                  if [ "$WEBMODELER_ENABLED" == "true" ] || [ "$CONSOLE_ENABLED" == "true" ]; then
-                    echo "Enabling Camunda Hub (Console + WebModeler)"
+                  # Chart 15.x consolidates WebModeler under `camundaHub.enabled:
+                  # true`. The legacy `webModeler.enabled` key is deprecated and
+                  # emits warnings.
+                  if [ "$HUB_ENABLED" == "true" ]; then
+                    echo "Enabling Camunda Hub (WebModeler)"
                     yq -i '.camundaHub.enabled = true' values.yml
+                    # TODO: [release-duty] drop this SNAPSHOT pin once
+                    # camunda/camunda-platform-helm#6567 is fixed. The released alpha3
+                    # chart pins camunda/hub:8.10.0-alpha3-rc1, which rejects the
+                    # `hub`/`admin` cluster app types; the rolling SNAPSHOT tag accepts
+                    # them (as kind already does).
+                    yq -i '.camundaHub.webModeler.image.tag = "SNAPSHOT"' values.yml
                   fi
 
                   # If using wildcard certificate, remove cert-manager annotations from values
@@ -628,16 +646,8 @@ jobs:
               uses: ./.github/actions/kubernetes-keycloak-operator
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain' || 'no-domain' }}
+                  keycloak-mode: ${{ matrix.declination.name == 'domain' && 'domain-contour' || 'no-domain' }}
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
-
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
             - name: 🏁 Install Camunda 8 using the generic/kubernetes helm chart procedure
               timeout-minutes: 10
@@ -651,7 +661,7 @@ jobs:
                   # For 'oidc', secrets are created in a separate step
 
                   # Create WebModeler secrets
-                  if [ "$WEBMODELER_ENABLED" == "true" ]; then
+                  if [ "$HUB_ENABLED" == "true" ]; then
                     ./azure/kubernetes/${{ matrix.scenario.name }}/procedure/create-webmodeler-secret.sh
                   fi
 
@@ -685,7 +695,11 @@ jobs:
 
                   ./generic/kubernetes/single-region/procedure/install-chart.sh
 
+            # TODO: re-enable once the Helm chart schema recognises the Contour values
+            # (e.g. orchestration.service.annotations 'projectcontour.io/upstream-protocol.h2c').
+            # Tracked upstream in camunda/camunda-platform-helm#4564.
             - name: 🔍 Check for Helm deprecation warnings
+              continue-on-error: true
               uses: ./.github/actions/internal-helm-deprecation-check
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
@@ -694,18 +708,94 @@ jobs:
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
+            - name: ⏳ Wait for the OIDC issuer to be reachable
+              if: matrix.declination.name == 'domain'
+              # The action is fail-open on its own 600s budget; this only stops
+              # a wedged step from running unbounded.
+              timeout-minutes: 15
+              uses: ./.github/actions/internal-wait-oidc-issuer
+              with:
+                  issuer-url: https://${{ env.CAMUNDA_DOMAIN }}/auth/realms/camunda-platform
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  insecure: ${{ steps.cert-config.outputs.use-wildcard-cert }}
+                  # Wait only: the workloads are bounced after CoreDNS is refreshed (next steps).
+                  restart-workloads: 'false'
+
+            # CoreDNS is bounced here — after the (fail-open) issuer-reachability wait,
+            # so the ingress DNS record normally exists by now, and BEFORE the health
+            # wait — to flush the stale negative DNS cache. Otherwise the OIDC components
+            # (identity/connectors/zeebe) keep hitting UnknownHostException on the
+            # domain at startup and CrashLoopBackOff until the readiness window expires.
+            - name: 🔄 Restart CoreDNS
+              if: matrix.declination.name == 'domain'
+              uses: ./.github/actions/kubernetes-restart-coredns
+              timeout-minutes: 10
+              with:
+                  cluster-type: kubernetes
+
+            # DNS cache is fresh now — bounce the OIDC workloads so they reconnect
+            # with working in-cluster + domain resolution instead of a stale
+            # (negative) view cached before the CoreDNS refresh. Readiness is then
+            # verified by the health wait below.
+            - name: 🔁 Restart Camunda workloads after DNS refresh
+              if: matrix.declination.name == 'domain'
+              timeout-minutes: 15
+              run: |
+                  set -uo pipefail
+                  ns="${{ env.CAMUNDA_NAMESPACE }}"
+                  rel="${{ env.CAMUNDA_RELEASE_NAME }}"
+                  restarted=()
+                  for wl in "statefulset/${rel}-zeebe" "deployment/${rel}-connectors" "deployment/${rel}-identity"; do
+                      # Distinguish a genuine "absent" (empty, exit 0) from a real
+                      # query error (RBAC/kubeconfig) so failures stay visible.
+                      if ! found=$(kubectl -n "$ns" get "$wl" --ignore-not-found -o name 2>&1); then
+                          echo "::warning::Could not query ${wl}: ${found}"
+                      elif [ -n "$found" ]; then
+                          if kubectl -n "$ns" rollout restart "$wl"; then
+                              restarted+=("$wl")
+                          else
+                              echo "::warning::rollout restart ${wl} failed"
+                          fi
+                      else
+                          echo "Skipping ${wl}: not present in namespace ${ns}."
+                      fi
+                  done
+
+                  # `rollout restart` only patches the pod template and returns
+                  # immediately; the rotation then proceeds in the background, and
+                  # a StatefulSet rotates in reverse-ordinal order. Moments later
+                  # most pods are therefore still the *old* ones, so every
+                  # "is every pod Ready?" gate downstream happily passes on a
+                  # namespace that is about to churn, and the health wait or the
+                  # C8-SM deployment check trips over a pod that drops into
+                  # ContainerCreating behind them. Await the rotations here so the
+                  # restarts are genuinely finished before anything asserts health.
+                  # Restarts are all issued first so the rollouts overlap instead
+                  # of running back-to-back.
+                  # One shared budget rather than a per-workload one: the
+                  # rollouts overlap in the cluster (every restart was issued
+                  # before the first wait), so the worst case is the slowest
+                  # rollout, not their sum. A shared deadline also keeps the whole
+                  # loop below this step's own timeout-minutes, so a stuck rollout
+                  # still degrades to a warning instead of killing the step with
+                  # an opaque "The action has timed out".
+                  rollout_deadline=$(( $(date +%s) + 600 ))
+                  for wl in ${restarted[@]+"${restarted[@]}"}; do
+                      remaining=$(( rollout_deadline - $(date +%s) ))
+                      if [ "$remaining" -le 0 ]; then
+                          echo "::warning::rollout wait budget exhausted; not waiting for ${wl}"
+                          continue
+                      fi
+                      kubectl -n "$ns" rollout status "$wl" --timeout="${remaining}s" ||
+                          echo "::warning::rollout status ${wl} did not complete within the remaining budget"
+                  done
+
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
               timeout-minutes: 20
               run: |
                   set -euo pipefail
                   ./generic/kubernetes/single-region/procedure/check-deployment-ready.sh
-
-            - name: 🔄 Restart CoreDNS
-              if: matrix.declination.name == 'domain' && env.CLEANUP_CLUSTERS == 'false'
-              uses: ./.github/actions/kubernetes-restart-coredns
-              timeout-minutes: 10
-              with:
-                  cluster-type: kubernetes
 
             - name: 📐 Set current Camunda version
               id: camunda-version
@@ -748,8 +838,7 @@ jobs:
                       || format('http://{0}-keycloak:80/auth',
                       env.CAMUNDA_RELEASE_NAME) }}
                   elasticsearch-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  hub-enabled: ${{ env.HUB_ENABLED }}
                   optimize-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   # AKS domain values set connectors.contextPath: /connectors;
                   # no-domain values keep root, so omit when domain is empty.
@@ -763,8 +852,7 @@ jobs:
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   camunda-domain: ${{ env.CAMUNDA_DOMAIN }}
                   camunda-domain-grpc: ${{ env.CAMUNDA_DOMAIN_GRPC }}
-                  webmodeler-enabled: ${{ env.WEBMODELER_ENABLED }}
-                  console-enabled: ${{ env.CONSOLE_ENABLED }}
+                  hub-enabled: ${{ env.HUB_ENABLED }}
                   optimize-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   elasticsearch-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
@@ -828,7 +916,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup AKS clusters
-        if: always()
+        if: always() && needs.clusters-info.result != 'skipped'
         needs:
             - prepare-clusters
             - clusters-info
@@ -840,15 +928,18 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
 
+        permissions:
+            contents: read
+            id-token: write # required for azure/login
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Import Secrets
               id: secrets
@@ -917,8 +1008,11 @@ jobs:
         needs:
             - integration-tests
             - cleanup-clusters
+        permissions:
+            contents: read
+            pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -936,7 +1030,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

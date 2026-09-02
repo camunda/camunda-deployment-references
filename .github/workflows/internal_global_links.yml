@@ -18,27 +18,27 @@ jobs:
         name: links-check
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Get Current Date
               id: dateofday
               run: echo "DATEOFDAY=$(date +%Y-%m-%d)" >> "$GITHUB_ENV"
 
             - name: Restore lychee cache
-              uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
               with:
                   path: .lycheecache
                   key: cache-lychee-${{ env.DATEOFDAY }}
 
             - name: Link Checker
-              uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411 # v2.8.0
+              uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
               with:
                   fail: true
                   args: -c ./lychee-links.toml --cache --max-cache-age 1d . --verbose --no-progress '*.md' './**/*.md'
                   token: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Cache links
-              uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
               with:
                   path: .lycheecache
                   key: cache-lychee-${{ env.DATEOFDAY }}
@@ -54,7 +54,7 @@ jobs:
 
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               if: failure()
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}

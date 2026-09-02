@@ -15,6 +15,7 @@ global:
     host: ${CAMUNDA_DOMAIN}
     ingress:
         enabled: true
+        className: contour
         tls:
             enabled: true
             secretName: camunda-c8-tls
@@ -28,10 +29,6 @@ global:
     identity:
         auth:
             enabled: true
-            identity:
-                redirectUrl: https://${CAMUNDA_DOMAIN}/managementidentity
-            console:
-                redirectUrl: https://${CAMUNDA_DOMAIN}/console
             webModeler:
                 redirectUrl: https://${CAMUNDA_DOMAIN}/modeler
             optimize:
@@ -71,7 +68,6 @@ webModeler:
 
     restapi:
         externalDatabase:
-            enabled: true
             url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_WEBMODELER_NAME}?sslmode=require
             username: ${DB_WEBMODELER_USERNAME}
             secret:
@@ -82,7 +78,15 @@ webModeler:
             secret:
                 existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
-            fromAddress: changeme@example.com
+        # from-address is deprecated as a values key in chart 8.10 (removed in v16),
+        # so the sender address is supplied via unified configuration instead.
+        extraConfiguration:
+            - file: webmodeler-mail.yaml
+              content: |
+                  camunda:
+                    modeler:
+                      mail:
+                        from-address: changeme@example.com
 
 
 optimize:
@@ -106,6 +110,7 @@ orchestration:
     ingress:
         grpc:
             enabled: true
+            className: contour
             host: zeebe-${CAMUNDA_DOMAIN}
             tls:
                 enabled: true
@@ -113,6 +118,8 @@ orchestration:
             annotations:
                 kubernetes.io/tls-acme: 'true'
 
-console:
-    enabled: false # by default, console is not enabled
-    contextPath: /console
+    # Tell Contour the gRPC upstream (port 26500) speaks cleartext HTTP/2 (h2c).
+    # Required for Zeebe gRPC through the Contour ingress.
+    service:
+        annotations:
+            projectcontour.io/upstream-protocol.h2c: '26500'

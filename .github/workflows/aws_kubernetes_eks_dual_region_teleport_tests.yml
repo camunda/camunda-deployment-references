@@ -2,9 +2,7 @@
 name: Tests - Integration - Teleport - AWS Kubernetes EKS Dual Region
 
 permissions:
-    contents: read # don't allow commits
-    id-token: write # for Teleport authentication
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     # Disabled: waiting for https://github.com/camunda/team-infrastructure-experience/issues/1052
@@ -66,7 +64,8 @@ env:
     NAMESPACE_PREFIX: infraex-
     TELEPORT: true
 
-    # renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+    # Parked: pre-GA dev chart tag until 8.10 GA.
+    # renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io renovate-inert-ok
     CAMUNDA_HELM_CHART_VERSION: 15-dev-latest
     # TODO: [release-duty] before the release, update this!
     # TODO: [release-duty] adjust renovate comment to bump the major version
@@ -76,8 +75,11 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -87,11 +89,15 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         needs:
             - triage
+        permissions:
+            contents: read
+            id-token: write # required for teleport-actions/auth-k8s
+            pull-requests: write # internal-multi-region-tests -> internal-helm-deprecation-check upserts a comment
         steps:
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -104,7 +110,7 @@ jobs:
               uses: teleport-actions/setup@b638ff596557cc3959eb6b5287d5e58e0c8ac6a6 # v1
               with:
                   # renovate: datasource=custom.teleport-camunda depName=teleport
-                  version: 18.8.2
+                  version: 18.10.0
             - name: Authenticate with Teleport
               uses: teleport-actions/auth-k8s@0f46164469ae4fcd4d359d40e06bab17d4be17c9 # v2
               with:
@@ -279,14 +285,6 @@ jobs:
                     apply_labels_and_annotations "$namespace"
                   done
 
-            - name: Helm registry login
-              uses: ./.github/actions/internal-helm-registry-login
-              with:
-                  helm-chart-version: ${{ env.CAMUNDA_HELM_CHART_VERSION }}
-                  vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
-
             - name: Run Multi-region tests
               if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 60
@@ -357,8 +355,11 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - integration-tests
+        permissions:
+            contents: read
+            pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
@@ -376,7 +377,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

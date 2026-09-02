@@ -3,7 +3,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
     - repo: https://github.com/camunda/infraex-common-config
-      rev: 1.7.0 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
+      rev: 2.3.6 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
       hooks:
           - id: update-action-readmes-docker
 
@@ -26,8 +26,35 @@ repos:
           - id: actionlint-docker
             args: [-ignore=SC2155]
 
+    - repo: https://github.com/zizmorcore/zizmor-pre-commit
+      rev: v1.29.0
+      hooks:
+          # Static analysis of GitHub Actions workflows and actions, mirroring the hook
+          # adopted in camunda/infraex-common-config#551 and camunda/keycloak#636. It
+          # covers what actionlint does not: injection through template expansion,
+          # excessive GITHUB_TOKEN permissions, credential persistence and unpinned
+          # action references.
+          #
+          # actionlint also only reads `.github/workflows/`. This repository keeps most
+          # of its shell in `.github/actions/`, which was linted by nothing until now
+          # and held 480 of the 538 findings this adoption cleared.
+          #
+          # Threshold is `high` because the repository still carries medium and low
+          # findings, mostly `artipacked` and `${{ steps.*.outputs }}` interpolation;
+          # `high` is clean as of this commit and is what keeps it that way.
+          #
+          # Without GH_TOKEN zizmor runs offline, which skips known-vulnerable-actions,
+          # impostor-commit, ref-confusion, ref-version-mismatch and stale-action-refs.
+          # None of those currently report anything at `high`.
+          #
+          # --config makes the pinning policy explicit in .github/zizmor.yml rather
+          # than leaving it to zizmor's defaults, so a future default change cannot
+          # silently drop `unpinned-uses` below the threshold above.
+          - id: zizmor
+            args: [--no-progress, --min-severity=high, --config=.github/zizmor.yml]
+
     - repo: https://github.com/renovatebot/pre-commit-hooks
-      rev: 43.205.0
+      rev: 44.5.2
       hooks:
           - id: renovate-config-validator
             args: [--strict]
@@ -40,7 +67,7 @@ repos:
             args: [--strict, --force-scope]
 
     - repo: https://github.com/antonbabenko/pre-commit-terraform
-      rev: v1.106.0
+      rev: v1.108.0
       hooks:
           - id: terraform_fmt
           - id: terraform_tflint
@@ -61,6 +88,136 @@ repos:
             entry: .lint/trivy/trivy-scan.sh
             language: script
             types: [terraform]
+            pass_filenames: false
+
+          - id: terraform-test-touched
+            name: Terraform test (touched states)
+            entry: scripts/run-terraform-test-touched.sh
+            language: script
+            files: \.(tf|tftest\.hcl)$
+            pass_filenames: false
+
+          - id: python-unittest-actions
+            name: Python unit tests (composite actions)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .github/actions/internal-helm-deprecation-check -p 'test_*.py'
+            language: system
+            files: ^\.github/actions/internal-helm-deprecation-check/.*\.py$
+            pass_filenames: false
+
+          - id: port-forward-selftest
+            name: Port-forward script self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/camunda-smoke-test/scripts/port-forward.sh selftest
+            language: system
+            files: ^\.github/actions/camunda-smoke-test/scripts/port-forward\.sh$
+            pass_filenames: false
+
+          - id: destroy-resources-selftest
+            name: Destroy-resources classifier self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources.sh selftest
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources\.sh$
+            pass_filenames: false
+
+          - id: ghost-rosa-cleanup-selftest
+            name: Ghost ROSA cleanup script self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/aws-generic-terraform-cleanup/scripts/cleanup-ghost-rosa-clusters.sh selftest
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/cleanup-ghost-rosa-clusters\.sh$
+            pass_filenames: false
+
+          - id: skip-decision-selftest
+            name: Skip-label decision self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/internal-triage-skip/scripts/skip-decision.sh selftest
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^\.github/actions/internal-triage-skip/scripts/skip-decision\.sh$
+            pass_filenames: false
+
+          - id: cleanup-coverage
+            name: Daily cleanups cover every test scenario
+            entry: .lint/cleanup-coverage/check-cleanup-coverage.py
+            language: script
+            # yamllint disable-line rule:line-length
+            files: ^\.github/(workflows/.*\.yml|workflows-config/.*/test_matrix\.yml)$|^\.lint/cleanup-coverage/
+            pass_filenames: false
+
+          - id: python-unittest-cleanup-coverage
+            name: Python unit tests (cleanup coverage)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/cleanup-coverage -p 'test_*.py'
+            language: system
+            files: ^\.lint/cleanup-coverage/.*\.py$
+            pass_filenames: false
+
+          - id: reporter-coverage
+            name: The CI events reporter watches every integration suite
+            entry: .lint/reporter-coverage/check-reporter-coverage.py
+            language: script
+            # yamllint disable-line rule:line-length
+            files: ^\.github/workflows/.*\.ya?ml$|^\.lint/reporter-coverage/
+            pass_filenames: false
+
+          - id: python-unittest-reporter-coverage
+            name: Python unit tests (reporter coverage)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/reporter-coverage -p 'test_*.py'
+            language: system
+            files: ^\.lint/reporter-coverage/.*\.py$
+            pass_filenames: false
+
+          - id: matrix-skip-guard
+            name: Forced jobs do not read a skipped job's matrix
+            entry: .lint/matrix-skip-guard/check-matrix-skip-guard.py
+            language: script
+            files: ^\.github/workflows/.*\.yml$|^\.lint/matrix-skip-guard/
+            pass_filenames: false
+
+          - id: python-unittest-matrix-skip-guard
+            name: Python unit tests (matrix skip guard)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/matrix-skip-guard -p 'test_*.py'
+            language: system
+            files: ^\.lint/matrix-skip-guard/.*\.py$
+            pass_filenames: false
+
+          - id: action-vars
+            name: Action variables resolve where they are written
+            entry: .lint/action-vars/check-action-vars.py
+            language: script
+            # yamllint disable-line rule:line-length
+            files: ^\.github/(workflows|actions)/.*\.ya?ml$|^\.lint/action-vars/
+            pass_filenames: false
+
+          - id: python-unittest-action-vars
+            name: Python unit tests (action variables)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/action-vars -p 'test_*.py'
+            language: system
+            files: ^\.lint/action-vars/.*\.py$
+            pass_filenames: false
+
+          - id: path-filters
+            name: Workflow path filters still match something
+            entry: .lint/path-filters/check-path-filters.py
+            language: script
+            # a filter dies when the directory it names is renamed, and that
+            # commit need not touch any workflow, so file triggers are not enough
+            always_run: true
+            pass_filenames: false
+
+          - id: python-unittest-path-filters
+            name: Python unit tests (path filters)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/path-filters -p 'test_*.py'
+            language: system
+            files: ^\.lint/path-filters/.*\.py$
             pass_filenames: false
 
     - repo: https://github.com/tekwizely/pre-commit-golang

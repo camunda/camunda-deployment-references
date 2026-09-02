@@ -57,11 +57,8 @@ inputs:
     elasticsearch-enabled:
         description: Whether Elasticsearch is enabled
         default: 'true'
-    webmodeler-enabled:
-        description: Whether WebModeler is enabled
-        default: 'false'
-    console-enabled:
-        description: Whether Console is enabled
+    hub-enabled:
+        description: Whether Camunda Hub (Web Modeler) is enabled
         default: 'false'
     optimize-enabled:
         description: Whether Optimize is enabled
@@ -166,32 +163,40 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              NS="${{ inputs.test-namespace }}"
-              RELEASE="${{ inputs.test-release-name }}"
-              DOMAIN="${{ inputs.camunda-domain }}"
+              NS="${INPUTS_TEST_NAMESPACE}"
+              RELEASE="${INPUTS_TEST_RELEASE_NAME}"
+              DOMAIN="${INPUTS_CAMUNDA_DOMAIN}"
 
-              # Detach kubectl port-forwards from the composite-action step's
-              # process group with setsid + nohup so they survive across step
-              # boundaries (otherwise the GHA runner reaps the child shell's
-              # process group between steps and follow-up steps get
-              # connection-refused). Mirrors the pattern used in
-              # .github/actions/camunda-smoke-test.
-              mkdir -p /tmp/integ-pf
+              # Every forward runs through the shared supervisor: kubectl
+              # port-forward rides a single SPDY stream that managed control
+              # planes reap after a short idle window, so a bare one-shot
+              # forward exits and is never restarted and a test that touches it
+              # later gets a connection-refused against a healthy deployment
+              # (#2970). Rationale and the log contract live in the script.
+              #
+              # Both actions are always consumed from the same checkout
+              # (uses: ./.github/actions/...), so the sibling path is stable.
+              PF="${GITHUB_ACTION_PATH}/../camunda-smoke-test/scripts/port-forward.sh"
+              if [[ ! -f "$PF" ]]; then
+                  echo "::error::port-forward script not found at ${PF}"
+                  exit 1
+              fi
+
+              # Forwards to verify once every one has been started, as
+              # "<base>:<local-port>" pairs.
+              PF_CHECKS=()
+
               pf() {
-                  local logname="$1"; shift
-                  setsid nohup kubectl port-forward "$@" \
-                      </dev/null \
-                      >"/tmp/integ-pf/${logname}.log" 2>&1 &
-                  local pid=$!
-                  disown "$pid" || true
-                  echo "$pid"
+                  local name="$1" target="$2" ports="$3"
+                  local base="/tmp/integ-pf/${name}"
+                  bash "$PF" start "$NS" "$target" "$ports" "$base"
+                  PF_CHECKS+=("${base}:${ports%%:*}")
               }
 
               if [[ -z "$DOMAIN" ]]; then
                   # Zeebe Gateway
                   echo "Starting port-forward to ${RELEASE}-zeebe-gateway..."
-                  PF_PID=$(pf zeebe "svc/${RELEASE}-zeebe-gateway" 8080:8080 -n "$NS")
-                  echo "pf_zeebe_pid=${PF_PID}" >> "$GITHUB_OUTPUT"
+                  pf zeebe "svc/${RELEASE}-zeebe-gateway" 8080:8080
               fi
 
               # Keycloak port-forward (both no-domain and domain mode):
@@ -201,10 +206,10 @@ runs:
               # reach directly even in domain mode (the public ingress does
               # not always expose Keycloak). Forward it locally so the Go
               # tests can hit the OIDC token endpoint via localhost.
-              KC_URL="${{ inputs.keycloak-url }}"
+              KC_URL="${INPUTS_KEYCLOAK_URL}"
               # Default local URL = original URL when port-forward not applicable.
               KC_LOCAL_URL="$KC_URL"
-              if [[ -n "$KC_URL" && "${{ inputs.auth-mode }}" == "oidc" ]]; then
+              if [[ -n "$KC_URL" && "${INPUTS_AUTH_MODE}" == "oidc" ]]; then
                   # Strip scheme, then split host:port from path.
                   KC_NO_SCHEME=$(echo "$KC_URL" | sed 's|^http[s]*://||')
                   KC_HOST_PORT=$(echo "$KC_NO_SCHEME" | cut -d/ -f1)
@@ -214,8 +219,7 @@ runs:
                   KC_REMOTE_PORT=$(echo "$KC_HOST_PORT" | cut -s -d: -f2)
                   [[ -z "$KC_REMOTE_PORT" ]] && KC_REMOTE_PORT=18080
                   echo "Starting port-forward to ${KC_HOST}..."
-                  PF_KC_PID=$(pf keycloak "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}" -n "$NS")
-                  echo "pf_kc_pid=${PF_KC_PID}" >> "$GITHUB_OUTPUT"
+                  pf keycloak "svc/${KC_HOST}" "18080:${KC_REMOTE_PORT}"
                   # Rewrite to localhost so Go tests reach Keycloak through
                   # the forward.
                   KC_LOCAL_URL="http://localhost:18080${KC_PATH}"
@@ -224,18 +228,16 @@ runs:
 
               # Orchestration actuator (always, port 9600 on the gateway svc)
               echo "Starting port-forward to ${RELEASE}-zeebe-gateway:9600..."
-              PF_ORCH_PID=$(pf orchestration "svc/${RELEASE}-zeebe-gateway" 9600:9600 -n "$NS")
-              echo "pf_orch_pid=${PF_ORCH_PID}" >> "$GITHUB_OUTPUT"
+              pf orchestration "svc/${RELEASE}-zeebe-gateway" 9600:9600
               echo "orchestration_local_url=http://localhost:9600" >> "$GITHUB_OUTPUT"
 
               # Connectors actuator (always, when service is present)
-              CONN_SVC="${{ inputs.connectors-service-name }}"
-              CONN_LOCAL_PORT="${{ inputs.connectors-local-port }}"
+              CONN_SVC="${INPUTS_CONNECTORS_SERVICE_NAME}"
+              CONN_LOCAL_PORT="${INPUTS_CONNECTORS_LOCAL_PORT}"
               if kubectl get svc "$CONN_SVC" -n "$NS" >/dev/null 2>&1; then
                   echo "Starting port-forward to ${CONN_SVC}..."
-                  PF_CONN_PID=$(pf connectors "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080" -n "$NS")
-                  echo "pf_conn_pid=${PF_CONN_PID}" >> "$GITHUB_OUTPUT"
-                  CONN_PATH="${{ inputs.connectors-context-path }}"
+                  pf connectors "svc/${CONN_SVC}" "${CONN_LOCAL_PORT}:8080"
+                  CONN_PATH="${INPUTS_CONNECTORS_CONTEXT_PATH}"
                   # Strip trailing slash so concatenation never doubles up.
                   CONN_PATH="${CONN_PATH%/}"
                   echo "connectors_local_url=http://localhost:${CONN_LOCAL_PORT}${CONN_PATH}" >> "$GITHUB_OUTPUT"
@@ -247,7 +249,7 @@ runs:
               # The preflight Go tests hit http://localhost:9200 unconditionally
               # when ELASTICSEARCH_ENABLED=true, so they need a forward in
               # no-domain / port-forward mode.
-              if [[ "${{ inputs.elasticsearch-enabled }}" == "true" ]]; then
+              if [[ "${INPUTS_ELASTICSEARCH_ENABLED}" == "true" ]]; then
                   ES_SVC=""
                   for candidate in \
                       "${RELEASE}-elasticsearch" \
@@ -261,8 +263,7 @@ runs:
                   done
                   if [[ -n "$ES_SVC" ]]; then
                       echo "Starting port-forward to ${ES_SVC}:9200..."
-                      PF_ES_PID=$(pf elasticsearch "svc/${ES_SVC}" 9200:9200 -n "$NS")
-                      echo "pf_es_pid=${PF_ES_PID}" >> "$GITHUB_OUTPUT"
+                      pf elasticsearch "svc/${ES_SVC}" 9200:9200
                       # ECK enables xpack.security by default; expose the
                       # generated 'elastic' user password so preflight probes
                       # can authenticate. If the secret is absent (ES deployed
@@ -283,21 +284,19 @@ runs:
               fi
 
               echo "Waiting for port-forwards to be established..."
-              sleep 10
-
-              # Verify Zeebe is reachable (only meaningful in no-domain mode)
-              if [[ -z "$DOMAIN" ]]; then
-                  for i in $(seq 1 15); do
-                      CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-                          http://localhost:8080/v2/topology 2>/dev/null || echo "000")
-                      if [[ "$CODE" =~ ^(200|401|403)$ ]]; then
-                          echo "✅ Zeebe port-forward ready (HTTP ${CODE})"
-                          break
-                      fi
-                      echo "  attempt ${i}/15 (HTTP ${CODE})"
-                      sleep 2
-                  done
-              fi
+              for check in "${PF_CHECKS[@]}"; do
+                  bash "$PF" wait "${check%%:*}" "${check##*:}"
+              done
+          env:
+              INPUTS_TEST_NAMESPACE: ${{ inputs.test-namespace }}
+              INPUTS_TEST_RELEASE_NAME: ${{ inputs.test-release-name }}
+              INPUTS_CAMUNDA_DOMAIN: ${{ inputs.camunda-domain }}
+              INPUTS_KEYCLOAK_URL: ${{ inputs.keycloak-url }}
+              INPUTS_AUTH_MODE: ${{ inputs.auth-mode }}
+              INPUTS_CONNECTORS_SERVICE_NAME: ${{ inputs.connectors-service-name }}
+              INPUTS_CONNECTORS_LOCAL_PORT: ${{ inputs.connectors-local-port }}
+              INPUTS_CONNECTORS_CONTEXT_PATH: ${{ inputs.connectors-context-path }}
+              INPUTS_ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
 
         - name: 🧪 Run Preflight Tests
           id: preflight
@@ -318,8 +317,7 @@ runs:
               TEST_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
               TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
-              WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
-              CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              HUB_ENABLED: ${{ inputs.hub-enabled }}
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
@@ -330,10 +328,34 @@ runs:
               TEST_ELASTICSEARCH_PASSWORD: ${{ steps.port-forward.outputs.es_pass }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
               TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
+              INPUTS_GO_TEST_ARGS: ${{ inputs.go-test-args }}
           run: |
               set -euo pipefail
               echo "🧪 Running preflight tests..."
-              go test ${{ inputs.go-test-args }} ./preflight/...
+
+              # `go-test-args` is one string holding several arguments, so it has to be
+              # split. Expanding it unquoted splits on whitespace but leaves quotes as
+              # literal characters, so `-run 'TestA|TestB'` would reach `go test` as two
+              # broken tokens. Before this branch the value was substituted by GitHub
+              # straight into the command line and the shell did the grouping.
+              #
+              # `xargs` tokenises the way the shell would -- honouring quotes -- without
+              # evaluating anything, so a `;` or a backtick in the value stays data.
+              # `xargs` exits non-zero on unmatched quotes. Capturing it here rather than
+              # in a process substitution is what makes that failure visible: inside
+              # `< <(...)` the exit status is lost, the loop reads nothing, and the tests
+              # would run with none of the arguments the caller asked for.
+              if ! parsed_test_args=$(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n'); then
+                  echo "::error::go-test-args could not be tokenised, check for unmatched quotes: ${INPUTS_GO_TEST_ARGS}" >&2
+                  exit 1
+              fi
+
+              GO_TEST_ARGS=()
+              while IFS= read -r arg; do
+                  [[ -n "$arg" ]] && GO_TEST_ARGS+=("$arg")
+              done <<< "${parsed_test_args}"
+
+              go test ${GO_TEST_ARGS[@]+"${GO_TEST_ARGS[@]}"} ./preflight/...
 
         # Warm up the Zeebe Gateway → Identity JWKS path on cold clusters
         # (notably ROSA HCP). The Spring OAuth resource server lazily fetches
@@ -446,8 +468,7 @@ runs:
               TEST_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
               TEST_OIDC_M2M_CLIENTS: ${{ inputs.oidc-m2m-clients }}
               ELASTICSEARCH_ENABLED: ${{ inputs.elasticsearch-enabled }}
-              WEBMODELER_ENABLED: ${{ inputs.webmodeler-enabled }}
-              CONSOLE_ENABLED: ${{ inputs.console-enabled }}
+              HUB_ENABLED: ${{ inputs.hub-enabled }}
               OPTIMIZE_ENABLED: ${{ inputs.optimize-enabled }}
               TEST_ZEEBE_GATEWAY_URL: ${{ inputs.zeebe-gateway-url }}
               TEST_KEYCLOAK_URL: ${{ steps.port-forward.outputs.kc_local_url || inputs.keycloak-url }}
@@ -458,10 +479,34 @@ runs:
               TEST_ELASTICSEARCH_PASSWORD: ${{ steps.port-forward.outputs.es_pass }}
               TEST_RETRY_ATTEMPTS: ${{ inputs.retry-attempts }}
               TEST_RETRY_DELAY: ${{ inputs.retry-delay }}
+              INPUTS_GO_TEST_ARGS: ${{ inputs.go-test-args }}
           run: |
               set -euo pipefail
               echo "🧪 Running core tests..."
-              go test ${{ inputs.go-test-args }} ./core/...
+
+              # `go-test-args` is one string holding several arguments, so it has to be
+              # split. Expanding it unquoted splits on whitespace but leaves quotes as
+              # literal characters, so `-run 'TestA|TestB'` would reach `go test` as two
+              # broken tokens. Before this branch the value was substituted by GitHub
+              # straight into the command line and the shell did the grouping.
+              #
+              # `xargs` tokenises the way the shell would -- honouring quotes -- without
+              # evaluating anything, so a `;` or a backtick in the value stays data.
+              # `xargs` exits non-zero on unmatched quotes. Capturing it here rather than
+              # in a process substitution is what makes that failure visible: inside
+              # `< <(...)` the exit status is lost, the loop reads nothing, and the tests
+              # would run with none of the arguments the caller asked for.
+              if ! parsed_test_args=$(printf '%s' "${INPUTS_GO_TEST_ARGS}" | xargs -n1 printf '%s\n'); then
+                  echo "::error::go-test-args could not be tokenised, check for unmatched quotes: ${INPUTS_GO_TEST_ARGS}" >&2
+                  exit 1
+              fi
+
+              GO_TEST_ARGS=()
+              while IFS= read -r arg; do
+                  [[ -n "$arg" ]] && GO_TEST_ARGS+=("$arg")
+              done <<< "${parsed_test_args}"
+
+              go test ${GO_TEST_ARGS[@]+"${GO_TEST_ARGS[@]}"} ./core/...
 
         # ==============================================================
         # Cleanup port-forwards
@@ -471,13 +516,8 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              for PID in \
-                  "${{ steps.port-forward.outputs.pf_zeebe_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_kc_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_orch_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_conn_pid }}" \
-                  "${{ steps.port-forward.outputs.pf_es_pid }}"; do
-                  if [[ -n "$PID" ]]; then
-                      kill "$PID" 2>/dev/null || true
-                  fi
-              done
+              PF="${GITHUB_ACTION_PATH}/../camunda-smoke-test/scripts/port-forward.sh"
+              # Never let an always() teardown mask the failure that got us
+              # here: a missing script means no forward was ever started.
+              [[ -f "$PF" ]] || exit 0
+              bash "$PF" stop /tmp/integ-pf

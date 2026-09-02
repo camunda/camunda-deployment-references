@@ -20,20 +20,10 @@
 global:
     identity:
         auth:
-            identity:
-                redirectUrl: http://localhost:8085/auth/login-callback
             optimize:
                 redirectUrl: http://localhost:8083/api/authentication/callback
             webModeler:
                 redirectUrl: http://localhost:8070/login-callback
-            console:
-                redirectUrl: http://localhost:8087/
-
-orchestration:
-    security:
-        authentication:
-            oidc:
-                redirectUrl: http://localhost:8080
 
 identity:
     fullURL: http://localhost:8085

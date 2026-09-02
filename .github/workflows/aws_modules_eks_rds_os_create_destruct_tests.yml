@@ -2,8 +2,7 @@
 name: Tests - Integration - AWS EKS Cluster with an AuroraDB and OpenSearch creation and destruction
 
 permissions:
-    contents: read # don't allow commits
-    pull-requests: write # allow comments, labels (used by internal-apply-skip-label)
+    contents: read
 
 on:
     schedule:
@@ -51,7 +50,7 @@ on:
             - aws/modules/aurora/**.tf
             - .tool-versions
             - .github/workflows/aws_modules_eks_rds_os_create_destruct_tests.yml
-            - .github/actions/auroa-manage-cluster/**
+            - .github/actions/aws-aurora-manage-cluster/**
             - .github/actions/aws-eks-manage-cluster/**
             - .github/actions/aws-opensearch-manage-cluster/**
             - .github/actions/aws-eks-cleanup-resources/**
@@ -86,8 +85,11 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
         steps:
-            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -97,51 +99,54 @@ jobs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
         steps:
             - name: Checkout repository
-              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   ref: ${{ github.head_ref }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
 
             - name: Get Cluster Info
               id: commit_info
               run: |
                   set -euo pipefail
 
-                  if [[ -n "${{ inputs.cluster_name }}" ]]; then
-                    cluster_name="${{ inputs.cluster_name }}"
+                  if [[ -n "${INPUTS_CLUSTER_NAME}" ]]; then
+                    cluster_name="${INPUTS_CLUSTER_NAME}"
                   else
                     cluster_name="cl-$(git rev-parse --short HEAD)-t"
                   fi
                   echo "cluster_name=$cluster_name" | tee -a "$GITHUB_OUTPUT"
 
-                  if [[ -n "${{ inputs.db_username }}" ]]; then
-                    db_username="${{ inputs.db_username }}"
+                  if [[ -n "${INPUTS_DB_USERNAME}" ]]; then
+                    db_username="${INPUTS_DB_USERNAME}"
                   else
                     db_username="user$(openssl rand -hex 4 | tr -d '/@" ')"
                   fi
                   echo "db_username=$db_username" | tee -a "$GITHUB_OUTPUT"
 
-                  if [[ -n "${{ inputs.db_password }}" ]]; then
-                    db_password="${{ inputs.db_password }}"
+                  if [[ -n "${INPUTS_DB_PASSWORD}" ]]; then
+                    db_password="${INPUTS_DB_PASSWORD}"
                   else
                     db_password="$(openssl rand -base64 12 | tr -d '/@" ')"
                   fi
                   echo "db_password=$db_password" | tee -a "$GITHUB_OUTPUT"
 
-                  if [[ -n "${{ inputs.opensearch_username }}" ]]; then
-                    opensearch_username="${{ inputs.opensearch_username }}"
+                  if [[ -n "${INPUTS_OPENSEARCH_USERNAME}" ]]; then
+                    opensearch_username="${INPUTS_OPENSEARCH_USERNAME}"
                   else
                     opensearch_username="user$(openssl rand -hex 4 | tr -d '/@" ')"
                   fi
                   echo "opensearch_username=$opensearch_username" | tee -a "$GITHUB_OUTPUT"
 
-                  if [[ -n "${{ inputs.opensearch_password }}" ]]; then
-                    opensearch_password="${{ inputs.opensearch_password }}"
+                  if [[ -n "${INPUTS_OPENSEARCH_PASSWORD}" ]]; then
+                    opensearch_password="${INPUTS_OPENSEARCH_PASSWORD}"
                   else
                     opensearch_password="$(openssl rand -base64 12 | tr -d '/@" ')"
                   fi
@@ -152,6 +157,12 @@ jobs:
                   # Get the current commit hash for the modules revision
                   tf_modules_revision=$(git rev-parse HEAD)
                   echo "tf_modules_revision=$tf_modules_revision" | tee -a "$GITHUB_OUTPUT"
+              env:
+                  INPUTS_CLUSTER_NAME: ${{ inputs.cluster_name }}
+                  INPUTS_DB_USERNAME: ${{ inputs.db_username }}
+                  INPUTS_DB_PASSWORD: ${{ inputs.db_password }}
+                  INPUTS_OPENSEARCH_USERNAME: ${{ inputs.opensearch_username }}
+                  INPUTS_OPENSEARCH_PASSWORD: ${{ inputs.opensearch_password }}
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -307,11 +318,12 @@ jobs:
                   camunda-version: ${{ steps.target-branch.outputs.TARGET_BRANCH }}
                   max-age-hours: 0
                   target: ${{ steps.commit_info.outputs.cluster_name }}
+                  fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
 
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure()
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

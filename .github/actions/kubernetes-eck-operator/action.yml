@@ -43,6 +43,7 @@ runs:
           env:
               CAMUNDA_NAMESPACE: ${{ inputs.namespace }}
               ELASTICSEARCH_CLUSTER_FILE: ${{ inputs.elasticsearch-cluster-file }}
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
           run: |
               set -euo pipefail
 
@@ -50,4 +51,4 @@ runs:
 
               ./deploy.sh
 
-              echo "✓ Elasticsearch cluster deployed in namespace ${{ inputs.namespace }}"
+              echo "✓ Elasticsearch cluster deployed in namespace ${INPUTS_NAMESPACE}"

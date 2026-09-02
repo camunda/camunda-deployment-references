@@ -20,7 +20,6 @@ global:
             method: oidc
 
     identity:
-        enabled: true
         auth:
             enabled: true
 
@@ -40,8 +39,6 @@ optimize:
 connectors:
     enabled: true
 
-console:
-    enabled: false # by default, console is not enabled
 
 identity:
     enabled: true
@@ -60,8 +57,13 @@ webModeler:
     enabled: false # by default, webModeler is not enabled
 
     restapi:
+        # from-address is intentionally NOT set here: when Camunda Hub is enabled this
+        # deployment also merges operator-based/postgresql/camunda-webmodeler-values.yml,
+        # which supplies camunda.modeler.mail.from-address via
+        # webModeler.restapi.extraConfiguration. The overlay merge (`yq . *+`) concatenates
+        # arrays, so also setting extraConfiguration here would duplicate the
+        # webmodeler-mail.yaml volumeMount and break OpenShift server-side apply.
         mail:
             secret:
                 existingSecret: webmodeler-secret
                 existingSecretKey: smtp-password
-            fromAddress: changeme@example.com   # change this required value

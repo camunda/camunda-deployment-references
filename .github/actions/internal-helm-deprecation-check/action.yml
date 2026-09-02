@@ -7,6 +7,11 @@ description: |
     (removed configuration) messages.
     Optionally validates that deployed values do not contain unknown keys
     by checking against a strict version of the chart's JSON Schema.
+    Objects the schema declares as free-form (an explicit
+    `additionalProperties`, or no enumerated members at all — podAnnotations,
+    commonLabels, nodeSelector, affinity, …) keep their own rule: their keys
+    cannot be checked against anything, so they are accepted rather than
+    reported.
 
     Findings are reported in an event-aware, non-blocking way:
       - pull_request / pull_request_target / workflow_run: posted to a
@@ -14,7 +19,8 @@ description: |
         workflow/job/release/namespace combination).
       - schedule (real or simulated via a `schedules/*` head_ref): emitted
         as ::warning:: annotations and, when the Slack inputs are wired,
-        posted to Slack via the shared report-failure-on-slack action.
+        posted to Slack via the shared report-warning-on-slack action
+        (an advisory, non-failure notification).
         Simulated schedules are detected from the caller workflow's
         `IS_SCHEDULE` env var (set to `'true'` when
         `contains(github.head_ref, 'schedules/') || github.event_name == 'schedule'`).
@@ -43,8 +49,10 @@ inputs:
         default: ''
     exclude-patterns:
         description: |
-            Newline-separated list of fixed strings to exclude from warnings and errors.
-            Messages containing any of these strings will be ignored.
+            Newline-separated list of fixed strings (one pattern per line) to
+            exclude from warnings and errors. Messages containing any of these
+            strings are ignored. Patterns are matched per line, so a
+            space-separated value is treated as a single pattern, not several.
         required: false
         default: ''
     check-unknown-keys:
@@ -53,9 +61,19 @@ inputs:
             version of the chart's JSON Schema to detect unknown keys
             (typos, removed properties).
             The schema is automatically extracted from the deployed chart.
+            Objects the schema declares as free-form are exempt: their contents
+            cannot be validated, so they are accepted rather than reported.
             See: https://github.com/camunda/camunda-platform-helm/issues/4564
         required: false
         default: 'true'
+    local-chart-path:
+        description: |
+            Optional path to a locally source-built chart directory (one that
+            contains values.schema.json). When set, the unknown-keys check reads
+            the schema from there instead of pulling the chart from a registry, so
+            the pre-release (dev) line needs no private OCI registry authentication.
+        required: false
+        default: ''
     comment-section-key:
         description: |
             Optional extra identifier mixed into the PR comment section ID.
@@ -67,8 +85,17 @@ inputs:
     github-token:
         description: |
             Token used to read and update the shared PR comment.
-            Defaults to the workflow-provided GITHUB_TOKEN. The token needs
+            Defaults to the workflow-provided `GITHUB_TOKEN`. The token needs
             `pull-requests: write` permission for the comment to be posted.
+            Beware that a job-level `permissions:` block REPLACES the
+            workflow-level one, so it must repeat every permission the job
+            needs. On a `pull_request` run from a fork the `GITHUB_TOKEN` is
+            read-only whatever the workflow requests, so the comment is
+            skipped; `pull_request_target` runs in the base context and is
+            unaffected. A denied token is reported as an `::error::`
+            annotation and the comment is skipped; a transient API failure is
+            retried and then reported as a `::warning::`. Neither ever fails
+            the job.
         required: false
         default: ${{ github.token }}
     vault-addr:
@@ -113,16 +140,109 @@ inputs:
 runs:
     using: composite
     steps:
+        - name: 🛠️ Resolve GitHub CLI setup for the scheduled Slack alert
+          id: gh-cli
+          # The report-failure-on-slack step (run on scheduled findings) shells
+          # out to `gh` (silence check + failure-log-analyzer trigger). `gh` is
+          # preinstalled on GitHub-hosted runners but absent from the self-hosted
+          # runners used by the deployment test jobs, where it failed with exit
+          # code 127. Resolve up front whether we must provide our own `gh` and
+          # where it should live, so the binary can be cached across runs.
+          if: |
+              env.IS_SCHEDULE == 'true'
+              && inputs.vault-addr != ''
+              && inputs.vault-role-id != ''
+              && inputs.vault-secret-id != ''
+          shell: bash
+          env:
+              # renovate: datasource=github-tags depName=cli/cli
+              GH_CLI_VERSION: v2.97.0
+          run: |
+              set -euo pipefail
+
+              if command -v gh >/dev/null 2>&1; then
+                  echo "GitHub CLI already available: $(gh --version | head -n1)"
+                  echo "need-install=false" >> "${GITHUB_OUTPUT}"
+                  exit 0
+              fi
+
+              case "$(uname -m)" in
+                  x86_64) GH_ARCH="amd64" ;;
+                  aarch64 | arm64) GH_ARCH="arm64" ;;
+                  *) echo "::error::Unsupported architecture for GitHub CLI install: $(uname -m)"; exit 1 ;;
+              esac
+
+              VERSION="${GH_CLI_VERSION#v}"
+              # Stable, runner-persistent location (RUNNER_TEMP changes per job,
+              # which would defeat actions/cache absolute-path restoration).
+              INSTALL_DIR="${HOME}/.cache/gh-cli/${VERSION}-${GH_ARCH}"
+              mkdir -p "${INSTALL_DIR}"
+
+              {
+                  echo "need-install=true"
+                  echo "version=${VERSION}"
+                  echo "arch=${GH_ARCH}"
+                  echo "install-dir=${INSTALL_DIR}"
+                  echo "bin-dir=${INSTALL_DIR}/gh_${VERSION}_linux_${GH_ARCH}/bin"
+                  echo "cache-key=gh-cli-${RUNNER_OS}-${GH_ARCH}-${VERSION}"
+              } >> "${GITHUB_OUTPUT}"
+
+        - name: 💾 Restore cached GitHub CLI
+          id: gh-cli-cache
+          if: steps.gh-cli.outputs.need-install == 'true'
+          uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+          with:
+              path: ${{ steps.gh-cli.outputs.install-dir }}
+              key: ${{ steps.gh-cli.outputs.cache-key }}
+
+        - name: 🛠️ Install GitHub CLI
+          if: steps.gh-cli.outputs.need-install == 'true'
+          shell: bash
+          env:
+              CACHE_HIT: ${{ steps.gh-cli-cache.outputs.cache-hit }}
+              VERSION: ${{ steps.gh-cli.outputs.version }}
+              GH_ARCH: ${{ steps.gh-cli.outputs.arch }}
+              INSTALL_DIR: ${{ steps.gh-cli.outputs.install-dir }}
+              BIN_DIR: ${{ steps.gh-cli.outputs.bin-dir }}
+          run: |  # zizmor: ignore[github-env]
+              set -euo pipefail
+
+              if [[ "${CACHE_HIT}" == "true" && -x "${BIN_DIR}/gh" ]]; then
+                  echo "Using cached GitHub CLI ${VERSION} (${GH_ARCH})"
+              else
+                  TARBALL="gh_${VERSION}_linux_${GH_ARCH}.tar.gz"
+                  BASE_URL="https://github.com/cli/cli/releases/download/v${VERSION}"
+
+                  echo "Downloading GitHub CLI ${VERSION} (${GH_ARCH})..."
+                  TMP_DIR="$(mktemp -d)"
+                  curl -fsSL --retry 5 --retry-delay 10 -o "${TMP_DIR}/${TARBALL}" "${BASE_URL}/${TARBALL}"
+                  curl -fsSL --retry 5 --retry-delay 10 -o "${TMP_DIR}/checksums.txt" "${BASE_URL}/gh_${VERSION}_checksums.txt"
+
+                  # Verify the download against the official checksums before trusting it.
+                  (cd "${TMP_DIR}" && grep " ${TARBALL}$" checksums.txt | sha256sum -c -)
+
+                  tar -xzf "${TMP_DIR}/${TARBALL}" -C "${INSTALL_DIR}"
+                  rm -rf "${TMP_DIR}"
+              fi
+
+              # Expose gh to the rest of the job, incl. the report-failure-on-slack step.
+              echo "${BIN_DIR}" >> "${GITHUB_PATH}"
+              echo "GitHub CLI ready: $("${BIN_DIR}/gh" --version | head -n1)"
+
         - name: 🔍 Check for Helm deprecation warnings
           shell: bash
           env:
               FINDINGS_DIR: ${{ runner.temp }}/helm-deprecation-check
-          run: |
+              INPUTS_RELEASE_NAME: ${{ inputs.release-name }}
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
+              INPUTS_KUBE_CONTEXT: ${{ inputs.kube-context }}
+              INPUTS_EXCLUDE_PATTERNS: ${{ inputs.exclude-patterns }}
+          run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
-              RELEASE_NAME="${{ inputs.release-name }}"
-              NAMESPACE="${{ inputs.namespace }}"
-              KUBE_CONTEXT="${{ inputs.kube-context }}"
+              RELEASE_NAME="${INPUTS_RELEASE_NAME}"
+              NAMESPACE="${INPUTS_NAMESPACE}"
+              KUBE_CONTEXT="${INPUTS_KUBE_CONTEXT}"
 
               mkdir -p "${FINDINGS_DIR}"
               FINDINGS_FILE="${FINDINGS_DIR}/findings.md"
@@ -151,7 +271,7 @@ runs:
               ERRORS=$(echo "${NOTES}" | grep -i '\[camunda\]\[error\]' || true)
 
               # Exclude warnings matching provided patterns (fixed-string match)
-              EXCLUDE_PATTERNS="${{ inputs.exclude-patterns }}"
+              EXCLUDE_PATTERNS="${INPUTS_EXCLUDE_PATTERNS}"
               if [[ -n "${EXCLUDE_PATTERNS}" && -n "${WARNINGS}" ]]; then
                   while IFS= read -r pattern; do
                       [[ -z "${pattern}" ]] && continue
@@ -241,9 +361,9 @@ runs:
           run: |
               set -euo pipefail
 
-              RELEASE_NAME="${{ inputs.release-name }}"
-              NAMESPACE="${{ inputs.namespace }}"
-              KUBE_CONTEXT="${{ inputs.kube-context }}"
+              RELEASE_NAME="${INPUTS_RELEASE_NAME}"
+              NAMESPACE="${INPUTS_NAMESPACE}"
+              KUBE_CONTEXT="${INPUTS_KUBE_CONTEXT}"
 
               CONTEXT_ARGS=()
               if [[ -n "${KUBE_CONTEXT}" ]]; then
@@ -296,37 +416,53 @@ runs:
                   exit 0
               fi
 
-              # Pull the chart to extract its schema.
-              # Try the OCI registry first, then fall back to the Helm repo.
-              # Pre-release versions (e.g. 14.0.0-alpha6) may not have their
-              # own OCI tag when installed via a floating tag like "14-dev-latest".
-              CHART_PULLED=false
-              if helm pull "oci://registry.camunda.cloud/team-distribution/${CHART_NAME}" \
-                  --version "${CHART_VERSION}" \
-                  --destination "${WORK_DIR}" \
-                  --untar 2>/dev/null; then
-                  CHART_PULLED=true
-              else
-                  echo "OCI pull failed, trying Helm repo fallback..."
-                  if helm pull "${CHART_NAME}" \
+              # Locate the chart's values.schema.json. Prefer a locally source-built
+              # chart so the pre-release (dev) line needs no registry auth: an explicit
+              # local-chart-path input (dual-region), else the source-build checkout at
+              # .camunda-platform-helm (single-region/generic/kind). Fall back to the
+              # public Helm repo for released charts. The private OCI registry is
+              # intentionally no longer used here.
+              LOCAL_CHART_PATH="${INPUTS_LOCAL_CHART_PATH}"
+              SCHEMA_PATH=""
+              # Autodetect the source-build checkout produced by the shared
+              # build-camunda-chart.sh helper. It clones the whole
+              # camunda-platform-helm repo, which ships one directory per Camunda
+              # minor (charts/camunda-platform-8.x), and every chart's Chart.yaml
+              # name is just "camunda-platform". Match by the deployed chart
+              # version (unique per directory) rather than the release/chart name.
+              CHARTS_DIR="${GITHUB_WORKSPACE}/.camunda-platform-helm/charts"
+              AUTODETECT_SCHEMA=""
+              if [[ -d "${CHARTS_DIR}" ]]; then
+                  for _chart_dir in "${CHARTS_DIR}"/*/; do
+                      [[ -f "${_chart_dir}values.schema.json" && -f "${_chart_dir}Chart.yaml" ]] || continue
+                      _chart_ver=$(grep -E '^version:' "${_chart_dir}Chart.yaml" | head -n1 | awk '{print $2}' | tr -d '"')
+                      if [[ "${_chart_ver}" == "${CHART_VERSION}" ]]; then
+                          AUTODETECT_SCHEMA="${_chart_dir}values.schema.json"
+                          break
+                      fi
+                  done
+              fi
+              if [[ -n "${LOCAL_CHART_PATH}" && -f "${LOCAL_CHART_PATH}/values.schema.json" ]]; then
+                  echo "Using values.schema.json from the source-built chart at ${LOCAL_CHART_PATH}"
+                  SCHEMA_PATH="${LOCAL_CHART_PATH}/values.schema.json"
+              elif [[ -n "${AUTODETECT_SCHEMA}" ]]; then
+                  echo "Using values.schema.json from the source-built chart at ${AUTODETECT_SCHEMA%/values.schema.json}"
+                  SCHEMA_PATH="${AUTODETECT_SCHEMA}"
+              elif helm pull "${CHART_NAME}" \
                       --repo "https://helm.camunda.io" \
                       --version "${CHART_VERSION}" \
                       --destination "${WORK_DIR}" \
                       --untar 2>/dev/null; then
-                      CHART_PULLED=true
-                  fi
-              fi
-
-              if [[ "${CHART_PULLED}" != "true" ]]; then
-                  echo "::warning::Could not pull chart ${CHART_NAME}:${CHART_VERSION}" \
-                      "from OCI registry or Helm repo." \
-                      "The version may not be published yet. Skipping unknown keys check."
+                  SCHEMA_PATH="${WORK_DIR}/${CHART_NAME}/values.schema.json"
+              else
+                  echo "::warning::Could not obtain the schema for chart ${CHART_NAME}:${CHART_VERSION}" \
+                      "(no local source-built chart, and not published to the public Helm repo)." \
+                      "Skipping unknown keys check."
                   exit 0
               fi
 
-              SCHEMA_PATH="${WORK_DIR}/${CHART_NAME}/values.schema.json"
               if [[ ! -f "${SCHEMA_PATH}" ]]; then
-                  echo "::warning::No values.schema.json found in chart ${CHART_NAME}:${CHART_VERSION}, skipping unknown keys check."
+                  echo "::warning::No values.schema.json found for chart ${CHART_NAME}:${CHART_VERSION}, skipping unknown keys check."
                   exit 0
               fi
 
@@ -375,6 +511,11 @@ runs:
                       echo ""
                   } >> "${FINDINGS_FILE}"
               fi
+          env:
+              INPUTS_RELEASE_NAME: ${{ inputs.release-name }}
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
+              INPUTS_KUBE_CONTEXT: ${{ inputs.kube-context }}
+              INPUTS_LOCAL_CHART_PATH: ${{ inputs.local-chart-path }}
 
         - name: 💬 Report findings (PR comment, log, or Slack)
           id: report-findings
@@ -436,7 +577,7 @@ runs:
                   --run-url "${GH_SERVER_URL}/${GH_REPO}/actions/runs/${GH_RUN_ID}" \
                   --findings-file "${FINDINGS_FILE}"
 
-        - name: 🔔 Alert Slack on scheduled-run findings
+        - name: 🔔 Warn on Slack about scheduled-run findings
           if: |
               always()
               && env.IS_SCHEDULE == 'true'
@@ -444,11 +585,17 @@ runs:
               && inputs.vault-addr != ''
               && inputs.vault-role-id != ''
               && inputs.vault-secret-id != ''
-          uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ce8f360e366f900378c3d1531d1f278f3789f04b # 1.7.0
+          # report-warning-on-slack posts an advisory (non-failure) Slack message, so
+          # non-blocking Helm drift on scheduled stable/* runs no longer looks like a
+          # red "STABLE BRANCH FAILURE" alert pointing at a green run.
+          uses: camunda/infraex-common-config/.github/actions/report-warning-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
           with:
               vault_addr: ${{ inputs.vault-addr }}
               vault_role_id: ${{ inputs.vault-role-id }}
               vault_secret_id: ${{ inputs.vault-secret-id }}
-              slack_channel_id: ${{ inputs.slack-channel-id != '' && inputs.slack-channel-id || (env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB')
+              slack_channel_id: ${{ inputs.slack-channel-id != '' && inputs.slack-channel-id || (github.event_name == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB')
                   }}
               slack_mention_people: ${{ inputs.slack-mention-people }}
+              title: Helm configuration drift
+              message: ${{ format('Helm release {0} reported non-blocking findings (deprecated / removed / unknown keys); the run did not fail.', inputs.release-name)
+                  }}

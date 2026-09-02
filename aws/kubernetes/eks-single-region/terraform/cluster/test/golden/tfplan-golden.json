@@ -332,11 +332,11 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.35.5-SUFFIX",
+                    "release_version": "1.36.2-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
-                        "desired_size": 4,
+                        "desired_size": 6,
                         "max_size": 10,
                         "min_size": 1
                       }
@@ -356,7 +356,8 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.35"
+                    "version": "1.36",
+                    "warm_pool_config": []
                   }
                 },
                 "module.eks_cluster.module.eks.module.eks_managed_node_group[\"services\"].aws_iam_role.this[0]": {
@@ -947,6 +948,9 @@
                   }
                 ],
                 "identity": [],
+                "kube_api_server_config": [],
+                "kube_controller_manager_config": [],
+                "kube_scheduler_config": [],
                 "kubernetes_network_config": [
                   {
                     "elastic_load_balancing": []
@@ -1005,7 +1009,7 @@
                 "remote_network_config": [],
                 "tags": null,
                 "timeouts": null,
-                "version": "1.35",
+                "version": "1.36",
                 "vpc_config": [
                   {
                     "endpoint_private_access": true,
@@ -1552,7 +1556,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "aws-ebs-csi-driver",
-                "kubernetes_version": "1.35",
+                "kubernetes_version": "1.36",
                 "most_recent": true
               }
             },
@@ -1566,7 +1570,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "coredns",
-                "kubernetes_version": "1.35",
+                "kubernetes_version": "1.36",
                 "most_recent": true
               }
             },
@@ -1580,7 +1584,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "kube-proxy",
-                "kubernetes_version": "1.35",
+                "kubernetes_version": "1.36",
                 "most_recent": true
               }
             },
@@ -1594,7 +1598,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "vpc-cni",
-                "kubernetes_version": "1.35",
+                "kubernetes_version": "1.36",
                 "most_recent": true
               }
             },
@@ -1627,7 +1631,7 @@
                 "create_duration": "30s",
                 "destroy_duration": null,
                 "triggers": {
-                  "kubernetes_version": "1.35"
+                  "kubernetes_version": "1.36"
                 }
               }
             }
@@ -3198,7 +3202,7 @@
                 "enabled": true
               }
             ],
-            "engine_version": "OpenSearch_3.5",
+            "engine_version": "OpenSearch_3.7",
             "identity_center_options": [],
             "ip_address_type": "ipv4",
             "log_publishing_options": [],
@@ -3393,6 +3397,12 @@
           }
         },
         "module.postgresql.aws_rds_cluster.aurora_cluster": {
+          "identity": {
+            "account_id": null,
+            "cluster_identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "aurora_cluster",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -3442,7 +3452,7 @@
             "enabled_cloudwatch_logs_exports": null,
             "engine": "aurora-postgresql",
             "engine_mode": "provisioned",
-            "engine_version": "17.9",
+            "engine_version": "18.4",
             "final_snapshot_identifier": null,
             "global_cluster_identifier": null,
             "iam_database_authentication_enabled": false,
@@ -3485,7 +3495,7 @@
             "custom_iam_instance_profile": null,
             "db_subnet_group_name": "cluster-name-pg-std",
             "engine": "aurora-postgresql",
-            "engine_version": "17.9",
+            "engine_version": "18.4",
             "force_destroy": false,
             "identifier": "cluster-name-pg-std-0",
             "instance_class": "db.t3.medium",

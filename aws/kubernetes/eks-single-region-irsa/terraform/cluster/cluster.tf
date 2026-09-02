@@ -3,7 +3,7 @@ locals {
   eks_cluster_region = "eu-west-2"         # Change this to your desired AWS region
 
   # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
-  kubernetes_version = "1.35" # Change this to your desired Kubernetes version (eks - major.minor)
+  kubernetes_version = "1.36" # Change this to your desired Kubernetes version (eks - major.minor)
 
   # Default - 1 NAT per Subnet = 3 IPs
   single_nat_gateway = false # Change this to true if you want a single NAT gateway (1 IP vs 3 IPs)
@@ -24,8 +24,13 @@ module "eks_cluster" {
   cluster_node_ipv4_cidr    = "10.192.0.0/16"
 
   # Default node type for the Kubernetes cluster
-  np_instance_types     = ["m6i.xlarge"]
-  np_desired_node_count = 4
+  np_instance_types = ["m6i.xlarge"]
+  # 6 nodes spread across 3 AZs (best-effort, roughly 2 per AZ) give enough headroom
+  # to host the full Camunda stack (3 Zeebe brokers + 3 Elasticsearch + all web apps)
+  # together with the ingress add-ons, and keep AZ-pinned EBS volumes schedulable.
+  np_desired_node_count = 6
+  # Use stable on-demand capacity by default.
+  np_capacity_type = "ON_DEMAND"
 
   # Prevent the cluster to be accessed at all from the public Internet if true
   private_vpc        = false

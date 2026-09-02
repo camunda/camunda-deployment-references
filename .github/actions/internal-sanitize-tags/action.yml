@@ -24,7 +24,7 @@ runs:
           run: |
               set -euo pipefail
 
-              raw_tags='${{ inputs.raw-tags }}'
+              raw_tags="${INPUTS_RAW_TAGS}"
               escaped_tags=$(echo "$raw_tags" | jq -r '
                     to_entries
                     | map("\"" + .key + "\"=\"" + (
@@ -36,3 +36,5 @@ runs:
                     | join(", ")
                     ' | sed 's/.*/{&}/')
               echo "sanitized_tags=${escaped_tags}" | tee -a "$GITHUB_OUTPUT"
+          env:
+              INPUTS_RAW_TAGS: ${{ inputs.raw-tags }}
