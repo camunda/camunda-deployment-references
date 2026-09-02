@@ -45,15 +45,9 @@ connectors:
     enabled: true
 
 orchestration:
-    # Multiregion options for the Orchestration Cluster
-    #
-    ## WARNING: In order to get your multi-region setup covered by Camunda enterprise support
-    # you MUST get your configuration and run books reviewed by Camunda before going to production.
-    # This is necessary for us to be able to help you in case of outages,
-    # due to the complexity of operating multi-region setups and the dependencies to the underlying Kubernetes prerequisites.
-    # If you operate this in the wrong way you risk corruption and complete loss of all data.
-    # Please, contact your customer success manager as soon as you start planning a multi-region setup.
-    # Camunda reserves the right to limit support if no review was done prior to launch or the review showed significant risks.
+    # Multiregion options for the Orchestration Cluster. This architecture is a
+    # reference, not a production configuration; see ../README.md for what it
+    # does and does not cover.
     multiregion:
         # Zone awareness, not the legacy parity-based numbering.
         #
