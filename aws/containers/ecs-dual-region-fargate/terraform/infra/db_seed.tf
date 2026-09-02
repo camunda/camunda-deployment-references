@@ -2,6 +2,83 @@
 #       DB Seed Task (Region 0 only — writer endpoint)         #
 ################################################################
 
+locals {
+  # renovate: datasource=docker depName=public.ecr.aws/docker/library/mysql
+  db_seed_image_mysql = "public.ecr.aws/docker/library/mysql:8.4"
+  # renovate: datasource=docker depName=public.ecr.aws/docker/library/postgres
+  db_seed_image_postgres = "public.ecr.aws/docker/library/postgres:17-alpine"
+
+  db_seed_image = var.db_engine == "mysql" ? local.db_seed_image_mysql : local.db_seed_image_postgres
+
+  postgres_seed_command = <<-EOT
+    set -euo pipefail
+    set -f
+
+    if [ -z "$${IAM_DB_USERS:-}" ]; then
+      echo "No IAM_DB_USERS provided; nothing to do."
+      exit 0
+    fi
+
+    echo "Seeding database users for IAM auth: $${IAM_DB_USERS}"
+
+    for user in $${IAM_DB_USERS}; do
+      echo "Ensuring role exists: $${user}"
+
+      psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
+        -v ON_ERROR_STOP=1 \
+        -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${user}') THEN CREATE ROLE \"$${user}\" WITH LOGIN; END IF; END \$\$;" \
+        -c "ALTER ROLE \"$${user}\" WITH LOGIN;" \
+        -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.roleid JOIN pg_roles u ON u.oid = m.member WHERE r.rolname = 'rds_iam' AND u.rolname = '$${user}') THEN GRANT rds_iam TO \"$${user}\"; END IF; END \$\$;" \
+        -c "GRANT ALL PRIVILEGES ON DATABASE \"$${AURORA_DB_NAME}\" TO \"$${user}\";" \
+        -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${user}\";"
+    done
+
+    echo "DB seeding complete."
+  EOT
+
+  # MySQL IAM users authenticate via the RDS AWSAuthenticationPlugin. Backticks
+  # around the db name are backslash-escaped so /bin/sh treats them as literal
+  # (not command substitution) inside the double-quoted -e argument. MYSQL_PWD
+  # passes the admin password without exposing it on the mysql CLI.
+  #
+  # CREATE USER IF NOT EXISTS is not convergent: on an existing user MySQL emits
+  # a note, returns 0, and reconciles neither the auth plugin nor ssl_type. The
+  # follow-up ALTER USER makes the seed idempotent, so a user created by an
+  # earlier apply (or a restored snapshot) is actually switched to IAM auth
+  # instead of silently reporting success. Both statements are needed: ALTER USER
+  # alone errors when the user is missing.
+  mysql_seed_command = <<-EOT
+    set -euo pipefail
+    set -f
+
+    if [ -z "$${IAM_DB_USERS:-}" ]; then
+      echo "No IAM_DB_USERS provided; nothing to do."
+      exit 0
+    fi
+
+    echo "Seeding database users for IAM auth: $${IAM_DB_USERS}"
+
+    export MYSQL_PWD="$${AURORA_ADMIN_PASSWORD}"
+
+    for user in $${IAM_DB_USERS}; do
+      echo "Ensuring user exists: $${user}"
+
+      mysql \
+        --host="$${AURORA_ENDPOINT}" \
+        --port="$${AURORA_PORT}" \
+        --user="$${AURORA_ADMIN_USERNAME}" \
+        --ssl-mode=REQUIRED \
+        -e "CREATE USER IF NOT EXISTS '$${user}'@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS 'RDS' REQUIRE SSL;" \
+        -e "ALTER USER '$${user}'@'%' IDENTIFIED WITH AWSAuthenticationPlugin AS 'RDS' REQUIRE SSL;" \
+        -e "GRANT ALL PRIVILEGES ON \`$${AURORA_DB_NAME}\`.* TO '$${user}'@'%';"
+    done
+
+    echo "DB seeding complete."
+  EOT
+
+  db_seed_command = var.db_engine == "mysql" ? local.mysql_seed_command : local.postgres_seed_command
+}
+
 resource "aws_cloudwatch_log_group" "db_seed" {
   count             = var.secondary_storage_type == "rdbms" && var.db_seed_enabled ? 1 : 0
   name              = "/ecs/${local.prefix_region_0}-db-seed"
@@ -21,40 +98,15 @@ resource "aws_ecs_task_definition" "db_seed" {
   container_definitions = jsonencode([
     {
       name      = "db-seed"
-      image     = "public.ecr.aws/docker/library/postgres:17-alpine"
+      image     = local.db_seed_image
       essential = true
 
       entryPoint = ["/bin/sh", "-lc"]
-      command = [
-        <<-EOT
-          set -euo pipefail
-
-          if [ -z "$${IAM_DB_USERS}" ]; then
-            echo "No IAM_DB_USERS provided; nothing to do."
-            exit 0
-          fi
-
-          echo "Seeding database users for IAM auth: $${IAM_DB_USERS}"
-
-          for user in $${IAM_DB_USERS}; do
-            echo "Ensuring role exists: $${user}"
-
-            psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
-              -v ON_ERROR_STOP=1 \
-              -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${user}') THEN CREATE ROLE \"$${user}\" WITH LOGIN; END IF; END \$\$;" \
-              -c "ALTER ROLE \"$${user}\" WITH LOGIN;" \
-              -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.roleid JOIN pg_roles u ON u.oid = m.member WHERE r.rolname = 'rds_iam' AND u.rolname = '$${user}') THEN GRANT rds_iam TO \"$${user}\"; END IF; END \$\$;" \
-              -c "GRANT ALL PRIVILEGES ON DATABASE \"$${AURORA_DB_NAME}\" TO \"$${user}\";" \
-              -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${user}\";"
-          done
-
-          echo "DB seeding complete."
-        EOT
-      ]
+      command    = [local.db_seed_command]
 
       environment = [
         { name = "AURORA_ENDPOINT", value = module.aurora_global[0].primary_cluster_endpoint },
-        { name = "AURORA_PORT", value = "5432" },
+        { name = "AURORA_PORT", value = tostring(local.db_port) },
         { name = "AURORA_DB_NAME", value = var.db_name },
         { name = "AURORA_ADMIN_USERNAME", value = var.db_admin_username },
         { name = "IAM_DB_USERS", value = join(" ", var.db_seed_iam_usernames) }
@@ -90,6 +142,7 @@ resource "null_resource" "run_db_seed_task" {
     iam_users       = join(",", var.db_seed_iam_usernames)
     iam_auth        = tostring(var.db_iam_auth_enabled)
     run_id          = var.db_seed_run_id
+    engine          = var.db_engine
   }
 
   provisioner "local-exec" {

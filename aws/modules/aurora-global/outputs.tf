@@ -57,3 +57,18 @@ output "secondary_cluster_resource_id" {
   value       = aws_rds_cluster.secondary.cluster_resource_id
   description = "The resource ID of the secondary Aurora cluster (used for IAM auth)"
 }
+
+output "db_port" {
+  value       = local.db_port
+  description = "The database port for the selected engine (5432 for PostgreSQL, 3306 for MySQL)."
+}
+
+output "jdbc_url" {
+  value       = local.jdbc_url
+  description = "Ready-to-use AWS Advanced JDBC Wrapper URL for the Aurora Global writer, engine-aware, with iam (when enabled) + failover plugins and globalClusterInstanceHostPatterns."
+}
+
+output "jdbc_instance_host_patterns" {
+  value       = local.jdbc_instance_host_patterns
+  description = "Comma-separated globalClusterInstanceHostPatterns for the AWS JDBC Wrapper failover plugin (primary,secondary)."
+}

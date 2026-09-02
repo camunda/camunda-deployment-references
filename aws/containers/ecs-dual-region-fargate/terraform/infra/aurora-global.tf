@@ -13,14 +13,20 @@ module "aurora_global" {
 
   global_cluster_identifier = "${local.prefix}-global-db"
 
-  # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
-  engine_version             = "18.4"
+  engine = local.aurora_engine
+
+  # Engine versions are pinned (and Renovate-tracked) once, on the module's
+  # postgresql_engine_version / mysql_engine_version defaults. Overriding them
+  # here would duplicate the pins and make Renovate bump both engines in every
+  # consumer; set engine_version instead to deviate for a single deployment.
+
   auto_minor_version_upgrade = false
   database_name              = var.db_name
 
-  master_username  = var.db_admin_username
-  master_password  = local.db_admin_password_effective
-  iam_auth_enabled = var.db_iam_auth_enabled
+  master_username       = var.db_admin_username
+  master_password       = local.db_admin_password_effective
+  iam_auth_enabled      = var.db_iam_auth_enabled
+  extra_wrapper_plugins = var.db_extra_wrapper_plugins
 
   # Primary cluster (region 0 — writer)
   primary_cluster_name       = "${local.prefix_region_0}-camunda-db"
