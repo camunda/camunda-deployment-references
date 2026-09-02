@@ -128,7 +128,7 @@ variable "identity_db_name" {
 
 variable "identity_db_username" {
   type        = string
-  description = "Password-authenticated database role for Management Identity (Identity does not support IAM DB auth)"
+  description = "Database role for Management Identity. Authenticates with an IAM token (the image ships the AWS Advanced JDBC wrapper); the role also carries a password, used only to bootstrap it in the DB seed."
   default     = "identity"
 
   validation {
@@ -196,4 +196,41 @@ variable "alb_ssl_policy" {
   type        = string
   description = "SSL negotiation policy for the HTTPS ALB listener (used only when alb_certificate_arn is set)."
   default     = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+}
+
+################################################################
+#                        Camunda Hub                           #
+################################################################
+
+variable "enable_camunda_hub" {
+  type        = bool
+  description = "Deploy the Camunda Hub (Web Modeler) ECS task. Requires authentication_mode = \"oidc\"; enabling it also registers the web-modeler client in the bundled Keycloak realm."
+  default     = false
+}
+
+variable "camunda_license_key" {
+  type        = string
+  description = "(Optional) Camunda license key. When set (and enable_camunda_hub = true) it is stored in Secrets Manager and injected as CAMUNDA_LICENSE_KEY. Leave empty to run Camunda Hub in its trial mode (fine for tests)."
+  default     = ""
+  sensitive   = true
+}
+
+variable "camunda_hub_restapi_image" {
+  type        = string
+  description = "Container image for the Camunda Hub REST API + web UI. Registry credentials are only attached when this points at registry.camunda.cloud (private); public Docker Hub images pull without credentials."
+  # TODO: [release-duty] before the release, update the below versions to the stable release!
+  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
+  # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
+  # renovate: datasource=docker depName=camunda/hub versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
+  default = "camunda/hub:8.10.0-alpha3"
+}
+
+variable "camunda_hub_websockets_image" {
+  type        = string
+  description = "Container image for the Camunda Hub websockets relay. Registry credentials are only attached when this (or the restapi image) points at registry.camunda.cloud (private)."
+  # TODO: [release-duty] before the release, update the below versions to the stable release!
+  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
+  # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
+  # renovate: datasource=docker depName=camunda/hub-websockets versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
+  default = "camunda/hub-websockets:8.10.0-alpha3"
 }

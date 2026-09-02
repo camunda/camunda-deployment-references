@@ -28,3 +28,28 @@ Authorization is split across two components, and each is seeded independently:
   Enable it when a Web Modeler / Camunda Hub deployment consumes this Identity. Without it Web Modeler authenticates and reaches Identity successfully, but every authorization check is denied (`403` on the management API, `404` on org-scoped projects) because the roles it asks about do not exist. The flag requires `authentication_mode = "oidc"`.
 
   In the generic OIDC profile Identity cannot read role assignments out of the identity provider, so a claim-based mapping rule is the only way to bind a role to a user. See `terraform/cluster/identity_authorization.tf`.
+
+## Camunda Hub (Web Modeler) — optional
+
+Camunda Hub (Web Modeler + Console) is available behind the `enable_camunda_hub`
+flag (default `false`). It deploys one ECS task with two containers
+(`camunda/hub` + `camunda/hub-websockets`) served under `/hub` (and `/hub-ws`
+for the websocket relay), using a dedicated `camunda-hub` database on the shared
+Aurora cluster.
+
+Camunda Hub authenticates via OIDC, so it **requires `authentication_mode =
+"oidc"`** — it cannot run under `basic` (enforced by a precondition). Enabling
+`enable_camunda_hub` automatically registers the `web-modeler` client (with the
+`web-modeler-api` / `web-modeler-public-api` audiences) in the bundled Keycloak
+realm; the same HTTP/TLS caveat as above applies to the Web Modeler browser login.
+
+A Camunda license is **optional** — leave `camunda_license_key` empty to run
+Camunda Hub in its trial mode (fine for tests); set it to store the key in
+Secrets Manager and inject it as `CAMUNDA_LICENSE_KEY`.
+
+The default images (`camunda/hub`, `camunda/hub-websockets`) pull from public
+Docker Hub without credentials. To use the private enterprise images, point
+`camunda_hub_restapi_image` / `camunda_hub_websockets_image` at
+`registry.camunda.cloud/...` and set `registry_username` / `registry_password`;
+registry credentials are attached only when an image targets that private
+registry.

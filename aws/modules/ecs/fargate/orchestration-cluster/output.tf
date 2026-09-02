@@ -22,6 +22,11 @@ output "rest_service_connect" {
   description = "The Service Connect discovery name for the orchestration cluster ECS service targeting REST"
 }
 
+output "management_service_connect" {
+  value       = aws_ecs_service.orchestration_cluster.service_connect_configuration[0].service[3].discovery_name
+  description = "The Service Connect discovery name for the orchestration cluster management/actuator port (reachable at http://<this>:9600 within the ECS cluster)"
+}
+
 output "log_group_name" {
   value       = aws_cloudwatch_log_group.orchestration_cluster_log_group.name
   description = "The name of the CloudWatch log group for the orchestration cluster"

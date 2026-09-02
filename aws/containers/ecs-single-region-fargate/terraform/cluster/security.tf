@@ -1,3 +1,15 @@
+locals {
+  # Add Camunda Hub container ports (restapi 8081/8091, websockets 8060) only when
+  # enabled, so the flag-off plan stays a zero-delta against the golden file.
+  camunda_hub_effective_ports = merge(
+    var.ports,
+    var.enable_camunda_hub ? {
+      camunda_hub_restapi    = 8081
+      camunda_hub_management = 8091
+      camunda_hub_websockets = 8060
+    } : {},
+  )
+}
 
 resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   name        = "${var.prefix}-allow-necessary-camunda-ports-within-vpc"
@@ -5,7 +17,7 @@ resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   vpc_id      = module.vpc.vpc_id
 
   dynamic "ingress" {
-    for_each = var.ports
+    for_each = local.camunda_hub_effective_ports
     content {
       from_port   = ingress.value
       to_port     = ingress.value
@@ -16,7 +28,7 @@ resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   }
 
   dynamic "egress" {
-    for_each = var.ports
+    for_each = local.camunda_hub_effective_ports
     content {
       from_port   = egress.value
       to_port     = egress.value

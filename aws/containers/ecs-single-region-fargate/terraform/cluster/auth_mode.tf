@@ -75,6 +75,11 @@ resource "terraform_data" "validate_authentication_mode" {
       condition     = !var.enable_web_modeler_authorization || var.authentication_mode == "oidc"
       error_message = "var.enable_web_modeler_authorization requires authentication_mode = \"oidc\" (Management Identity is not deployed in basic mode)."
     }
+    # Camunda Hub (Web Modeler) authenticates via OIDC and cannot use basic auth.
+    precondition {
+      condition     = !var.enable_camunda_hub || local.oidc_enabled
+      error_message = "enable_camunda_hub requires authentication_mode = \"oidc\" (Camunda Hub / Web Modeler cannot use basic auth)."
+    }
   }
 }
 
@@ -94,6 +99,29 @@ locals {
   # CAMUNDA_IDENTITY_BASE_URL and for the camunda-identity client redirect in the
   # bundled realm import).
   identity_public_base = "${local.alb_base_url}/identity"
+
+  # Backend-reachable issuer URL, used only for *server-side* OIDC metadata/JWKS fetches
+  # (the Identity SDK's issuerBackendUrl). Browser-facing values stay on local.oidc.
+  #
+  # For the bundled Keycloak this is the in-VPC Service Connect address. Pointing it at
+  # the public ALB makes every backend metadata fetch leave the private subnet, cross NAT
+  # and re-enter through the internet-facing load balancer; that path intermittently
+  # returns a truncated response, so the fetch fails (java.io.EOFException) and every
+  # authorization check on a freshly started task is denied until a later attempt
+  # succeeds and the JWKS cache warms.
+  #
+  # Safe even though Keycloak runs with KC_HOSTNAME_STRICT=false and therefore reports
+  # its own internal host in the document's `issuer` field: the SDK only needs `jwks_uri`
+  # from it (also internal, and reachable), and the token's `iss` is validated against
+  # local.oidc.issuer_uri, which stays the public ALB URL.
+  #
+  # Deliberately not a member of local.oidc: that object is consumed by the bundled
+  # Keycloak's realm import, so referencing the Keycloak module from inside it would
+  # create a dependency cycle.
+  oidc_issuer_backend_uri = (local.deploy_bundled_keycloak
+    ? "http://${join("", module.keycloak[*].keycloak_service_connect)}:18080/auth/realms/camunda-platform"
+    : local.oidc.issuer_uri
+  )
 
   # Single provider-agnostic OIDC interface. Every component reads only this object;
   # it is populated identically whether the IdP is the bundled Keycloak or external.
@@ -118,6 +146,16 @@ locals {
       client_secret_arn = local.use_external ? try(var.external_oidc.identity_client_secret_arn, "") : try(aws_secretsmanager_secret.identity_client_secret[0].arn, "")
       # Management Identity's own resource-server audience (mandatory in generic OIDC).
       audience = local.use_external ? try(var.external_oidc.audience, "") : "camunda-identity-resource-server"
+    }
+
+    # Camunda Hub (Web Modeler) is a public OIDC client (browser PKCE); the restapi
+    # is a resource server validating these two audiences. App-contract identifiers,
+    # so they are fixed for the bundled realm. For an external IdP, register a
+    # matching public client + audiences out of band.
+    webmodeler = {
+      client_id         = "web-modeler"
+      audience_internal = "web-modeler-api"
+      audience_public   = "web-modeler-public-api"
     }
   }
 }
