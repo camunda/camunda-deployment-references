@@ -73,7 +73,7 @@
 | <a name="output_database_writer_endpoint"></a> [database\_writer\_endpoint](#output\_database\_writer\_endpoint) | Writer endpoint of the current Aurora Global Database primary |
 | <a name="output_oidc_provider_arns"></a> [oidc\_provider\_arns](#output\_oidc\_provider\_arns) | OIDC provider ARN per active region slot, used to bind IRSA roles |
 | <a name="output_private_subnet_ids"></a> [private\_subnet\_ids](#output\_private\_subnet\_ids) | Private subnet IDs per active region slot, used by the database root module |
-| <a name="output_region_slot_count"></a> [region\_slot\_count](#output\_region\_slot\_count) | Number of region slots. Feeds `global.multiregion.regions` in the Camunda<br/>Helm values and therefore the Zeebe broker node ID stride. Immutable for<br/>the lifetime of the Camunda cluster. |
+| <a name="output_region_slot_count"></a> [region\_slot\_count](#output\_region\_slot\_count) | Number of region slots. Feeds `orchestration.multiregion.regions` in the Camunda<br/>Helm values and therefore the Zeebe broker node ID stride. Immutable for<br/>the lifetime of the Camunda cluster. |
 | <a name="output_regions"></a> [regions](#output\_regions) | Region slot definitions of the ACTIVE regions, indexed by slot number |
 | <a name="output_service_cidr_blocks"></a> [service\_cidr\_blocks](#output\_service\_cidr\_blocks) | Kubernetes service CIDR block per active region slot |
 | <a name="output_transit_gateway_ids"></a> [transit\_gateway\_ids](#output\_transit\_gateway\_ids) | Transit Gateway ID per active region slot |

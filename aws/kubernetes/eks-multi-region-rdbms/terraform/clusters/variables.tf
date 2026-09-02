@@ -4,7 +4,7 @@
 # `var.regions` describes the REGION SLOTS of the cluster. The number of slots  #
 # is baked into the Zeebe broker identity by the Camunda Helm chart:            #
 #                                                                              #
-#     nodeId = statefulSetOrdinal * global.multiregion.regions + regionId       #
+#     nodeId = statefulSetOrdinal * orchestration.multiregion.regions + regionId       #
 #                                                                              #
 # Changing the number of slots therefore renumbers every broker and is a        #
 # destructive operation. Pick the slot count up front, then bring regions       #

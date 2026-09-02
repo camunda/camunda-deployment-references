@@ -11,11 +11,40 @@
 # that must survive envsubst and reach the container at runtime.
 #
 # Every region installs the same release from this file. Only two values differ
-# per region: `global.multiregion.zone` and the advertised host, both injected
+# per region: `orchestration.multiregion.zone` and the advertised host, both injected
 # from the environment. The zone LIST is identical everywhere, which is what
 # makes the topology a single description rather than N of them.
 
 global:
+    security:
+        authentication:
+            # Basic auth for inter-component communication, because Management
+            # Identity (Keycloak) is not supported in multi-region setups.
+            method: basic
+    identity:
+        auth:
+            enabled: false
+
+# Management Identity is not available in multi-region topologies; the
+# Orchestration Cluster ships its own Admin component instead.
+identity:
+    enabled: false
+
+console:
+    enabled: false
+
+# Optimize requires Elasticsearch or OpenSearch and cannot run on RDBMS
+# secondary storage.
+optimize:
+    enabled: false
+
+# Connectors run in every region. They are idempotency-sensitive: an outbound
+# connector may be executed once per region if a job is retried across a region
+# boundary. Design your connector calls to be idempotent.
+connectors:
+    enabled: true
+
+orchestration:
     # Multiregion options for the Orchestration Cluster
     #
     ## WARNING: In order to get your multi-region setup covered by Camunda enterprise support
@@ -54,35 +83,6 @@ global:
         # Rendered as a JSON flow sequence, which is valid YAML, so this file
         # stays lintable as a template instead of only after substitution.
         zones: ${CAMUNDA_MULTIREGION_ZONES}
-    security:
-        authentication:
-            # Basic auth for inter-component communication, because Management
-            # Identity (Keycloak) is not supported in multi-region setups.
-            method: basic
-    identity:
-        auth:
-            enabled: false
-
-# Management Identity is not available in multi-region topologies; the
-# Orchestration Cluster ships its own Admin component instead.
-identity:
-    enabled: false
-
-console:
-    enabled: false
-
-# Optimize requires Elasticsearch or OpenSearch and cannot run on RDBMS
-# secondary storage.
-optimize:
-    enabled: false
-
-# Connectors run in every region. They are idempotency-sensitive: an outbound
-# connector may be executed once per region if a job is retried across a region
-# boundary. Design your connector calls to be idempotent.
-connectors:
-    enabled: true
-
-orchestration:
     # clusterSize spans ALL region slots: brokersPerRegion * regionSlots.
     clusterSize: '${CAMUNDA_CLUSTER_SIZE}'
     partitionCount: '${CAMUNDA_PARTITION_COUNT}'

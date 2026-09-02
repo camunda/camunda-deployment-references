@@ -19,7 +19,7 @@ set -euo pipefail
 #       cluster.
 #
 #   CAMUNDA_MULTIREGION_ZONES
-#       The `global.multiregion.zones` list, as a JSON flow sequence. Covers every
+#       The `orchestration.multiregion.zones` list, as a JSON flow sequence. Covers every
 #       zone SLOT, not only the deployed ones -- see the note on reserved
 #       replicas below -- and is byte-identical in every region's values file,
 #       which is what keeps the topology a single description.

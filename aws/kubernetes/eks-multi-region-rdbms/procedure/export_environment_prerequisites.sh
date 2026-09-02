@@ -68,7 +68,7 @@ export CAMUNDA_REPLICATION_FACTOR="${CAMUNDA_REPLICATION_FACTOR:-$((CAMUNDA_REPL
 
 # Zone awareness is not in a released chart yet. The reference architecture
 # builds the chart from source, so it is pinned to the branch implementing
-# `global.multiregion.mode: zoned`.
+# `orchestration.multiregion.mode: zoned`.
 #
 # The alternative was hand-assembling CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_*
 # environment variables against the released chart. That does not work: the

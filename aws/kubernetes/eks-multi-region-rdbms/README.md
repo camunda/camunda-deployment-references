@@ -65,7 +65,7 @@ Default shape, 3 regions:
 | Setting | Default | Meaning |
 |---|---|---|
 | `regions` (Terraform) | 3 | London, Paris, Zurich |
-| `global.multiregion.mode` | `zoned` | Zone-aware partitioning |
+| `orchestration.multiregion.mode` | `zoned` | Zone-aware partitioning |
 | `numberOfBrokers` per zone | 2 | Brokers deployed in that zone |
 | `numberOfReplicas` per zone | 1 | One replica of every partition per zone |
 | cluster size | 6 | Sum of `numberOfBrokers`, derived by the chart |
@@ -85,7 +85,7 @@ The cluster is described as a list of **zones**, one per region, using the
 `ZONE_AWARE` partitioning scheme:
 
 ```yaml
-global:
+orchestration:
   multiregion:
     mode: zoned
     zone: paris          # the only per-region value
@@ -118,7 +118,7 @@ documentation calls out this exact use of priority for RDBMS secondary storage.
 
 ### Why not the legacy numbering
 
-The previous iteration of this architecture used `global.multiregion.regions`,
+The previous iteration of this architecture used `orchestration.multiregion.regions`,
 where a broker's region is inferred from the parity of its node ID
 (`nodeId = ordinal * regions + regionId`). Camunda documents that scheme as
 working for **exactly two regions**, with zone awareness **required for three or

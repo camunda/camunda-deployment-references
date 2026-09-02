@@ -8,7 +8,7 @@
 
 output "region_slot_count" {
   description = <<-EOT
-    Number of region slots. Feeds `global.multiregion.regions` in the Camunda
+    Number of region slots. Feeds `orchestration.multiregion.regions` in the Camunda
     Helm values and therefore the Zeebe broker node ID stride. Immutable for
     the lifetime of the Camunda cluster.
   EOT
