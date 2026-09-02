@@ -112,7 +112,7 @@ runs:
 
         - name: Post diff on PR
           if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
-          uses: int128/comment-action@012d07c1feb8a1e85933b77c7f72a73d82026805 # v1
+          uses: int128/comment-action@81d88788677cae1d348427982397e0f8dc3e8a31 # v1
           with:
               update-if-exists: replace
               post: |
