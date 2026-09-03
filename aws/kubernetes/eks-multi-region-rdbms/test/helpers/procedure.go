@@ -94,7 +94,7 @@ func (e Env) Vars() []string {
 		// instead of sourcing export_environment_prerequisites.sh, so a ref set
 		// only there never reaches CI -- which is exactly what happened: the
 		// run built the released pin, silently ignored `mode: zoned`, and fell
-		// back to legacy numbering with every region numbering its brokers
+		// back to node-ID numbering with every region numbering its brokers
 		// identically.
 		"CAMUNDA_HELM_CHART_GIT_REF":  GetEnv("CAMUNDA_HELM_CHART_GIT_REF", "feat/zoned-mode-node-id"),
 		"CAMUNDA_BASIC_AUTH_USER":     GetEnv("CAMUNDA_BASIC_AUTH_USER", "demo"),

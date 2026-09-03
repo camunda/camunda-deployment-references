@@ -55,7 +55,7 @@ BROKER_IMAGE="$(helm show values "$LOCAL_CHART" |
 
 # Fail fast when the values ask for zone awareness but the built chart cannot
 # deliver it. Without this the chart silently ignores the unknown values, falls
-# back to the legacy numbering, and every region numbers its brokers
+# back to node-ID numbering, and every region numbers its brokers
 # identically -- which surfaces ninety minutes later as brokers that cannot
 # find each other, and reads like a networking problem.
 _values_template="$(cd "$(dirname "${BASH_SOURCE[0]}")/../helm-values" && pwd)/camunda-values.yml"

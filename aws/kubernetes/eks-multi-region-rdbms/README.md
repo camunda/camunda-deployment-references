@@ -116,22 +116,37 @@ writer avoids the inter-region round trip on every export flush. That cost is
 measured — see [Day-2 operations](#day-2-operations) — and the Camunda
 documentation calls out this exact use of priority for RDBMS secondary storage.
 
-### Why not the legacy numbering
+### Why not broker numbering
 
-The previous iteration of this architecture used `orchestration.multiregion.regions`,
-where a broker's region is inferred from the parity of its node ID
-(`nodeId = ordinal * regions + regionId`). Camunda documents that scheme as
-working for **exactly two regions**, with zone awareness **required for three or
-more** and recommended for all new deployments.
+The chart offers two ways to tell a broker which region it is in, through
+`orchestration.multiregion.mode`. The `legacy` value — the chart's name for it —
+numbers brokers and derives the region from the number: with
+`orchestration.multiregion.regions`, a broker's region is the parity of its node
+ID (`nodeId = ordinal * regions + regionId`). The `zoned` value names the region
+instead, and the name becomes part of the broker's identity.
 
-That is not a labelling change. Three properties this architecture used to have
-were consequences of the numbering, and all three are gone:
+**This is a configuration choice, not an architecture.** A dual-region cluster
+configured with zones is still a dual-region cluster: two regions, two
+Elasticsearch exporters, the same secondary-storage setup and the same manual
+failover when a region is lost. Nothing in the
+[dual-region procedure](../eks-dual-region/README.md) changes because the brokers
+are called `region-a_0` instead of `0`.
 
-| Legacy consequence | With zones |
+What the numbering does decide is what the cluster can do afterwards, and this is
+why this architecture uses zones:
+
+| Numbering by node ID | Naming by zone |
 |---|---|
-| Region count immutable — changing it renumbers every broker | Zones are named; the count can change |
+| Region count is baked into every broker's identity — changing it renumbers the whole cluster | Zones are named; the count is not encoded in an identity |
 | `clusterSize` must divide evenly by the region count | Each zone declares its own broker count, so 2-2-1 is expressible |
 | A broker's identity encodes arithmetic | Identity is `<zone>_<index>`, readable from the broker name |
+
+Camunda documents the numbering as working for **exactly two regions**, with zone
+awareness **required for three or more**. Zone awareness is the configuration to
+use for a new deployment, and the reason is practical rather than editorial:
+because the region count is part of broker identity under numbering, moving an
+existing cluster onto zones renumbers its brokers, so the choice is effectively
+made once, at bootstrap.
 
 ## Zones vs active regions
 

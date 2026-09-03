@@ -49,14 +49,14 @@ orchestration:
     # reference, not a production configuration; see ../README.md for what it
     # does and does not cover.
     multiregion:
-        # Zone awareness, not the legacy parity-based numbering.
+        # Zone awareness, not the node-ID numbering the chart calls `legacy`.
         #
-        # The legacy scheme infers a broker's region from the parity of its node
-        # ID, which only works for exactly two regions and is what made the
-        # region count immutable: changing it renumbered every broker. Zone
-        # awareness names the zones instead, so brokers are identified as
-        # <zone>_<index> and the topology can change. It is required for three
-        # or more zones and is the recommended approach for new deployments.
+        # That mode infers a broker's region from the parity of its node ID,
+        # which only works for exactly two regions and is what made the region
+        # count immutable: changing it renumbered every broker. Zone awareness
+        # names the zones instead, so brokers are identified as <zone>_<index>
+        # and the topology can change. It is the configuration to use for a new
+        # deployment, and required for three or more zones.
         # See ../README.md, "Zones".
         mode: zoned
         # The zone THIS deployment belongs to. The only per-region value here.

@@ -147,7 +147,7 @@ fi
 # No clusterSize/slots divisibility check any more: in zoned mode the chart
 # derives the StatefulSet replica count from the zone's own numberOfBrokers, and
 # the cluster size from the sum across zones. Asymmetric zones are therefore
-# expressible, which the legacy integer division could not do.
+# expressible, which the integer division of node-ID numbering could not do.
 
 echo "Multi-region environment:"
 echo "  region slots       : $CAMUNDA_REGION_SLOTS (active: $CAMUNDA_ACTIVE_REGIONS)"
