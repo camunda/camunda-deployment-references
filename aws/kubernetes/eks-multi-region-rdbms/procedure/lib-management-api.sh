@@ -109,29 +109,6 @@ camunda::use_surviving_region() {
     return 1
 }
 
-# camunda::region_node_ids <slot> -> space-separated broker IDs of a slot.
-#
-# Zone-aware brokers are addressed by the composite ID `<zone>_<index>`, where
-# the index runs from 0 to numberOfBrokers-1 inside each zone. That is what the
-# management API answers with, and what it expects back:
-#
-#   {"brokers":[{"id":"zurich_0", ...},{"id":"zurich_1", ...}]}
-#
-# check-cluster-topology.sh takes the same format apart to attribute brokers to
-# zones; the two have to agree on the separator.
-camunda::region_node_ids() {
-    local slot="$1"
-    local zone
-    zone="$(camunda::zone_name "$slot")" || return 1
-
-    local ids=()
-    local index
-    for ((index = 0; index < CAMUNDA_BROKERS_PER_REGION; index++)); do
-        ids+=("${zone}_${index}")
-    done
-    echo "${ids[@]}"
-}
-
 # camunda::_request <context> <local-port> <remote-port> <auth> <method> <path> [body]
 #
 # The one place that talks HTTP to a gateway. Prints the response body, sets

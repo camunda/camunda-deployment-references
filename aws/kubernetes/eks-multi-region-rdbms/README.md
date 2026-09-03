@@ -438,8 +438,20 @@ when the writer was in the lost region:
 `DELETE /actuator/cluster/zones/<zone>`. One atomic change evicts its brokers and
 drops the zone from the persisted partition distribution, so quorum stops
 counting replicas that cannot answer. `failback.sh` puts it back with
-`POST /actuator/cluster/zones/<zone>`, supplying the replica count and priority
-from the same zone list the chart deploys.
+`POST /actuator/cluster/zones/<zone>`, supplying the replica count, priority and
+broker count from the same zone list the chart deploys.
+
+> [!IMPORTANT]
+> The re-add names the brokers by count. The endpoint expands `numberOfBrokers`
+> into `<zone>_0 .. <zone>_<n-1>` itself, which is where the ids come from when
+> the removal has left no membership to read them back from. That form needs an
+> engine carrying [camunda/camunda#61775][add-zone-count], which reached
+> `stable/8.10` **after `8.10.0-alpha5`**; an older build rejects the body. Older
+> builds, and a zone returning with non-contiguous ids — two of its three
+> brokers, say — take the explicit `{"brokers":["<zone>_0", ...]}` form, which
+> stays supported.
+
+[add-zone-count]: https://github.com/camunda/camunda/pull/61775
 
 Whether you need it is a function of how many zones are left:
 

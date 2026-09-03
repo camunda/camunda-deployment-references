@@ -130,8 +130,9 @@ echo "Broker distribution across zones:"
 for ((slot = 0; slot < CAMUNDA_REGION_SLOTS; slot++)); do
     zone="${_zone_names[$slot]:-slot-$slot}"
 
-    # Strip the trailing index off `brokerId`, rather than splitting on the first
-    # underscore, so a zone whose name contains one still resolves.
+    # Strip the trailing index off `brokerId`. The engine reserves `_` as the
+    # zone/index separator and rejects it inside a zone name, so what is left is
+    # the zone name, whole.
     count="$(jq --arg zone "$zone" \
         '[.brokers[] | select((.brokerId | sub("_[0-9]+$"; "")) == $zone)] | length' \
         "$OUTPUT_FILE")"
