@@ -58,7 +58,11 @@ if [[ -z "$CLUSTER_FILTER" ]]; then
     kubectl wait --for=condition=Ready --timeout=600s cluster --all -n "$CAMUNDA_NAMESPACE"
 else
     echo "Filtered deployment: $CLUSTER_FILTER"
-    IFS=',' read -ra CLUSTERS <<< "$CLUSTER_FILTER"
+    # Cluster names carry no spaces, so strip them: a copy-pasted
+    # "pg-keycloak, pg-camunda" would otherwise yield " pg-camunda", which
+    # matches neither the orchestration manifest nor any name in
+    # postgresql-clusters.yml, and only surfaces later as a kubectl wait timeout.
+    IFS=',' read -ra CLUSTERS <<< "${CLUSTER_FILTER// /}"
     for cluster in "${CLUSTERS[@]}"; do
         # pg-camunda is defined in a separate orchestration manifest
         if [[ "$cluster" == "pg-camunda" ]]; then
