@@ -23,7 +23,7 @@ No modules.
 | <a name="input_availability_zones"></a> [availability\_zones](#input\_availability\_zones) | Availability zones of the regional cluster. Only honoured on the primary member. | `list(string)` | `null` | no |
 | <a name="input_backup_retention_period"></a> [backup\_retention\_period](#input\_backup\_retention\_period) | Number of days automated backups are retained | `number` | `7` | no |
 | <a name="input_ca_cert_identifier"></a> [ca\_cert\_identifier](#input\_ca\_cert\_identifier) | Certificate authority used by the cluster instances | `string` | `"rds-ca-rsa2048-g1"` | no |
-| <a name="input_cluster_identifier"></a> [cluster\_identifier](#input\_cluster\_identifier) | Identifier of the regional Aurora cluster. Format: /[[:lower:][:digit:]-]/ | `string` | n/a | yes |
+| <a name="input_cluster_identifier"></a> [cluster\_identifier](#input\_cluster\_identifier) | Identifier of the regional Aurora cluster. Lowercase letters, digits and hyphens, starting with a letter and not ending with one. | `string` | n/a | yes |
 | <a name="input_database_name"></a> [database\_name](#input\_database\_name) | Name of the initial database. Only honoured on the primary member. | `string` | `"camunda"` | no |
 | <a name="input_engine"></a> [engine](#input\_engine) | Aurora engine type. Only aurora-postgresql is exercised by the reference architecture. | `string` | `"aurora-postgresql"` | no |
 | <a name="input_engine_version"></a> [engine\_version](#input\_engine\_version) | Aurora engine version. Must match the version of the global cluster. | `string` | `"17.9"` | no |

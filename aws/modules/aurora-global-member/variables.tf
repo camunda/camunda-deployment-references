@@ -1,5 +1,5 @@
 variable "cluster_identifier" {
-  description = "Identifier of the regional Aurora cluster. Format: /[[:lower:][:digit:]-]/"
+  description = "Identifier of the regional Aurora cluster. Lowercase letters, digits and hyphens, starting with a letter and not ending with one."
   type        = string
 }
 
