@@ -49,7 +49,7 @@ orchestration:
     # reference, not a production configuration; see ../README.md for what it
     # does and does not cover.
     multiregion:
-        # Zone awareness, not the node-ID numbering the chart calls `legacy`.
+        # Zone awareness, rather than the mode that numbers the brokers.
         #
         # That mode infers a broker's region from the parity of its node ID,
         # which only works for exactly two regions and is what made the region

@@ -119,11 +119,11 @@ documentation calls out this exact use of priority for RDBMS secondary storage.
 ### Why not broker numbering
 
 The chart offers two ways to tell a broker which region it is in, through
-`orchestration.multiregion.mode`. The `legacy` value — the chart's name for it —
-numbers brokers and derives the region from the number: with
-`orchestration.multiregion.regions`, a broker's region is the parity of its node
-ID (`nodeId = ordinal * regions + regionId`). The `zoned` value names the region
-instead, and the name becomes part of the broker's identity.
+`orchestration.multiregion.mode`. One numbers the brokers and derives the region
+from the number: with `orchestration.multiregion.regions`, a broker's region is
+the parity of its node ID (`nodeId = ordinal * regions + regionId`). The `zoned`
+mode names the region instead, and the name becomes part of the broker's
+identity. This architecture sets `zoned`.
 
 **This is a configuration choice, not an architecture.** A dual-region cluster
 configured with zones is still a dual-region cluster: two regions, two
