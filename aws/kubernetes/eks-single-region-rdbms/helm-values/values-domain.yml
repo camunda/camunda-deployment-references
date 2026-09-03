@@ -21,6 +21,7 @@
 #   - DB_ORCHESTRATION_USERNAME, DB_ORCHESTRATION_NAME: Orchestration (secondary storage) connection
 
 global:
+    host: ${CAMUNDA_DOMAIN}
     security:
         authentication:
             method: oidc
@@ -28,7 +29,6 @@ global:
     ingress:
         enabled: true
         className: contour
-        host: ${CAMUNDA_DOMAIN}
         tls:
             enabled: true
             secretName: camunda-c8-tls

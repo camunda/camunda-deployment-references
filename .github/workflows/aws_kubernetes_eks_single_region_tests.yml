@@ -53,7 +53,8 @@ on:
                 description: |
                     Reference architecture to use, can only deploy one at a time.
                     Use a different trigger with unique names for each ref-arch.
-                    Valid values are `eks-single-region` and `eks-single-region-irsa`.
+                    Valid values are `eks-single-region`, `eks-single-region-irsa`
+                    and `eks-single-region-rdbms`.
                     Only for workflow_dispatch.
                 required: false
                 type: string
@@ -203,6 +204,11 @@ jobs:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  # The RDBMS variant ships no opensearch.tf, so there is no
+                  # locals.opensearch_domain_name for the action's override file to
+                  # target, and Terraform rejects an override for a local that does
+                  # not exist in the primary configuration.
+                  deploy-opensearch: ${{ matrix.scenario.secondary_storage != 'rdbms' }}
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
                   ref-arch: ${{ matrix.scenario.name }}
@@ -813,7 +819,7 @@ jobs:
                   ./generic/kubernetes/single-region/procedure/create-oidc-secrets.sh
 
             - name: 🛠️ Configure OpenSearch fine grained access control
-              if: contains(matrix.scenario.name, 'irsa')
+              if: matrix.scenario.secondary_storage == 'opensearch' && contains(matrix.scenario.name, 'irsa')
               timeout-minutes: 10
               run: |
                   set -euo pipefail
