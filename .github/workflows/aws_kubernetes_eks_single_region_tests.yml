@@ -543,6 +543,11 @@ jobs:
 
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
+              env:
+                  # Copy the revision under test rather than the published branch,
+                  # which does not carry a reference architecture that is still in
+                  # review. Scripts that pin their branch ignore this.
+                  REF_ARCH_BRANCH: ${{ github.head_ref || github.ref_name }}
               run: |
                   # run it as specified in the doc
                   set -euo pipefail
