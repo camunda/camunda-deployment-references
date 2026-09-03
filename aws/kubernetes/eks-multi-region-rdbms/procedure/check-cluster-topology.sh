@@ -42,19 +42,27 @@ context="${CAMUNDA_TOPOLOGY_CONTEXT:-${contexts[0]}}"
 
 # A stretched cluster does not converge instantly: brokers dial each other
 # across regions, and the README budgets 10-20 minutes for the Raft cluster to
-# form. Poll until the expected broker count is reached rather than sampling
-# once, which would report a transient state as a failure.
+# form. Poll until the cluster has settled rather than sampling once, which
+# would report a transient state as a failure.
 expected_brokers=$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_ACTIVE_REGIONS))
 deadline=$((SECONDS + ${TOPOLOGY_TIMEOUT_SECONDS:-1500}))
 
-echo "Waiting for $expected_brokers broker(s) to join the cluster ..."
+echo "Waiting for $expected_brokers broker(s) to join and their replicas to catch up ..."
 while true; do
     # Each poll opens its own tunnel, so a gateway that restarted between two of
     # them costs one iteration rather than the rest of the wait.
     if camunda::gateway_get "$context" /v2/topology >"$OUTPUT_FILE" 2>/dev/null; then
-        current="$(jq '.brokers | length // 0' "$OUTPUT_FILE" 2>/dev/null || echo 0)"
-        if [ "$current" -ge "$expected_brokers" ]; then
-            echo "  $current/$expected_brokers brokers present."
+        brokers="$(jq '.brokers | length // 0' "$OUTPUT_FILE" 2>/dev/null || echo 0)"
+        # A broker answers the topology as soon as it joins, while its replicas
+        # are still catching up from the leaders, and reports those as
+        # `unhealthy` until they do. Waiting on the broker count alone therefore
+        # samples a converging cluster and reports a transient state as a
+        # failure. Both conditions share this deadline; the assertions below
+        # report whichever is still wrong when it expires.
+        unhealthy="$(jq '[.brokers[]?.partitions[]? | select(.health != "healthy")] | length' "$OUTPUT_FILE" 2>/dev/null || echo 0)"
+        current="$brokers broker(s), $unhealthy unhealthy replica(s)"
+        if [ "$brokers" -ge "$expected_brokers" ] && [ "$unhealthy" -eq 0 ]; then
+            echo "  $brokers/$expected_brokers brokers present, every replica healthy."
             break
         fi
     elif [ "$CAMUNDA_LAST_STATUS" = "401" ] || [ "$CAMUNDA_LAST_STATUS" = "403" ]; then
@@ -72,7 +80,7 @@ while true; do
 
     if [ "$SECONDS" -ge "$deadline" ]; then
         echo "ERROR: the cluster did not converge within ${TOPOLOGY_TIMEOUT_SECONDS:-1500}s." >&2
-        echo "       Last observation: $current, expected $expected_brokers." >&2
+        echo "       Last observation: $current; expected $expected_brokers broker(s), none unhealthy." >&2
         case "$CAMUNDA_LAST_STATUS" in
         401 | 403)
             echo "       The gateway never accepted the credentials, so this is a" >&2
@@ -85,7 +93,7 @@ while true; do
         exit 1
     fi
 
-    echo "  $current/$expected_brokers, waiting ..."
+    echo "  $current, waiting ..."
     sleep 20
 done
 
