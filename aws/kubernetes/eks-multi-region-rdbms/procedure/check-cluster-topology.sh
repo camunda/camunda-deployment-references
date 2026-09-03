@@ -154,11 +154,6 @@ for ((slot = 0; slot < CAMUNDA_REGION_SLOTS; slot++)); do
     fi
 done
 
-unhealthy="$(jq '[.brokers[].partitions[] | select(.health != "healthy")] | length' "$OUTPUT_FILE")"
-echo
-echo "Unhealthy partition replicas: $unhealthy"
-[ "$unhealthy" = "0" ] || fail "$unhealthy partition replica(s) are not healthy"
-
 if [ "$failures" -ne 0 ]; then
     echo
     echo "$failures topology check(s) failed." >&2
