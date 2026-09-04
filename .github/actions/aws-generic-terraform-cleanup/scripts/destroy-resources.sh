@@ -323,7 +323,14 @@ remediate_vpc_dependencies() {
       cleanup_vpc_dependencies "$retry_vpc" "$AWS_REGION"
     fi
   elif [[ "$module_name" == "clusters" ]]; then
-    if [[ -z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION" ]]; then
+    if [[ -n "${CLEANUP_REGIONS:-}" ]]; then
+      local region retry_vpc
+      for region in $CLEANUP_REGIONS; do
+        retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
+                    --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
+        [[ -n "$retry_vpc" && "$retry_vpc" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc" "$region"
+      done
+    elif [[ -z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION" ]]; then
       echo "[$group_id][$module_name] Warning: CLUSTER_0_AWS_REGION or CLUSTER_1_AWS_REGION not set, skipping VPC cleanup retry"
     else
       local retry_vpc1 retry_vpc2 retry_c1 retry_c2
@@ -470,7 +477,33 @@ destroy_module() {
     tf_config_file="$SCRIPT_DIR/config-dual-region"
 
     # Pre-cleanup for dual-region: same rationale as single-cluster above.
-    if [[ "$module_name" == "clusters" ]]; then
+    if [[ "$module_name" == "clusters" && -n "${CLEANUP_REGIONS:-}" ]]; then
+      local region vpc_check
+      for region in $CLEANUP_REGIONS; do
+        vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
+                    --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
+        if [[ -n "$vpc_check" && "$vpc_check" != "None" ]]; then
+          echo "[$group_id][$module_name] Pre-cleanup: removing orphan resources in VPC $vpc_check ($region)..."
+          cleanup_vpc_dependencies "$vpc_check" "$region"
+        fi
+      done
+
+      if [[ "$RETRY_DESTROY" == "true" ]]; then
+        echo "[$group_id][$module_name] Retry: running cloud-nuke on multi-region VPCs as fallback..."
+        local nuke_config="${temp_dir}/matching-vpc.yml"
+        mkdir -p "$temp_dir"
+        cp "$SCRIPT_DIR/matching-vpc.yml" "$nuke_config"
+        local safe_id
+        safe_id=$(printf '%s' "$group_id" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
+        NAME_REGEX="^${safe_id}.*" yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX)]' -i "$nuke_config"
+        for region in $CLEANUP_REGIONS; do
+          vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
+                      --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
+          [[ -n "$vpc_check" && "$vpc_check" != "None" ]] && \
+            cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$region" --force
+        done
+      fi
+    elif [[ "$module_name" == "clusters" ]]; then
       local vpc1_check vpc2_check
       vpc1_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_0_name}*" \
                    --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_0_AWS_REGION" 2>/dev/null)

@@ -122,7 +122,7 @@ jobs:
             - name: Delete clusters
               id: delete_clusters
               continue-on-error: true
-              timeout-minutes: 115
+              timeout-minutes: 125
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
@@ -137,7 +137,7 @@ jobs:
             - name: Retry delete clusters
               id: retry_delete_clusters
               if: steps.delete_clusters.outcome == 'failure'
-              timeout-minutes: 115
+              timeout-minutes: 125
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
