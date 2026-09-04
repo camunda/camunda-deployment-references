@@ -101,13 +101,12 @@ else
         exit 1
     fi
 
-    # The endpoint expands numberOfBrokers into `<zone>_0 .. <zone>_<n-1>`, the
-    # ids a zone-aware broker assigns itself, so the body is a projection of the
-    # zone spec and no engine-internal naming is reproduced here. Needs an engine
-    # carrying camunda/camunda#61775, which reached stable/8.10 after
-    # 8.10.0-alpha5. Older builds, and a zone returning with non-contiguous ids,
-    # take the still-supported {"brokers":["<zone>_0",...]} form instead.
-    body="$(echo "$zone_spec" | jq -c '{numberOfReplicas, priority, numberOfBrokers}')"
+    # The source-built chart currently pins the alpha5 engine image, which
+    # predates numberOfBrokers. Its still-supported API shape takes explicit
+    # broker IDs instead.
+    brokers_json="$(camunda::region_node_ids "$RECOVERED_SLOT" | tr ' ' '\n' | jq -R . | jq -sc .)"
+    body="$(echo "$zone_spec" | jq -c --argjson brokers "$brokers_json" \
+        '{numberOfReplicas, priority, brokers: $brokers}')"
 
     # Printed before it is sent, so the exact request can be replayed by hand
     # against `?dryRun=true` before committing to it.

@@ -457,14 +457,12 @@ counting replicas that cannot answer. `failback.sh` puts it back with
 broker count from the same zone list the chart deploys.
 
 > [!IMPORTANT]
-> The re-add names the brokers by count. The endpoint expands `numberOfBrokers`
-> into `<zone>_0 .. <zone>_<n-1>` itself, which is where the ids come from when
-> the removal has left no membership to read them back from. That form needs an
-> engine carrying [camunda/camunda#61775][add-zone-count], which reached
-> `stable/8.10` **after `8.10.0-alpha5`**; an older build rejects the body. Older
-> builds, and a zone returning with non-contiguous ids — two of its three
-> brokers, say — take the explicit `{"brokers":["<zone>_0", ...]}` form, which
-> stays supported.
+> The source-built chart currently deploys `8.10.0-alpha5`, so the re-add uses
+> the explicit `{"brokers":["<zone>_0", ...]}` form supported by that engine.
+> [camunda/camunda#61775][add-zone-count] later added `numberOfBrokers`, which
+> lets the endpoint derive `<zone>_0 .. <zone>_<n-1>` itself. The procedure can
+> switch to that shorter form once the chart pins an engine containing the
+> stable/8.10 backport. Explicit IDs remain useful for non-contiguous recovery.
 
 [add-zone-count]: https://github.com/camunda/camunda/pull/61775
 

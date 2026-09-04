@@ -206,9 +206,12 @@ func TestMultiRegionRegionLoss(t *testing.T) {
 	helpers.RunProcedure(t, env, 10*time.Minute, "failover.sh",
 		strconv.Itoa(lostSlot), "--drain-brokers", "--dry-run")
 
-	// failover.sh ends on verify-degraded-cluster.sh, which is what "the cluster
-	// keeps processing" means here: the surviving regions still accept work.
-	helpers.RunProcedure(t, env, 20*time.Minute, "failover.sh", strconv.Itoa(lostSlot))
+	// Exercise the real membership change after rehearsing it. failover.sh ends
+	// on verify-degraded-cluster.sh, which proves the surviving regions still
+	// accept work after the zone is removed. TestMultiRegionFailback then covers
+	// the matching POST that restores it.
+	helpers.RunProcedure(t, env, 20*time.Minute, "failover.sh",
+		strconv.Itoa(lostSlot), "--drain-brokers")
 }
 
 // TestMultiRegionFailback brings the lost region back.
