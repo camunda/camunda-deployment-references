@@ -38,13 +38,6 @@ locals {
       description = "Orchestration Cluster v2 REST API"
     },
     {
-      key         = "orchestration-management"
-      from_port   = 9600
-      to_port     = 9600
-      ip_protocol = "tcp"
-      description = "Orchestration Cluster management API, used by the failover and scaling procedures"
-    },
-    {
       key         = "kubernetes-dns"
       from_port   = 53
       to_port     = 53

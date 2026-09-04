@@ -360,13 +360,12 @@ part a reader actually needs. There are no tunnel ports: there is no tunnel.
 |---|---|---|
 | 26500-26502 | TCP | Zeebe gateway gRPC, command API, and the internal API carrying Raft |
 | 8080 | TCP | Orchestration Cluster v2 REST API |
-| 9600 | TCP | Orchestration management API |
 | 53 | TCP/UDP | CoreDNS and Lighthouse |
 | — | ICMP | Cross-region connectivity diagnostics |
 
 Each rule is instantiated once per remote VPC range and once per remote service
-range, so the count grows linearly with the region count: 24 inbound rules at
-three regions, 36 at four, against an AWS limit of 60 per security group.
+range, so the count grows linearly with the region count: 20 inbound rules at
+three regions, 30 at four, against an AWS limit of 60 per security group.
 `checks.tf` asserts that budget at plan time rather than letting the apply fail
 after the clusters exist.
 
@@ -433,7 +432,7 @@ converge across regions.
 |---|---|
 | Verify the topology | `./procedure/check-cluster-topology.sh` |
 | Activate a provisioned but empty region | `./procedure/activate-region.sh <slot>` |
-| Handle a region loss | `./procedure/failover.sh <slot> [--unplanned]` |
+| Handle a region loss | `./procedure/failover.sh <slot>` |
 | Bring a region back | `./procedure/failback.sh <slot> [--switch-writer]` |
 | Probe the cross-region substrate | `./procedure/verify-cross-region-connectivity.sh` |
 | Measure the write path to the database | `./procedure/measure-rdbms-latency.sh` |
@@ -446,8 +445,9 @@ quorum and needs no intervention. Its real work is the database writer, and only
 when the writer was in the lost region:
 
 - **planned** — `failover-global-cluster`, a switchover with no data loss;
-- **unplanned** — `remove-from-global-cluster`, which promotes a surviving
-  member and loses whatever had not replicated yet.
+Unplanned Aurora Global Database recovery is intentionally not automated. It
+changes membership outside Terraform and requires the AWS recovery procedure
+before this Camunda failback can continue.
 
 `--drain-brokers` force-removes the lost zone, through
 `DELETE /actuator/cluster/zones/<zone>`. One atomic change evicts its brokers and
@@ -487,11 +487,6 @@ That reports the plan the API would execute and changes nothing, neither the
 zone nor the database writer. `failback.sh` prints the body of its re-add before
 sending it, so the return trip can be replayed the same way against
 `?dryRun=true`.
-
-That is not theory. Run `33055779396` passed both `TestMultiRegionRegionLoss` and
-`TestMultiRegionFailback` on a three-zone cluster with no membership change at
-all: `failover.sh` only read `GET /actuator/cluster`, and the region came back by
-being redeployed.
 
 ### Upgrades
 

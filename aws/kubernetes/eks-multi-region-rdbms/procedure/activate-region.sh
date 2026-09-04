@@ -38,7 +38,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$SLOT" -ge "$CAMUNDA_REGION_SLOTS" ]; then
     echo "ERROR: slot $SLOT is outside the provisioned slot range (0..$((CAMUNDA_REGION_SLOTS - 1)))." >&2
-    echo "       The slot count is immutable; growing it renumbers every broker." >&2
+    echo "       The zone list is fixed at bootstrap; only a declared zone can be activated." >&2
     exit 1
 fi
 

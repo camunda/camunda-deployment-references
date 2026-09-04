@@ -54,9 +54,9 @@ orchestration:
         # That mode infers a broker's region from the parity of its node ID,
         # which only works for exactly two regions and is what made the region
         # count immutable: changing it renumbered every broker. Zone awareness
-        # names the zones instead, so brokers are identified as <zone>_<index>
-        # and the topology can change. It is the configuration to use for a new
-        # deployment, and required for three or more zones.
+        # names the zones instead, so brokers are identified as <zone>_<index>.
+        # It is the configuration to use for a new deployment, and required for
+        # three or more zones.
         # See ../README.md, "Zones".
         mode: zoned
         # The zone THIS deployment belongs to. The only per-region value here.
@@ -81,9 +81,8 @@ orchestration:
     clusterSize: '${CAMUNDA_CLUSTER_SIZE}'
     partitionCount: '${CAMUNDA_PARTITION_COUNT}'
     # replicationFactor == number of region slots places exactly one replica of
-    # every partition in each region, because the chart node ID stride is the
-    # region count and Zeebe distributes partitions round robin over
-    # consecutive node IDs. With N >= 3 slots the cluster keeps its quorum when
+    # every partition in each region through the zone specification above. With
+    # N >= 3 slots the cluster keeps its quorum when
     # a whole region is lost, which is the property this architecture exists
     # for. See ../README.md, section "Why the replication factor equals the
     # number of regions".
