@@ -38,7 +38,9 @@ export CAMUNDA_DOMAIN
 # Both secondary-storage modes need the application PG clusters
 # (Keycloak, Identity, WebModeler). RDBMS (postgres) mode additionally needs the
 # orchestration cluster (pg-camunda), appended just before deployment below.
-CLUSTER_FILTER="pg-keycloak,pg-identity,pg-webmodeler"
+# Overridable, as the usage above advertises, so a debugging session can deploy
+# a subset.
+CLUSTER_FILTER="${CLUSTER_FILTER:-pg-keycloak,pg-identity,pg-webmodeler}"
 
 export CAMUNDA_NAMESPACE
 
