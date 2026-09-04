@@ -137,6 +137,15 @@ repos:
             files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/cleanup-ghost-rosa-clusters\.sh$
             pass_filenames: false
 
+          - id: skip-decision-selftest
+            name: Skip-label decision self-test
+            # yamllint disable-line rule:line-length
+            entry: bash .github/actions/internal-triage-skip/scripts/skip-decision.sh selftest
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^\.github/actions/internal-triage-skip/scripts/skip-decision\.sh$
+            pass_filenames: false
+
           - id: cleanup-coverage
             name: Daily cleanups cover every test scenario
             entry: .lint/cleanup-coverage/check-cleanup-coverage.py
@@ -151,6 +160,22 @@ repos:
             entry: python3 -m unittest discover -s .lint/cleanup-coverage -p 'test_*.py'
             language: system
             files: ^\.lint/cleanup-coverage/.*\.py$
+            pass_filenames: false
+
+          - id: reporter-coverage
+            name: The CI events reporter watches every integration suite
+            entry: .lint/reporter-coverage/check-reporter-coverage.py
+            language: script
+            # yamllint disable-line rule:line-length
+            files: ^\.github/workflows/.*\.ya?ml$|^\.lint/reporter-coverage/
+            pass_filenames: false
+
+          - id: python-unittest-reporter-coverage
+            name: Python unit tests (reporter coverage)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/reporter-coverage -p 'test_*.py'
+            language: system
+            files: ^\.lint/reporter-coverage/.*\.py$
             pass_filenames: false
 
           - id: matrix-skip-guard

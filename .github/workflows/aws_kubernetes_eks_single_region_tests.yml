@@ -882,11 +882,6 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  # global.opensearch.enabled is deprecated but still required for the legacy Operate
-                  # OpensearchConnector which gates awsEnabled on this flag (see values-domain.yml)
-                  # TODO: remove exclude-patterns and global.opensearch from values once the legacy Operate connector is removed from the Helm chart
-                  exclude-patterns: |
-                      global.opensearch.enabled
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
@@ -1166,6 +1161,11 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
+                  # Both destroy passes have to fit the 15 minutes above, or the runner kills
+                  # the step and the cleanup logs never upload. The cognito module is small,
+                  # so 8 + 4 leaves room for the artifact.
+                  destroy-pass-timeout-minutes: '8'
+                  retry-destroy-pass-timeout-minutes: '4'
                   target: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
                   fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
                   tf-bucket-key-prefix: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/
