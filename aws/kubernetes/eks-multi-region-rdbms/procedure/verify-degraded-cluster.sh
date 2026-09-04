@@ -6,9 +6,8 @@ set -euo pipefail
 #   ./verify-degraded-cluster.sh <lost-slot>
 #
 # The point of the multi-region topology is that this state is NOT an outage:
-# every partition keeps a majority of its replicas, so the engine accepts new
-# work. The checks below are therefore about liveness, not about completeness of
-# the replica set.
+# every partition keeps a majority of its replicas. The checks below prove
+# quorum and API availability, not completeness of the replica set.
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_NAMESPACE:?CAMUNDA_NAMESPACE must be set, source export_environment_prerequisites.sh}"
@@ -96,4 +95,4 @@ case "$response" in
 esac
 
 echo
-echo "The cluster survived the loss of region slot $LOST_SLOT without intervention."
+echo "The cluster kept quorum and API availability after losing region slot $LOST_SLOT."

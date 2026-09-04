@@ -17,6 +17,7 @@ set -euo pipefail
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_NAMESPACE:?CAMUNDA_NAMESPACE must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_RELEASE_NAME:?CAMUNDA_RELEASE_NAME must be set, source export_environment_prerequisites.sh}"
+: "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
 
 if [ $# -ne 1 ]; then
     echo "usage: $0 <region-slot>" >&2
@@ -24,18 +25,23 @@ if [ $# -ne 1 ]; then
 fi
 
 SLOT="$1"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=SCRIPTDIR/lib-management-api.sh
+. "$SCRIPT_DIR/lib-management-api.sh"
+camunda::require_slot "$SLOT" "the region-loss slot"
+
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 context="${contexts[$SLOT]}"
 
 echo "Simulating the loss of region slot $SLOT ($context)"
 
 helm --kube-context "$context" --namespace "$CAMUNDA_NAMESPACE" \
-    uninstall "$CAMUNDA_RELEASE_NAME" --wait --timeout 10m || true
+    uninstall "$CAMUNDA_RELEASE_NAME" --wait --timeout 10m
 
 # The PVCs must go too: a region that comes back reuses its node IDs but must
 # rebuild its Raft state from the surviving replicas, which is what a genuinely
 # lost region would do.
 kubectl --context "$context" --namespace "$CAMUNDA_NAMESPACE" \
-    delete pvc --all --wait=false || true
+    delete pvc --all --ignore-not-found --wait=true --timeout=5m
 
 echo "Region slot $SLOT no longer runs Camunda."
