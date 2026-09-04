@@ -102,7 +102,11 @@ fi
 
 echo
 echo "--> Current cluster view"
-camunda::management "$survivor_context" GET /actuator/cluster | jq '{lastChange, brokers: [.brokers[]?.id]}'
+if cluster_view="$(camunda::management "$survivor_context" GET /actuator/cluster 2>/dev/null)"; then
+    echo "$cluster_view" | jq '{lastChange, brokers: [.brokers[]?.id]}'
+else
+    echo "    unavailable while the lost coordinator leaves the cluster; continuing with the quorum verified above."
+fi
 
 ###############################################################################
 # 2. Database writer                                                          #
