@@ -76,7 +76,7 @@ jobs:
         needs: [triage]
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
-        timeout-minutes: 120
+        timeout-minutes: 260
         strategy:
             fail-fast: false
             matrix:

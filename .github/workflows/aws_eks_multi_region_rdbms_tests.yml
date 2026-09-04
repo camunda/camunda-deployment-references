@@ -118,7 +118,7 @@ jobs:
         # scenarios add another 60. The extra 30 are the debug shell below: a ceiling
         # costs nothing when it is not reached, and a run that opens the shell without
         # it would be cancelled with the clusters still up.
-        timeout-minutes: 210
+        timeout-minutes: 240
         strategy:
             fail-fast: false
             matrix: ${{ fromJson(needs.clusters-info.outputs.platform-matrix) }}
@@ -288,7 +288,7 @@ jobs:
                   mkdir -p .kube
                   kubectl config view --context "$survivor" --minify --flatten > .kube/config-survivor
 
-            - name: Process work after losing the writer region
+            - name: Process work after the writer switchover
               timeout-minutes: 10
               uses: ./.github/actions/camunda-smoke-test
               with:

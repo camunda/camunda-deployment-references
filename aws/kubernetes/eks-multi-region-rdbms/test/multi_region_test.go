@@ -199,6 +199,7 @@ func TestMultiRegionRegionLoss(t *testing.T) {
 
 	helpers.RunProcedure(t, env, 15*time.Minute, "simulate-region-loss.sh", strconv.Itoa(lostSlot))
 	helpers.RunProcedure(t, env, 15*time.Minute, "verify-degraded-cluster.sh", strconv.Itoa(lostSlot))
+	helpers.RunProcedure(t, env, 20*time.Minute, "failover.sh", strconv.Itoa(lostSlot))
 }
 
 // TestMultiRegionDrainZone force-removes the lost zone after the workflow has
