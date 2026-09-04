@@ -11,7 +11,8 @@
 //	TestMultiRegionTopology         assert the expected broker distribution
 //	TestMultiRegionRdbmsLatency     measure the write path to the single writer
 //	TestMultiRegionActivateRegion   grow the cluster by one region, online
-//	TestMultiRegionRegionLoss       lose a region and keep processing
+//	TestMultiRegionRegionLoss       remove a region and verify quorum
+//	TestMultiRegionDrainZone        force-remove the lost zone
 //	TestMultiRegionFailback         bring the region back
 //	TestMultiRegionCleanup          uninstall Camunda
 //
@@ -190,26 +191,36 @@ func TestMultiRegionRegionLoss(t *testing.T) {
 		t.Skipf("need at least 3 active regions to survive a region loss, have %d", env.ActiveRegions)
 	}
 
-	// The last slot is torn down: the first one drives the management API and
-	// hosts the Submariner broker.
-	lostSlot := env.ActiveRegions - 1
+	// Slot 0 hosts the Aurora writer. Losing it exercises the database switchover
+	// as well as Zeebe quorum; the management API is driven from a survivor.
+	lostSlot := 0
 
 	defer helpers.RunProcedureAllowFailure(t, env, 5*time.Minute, "submariner/diagnose-submariner.sh")
 
 	helpers.RunProcedure(t, env, 15*time.Minute, "simulate-region-loss.sh", strconv.Itoa(lostSlot))
+	helpers.RunProcedure(t, env, 15*time.Minute, "verify-degraded-cluster.sh", strconv.Itoa(lostSlot))
+}
 
-	// Rehearse the zone removal against the real API before the run declines to
-	// use it. `--drain-brokers` is not what this scenario asserts, and the suite
-	// never takes that branch, so this is the only thing that keeps the request
-	// from rotting: it fails if the path, the zone ID or the response shape ever
-	// stop matching. `--dry-run` changes nothing on the cluster.
+// TestMultiRegionDrainZone force-removes the lost zone after the workflow has
+// proved the surviving cluster still processes work without that intervention.
+func TestMultiRegionDrainZone(t *testing.T) {
+	env := testEnv(t)
+
+	if env.ActiveRegions < 3 {
+		t.Skipf("need at least 3 active regions, have %d", env.ActiveRegions)
+	}
+
+	lostSlot := 0
+
+	// Rehearse the zone removal against the real API before committing it. This
+	// fails if the path, zone ID or response shape stops matching; dry-run changes
+	// nothing on the cluster.
 	helpers.RunProcedure(t, env, 10*time.Minute, "failover.sh",
 		strconv.Itoa(lostSlot), "--drain-brokers", "--dry-run")
 
-	// Exercise the real membership change after rehearsing it. failover.sh ends
-	// on verify-degraded-cluster.sh, which proves the surviving regions still
-	// accept work after the zone is removed. TestMultiRegionFailback then covers
-	// the matching POST that restores it.
+	// Exercise the real membership change after proving the cluster survived the
+	// loss without it. failover.sh verifies the reduced topology afterwards, and
+	// TestMultiRegionFailback covers the matching POST that restores the zone.
 	helpers.RunProcedure(t, env, 20*time.Minute, "failover.sh",
 		strconv.Itoa(lostSlot), "--drain-brokers")
 }
@@ -222,7 +233,7 @@ func TestMultiRegionFailback(t *testing.T) {
 		t.Skipf("need at least 3 active regions, have %d", env.ActiveRegions)
 	}
 
-	lostSlot := env.ActiveRegions - 1
+	lostSlot := 0
 
 	defer helpers.RunProcedureAllowFailure(t, env, 5*time.Minute, "submariner/diagnose-submariner.sh")
 	helpers.RunProcedure(t, env, 45*time.Minute, "failback.sh", strconv.Itoa(lostSlot))

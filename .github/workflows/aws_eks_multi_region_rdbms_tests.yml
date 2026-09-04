@@ -48,15 +48,11 @@ env:
     S3_BUCKET_REGION: eu-central-1
     AWS_REGION: eu-west-2
 
-    # The shared cleanup action carries a dual-region branch, keyed on the
-    # `clusters` module name, that expects exactly these two variables. It
-    # covers the orphaned-VPC fallback only; the primary path is a terraform
-    # destroy driven by the state, which covers every region the run created.
-    #
-    # With more than two active regions the fallback therefore sweeps the first
-    # two only. Tracked in camunda/team-infrastructure-experience#1203.
+    # The shared cleanup action keeps these variables for dual-region callers.
     CLUSTER_0_AWS_REGION: eu-west-2
     CLUSTER_1_AWS_REGION: eu-west-3
+    # This architecture uses the N-region fallback instead.
+    CLEANUP_REGIONS: eu-west-2 eu-west-3 eu-central-2 eu-south-1
 
     # Regions of the provider aliases the teardown template declares, one per
     # region slot. Terraform reads TF_VAR_* straight from the environment.
@@ -277,12 +273,43 @@ jobs:
               run: go test --count=1 -v -timeout 60m -failfast -run TestMultiRegionActivateRegion
 
             # The point of the architecture: losing a region must not stop the engine.
-            - name: Lose a region and keep processing
+            - name: Lose the writer region and retain quorum
               timeout-minutes: 45
               working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
               env:
                   CAMUNDA_ACTIVE_REGIONS: ${{ env.CAMUNDA_REGION_SLOTS }}
               run: go test --count=1 -v -timeout 45m -failfast -run TestMultiRegionRegionLoss
+
+            - name: Prepare the surviving kubectl context for the smoke test
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  read -r _ survivor _ <<< "$CLUSTER_CONTEXTS"
+                  mkdir -p .kube
+                  kubectl config view --context "$survivor" --minify --flatten > .kube/config-survivor
+
+            - name: Process work after losing the writer region
+              timeout-minutes: 10
+              uses: ./.github/actions/camunda-smoke-test
+              with:
+                  auth-mode: basic
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  basic-auth-user: ${{ env.CAMUNDA_BASIC_AUTH_USER }}
+                  basic-auth-password: ${{ env.CAMUNDA_BASIC_AUTH_PASSWORD }}
+                  benchmark-duration: '60'
+                  benchmark-pi-per-second: '1'
+                  min-expected-instances: '10'
+                  propagation-wait-seconds: '15'
+              env:
+                  KUBECONFIG: ${{ github.workspace }}/.kube/config-survivor
+
+            - name: Force-remove the lost zone
+              timeout-minutes: 30
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              env:
+                  CAMUNDA_ACTIVE_REGIONS: ${{ env.CAMUNDA_REGION_SLOTS }}
+              run: go test --count=1 -v -timeout 30m -failfast -run TestMultiRegionDrainZone
 
             - name: Bring the region back
               timeout-minutes: 60
@@ -371,7 +398,7 @@ jobs:
 
             - name: Destroy the infrastructure
               if: always()
-              timeout-minutes: 90
+              timeout-minutes: 125
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
