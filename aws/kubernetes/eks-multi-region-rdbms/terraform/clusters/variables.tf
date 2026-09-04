@@ -1,14 +1,10 @@
 ################################################################################
 # Region topology                                                              #
 #                                                                              #
-# `var.regions` describes the REGION SLOTS of the cluster. The number of slots  #
-# is baked into the Zeebe broker identity by the Camunda Helm chart:            #
-#                                                                              #
-#     nodeId = statefulSetOrdinal * orchestration.multiregion.regions + regionId       #
-#                                                                              #
-# Changing the number of slots therefore renumbers every broker and is a        #
-# destructive operation. Pick the slot count up front, then bring regions       #
-# online one at a time with `var.active_region_count`.                          #
+# `var.regions` describes the REGION SLOTS of the cluster. The list defines the #
+# fixed set of named zones rendered into every regional Helm release. Pick the  #
+# topology up front, then bring its zones online one at a time with              #
+# `var.active_region_count`.                                                     #
 #                                                                              #
 # See ../../README.md, section "Region slots vs active regions".                #
 ################################################################################
@@ -16,8 +12,9 @@
 variable "regions" {
   description = <<-EOT
     Ordered list of region slots. Index 0 is region slot 0, index 1 is region
-    slot 1, and so on. The list length is immutable for the lifetime of the
-    Camunda cluster because it drives the Zeebe broker node ID stride.
+    slot 1, and so on. The list defines the named zones of the Camunda cluster
+    and is immutable for its lifetime; growth activates a zone declared here
+    rather than adding a new one later.
 
     `vpc_cidr_block` and `service_cidr_block` must not overlap across regions:
     Transit Gateway cannot route duplicate prefixes, and Submariner runs
@@ -82,6 +79,13 @@ variable "regions" {
   validation {
     condition     = length(distinct([for r in var.regions : r.short_name])) == length(var.regions)
     error_message = "Each region slot must use a distinct short_name; it is used to suffix cluster names."
+  }
+
+  validation {
+    condition = alltrue([
+      for r in var.regions : can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", r.short_name))
+    ])
+    error_message = "Each short_name must be a lowercase DNS label of at most 63 characters: letters, digits and internal hyphens only."
   }
 
   # One pool, not two. Checking the VPC blocks against each other and the service

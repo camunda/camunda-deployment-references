@@ -56,6 +56,11 @@ variable "database_region_slots" {
   }
 
   validation {
+    condition     = alltrue([for slot in var.database_region_slots : slot >= 0 && slot == floor(slot)])
+    error_message = "database_region_slots must contain non-negative integer slot numbers."
+  }
+
+  validation {
     condition     = contains(var.database_region_slots, 0)
     error_message = "database_region_slots must contain slot 0: it hosts the Aurora Global Database writer."
   }
