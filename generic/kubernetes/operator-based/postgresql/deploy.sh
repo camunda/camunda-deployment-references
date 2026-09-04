@@ -14,7 +14,13 @@ set -euo pipefail
 # Variables
 CAMUNDA_NAMESPACE=${CAMUNDA_NAMESPACE:-camunda}
 OPERATOR_NAMESPACE=${1:-cnpg-system}
+# Normalized once, before set-secrets.sh and the deploy loop below both read it:
+# cluster names carry no spaces, and a copy-pasted "pg-keycloak, pg-camunda"
+# would otherwise skip the secret for " pg-camunda" (set-secrets.sh matches the
+# raw string) and then hang the cluster on a missing secret until kubectl wait
+# times out.
 CLUSTER_FILTER=${CLUSTER_FILTER:-}
+CLUSTER_FILTER=${CLUSTER_FILTER// /}
 
 # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
 CNPG_VERSION="1.30.0"
@@ -58,11 +64,7 @@ if [[ -z "$CLUSTER_FILTER" ]]; then
     kubectl wait --for=condition=Ready --timeout=600s cluster --all -n "$CAMUNDA_NAMESPACE"
 else
     echo "Filtered deployment: $CLUSTER_FILTER"
-    # Cluster names carry no spaces, so strip them: a copy-pasted
-    # "pg-keycloak, pg-camunda" would otherwise yield " pg-camunda", which
-    # matches neither the orchestration manifest nor any name in
-    # postgresql-clusters.yml, and only surfaces later as a kubectl wait timeout.
-    IFS=',' read -ra CLUSTERS <<< "${CLUSTER_FILTER// /}"
+    IFS=',' read -ra CLUSTERS <<< "$CLUSTER_FILTER"
     for cluster in "${CLUSTERS[@]}"; do
         # pg-camunda is defined in a separate orchestration manifest
         if [[ "$cluster" == "pg-camunda" ]]; then
