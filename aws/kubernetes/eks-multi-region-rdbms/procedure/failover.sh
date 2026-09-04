@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Handles the loss of one region.
 #
-#   ./failover.sh <lost-region-slot> [--unplanned] [--drain-brokers] [--dry-run]
+#   ./failover.sh <lost-region-slot> [--drain-brokers] [--dry-run]
 #
 # With `replicationFactor == regionSlots` and at least three slots, losing one
 # region leaves every partition with a majority of its replicas: Zeebe keeps
@@ -19,9 +19,9 @@ set -euo pipefail
 #   * If the writer was NOT in the lost region, nothing to do.
 #   * Planned (region still reachable): `failover-global-cluster` performs a
 #     switchover with no data loss.
-#   * Unplanned (region gone): `remove-from-global-cluster` detaches and
-#     promotes a surviving member. Replication lag at the time of the outage is
-#     lost, and the global cluster must be rebuilt during failback.
+# An unplanned Aurora Global Database failover is not automated here: detaching
+# a member changes topology outside Terraform, and this module deliberately
+# ignores that membership field. Follow the AWS recovery procedure instead.
 #
 # `--drain-brokers` additionally force-removes the lost zone from the Zeebe
 # cluster, through `DELETE /actuator/cluster/zones/<zone>`. That is one atomic
@@ -41,18 +41,16 @@ set -euo pipefail
 : "${CAMUNDA_BROKERS_PER_REGION:?CAMUNDA_BROKERS_PER_REGION must be set, source export_environment_prerequisites.sh}"
 
 if [ $# -lt 1 ]; then
-    echo "usage: $0 <lost-region-slot> [--unplanned] [--drain-brokers] [--dry-run]" >&2
+    echo "usage: $0 <lost-region-slot> [--drain-brokers] [--dry-run]" >&2
     exit 1
 fi
 
 LOST_SLOT="$1"
 shift
-UNPLANNED=false
 DRAIN_BROKERS=false
 DRY_RUN=false
 for arg in "$@"; do
     case "$arg" in
-    --unplanned) UNPLANNED=true ;;
     --drain-brokers) DRAIN_BROKERS=true ;;
     --dry-run) DRY_RUN=true ;;
     *)
@@ -144,18 +142,10 @@ else
         if [ "$DRY_RUN" = true ]; then
             echo "    --dry-run: would promote $target_arn, doing nothing."
         else
-            if [ "$UNPLANNED" = true ]; then
-                echo "    Unplanned: detaching and promoting $target_arn"
-                echo "    Data not yet replicated at the time of the outage is lost."
-                aws rds remove-from-global-cluster \
-                    --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-                    --db-cluster-identifier "$target_arn"
-            else
-                echo "    Planned switchover to $target_arn"
-                aws rds failover-global-cluster \
-                    --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-                    --target-db-cluster-identifier "$target_arn"
-            fi
+            echo "    Planned switchover to $target_arn"
+            aws rds failover-global-cluster \
+                --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
+                --target-db-cluster-identifier "$target_arn"
 
             echo "    Waiting for the promoted cluster to become available ..."
             # An Aurora cluster ARN has no slashes, so there is no identifier to cut

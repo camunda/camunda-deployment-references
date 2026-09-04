@@ -104,7 +104,8 @@ else
     # The source-built chart currently pins the alpha5 engine image, which
     # predates numberOfBrokers. Its still-supported API shape takes explicit
     # broker IDs instead.
-    brokers_json="$(camunda::region_node_ids "$RECOVERED_SLOT" | tr ' ' '\n' | jq -R . | jq -sc .)"
+    broker_count="$(echo "$zone_spec" | jq -r '.numberOfBrokers')"
+    brokers_json="$(camunda::region_node_ids "$RECOVERED_SLOT" "$broker_count" | tr ' ' '\n' | jq -R . | jq -sc .)"
     body="$(echo "$zone_spec" | jq -c --argjson brokers "$brokers_json" \
         '{numberOfReplicas, priority, brokers: $brokers}')"
 
@@ -133,15 +134,9 @@ else
     echo "    Global cluster members: $member_count"
 
     if [ "$member_count" -le 1 ]; then
-        echo
-        echo "    The global cluster has a single member, which means failover ran with"
-        echo "    --unplanned and detached it. Rebuilding the global topology is a"
-        echo "    Terraform operation, not a script one: re-run"
-        echo
-        echo "        terraform apply"
-        echo
-        echo "    in terraform/clusters so the missing Aurora members are recreated and"
-        echo "    re-attached, then re-run this script if you also want --switch-writer."
+        echo "ERROR: the Aurora Global Database no longer has a complete member topology." >&2
+        echo "       Follow the AWS unplanned-recovery procedure before Camunda failback." >&2
+        exit 1
     elif [ "$SWITCH_WRITER" = true ]; then
         recovered_region="${aws_regions[$RECOVERED_SLOT]}"
         target_arn="$(echo "$members_json" | jq -r --arg region "$recovered_region" \

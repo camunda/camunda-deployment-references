@@ -109,19 +109,19 @@ camunda::use_surviving_region() {
     return 1
 }
 
-# camunda::region_node_ids <slot> -> space-separated broker IDs of a slot.
+# camunda::region_node_ids <slot> <count> -> space-separated broker IDs.
 #
 # Zone-aware brokers are addressed by `<zone>_<index>`, with the index local to
 # the zone. The explicit list keeps failback compatible with the alpha5 engine
 # image currently pinned by the source-built chart.
 camunda::region_node_ids() {
-    local slot="$1"
+    local slot="$1" count="$2"
     local zone
     zone="$(camunda::zone_name "$slot")" || return 1
 
     local ids=()
     local index
-    for ((index = 0; index < CAMUNDA_BROKERS_PER_REGION; index++)); do
+    for ((index = 0; index < count; index++)); do
         ids+=("${zone}_${index}")
     done
     echo "${ids[@]}"
