@@ -47,35 +47,31 @@ while true; do
     # fires and the comparison below would be `[ "" -ge n ]`.
     brokers="$(jq '.brokers | length // 0' "$OUTPUT_FILE" 2>/dev/null || true)"
     brokers="${brokers:-0}"
-    if [ "$brokers" -ge "$expected_survivors" ]; then
-        echo "    $brokers broker(s) reachable."
+
+    partitions="$(jq '.partitionsCount // 0' "$OUTPUT_FILE" 2>/dev/null || true)"
+    partitions="${partitions:-0}"
+    partitions_with_leader="$(jq '
+        [.brokers[]?.partitions[]? | select(.role == "leader") | .partitionId] | unique | length' \
+        "$OUTPUT_FILE" 2>/dev/null || true)"
+    partitions_with_leader="${partitions_with_leader:-0}"
+
+    if [ "$brokers" -ge "$expected_survivors" ] &&
+        [ "$partitions" -gt 0 ] && [ "$partitions_with_leader" -eq "$partitions" ]; then
+        echo "    $brokers broker(s) reachable; all $partitions partitions have a leader."
         break
     fi
 
     if [ "$SECONDS" -ge "$deadline" ]; then
-        echo "ERROR: only $brokers broker(s) reachable, expected at least $expected_survivors." >&2
+        echo "ERROR: degraded topology did not converge before the deadline." >&2
+        echo "       Brokers: $brokers/$expected_survivors; partition leaders: $partitions_with_leader/$partitions." >&2
         echo "       Last status: HTTP $CAMUNDA_LAST_STATUS." >&2
         cat "$OUTPUT_FILE" >&2 2>/dev/null || true
         exit 1
     fi
 
-    echo "    $brokers/$expected_survivors reachable, waiting ..."
+    echo "    brokers $brokers/$expected_survivors; partition leaders $partitions_with_leader/$partitions, waiting ..."
     sleep 15
 done
-
-echo "--> Checking that every partition still has a leader"
-partitions="$(jq '.partitionsCount' "$OUTPUT_FILE")"
-partitions_with_leader="$(jq '
-    [.brokers[].partitions[] | select(.role == "leader") | .partitionId] | unique | length' "$OUTPUT_FILE")"
-
-if [ "$partitions_with_leader" -lt "$partitions" ]; then
-    echo "ERROR: only $partitions_with_leader of $partitions partitions have a leader." >&2
-    echo "       The surviving regions did not keep a quorum. Check that" >&2
-    echo "       replicationFactor equals the region slot count." >&2
-    cat "$OUTPUT_FILE" >&2 2>/dev/null || true
-    exit 1
-fi
-echo "    all $partitions partitions have a leader."
 
 echo "--> Checking that the gateway still serves the v2 API"
 # A quorum loss shows up to a client as a timeout or a 5xx. Anything the gateway
