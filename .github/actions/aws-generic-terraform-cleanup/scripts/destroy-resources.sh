@@ -418,37 +418,6 @@ destroy_module() {
     return 0
   fi
 
-  # Pre-cleanup: remove cloud-provider-managed resources inside the VPC before terraform destroy.
-  # Cloud providers (ROSA HCP, EKS via ingress controllers, etc.) create AWS resources
-  # (Load Balancers, Security Groups, ENIs) outside of Terraform state.
-  # When terraform destroys the cluster, the cleanup on the provider side is asynchronous
-  # and may not complete before Terraform attempts to delete the VPC, causing
-  # DependencyViolation errors and ~20min timeouts.
-  # We proactively remove these orphan resources while keeping the VPC intact for
-  # Terraform to delete cleanly.
-  if [[ "$module_name" == "cluster" ]]; then
-    local vpc_check
-    vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
-                --query "Vpcs[0].VpcId" --output text --region "$AWS_REGION" 2>/dev/null)
-    if [[ -n "$vpc_check" && "$vpc_check" != "None" ]]; then
-      echo "[$group_id][$module_name] Pre-cleanup: removing orphan resources in VPC $vpc_check..."
-      cleanup_vpc_dependencies "$vpc_check" "$AWS_REGION"
-
-      # On retry (2nd attempt), use cloud-nuke as a last resort to nuke the entire VPC.
-      # This is more aggressive (deletes the VPC itself) but ensures no resources are left behind.
-      if [[ "$RETRY_DESTROY" == "true" ]]; then
-        echo "[$group_id][$module_name] Retry: running cloud-nuke on VPC as fallback..."
-        local nuke_config="${temp_dir}/matching-vpc.yml"
-        mkdir -p "$temp_dir"
-        cp "$SCRIPT_DIR/matching-vpc.yml" "$nuke_config"
-        local safe_id
-        safe_id=$(printf '%s' "$group_id" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
-        NAME_REGEX="^${safe_id}.*" yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX)]' -i "$nuke_config"
-        cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$AWS_REGION" --force
-      fi
-    fi
-  fi
-
   # Handle dual-region (we may need a better way to abstract this)
   local tf_config_file="$SCRIPT_DIR/config"
   if [[ "$module_name" =~ ^(clusters|peering)$ ]]; then
@@ -476,20 +445,13 @@ destroy_module() {
 
     tf_config_file="$SCRIPT_DIR/config-dual-region"
 
-    # Pre-cleanup for dual-region: same rationale as single-cluster above.
+    # Cloud-nuke is a second-pass fallback only. The first Terraform destroy
+    # must retain ownership of its VPC resources and delete them in dependency
+    # order; removing tracked subnets or ENIs up front corrupts that plan.
     if [[ "$module_name" == "clusters" && -n "${CLEANUP_REGIONS:-}" ]]; then
-      local region vpc_check
-      for region in $CLEANUP_REGIONS; do
-        vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
-                    --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
-        if [[ -n "$vpc_check" && "$vpc_check" != "None" ]]; then
-          echo "[$group_id][$module_name] Pre-cleanup: removing orphan resources in VPC $vpc_check ($region)..."
-          cleanup_vpc_dependencies "$vpc_check" "$region"
-        fi
-      done
-
       if [[ "$RETRY_DESTROY" == "true" ]]; then
         echo "[$group_id][$module_name] Retry: running cloud-nuke on multi-region VPCs as fallback..."
+        local region vpc_check
         local nuke_config="${temp_dir}/matching-vpc.yml"
         mkdir -p "$temp_dir"
         cp "$SCRIPT_DIR/matching-vpc.yml" "$nuke_config"
