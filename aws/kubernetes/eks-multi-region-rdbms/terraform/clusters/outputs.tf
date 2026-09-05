@@ -124,7 +124,7 @@ output "camunda_rdbms_url" {
     same architecture on a different database.
   EOT
   value = local.database_enabled ? format(
-    "jdbc:aws-wrapper:postgresql://%s:5432/%s?wrapperPlugins=%sfailover&globalClusterInstanceHostPatterns=%s",
+    "jdbc:aws-wrapper:postgresql://%s:5432/%s?wrapperPlugins=%sinitialConnection,failover&waitForInitialTopologyMs=30000&globalClusterInstanceHostPatterns=%s",
     local.database_writer_endpoint,
     var.database_name,
     var.database_iam_auth_enabled ? "iam," : "",

@@ -185,13 +185,15 @@ The reference implementation is **Aurora Global Database** reached through the
 
 ```
 jdbc:aws-wrapper:postgresql://<writer-endpoint>:5432/camunda
-  ?wrapperPlugins=failover
+  ?wrapperPlugins=initialConnection,failover
+  &waitForInitialTopologyMs=30000
   &globalClusterInstanceHostPatterns=?.<region0-suffix>,?.<region1-suffix>
 ```
 
-The `failover` plugin enumerates the instances of every listed region, so a
-global failover is followed by the driver without restarting or reconfiguring
-Camunda.
+The `failover` plugin follows an established connection to the new writer. The
+`initialConnection` plugin covers cold starts after a switchover: it discovers
+the current topology and substitutes the stale regional writer endpoint before
+opening the connection pool.
 
 To use something else, set `deploy_database = false` and provide your own
 `CAMUNDA_RDBMS_URL`. Anything exposing a single endpoint that follows the writer
