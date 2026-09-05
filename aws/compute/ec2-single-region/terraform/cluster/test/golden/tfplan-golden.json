@@ -478,6 +478,12 @@
       }
     },
     "aws_key_pair.main": {
+      "identity": {
+        "account_id": null,
+        "key_name": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "main",
       "provider_name": "registry.terraform.io/hashicorp/aws",
