@@ -35,16 +35,11 @@ SLOT="$1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 . "$SCRIPT_DIR/lib-management-api.sh"
+camunda::require_slot "$SLOT" "the activation slot"
 
 if [ "$SLOT" -ge "$CAMUNDA_REGION_SLOTS" ]; then
     echo "ERROR: slot $SLOT is outside the provisioned slot range (0..$((CAMUNDA_REGION_SLOTS - 1)))." >&2
     echo "       The zone list is fixed at bootstrap; only a declared zone can be activated." >&2
-    exit 1
-fi
-
-if [ "$SLOT" -ge "$CAMUNDA_ACTIVE_REGIONS" ]; then
-    echo "ERROR: CAMUNDA_ACTIVE_REGIONS ($CAMUNDA_ACTIVE_REGIONS) does not yet include slot $SLOT." >&2
-    echo "       Export CAMUNDA_ACTIVE_REGIONS=$((SLOT + 1)) (or higher) and re-run." >&2
     exit 1
 fi
 
