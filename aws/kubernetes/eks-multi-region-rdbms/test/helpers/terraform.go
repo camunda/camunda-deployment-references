@@ -80,7 +80,7 @@ func ReadTerraformOutputs(t *testing.T, terraformDir string) TerraformOutputs {
 		}
 		var s string
 		if err := json.Unmarshal(v.Value, &s); err != nil {
-			return ""
+			t.Fatalf("cannot decode optional terraform output %q: %v", key, err)
 		}
 		return s
 	}

@@ -34,10 +34,7 @@ var requiredEnvPattern = regexp.MustCompile(`^: "\$\{([A-Z0-9_]+):\?`)
 // which for this suite is twenty minutes and two EKS clusters later. This test
 // turns that into an immediate, free failure.
 func TestProcedureEnvContractIsComplete(t *testing.T) {
-	procedureDir, err := filepath.Abs(filepath.Join("..", "..", "procedure"))
-	if err != nil {
-		t.Fatalf("cannot resolve the procedure directory: %v", err)
-	}
+	procedureDir := ProcedureDir(t)
 
 	provided := map[string]bool{}
 	for _, kv := range (Env{}).Vars() {
@@ -47,7 +44,7 @@ func TestProcedureEnvContractIsComplete(t *testing.T) {
 	}
 
 	required := map[string][]string{}
-	err = filepath.Walk(procedureDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(procedureDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
