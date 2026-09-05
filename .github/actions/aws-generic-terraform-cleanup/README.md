@@ -16,6 +16,7 @@ This GitHub Action automates the deletion of generic terraform resources using a
 | `target` | <p>Specify an ID to destroy specific resources or "all" to destroy all resources</p> | `false` | `all` |
 | `fail-on-not-found` | <p>Whether to fail if no matching resources are found (only for target not 'all')</p> | `false` | `true` |
 | `modules-order` | <p>Destruction order of modules, e.g. "vpn,cluster" or "cluster,vpn"</p> | `true` | `""` |
+| `tf-config-template` | <p>Name of the provider template under scripts/ to destroy the state with, e.g. <code>config-multi-region</code>. Leave empty to let the script infer it from the module name, which only distinguishes a single-region state from a dual-region one.</p> <p>Set it for any architecture whose state references provider aliases the inferred template does not declare: <code>terraform destroy</code> then fails with "Provider configuration not present" and leaves the infrastructure behind.</p> | `false` | `""` |
 | `openshift` | <p>Whether to install OpenShift tooling (ROSA CLI + oc)</p> | `false` | `false` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
 | `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.22.5` |
@@ -80,6 +81,17 @@ This action is a `composite` action.
     # Destruction order of modules, e.g. "vpn,cluster" or "cluster,vpn"
     #
     # Required: true
+    # Default: ""
+
+    tf-config-template:
+    # Name of the provider template under scripts/ to destroy the state with, e.g.
+    # `config-multi-region`. Leave empty to let the script infer it from the module
+    # name, which only distinguishes a single-region state from a dual-region one.
+    # Set it for any architecture whose state references provider aliases the
+    # inferred template does not declare: `terraform destroy` then fails with
+    # "Provider configuration not present" and leaves the infrastructure behind.
+    #
+    # Required: false
     # Default: ""
 
     openshift:

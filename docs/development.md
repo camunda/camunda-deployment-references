@@ -31,7 +31,9 @@ aws sso login --profile infraex
 aws sts get-caller-identity --profile infraex   # verify
 ```
 
-> **Warning:** Regions **eu-west-2** and **eu-west-3** are reserved for CI and are nuked nightly. Never use them for local development.
+> **Warning:** Regions **eu-west-2**, **eu-west-3** and **eu-central-2** are reserved for CI and are nuked nightly. **eu-south-1** is a weekly work region, cleaned every Saturday. Never use them for local development.
+>
+> `eu-central-2` (Zurich) and `eu-south-1` (Milan) are AWS **opt-in** regions: they must be enabled on the account before use. The authoritative list and cleanup schedule live in [infraex-common-config](https://github.com/camunda/infraex-common-config#region-usage-for-cloud-providers).
 
 ### Azure
 

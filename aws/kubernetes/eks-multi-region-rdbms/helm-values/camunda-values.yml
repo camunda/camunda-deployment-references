@@ -1,0 +1,243 @@
+---
+# Chart values for the Camunda Platform 8 Helm chart, multi-region with RDBMS
+# secondary storage.
+#
+# This file deliberately contains only the values that differ from the defaults.
+# For changes and documentation, use your favorite diff tool to compare it with:
+# https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform/values.yaml
+#
+# The file is a template: `${...}` placeholders are substituted with envsubst by
+# procedure/assemble-envsubst-values.sh, and `${DOLLAR}` escapes a literal `$`
+# that must survive envsubst and reach the container at runtime.
+#
+# Every region installs the same release from this file. Only two values differ
+# per region: `orchestration.multiregion.zone` and the advertised host, both injected
+# from the environment. The zone LIST is identical everywhere, which is what
+# makes the topology a single description rather than N of them.
+
+global:
+    security:
+        authentication:
+            # Basic auth for inter-component communication, because Management
+            # Identity (Keycloak) is not supported in multi-region setups.
+            method: basic
+    identity:
+        auth:
+            enabled: false
+
+# Management Identity is not available in multi-region topologies; the
+# Orchestration Cluster ships its own Admin component instead.
+identity:
+    enabled: false
+
+console:
+    enabled: false
+
+# Optimize requires Elasticsearch or OpenSearch and cannot run on RDBMS
+# secondary storage.
+optimize:
+    enabled: false
+
+# Connectors run in every region. They are idempotency-sensitive: an outbound
+# connector may be executed once per region if a job is retried across a region
+# boundary. Design your connector calls to be idempotent.
+connectors:
+    enabled: true
+
+orchestration:
+    # Multiregion options for the Orchestration Cluster. This architecture is a
+    # reference, not a production configuration; see ../README.md for what it
+    # does and does not cover.
+    multiregion:
+        # Zone awareness, rather than the mode that numbers the brokers.
+        #
+        # That mode infers a broker's region from the parity of its node ID,
+        # which only works for exactly two regions and is what made the region
+        # count immutable: changing it renumbered every broker. Zone awareness
+        # names the zones instead, so brokers are identified as <zone>_<index>.
+        # It is the configuration to use for a new deployment, and required for
+        # three or more zones.
+        # See ../README.md, "Zones".
+        mode: zoned
+        # The zone THIS deployment belongs to. The only per-region value here.
+        zone: ${CAMUNDA_ZONE_NAME}
+        # `regions` and `regionId` are deliberately absent. The chart REFUSES
+        # them in zoned mode -- constraints.tpl fails the render with
+        # "cannot be used with zoned mode" -- because the StatefulSet sizes
+        # itself from this zone's own numberOfBrokers, not from a division.
+        # Every zone of the cluster, including any not deployed yet. Listing a
+        # zone before it exists is deliberate: its replicas are reserved, so
+        # each partition runs at N-1 of N until the zone is filled, which is a
+        # majority and therefore a working cluster. See "Zones vs active
+        # regions" in ../README.md.
+        #
+        # Priority skews Raft leadership. Zone 0 gets the highest because it
+        # hosts the Aurora writer, and keeping leaders next to the writer is
+        # what the measured cross-region write penalty is paid to avoid.
+        # Rendered as a JSON flow sequence, which is valid YAML, so this file
+        # stays lintable as a template instead of only after substitution.
+        zones: ${CAMUNDA_MULTIREGION_ZONES}
+    # clusterSize spans ALL region slots: brokersPerRegion * regionSlots.
+    clusterSize: '${CAMUNDA_CLUSTER_SIZE}'
+    partitionCount: '${CAMUNDA_PARTITION_COUNT}'
+    # replicationFactor == number of region slots places exactly one replica of
+    # every partition in each region through the zone specification above. With
+    # N >= 3 slots the cluster keeps its quorum when
+    # a whole region is lost, which is the property this architecture exists
+    # for. See ../README.md, section "Why the replication factor equals the
+    # number of regions".
+    replicationFactor: '${CAMUNDA_REPLICATION_FACTOR}'
+
+    ###########################################################################
+    # Secondary storage                                                       #
+    #                                                                         #
+    # Camunda exposes a single JDBC connection per Orchestration Cluster and   #
+    # the RDBMS exporter has no multi-region mode: every broker of every       #
+    # region writes to the same URL. Replication and failover are entirely     #
+    # the database's responsibility, which is what keeps this architecture     #
+    # replication agnostic.                                                   #
+    #                                                                         #
+    # The reference implementation points this URL at an Aurora Global         #
+    # Database through the AWS Advanced JDBC Wrapper, whose `failover` plugin  #
+    # follows the writer across regions without a Camunda reconfiguration.     #
+    ###########################################################################
+    data:
+        secondaryStorage:
+            type: rdbms
+            # Schema management is left at the Camunda default
+            # (camunda.data.secondary-storage.rdbms.auto-ddl = true): Liquibase
+            # creates and migrates the schema on first startup. Concurrent
+            # brokers serialise on DATABASECHANGELOGLOCK, so it is safe to start
+            # every region at once.
+            rdbms:
+                aws:
+                    # IAM database authentication. Keep in sync with the
+                    # `database_iam_auth_enabled` Terraform variable: when it is
+                    # enabled, the JDBC URL must also carry the `iam` wrapper
+                    # plugin and the pods need an IRSA role with rds-db:connect.
+                    enabled: false
+                url: ${CAMUNDA_RDBMS_URL}
+                username: ${CAMUNDA_RDBMS_USERNAME}
+                secret:
+                    existingSecret: camunda-rdbms-secret
+                    existingSecretKey: password
+
+    exporters:
+        # The Camunda exporter targets Elasticsearch or OpenSearch only.
+        camunda:
+            enabled: false
+        rdbms:
+            enabled: true
+
+    env:
+        # One entry per active region, generated by
+        # procedure/generate-zeebe-helm-values.sh.
+        - name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS
+          value: ${CAMUNDA_CLUSTER_INITIALCONTACTPOINTS}
+
+        # Brokers must advertise a name that resolves from every other region.
+        # The chart default (`<pod>.<service>.<namespace>.svc`) only resolves
+        # inside its own cluster; Submariner Lighthouse publishes the
+        # cross-cluster form `<pod>.<clusterID>.<service>.<namespace>.svc.clusterset.local`.
+        - name: CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST
+          value: ${DOLLAR}(K8S_NAME).$ZEEBE_SERVICE_NAME
+
+        # Without this the RDBMS exporter does not enable async replication,
+        # and an Aurora failover can lose exported data. This architecture
+        # delegates replication entirely to the database and treats a writer
+        # failover as a routine operation, so it is not optional here.
+        # Added to the sibling ECS dual-region reference in #2952 for the same
+        # reason. Set as an env var rather than a chart key so it applies
+        # regardless of whether the chart exposes it.
+        # https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
+        - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED
+          value: 'true'
+
+        - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
+          value: 'true'
+
+        # Cross-region SWIM membership tuning for stretched clusters. The
+        # default probe timeout (100ms) is too tight for inter-region latency:
+        # on a cold start brokers transiently see remote peers as unreachable,
+        # SWIM ejects them, membership churns and the topology never converges.
+        - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBETIMEOUT
+          value: 1000ms
+        - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBEINTERVAL
+          value: 2s
+        - name: CAMUNDA_CLUSTER_MEMBERSHIP_FAILURETIMEOUT
+          value: 10000ms
+        - name: CAMUNDA_CLUSTER_RAFT_SNAPSHOTREQUESTTIMEOUT
+          value: 10s
+        - name: CAMUNDA_CLUSTER_COMPRESSIONALGORITHM
+          value: GZIP
+        - name: CAMUNDA_DATA_SNAPSHOTPERIOD
+          value: 5m
+
+    # TEMPORARY WORKAROUND — remove once the upstream Camunda fix is released.
+    # A Zeebe broker resolves its initialContactPoints only once at startup; if
+    # a cross-region "*.svc.clusterset.local" name is not yet published by
+    # Submariner Lighthouse at that moment (NXDOMAIN), the broker hangs forever
+    # (pod stays 0/1 Running, port 9600 never opens) instead of re-resolving.
+    # This init container gates broker startup until every initial contact
+    # point resolves, so the broker process never sees an NXDOMAIN.
+    # It reuses the broker image (already pulled on the node) to avoid an extra
+    # image pull; ${DOLLAR}{BROKER_IMAGE} is resolved at deploy time by
+    # procedure/install-chart.sh from the chart being installed.
+    # Tracking issue: https://github.com/camunda/camunda/issues/55038
+    initContainers:
+        - name: wait-clusterset-dns
+          image: ${DOLLAR}{BROKER_IMAGE}
+          command:
+              - /bin/sh
+              - -c
+              - |
+                set -eu
+                # Fail open: if the image ships no resolver, do not block startup.
+                command -v getent >/dev/null 2>&1 || { echo "getent unavailable; skipping cross-region DNS gate."; exit 0; }
+                # Bounded TOTAL wait across all hosts, independent of how many
+                # per-pod names we derive, so a genuine misconfiguration can
+                # never stall startup past the deployment timeout (fail-open).
+                deadline=${DOLLAR}(( ${DOLLAR}(date +%s) + ${DOLLAR}{CLUSTERSET_DNS_TIMEOUT_SECONDS:-720} ))
+                # Brokers advertise and dial PER-POD clusterset names
+                # (<statefulset>-<ordinal>.<contact-point-host>), not just the
+                # per-region headless contact point. The headless name resolves
+                # as soon as the ServiceImport exists, so gating only on it lets
+                # a broker start before individual peer-pod records are
+                # published; it then hits NXDOMAIN dialing a peer and hangs.
+                # The Zeebe service name is the 2nd DNS label of a clusterset
+                # contact point and each pod is reachable at
+                # <service>-<ordinal>.<host>.
+                brokers_per_region="${DOLLAR}{BROKERS_PER_REGION:-$CAMUNDA_BROKERS_PER_REGION}"
+                hosts=""
+                for ep in ${DOLLAR}(echo "${CAMUNDA_CLUSTER_INITIALCONTACTPOINTS}" | tr ',' ' '); do
+                  cp_host=${DOLLAR}(echo "${DOLLAR}ep" | cut -d: -f1)
+                  svc=${DOLLAR}(echo "${DOLLAR}cp_host" | cut -d. -f2)
+                  n=0
+                  while [ "${DOLLAR}n" -lt "${DOLLAR}brokers_per_region" ]; do
+                    hosts="${DOLLAR}hosts ${DOLLAR}{svc}-${DOLLAR}{n}.${DOLLAR}{cp_host}"
+                    n=${DOLLAR}((n + 1))
+                  done
+                done
+                echo "Waiting for cross-region clusterset DNS to resolve all Zeebe broker pods..."
+                for host in ${DOLLAR}hosts; do
+                  until getent hosts "${DOLLAR}host" >/dev/null 2>&1; do
+                    if [ "${DOLLAR}(date +%s)" -ge "${DOLLAR}deadline" ]; then
+                      echo "  giving up on ${DOLLAR}host (DNS budget exhausted); starting broker anyway (fail-open)."
+                      break
+                    fi
+                    echo "  waiting for ${DOLLAR}host ..."
+                    sleep 5
+                  done
+                done
+                echo "Cross-region DNS gate complete; starting broker."
+
+    pvcSize: 32Gi
+    logLevel: ERROR
+
+    resources:
+        requests:
+            cpu: 200m
+            memory: 2Gi
+        limits:
+            cpu: 1512m
+            memory: 5Gi

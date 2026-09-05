@@ -1,0 +1,150 @@
+---
+name: Tests - Daily Cleanup - AWS EKS Multi Region RDBMS
+
+on:
+    workflow_dispatch:
+        inputs:
+            max_age_hours_cluster:
+                description: Maximum age of clusters in hours
+                required: true
+                default: '12'
+    pull_request:
+        paths:
+            - .github/workflows/aws_eks_multi_region_rdbms_daily_cleanup.yml
+            - .tool-versions
+            - aws/kubernetes/eks-multi-region-rdbms/**
+            - '!aws/kubernetes/eks-multi-region-rdbms/terraform/*/test/golden/**'
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/aws-configure-cli/**
+
+    schedule:
+        - cron: 0 4 * * * # At 04:00 everyday.
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
+    cancel-in-progress: false
+
+env:
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+
+    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
+
+    # please keep those variables synced with aws_eks_multi_region_rdbms_tests.yml
+    AWS_PROFILE: infraex
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    AWS_REGION: eu-west-2
+
+    # The shared cleanup action carries a dual-region branch, keyed on the
+    # `clusters` module name, that expects exactly these two variables. It
+    # covers the orphaned-VPC fallback only; the primary path is a terraform
+    # destroy driven by the state, which covers every region the run created.
+    #
+    # With more than two active regions the fallback therefore sweeps the first
+    # two only. Tracked in camunda/team-infrastructure-experience#1203.
+    CLUSTER_0_AWS_REGION: eu-west-2
+    CLUSTER_1_AWS_REGION: eu-west-3
+    REF_ARCH: eks-multi-region-rdbms
+
+    # Every region the architecture can create must be swept, including the AWS opt-in
+    # regions used by slots 2 and 3. Keep in sync with the `regions` variable default in
+    # aws/kubernetes/eks-multi-region-rdbms/terraform/clusters/variables.tf.
+    CLEANUP_REGIONS: eu-west-2 eu-west-3 eu-central-2 eu-south-1
+
+    # Regions of the provider aliases the teardown template declares, one per
+    # region slot. Terraform reads TF_VAR_* straight from the environment.
+    # Keep in sync with CLEANUP_REGIONS and with the `regions` variable default.
+    TF_VAR_region_0: eu-west-2
+    TF_VAR_region_1: eu-west-3
+    TF_VAR_region_2: eu-central-2
+    TF_VAR_region_3: eu-south-1
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    cleanup-clusters:
+        needs: [triage]
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        timeout-minutes: 260
+        strategy:
+            fail-fast: false
+            matrix:
+                scenario:
+                    - name: eks-multi-region-rdbms
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  ref: ${{ github.ref }}
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+
+            - name: Use repo .tool-version as global version
+              run: cp .tool-versions ~/.tool-versions
+
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Export the Terraform state key prefix
+              id: s3_prefix
+              run: |
+                  set -euo pipefail
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
+
+            # A single Terraform state holds the EKS clusters, the Transit Gateway mesh and
+            # the Aurora Global Database, so one destroy tears the whole architecture down.
+            - name: Delete clusters
+              id: delete_clusters
+              continue-on-error: true
+              timeout-minutes: 125
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
+                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  modules-order: clusters
+                  tf-config-template: config-multi-region
+                  destroy-pass-timeout-minutes: '120'
+                  retry-destroy-pass-timeout-minutes: '120'
+
+    report-failure:
+        if: failure() && github.event_name == 'schedule'
+        needs: [cleanup-clusters]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Notify in Slack in case of failure
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

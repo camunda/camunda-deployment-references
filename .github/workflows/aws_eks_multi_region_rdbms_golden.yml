@@ -1,0 +1,85 @@
+---
+name: Tests - Golden - AWS EKS Multi Region RDBMS
+
+on:
+    workflow_dispatch:
+    pull_request:
+        paths:
+            - .github/workflows/aws_eks_multi_region_rdbms_golden.yml
+            - .tool-versions
+            - aws/modules/eks-cluster/**
+            - aws/modules/transit-gateway-hub/**
+            - aws/modules/transit-gateway-peering/**
+            - aws/modules/aurora-global-member/**
+            - aws/kubernetes/eks-multi-region-rdbms/terraform/**
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/internal-terraform-golden-plan/**
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+
+    # keep this synced with other workflows
+    AWS_PROFILE: infraex
+    AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BUCKET_KEY: golden.tfstate
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    compare:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                module:
+                    - eks-multi-region-rdbms/terraform/clusters/
+        permissions:
+            contents: write
+            pull-requests: write
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Export module_dir depending on scenario
+              id: set-module-dir
+              run: echo "MODULE_DIR=./aws/kubernetes/${{ matrix.module }}" | tee -a "$GITHUB_ENV"
+
+            - name: Run Terraform Golden Plan Comparison
+              uses: ./.github/actions/internal-terraform-golden-plan
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              with:
+                  module-dir: ${{ env.MODULE_DIR }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key: ${{ env.S3_BUCKET_KEY }}

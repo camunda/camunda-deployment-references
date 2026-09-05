@@ -1,0 +1,442 @@
+---
+name: Tests - Integration - AWS EKS Multi Region RDBMS
+
+on:
+    schedule:
+        - cron: 0 3 * * 4 # At 03:00 on Thursday. Staggered with the other multi-cluster suites.
+    workflow_dispatch:
+        inputs:
+            active_region_count:
+                description: |
+                    Number of region slots to deploy. 2 exercises the growth path (a spare slot
+                    is activated during the run), 3 deploys everything up front.
+                required: false
+                default: '2'
+            debug_tmate:
+                description: |
+                    Hold the runner open on an SSH session once the tests are done, before the
+                    teardown, so the clusters can be inspected by hand. The runner already
+                    carries a kubectl context per region, so `kubectl --context cluster-<short>`
+                    works straight away. Only the user who started the run can connect.
+                type: boolean
+                required: false
+                default: false
+    pull_request:
+        paths:
+            - .github/workflows/aws_eks_multi_region_rdbms_tests.yml
+            - .github/actions/aws-kubernetes-eks-multi-region-rdbms-create/**
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/internal-debug-failed-pods/**
+            - aws/kubernetes/eks-multi-region-rdbms/**
+            - '!aws/kubernetes/eks-multi-region-rdbms/terraform/*/test/golden/**'
+            - aws/modules/transit-gateway-hub/**
+            - aws/modules/transit-gateway-peering/**
+            - aws/modules/aurora-global-member/**
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
+
+env:
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+
+    # please keep those variables synced with aws_eks_multi_region_rdbms_daily_cleanup.yml
+    AWS_PROFILE: infraex
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    AWS_REGION: eu-west-2
+
+    # The shared cleanup action keeps these variables for dual-region callers.
+    CLUSTER_0_AWS_REGION: eu-west-2
+    CLUSTER_1_AWS_REGION: eu-west-3
+    # This architecture uses the N-region fallback instead.
+    CLEANUP_REGIONS: eu-west-2 eu-west-3 eu-central-2 eu-south-1
+
+    # Regions of the provider aliases the teardown template declares, one per
+    # region slot. Terraform reads TF_VAR_* straight from the environment.
+    # Keep in sync with the `regions` variable default in
+    # aws/kubernetes/eks-multi-region-rdbms/terraform/clusters/variables.tf.
+    TF_VAR_region_0: eu-west-2
+    TF_VAR_region_1: eu-west-3
+    TF_VAR_region_2: eu-central-2
+    TF_VAR_region_3: eu-south-1
+
+    # Region slot 0 drives the AWS CLI default; the other regions are read from the
+    # Terraform outputs so that the topology is defined in exactly one place.
+    #
+    # eu-central-2 (Zurich) is an AWS opt-in region: it must be enabled on the account and
+    # declared in camunda/infraex-common-config before this workflow can pass.
+    REF_ARCH: eks-multi-region-rdbms
+
+    # Bootstrap with one spare region slot so the run exercises the online growth path.
+    ACTIVE_REGION_COUNT: ${{ github.event.inputs.active_region_count || '2' }}
+
+    CAMUNDA_NAMESPACE: camunda
+    CAMUNDA_RELEASE_NAME: camunda
+    CAMUNDA_BROKERS_PER_REGION: '2'
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    clusters-info:
+        needs: [triage]
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        outputs:
+            platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Generate the test matrix
+              id: matrix
+              uses: ./.github/actions/internal-tests-matrix
+              with:
+                  ci_matrix_file: ./.github/workflows-config/aws-kubernetes-eks-multi-region-rdbms/test_matrix.yml
+                  is_schedule: ${{ env.IS_SCHEDULE }}
+                  is_renovate_pr: ${{ github.actor == 'renovate[bot]' && 'true' || 'false' }}
+                  # The action appends a random suffix, which is what makes the
+                  # name — and therefore the Terraform state key — unique per
+                  # run. Same shape as aws_kubernetes_eks_dual_region_tests.yml.
+                  cluster_prefix: eks-mr-${{ github.event.pull_request.number || '' }}
+
+    integration-tests:
+        needs: [triage, clusters-info]
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        # The infrastructure alone is roughly 40 minutes; the growth and region-loss
+        # scenarios add another 60. The extra 30 are the debug shell below: a ceiling
+        # costs nothing when it is not reached, and a run that opens the shell without
+        # it would be cancelled with the clusters still up.
+        timeout-minutes: 330
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJson(needs.clusters-info.outputs.platform-matrix) }}
+        env:
+            # Unique per run, because the matrix action appends a random suffix.
+            #
+            # A name derived only from the PR number was tried first and is a
+            # trap: the state key is `tfstate-<cluster-name>/`, so every run of
+            # the PR reused one state. A run whose teardown did not fully drain
+            # it left resources behind — an Aurora subnet group outliving its
+            # VPC, for instance — and every later run then died in `terraform
+            # apply` with `ModifyDBSubnetGroup ... not in the same Vpc`, before
+            # reaching a single test. Unique names make each run start clean;
+            # leftovers are swept by age by the daily cleanup workflow.
+            CLUSTER_NAME: ${{ matrix.distro.clusterName }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Export the Terraform state key prefix
+              id: s3_prefix
+              run: |
+                  set -euo pipefail
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ env.REF_ARCH }}/${{ steps.target-branch.outputs.TARGET_BRANCH }}/" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Create the multi-region infrastructure
+              id: create
+              timeout-minutes: 60
+              uses: ./.github/actions/aws-kubernetes-eks-multi-region-rdbms-create
+              with:
+                  cluster-name: ${{ env.CLUSTER_NAME }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  active-region-count: ${{ env.ACTIVE_REGION_COUNT }}
+                  ref-arch: ${{ env.REF_ARCH }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}
+                  tags: '{"ci-run-id": "${{ github.run_id }}", "ci-workflow": "${{ github.workflow }}"}'
+
+            - name: Export the environment contract
+              run: |
+                  set -euo pipefail
+                  {
+                    echo "CAMUNDA_REGION_SLOTS=${{ steps.create.outputs.region-slot-count }}"
+                    echo "CAMUNDA_ACTIVE_REGIONS=${{ steps.create.outputs.active-region-count }}"
+                    echo "CLUSTER_CONTEXTS=${{ steps.create.outputs.cluster-contexts }}"
+                    echo "AWS_REGIONS=${{ steps.create.outputs.aws-regions }}"
+                    echo "SUBMARINER_CLUSTER_IDS=${{ steps.create.outputs.submariner-cluster-ids }}"
+                    echo "AURORA_GLOBAL_CLUSTER_ID=${{ steps.create.outputs.aurora-global-cluster-id }}"
+                  } | tee -a "$GITHUB_ENV"
+
+            - name: Install subctl
+              timeout-minutes: 10
+              run: |
+                  set -euo pipefail
+                  source ./aws/kubernetes/${{ env.REF_ARCH }}/procedure/submariner/install-subctl.sh
+                  echo "PATH=$PATH" | tee -a "$GITHUB_ENV"
+
+            - name: Register the Camunda CI credentials
+              id: camunda-ci-credentials
+              uses: ./.github/actions/internal-camunda-ci-credentials
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+
+            # Installs Submariner service discovery and then probes real
+            # cross-region pod-to-pod traffic, which is the Transit Gateway's job
+            # rather than Submariner's here.
+            - name: Build the Submariner ClusterSet and probe the substrate
+              timeout-minutes: 45
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              run: go test --count=1 -v -timeout 45m -failfast -run TestMultiRegionSubmariner
+
+            - name: Deploy Camunda across the active regions
+              timeout-minutes: 45
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              env:
+                  # Provisions a local user matching CAMUNDA_BASIC_AUTH_USER /
+                  # _PASSWORD. Without it the chart keeps its default user and
+                  # every authenticated call in the suite returns 401.
+                  CAMUNDA_EXTRA_VALUES: ${{ steps.camunda-ci-credentials.outputs.values-file }}
+              run: go test --count=1 -v -timeout 45m -failfast -run TestMultiRegionDeployCamunda
+
+            - name: Verify the multi-region topology
+              timeout-minutes: 30
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              run: go test --count=1 -v -timeout 30m -failfast -run TestMultiRegionTopology
+
+            # A measurement, not a gate: the database tier is active-standby, so
+            # this is what a region that does not host the writer pays on every
+            # export flush. Never fails the run.
+            - name: Measure the RDBMS write latency per region
+              if: always()
+              timeout-minutes: 20
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              run: go test --count=1 -v -timeout 20m -run TestMultiRegionRdbmsLatency || true
+
+            # The differentiating scenario: raise active_region_count and bring the spare
+            # slot online without restarting the running regions.
+            - name: Activate the spare region
+              if: env.ACTIVE_REGION_COUNT != env.CAMUNDA_REGION_SLOTS
+              timeout-minutes: 60
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/terraform/clusters
+              run: |
+                  set -euo pipefail
+                  sed -i "s/^active_region_count.*/active_region_count = ${{ env.CAMUNDA_REGION_SLOTS }}/" terraform-cluster.tfvars
+                  terraform apply -no-color -auto-approve -var-file=terraform-cluster.tfvars
+
+                  # The contract was exported while the spare slot was still idle, so its
+                  # slot-indexed lists name one region fewer than there now are, and the
+                  # new cluster has no kubectl context. The exporter leaves
+                  # CAMUNDA_ACTIVE_REGIONS alone, which is what the next step needs: the
+                  # slot is provisioned but nothing runs Camunda there yet.
+                  source ../../procedure/export-terraform-outputs.sh
+                  ../../procedure/register-kubecontexts.sh
+
+                  {
+                    echo "CLUSTER_CONTEXTS=${CLUSTER_CONTEXTS}"
+                    echo "AWS_REGIONS=${AWS_REGIONS}"
+                    echo "SUBMARINER_CLUSTER_IDS=${SUBMARINER_CLUSTER_IDS}"
+                  } | tee -a "$GITHUB_ENV"
+
+            - name: Join the new region and grow the Zeebe cluster
+              if: env.ACTIVE_REGION_COUNT != env.CAMUNDA_REGION_SLOTS
+              timeout-minutes: 60
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              env:
+                  # Activation upgrades the running regions as well, so the overlay has
+                  # to be here too. Applying their values without it would drop the CI
+                  # user from the release the rest of the suite authenticates against.
+                  CAMUNDA_EXTRA_VALUES: ${{ steps.camunda-ci-credentials.outputs.values-file }}
+              run: go test --count=1 -v -timeout 60m -failfast -run TestMultiRegionActivateRegion
+
+            # The point of the architecture: losing a region must not stop the engine.
+            - name: Lose the writer region and retain quorum
+              timeout-minutes: 45
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              env:
+                  CAMUNDA_ACTIVE_REGIONS: ${{ env.CAMUNDA_REGION_SLOTS }}
+              run: go test --count=1 -v -timeout 45m -failfast -run TestMultiRegionRegionLoss
+
+            - name: Prepare the surviving kubectl context for the smoke test
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  read -r _ survivor _ <<< "$CLUSTER_CONTEXTS"
+                  mkdir -p .kube
+                  kubectl config view --context "$survivor" --minify --flatten > .kube/config-survivor
+
+            - name: Process work after the writer switchover
+              timeout-minutes: 10
+              uses: ./.github/actions/camunda-smoke-test
+              with:
+                  auth-mode: basic
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
+                  basic-auth-user: ${{ env.CAMUNDA_BASIC_AUTH_USER }}
+                  basic-auth-password: ${{ env.CAMUNDA_BASIC_AUTH_PASSWORD }}
+                  benchmark-duration: '60'
+                  benchmark-pi-per-second: '1'
+                  min-expected-instances: '10'
+                  propagation-wait-seconds: '15'
+              env:
+                  KUBECONFIG: ${{ github.workspace }}/.kube/config-survivor
+
+            - name: Force-remove the lost zone
+              timeout-minutes: 30
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              env:
+                  CAMUNDA_ACTIVE_REGIONS: ${{ env.CAMUNDA_REGION_SLOTS }}
+              run: go test --count=1 -v -timeout 30m -failfast -run TestMultiRegionDrainZone
+
+            - name: Bring the region back
+              timeout-minutes: 60
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              env:
+                  CAMUNDA_ACTIVE_REGIONS: ${{ env.CAMUNDA_REGION_SLOTS }}
+                  # Failback reinstalls the recovered region, so it needs the same
+                  # overlay the first install used.
+                  CAMUNDA_EXTRA_VALUES: ${{ steps.camunda-ci-credentials.outputs.values-file }}
+              run: go test --count=1 -v -timeout 60m -failfast -run TestMultiRegionFailback
+
+            - name: Debug the cross-region networking
+              if: failure()
+              timeout-minutes: 10
+              run: ./aws/kubernetes/${{ env.REF_ARCH }}/procedure/submariner/diagnose-submariner.sh
+
+            - name: Debug failed pods
+              if: failure()
+              timeout-minutes: 15
+              run: |
+                  set -uo pipefail
+                  read -r -a contexts <<< "${{ env.CLUSTER_CONTEXTS }}"
+                  ns="${{ env.CAMUNDA_NAMESPACE }}"
+
+                  for ctx in "${contexts[@]}"; do
+                    echo "::group::$ctx pods"
+                    kubectl --context "$ctx" -n "$ns" get pods -o wide || true
+                    kubectl --context "$ctx" -n "$ns" describe pods || true
+                    echo "::endgroup::"
+
+                    # Container logs are what actually explains a crash. Without
+                    # them a CrashLoopBackOff is only visible as exit code 255,
+                    # which says nothing about the cause.
+                    for pod in $(kubectl --context "$ctx" -n "$ns" get pods \
+                        -l app.kubernetes.io/component=zeebe-broker \
+                        -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+                      echo "::group::$ctx/$pod logs"
+                      kubectl --context "$ctx" -n "$ns" logs "$pod" --tail=200 --all-containers || true
+                      echo "--- previous instance (the one that crashed) ---"
+                      kubectl --context "$ctx" -n "$ns" logs "$pod" --tail=200 --all-containers --previous || true
+                      echo "::endgroup::"
+                    done
+
+                    # Fallback when the label selector matches nothing, e.g. a
+                    # chart change renaming the component label.
+                    echo "::group::$ctx events"
+                    kubectl --context "$ctx" -n "$ns" get events \
+                      --sort-by=.lastTimestamp | tail -40 || true
+                    echo "::endgroup::"
+                  done
+
+            # Last chance to look at the clusters: the next step starts deleting them.
+            # Opt-in, so a scheduled run never stalls here. Two switches, because this
+            # workflow is not on the default branch yet and cannot be dispatched: the
+            # `debug_tmate` input once it is, and the `debug_tmate` label on the pull
+            # request meanwhile. The label has to be on before the run starts, since
+            # the event payload is read at that point.
+            #
+            # The session ends on `touch /continue`, on disconnect, or when the timeout
+            # below expires, whichever comes first.
+            #
+            # The AWS credentials on the runner come from a role assumed at the start of
+            # the job, so `kubectl` stops working once that session expires, however long
+            # the tmate window still has left.
+            #
+            # `continue-on-error` because letting the window run out is the normal way to
+            # leave: a timed-out step is a failed step, and without this a run that was
+            # green until the shell opened ends up red for having been inspected.
+            - name: Open a debug shell on the runner
+              if: >-
+                  !cancelled() && (
+                    github.event.inputs.debug_tmate == 'true' ||
+                    contains(github.event.pull_request.labels.*.name, 'debug_tmate')
+                  )
+              continue-on-error: true
+              timeout-minutes: 30
+              uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3.24
+              with:
+                  limit-access-to-actor: true
+
+            - name: Uninstall Camunda and Submariner
+              if: always()
+              timeout-minutes: 30
+              working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
+              run: go test --count=1 -v -timeout 30m -run TestMultiRegionCleanup || true
+
+            - name: Destroy the infrastructure
+              if: always()
+              timeout-minutes: 125
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}
+                  target: ${{ env.CLUSTER_NAME }}
+                  modules-order: clusters
+                  destroy-pass-timeout-minutes: '120'
+                  retry-destroy-pass-timeout-minutes: '120'
+                  # The action defaults to 12, which is right for the daily sweep
+                  # it was built for and wrong here: this state is minutes old, so
+                  # the age gate in destroy-resources.sh skipped every module and
+                  # the step reported success having destroyed nothing. Every other
+                  # test workflow in the repo passes 0 for the same reason.
+                  max-age-hours: 0
+                  # The state binds resources to the region_1..region_3 provider
+                  # aliases. The template the script infers from the module name
+                  # declares neither, and `terraform destroy` then refuses to
+                  # touch anything it cannot resolve a provider for, leaving two
+                  # EKS clusters and an Aurora Global Database running.
+                  tf-config-template: config-multi-region
+                  # This teardown runs on every exit path, including a run that
+                  # failed before creating anything. Finding no state to destroy
+                  # is then the expected outcome and must not fail the job a
+                  # second time, masking the original error.
+                  fail-on-not-found: 'false'
+
+    report-failure:
+        if: failure() && github.event_name == 'schedule'
+        needs: [integration-tests]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Notify in Slack in case of failure
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
