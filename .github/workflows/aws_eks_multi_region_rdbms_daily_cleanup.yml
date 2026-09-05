@@ -131,21 +131,8 @@ jobs:
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: clusters
                   tf-config-template: config-multi-region
-
-            # The previous step has continue-on-error so that a dependency ordering failure
-            # does not mask the rest of the sweep. Retry once with no age filter.
-            - name: Retry delete clusters
-              id: retry_delete_clusters
-              if: steps.delete_clusters.outcome == 'failure'
-              timeout-minutes: 125
-              uses: ./.github/actions/aws-generic-terraform-cleanup
-              with:
-                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours: '0'
-                  tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
-                  modules-order: clusters
-                  tf-config-template: config-multi-region
+                  destroy-pass-timeout-minutes: '120'
+                  retry-destroy-pass-timeout-minutes: '120'
 
     report-failure:
         if: failure() && github.event_name == 'schedule'

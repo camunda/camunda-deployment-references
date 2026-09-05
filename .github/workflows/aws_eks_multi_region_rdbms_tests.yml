@@ -406,6 +406,8 @@ jobs:
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}
                   target: ${{ env.CLUSTER_NAME }}
                   modules-order: clusters
+                  destroy-pass-timeout-minutes: '120'
+                  retry-destroy-pass-timeout-minutes: '120'
                   # The action defaults to 12, which is right for the daily sweep
                   # it was built for and wrong here: this state is minutes old, so
                   # the age gate in destroy-resources.sh skipped every module and
