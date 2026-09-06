@@ -27,6 +27,9 @@ set -euo pipefail
 : "${REGION_SERVICE_CIDRS:?REGION_SERVICE_CIDRS must be set, e.g. from 'terraform output -json service_cidr_blocks'}"
 
 BROKER_INFO="${BROKER_INFO:-broker-info.subm}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=SCRIPTDIR/../lib-management-api.sh
+. "$SCRIPT_DIR/lib-management-api.sh"
 
 if [ ! -f "$BROKER_INFO" ]; then
     echo "ERROR: $BROKER_INFO not found. Run deploy-broker.sh first, or set BROKER_INFO." >&2
@@ -64,6 +67,7 @@ join_slot() {
 }
 
 if [ $# -ge 1 ]; then
+    camunda::require_slot "$1" "the Submariner join slot"
     join_slot "$1"
 else
     for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
