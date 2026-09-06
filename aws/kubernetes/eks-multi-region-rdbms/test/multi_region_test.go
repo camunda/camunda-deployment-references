@@ -237,7 +237,7 @@ func TestMultiRegionFailback(t *testing.T) {
 	lostSlot := 0
 
 	defer helpers.RunProcedureAllowFailure(t, env, 5*time.Minute, "submariner/diagnose-submariner.sh")
-	helpers.RunProcedure(t, env, 45*time.Minute, "failback.sh", strconv.Itoa(lostSlot))
+	helpers.RunProcedure(t, env, 45*time.Minute, "failback.sh", strconv.Itoa(lostSlot), "--switch-writer")
 }
 
 // TestMultiRegionCleanup uninstalls Camunda from every region so that the

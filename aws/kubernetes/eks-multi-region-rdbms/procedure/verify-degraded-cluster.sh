@@ -24,6 +24,7 @@ LOST_SLOT="$1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=SCRIPTDIR/lib-management-api.sh
 . "$SCRIPT_DIR/lib-management-api.sh"
+camunda::require_slot "$LOST_SLOT" "the lost region slot"
 OUTPUT_FILE="${OUTPUT_FILE:-degraded-topology.json}"
 
 survivor_context="$(camunda::survivor_context "$LOST_SLOT")"

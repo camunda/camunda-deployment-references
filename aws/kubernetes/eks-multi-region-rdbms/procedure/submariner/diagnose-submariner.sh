@@ -48,6 +48,10 @@ echo "== Cross-cluster DNS resolution"
 echo "=============================================================="
 
 read -r -a cluster_ids <<<"${SUBMARINER_CLUSTER_IDS:-}"
+if [ "${#cluster_ids[@]}" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
+    echo "WARNING: SUBMARINER_CLUSTER_IDS has ${#cluster_ids[@]} entries; expected $CAMUNDA_ACTIVE_REGIONS. Skipping cross-cluster DNS probes."
+    exit 0
+fi
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     for ((j = 0; j < CAMUNDA_ACTIVE_REGIONS; j++)); do
         [ "$i" -eq "$j" ] && continue
