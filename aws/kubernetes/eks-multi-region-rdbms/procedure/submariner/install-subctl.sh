@@ -26,7 +26,11 @@ tmp_dir="$(mktemp -d)"
 curl -fLsS "$base_url/$archive" -o "$tmp_dir/$archive"
 curl -fLsS "$base_url/subctl-checksums.txt" -o "$tmp_dir/subctl-checksums.txt"
 expected_sha="$(grep " $archive$" "$tmp_dir/subctl-checksums.txt" | cut -d' ' -f1)"
-actual_sha="$(shasum -a 256 "$tmp_dir/$archive" | cut -d' ' -f1)"
+if command -v sha256sum >/dev/null 2>&1; then
+    actual_sha="$(sha256sum "$tmp_dir/$archive" | cut -d' ' -f1)"
+else
+    actual_sha="$(shasum -a 256 "$tmp_dir/$archive" | cut -d' ' -f1)"
+fi
 if [ -z "$expected_sha" ] || [ "$actual_sha" != "$expected_sha" ]; then
     echo "ERROR: checksum verification failed for $archive." >&2
     rm -rf "$tmp_dir"
