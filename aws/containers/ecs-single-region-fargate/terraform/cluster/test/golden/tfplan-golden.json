@@ -26,6 +26,12 @@
       }
     },
     "aws_ecs_cluster.ecs": {
+      "identity": {
+        "account_id": null,
+        "name": null,
+        "region": null
+      },
+      "identity_schema_version": 0,
       "mode": "managed",
       "name": "ecs",
       "provider_name": "registry.terraform.io/hashicorp/aws",
