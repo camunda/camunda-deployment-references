@@ -37,8 +37,8 @@ if [[ -n "$ROUTER_DEPLOY" ]]; then
     # connection draining and a managed PDB. Neither a refused restart nor a slow
     # rollout means HTTP/2 is missing, so neither may fail the procedure.
     if ! oc -n openshift-ingress rollout restart "$ROUTER_DEPLOY"; then
-        echo "::warning::could not restart the router; the ingress operator rolls it out on its own"
+        echo "⚠️  Could not restart the router; the ingress operator rolls it out on its own"
     elif ! oc -n openshift-ingress rollout status "$ROUTER_DEPLOY" --timeout=5m; then
-        echo "::warning::could not confirm the router rollout within 5m; continuing, the HTTP/2 annotation is already applied"
+        echo "⚠️  Could not confirm the router rollout within 5m; continuing, the HTTP/2 annotation is already applied"
     fi
 fi
