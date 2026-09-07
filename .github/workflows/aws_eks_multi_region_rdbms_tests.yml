@@ -12,15 +12,6 @@ on:
                     is activated during the run), 3 deploys everything up front.
                 required: false
                 default: '2'
-            debug_tmate:
-                description: |
-                    Hold the runner open on an SSH session once the tests are done, before the
-                    teardown, so the clusters can be inspected by hand. The runner already
-                    carries a kubectl context per region, so `kubectl --context cluster-<short>`
-                    works straight away. Only the user who started the run can connect.
-                type: boolean
-                required: false
-                default: false
     pull_request:
         paths:
             - .github/workflows/aws_eks_multi_region_rdbms_tests.yml
@@ -48,10 +39,6 @@ env:
     S3_BUCKET_REGION: eu-central-1
     AWS_REGION: eu-west-2
 
-    # The shared cleanup action keeps these variables for dual-region callers.
-    CLUSTER_0_AWS_REGION: eu-west-2
-    CLUSTER_1_AWS_REGION: eu-west-3
-    # This architecture uses the N-region fallback instead.
     CLEANUP_REGIONS: eu-west-2 eu-west-3 eu-central-2 eu-south-1
 
     # Regions of the provider aliases the teardown template declares, one per
@@ -75,8 +62,6 @@ env:
 
     CAMUNDA_NAMESPACE: camunda
     CAMUNDA_RELEASE_NAME: camunda
-    CAMUNDA_BROKERS_PER_REGION: '2'
-
 jobs:
     triage:
         runs-on: ubuntu-latest
@@ -114,11 +99,7 @@ jobs:
         needs: [triage, clusters-info]
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
-        # The infrastructure alone is roughly 40 minutes; the growth and region-loss
-        # scenarios add another 60. The extra 30 are the debug shell below: a ceiling
-        # costs nothing when it is not reached, and a run that opens the shell without
-        # it would be cancelled with the clusters still up.
-        timeout-minutes: 330
+        timeout-minutes: 300
         strategy:
             fail-fast: false
             matrix: ${{ fromJson(needs.clusters-info.outputs.platform-matrix) }}
@@ -139,7 +120,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -175,19 +156,7 @@ jobs:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}
-                  tags: '{"ci-run-id": "${{ github.run_id }}", "ci-workflow": "${{ github.workflow }}"}'
-
-            - name: Export the environment contract
-              run: |
-                  set -euo pipefail
-                  {
-                    echo "CAMUNDA_REGION_SLOTS=${{ steps.create.outputs.region-slot-count }}"
-                    echo "CAMUNDA_ACTIVE_REGIONS=${{ steps.create.outputs.active-region-count }}"
-                    echo "CLUSTER_CONTEXTS=${{ steps.create.outputs.cluster-contexts }}"
-                    echo "AWS_REGIONS=${{ steps.create.outputs.aws-regions }}"
-                    echo "SUBMARINER_CLUSTER_IDS=${{ steps.create.outputs.submariner-cluster-ids }}"
-                    echo "AURORA_GLOBAL_CLUSTER_ID=${{ steps.create.outputs.aurora-global-cluster-id }}"
-                  } | tee -a "$GITHUB_ENV"
+                  tags: '{"ci-run-id": "${{ github.run_id }}", "ci-workflow": "${{ github.workflow }}", "map-migrated": "migARUADZHVWZ"}'
 
             - name: Install subctl
               timeout-minutes: 10
@@ -247,12 +216,11 @@ jobs:
                   sed -i "s/^active_region_count.*/active_region_count = ${{ env.CAMUNDA_REGION_SLOTS }}/" terraform-cluster.tfvars
                   terraform apply -no-color -auto-approve -var-file=terraform-cluster.tfvars
 
-                  # The contract was exported while the spare slot was still idle, so its
-                  # slot-indexed lists name one region fewer than there now are, and the
-                  # new cluster has no kubectl context. The exporter leaves
-                  # CAMUNDA_ACTIVE_REGIONS alone, which is what the next step needs: the
-                  # slot is provisioned but nothing runs Camunda there yet.
+                  # Refresh the topology after provisioning the spare slot. The
+                  # exporter preserves CAMUNDA_ACTIVE_REGIONS, so activate-region.sh
+                  # still knows which slot does not run Camunda yet.
                   source ../../procedure/export-terraform-outputs.sh
+                  source ../../procedure/export_environment_prerequisites.sh
                   ../../procedure/register-kubecontexts.sh
 
                   {
@@ -361,35 +329,6 @@ jobs:
                     echo "::endgroup::"
                   done
 
-            # Last chance to look at the clusters: the next step starts deleting them.
-            # Opt-in, so a scheduled run never stalls here. Two switches, because this
-            # workflow is not on the default branch yet and cannot be dispatched: the
-            # `debug_tmate` input once it is, and the `debug_tmate` label on the pull
-            # request meanwhile. The label has to be on before the run starts, since
-            # the event payload is read at that point.
-            #
-            # The session ends on `touch /continue`, on disconnect, or when the timeout
-            # below expires, whichever comes first.
-            #
-            # The AWS credentials on the runner come from a role assumed at the start of
-            # the job, so `kubectl` stops working once that session expires, however long
-            # the tmate window still has left.
-            #
-            # `continue-on-error` because letting the window run out is the normal way to
-            # leave: a timed-out step is a failed step, and without this a run that was
-            # green until the shell opened ends up red for having been inspected.
-            - name: Open a debug shell on the runner
-              if: >-
-                  !cancelled() && (
-                    github.event.inputs.debug_tmate == 'true' ||
-                    contains(github.event.pull_request.labels.*.name, 'debug_tmate')
-                  )
-              continue-on-error: true
-              timeout-minutes: 30
-              uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3.24
-              with:
-                  limit-access-to-actor: true
-
             - name: Uninstall Camunda and Submariner
               if: always()
               timeout-minutes: 30
@@ -435,7 +374,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Notify in Slack in case of failure
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bde1b69728d323c1c2d02e19153a8e00382eec4a # 1.8.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
