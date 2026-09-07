@@ -8,12 +8,10 @@ This reference deploys one Camunda 8 Orchestration Cluster across three or more
 AWS regions. Zeebe keeps quorum after one region is lost, while an RDBMS handles
 secondary-storage replication and writer failover.
 
-Use the official documentation for the architecture, deployment procedure, and
-day-2 operations:
+Start with the published [multi-region resilience overview](https://docs.camunda.io/docs/next/self-managed/concepts/multi-region/resilience-tiers/).
+The detailed architecture, deployment procedure, and day-2 operations are being
+reviewed in [camunda-docs pull request #9739](https://github.com/camunda/camunda-docs/pull/9739).
 
-- [Multi-Region RDBMS architecture](https://docs.camunda.io/docs/next/self-managed/concepts/multi-region/multi-region-rdbms/)
-- [Deploy Multi-Region RDBMS on Amazon EKS](https://docs.camunda.io/docs/next/self-managed/deployment/helm/cloud-providers/amazon/amazon-eks/multi-region-rdbms/)
-- [Multi-Region RDBMS operational procedure](https://docs.camunda.io/docs/next/self-managed/deployment/helm/operational-tasks/multi-region-rdbms-ops/)
 
 ## Deploy
 
@@ -72,7 +70,7 @@ on TCP port 5432 only from the active cluster VPC CIDRs. The database is not
 publicly accessible.
 
 The Helm values file contains only overrides for this architecture. Compare it
-with the [Camunda Helm chart defaults](https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform/values.yaml)
+with the [Camunda Helm chart defaults](https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform-8.10/values.yaml)
 when changing chart configuration.
 
 ## Activate a declared region
