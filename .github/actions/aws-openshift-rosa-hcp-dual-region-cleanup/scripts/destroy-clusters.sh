@@ -410,12 +410,19 @@ destroy_resource() {
       continue
     fi
 
-    # On OIDC config deletion failure, the ROSA cluster destruction is still propagating
-    # on the Red Hat side. Wait and retry — this is a transient condition.
+    # On "clusters using OIDC config" error: the ROSA cluster was already removed from the
+    # Terraform state (by a previous partial destroy) but still exists in RHCS.
+    # The OIDC config can't be deleted while clusters reference it, and no further wait
+    # helps because nothing is deleting those clusters. Remove the OIDC config from state
+    # to unblock the destroy of the remaining resources; the orphaned cluster and OIDC
+    # config are reclaimed by the ghost-cluster pass.
     if [[ "$output_tf_destroy" == *"clusters using OIDC config"* && $attempt -lt $max_destroy_attempts ]]; then
-      echo "[$group_id][$module_name] OIDC config still in use (attempt $attempt/$max_destroy_attempts)"
-      echo "[$group_id][$module_name] Waiting 60s for ROSA cluster deletion to propagate..."
-      sleep 60
+      echo "[$group_id][$module_name] OIDC config still in use by orphaned ROSA clusters (attempt $attempt/$max_destroy_attempts)"
+      echo "[$group_id][$module_name] Removing OIDC config resources from Terraform state to unblock destroy..."
+      terraform state list 2>/dev/null | grep "oidc_config" | while read -r resource; do
+        echo "[$group_id][$module_name] Removing from state: $resource"
+        terraform state rm "$resource" 2>/dev/null || true
+      done
       continue
     fi
 
