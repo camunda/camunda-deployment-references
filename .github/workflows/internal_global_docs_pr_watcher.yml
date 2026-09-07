@@ -124,6 +124,7 @@ jobs:
                   fi
 
                   flagged_count=0
+                  skipped_count=0
 
                   for pr in $(echo "$prs_json" | jq -r '.[].number'); do
                     pr_number="$pr"
@@ -166,7 +167,8 @@ jobs:
                     done
 
                     if [[ -z "$pr_head" ]]; then
-                      echo "  Could not resolve head SHA after 3 attempts, skipping."
+                      skipped_count=$((skipped_count + 1))
+                      echo "::warning::Could not resolve head SHA for PR #$pr_number after 3 attempts; skipping this PR."
                       echo "::endgroup::"
                       continue
                     fi
@@ -391,6 +393,11 @@ jobs:
                   echo "========================================="
                   echo "Scan complete. Flagged PRs: $flagged_count"
                   echo "========================================="
+
+                  if [[ "$skipped_count" -gt 0 ]]; then
+                    echo "::error::Docs scan incomplete: skipped $skipped_count PR(s) after head SHA resolution failed."
+                    exit 1
+                  fi
 
             - name: Notify in Slack in case of failure
               id: slack-notification
