@@ -207,7 +207,7 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
             echo "    and the Transit Gateway routes. In practice: the pods must be in"
             echo "    the 100.64.0.0/10 range, and 'subctl show all' must report the pod"
             echo "    and service CIDRs, never the VPC CIDR."
-            echo "    See ../README.md, section 'Pod networking'."
+            echo "    See the official Multi-Region RDBMS network requirements."
 
         else
             echo "    the name does not resolve, so this is a discovery problem."

@@ -9,8 +9,7 @@ set -euo pipefail
 # cross-region pod traffic natively. Installing the connectivity component on
 # top would put a second owner on the same prefixes -- Submariner routes them
 # into an IPsec tunnel while AWS routes them natively -- which is a failure mode
-# this architecture has already paid for. See ../../README.md, section
-# "Cross-region networking".
+# this architecture has already paid for.
 #
 # Consequences worth knowing:
 #   * no gateway nodes, no IPsec, no VXLAN, no MTU overhead, nothing to fail

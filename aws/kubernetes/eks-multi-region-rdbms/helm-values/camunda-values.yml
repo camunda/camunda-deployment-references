@@ -3,8 +3,6 @@
 # secondary storage.
 #
 # This file deliberately contains only the values that differ from the defaults.
-# For changes and documentation, use your favorite diff tool to compare it with:
-# https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform/values.yaml
 #
 # The file is a template: `${...}` placeholders are substituted with envsubst by
 # procedure/assemble-envsubst-values.sh, and `${DOLLAR}` escapes a literal `$`
@@ -46,8 +44,7 @@ connectors:
 
 orchestration:
     # Multiregion options for the Orchestration Cluster. This architecture is a
-    # reference, not a production configuration; see ../README.md for what it
-    # does and does not cover.
+    # reference, not a production configuration.
     multiregion:
         # Zone awareness, rather than the mode that numbers the brokers.
         #
@@ -57,7 +54,6 @@ orchestration:
         # names the zones instead, so brokers are identified as <zone>_<index>.
         # It is the configuration to use for a new deployment, and required for
         # three or more zones.
-        # See ../README.md, "Zones".
         mode: zoned
         # The zone THIS deployment belongs to. The only per-region value here.
         zone: ${CAMUNDA_ZONE_NAME}
@@ -68,8 +64,7 @@ orchestration:
         # Every zone of the cluster, including any not deployed yet. Listing a
         # zone before it exists is deliberate: its replicas are reserved, so
         # each partition runs at N-1 of N until the zone is filled, which is a
-        # majority and therefore a working cluster. See "Zones vs active
-        # regions" in ../README.md.
+        # majority and therefore a working cluster.
         #
         # Priority skews Raft leadership. Zone 0 gets the highest because it
         # hosts the Aurora writer, and keeping leaders next to the writer is
@@ -84,8 +79,7 @@ orchestration:
     # every partition in each region through the zone specification above. With
     # N >= 3 slots the cluster keeps its quorum when
     # a whole region is lost, which is the property this architecture exists
-    # for. See ../README.md, section "Why the replication factor equals the
-    # number of regions".
+    # for.
     replicationFactor: '${CAMUNDA_REPLICATION_FACTOR}'
 
     ###########################################################################

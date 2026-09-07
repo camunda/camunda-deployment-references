@@ -1,6 +1,6 @@
 #!/bin/bash
-# Best-effort Submariner diagnostics. Never fails, so it can be wired into the
-# `if: failure()` step of a workflow without masking the original error.
+# Best-effort Submariner diagnostics. Never fails, so diagnostics do not replace
+# the original command failure.
 set +e
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"

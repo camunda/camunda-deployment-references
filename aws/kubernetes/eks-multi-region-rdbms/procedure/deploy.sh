@@ -6,9 +6,8 @@ set -euo pipefail
 # One-shot deployment: renders the per-region values and installs the chart in
 # every active region.
 #
-# Exists so that a non-interactive caller (CI, the Go tests) does not have to
-# source generate-zeebe-helm-values.sh in its own shell. When following the
-# documentation by hand, run the three steps individually instead:
+# Lets a non-interactive caller run the complete deployment without sourcing
+# generate-zeebe-helm-values.sh in its own shell. To inspect each stage, run:
 #
 #   . ./generate-zeebe-helm-values.sh
 #   ./assemble-envsubst-values.sh

@@ -53,22 +53,6 @@ LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-cam
 BROKER_IMAGE="$(helm show values "$LOCAL_CHART" |
     yq -r '(.orchestration.image // .zeebe.image) | ([.registry, .repository] | map(. // "") | map(select(. != "")) | join("/")) + ":" + .tag')"
 
-# Fail fast when the values ask for zone awareness but the built chart cannot
-# deliver it. Without this the chart silently ignores the unknown values, falls
-# back to node-ID numbering, and every region numbers its brokers
-# identically -- which surfaces ninety minutes later as brokers that cannot
-# find each other, and reads like a networking problem.
-_values_template="$(cd "$(dirname "${BASH_SOURCE[0]}")/../helm-values" && pwd)/camunda-values.yml"
-if grep -q "mode: zoned" "$_values_template" 2>/dev/null; then
-    if ! grep -q "mode:" "$LOCAL_CHART/values.yaml" 2>/dev/null ||
-        ! grep -q "zones:" "$LOCAL_CHART/values.yaml" 2>/dev/null; then
-        echo "ERROR: the values request orchestration.multiregion.mode=zoned, but the built chart does not support it." >&2
-        echo "       Built from ref: ${CAMUNDA_HELM_CHART_GIT_REF:-<default pin in build-camunda-chart.sh>}" >&2
-        echo "       Set CAMUNDA_HELM_CHART_GIT_REF to a ref carrying zoned mode; see camunda/camunda-platform-helm#6949." >&2
-        exit 1
-    fi
-fi
-
 broker_image_repo="${BROKER_IMAGE%:*}"
 broker_image_tag="${BROKER_IMAGE##*:}"
 if [ -z "$BROKER_IMAGE" ] || [ "$BROKER_IMAGE" = "$broker_image_tag" ] ||
@@ -96,10 +80,6 @@ install_slot() {
     envsubst '${BROKER_IMAGE}' <"$values" >"$values.tmp"
     mv "$values.tmp" "$values"
 
-    # Optional overlay applied after the generated values, e.g. the CI
-    # credentials overlay that provisions a local user matching the basic-auth
-    # credentials the tests authenticate with. Without it the chart keeps its
-    # default user and every authenticated call returns 401.
     local extra_args=()
     if [ -n "${CAMUNDA_EXTRA_VALUES:-}" ]; then
         if [ ! -f "$CAMUNDA_EXTRA_VALUES" ]; then

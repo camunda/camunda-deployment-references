@@ -27,7 +27,7 @@ set -o pipefail
 export CAMUNDA_REGION_SLOTS="${CAMUNDA_REGION_SLOTS:-3}"
 
 # Number of slots currently deployed. Must be CAMUNDA_REGION_SLOTS or
-# CAMUNDA_REGION_SLOTS - 1; see ../README.md.
+# CAMUNDA_REGION_SLOTS - 1.
 export CAMUNDA_ACTIVE_REGIONS="${CAMUNDA_ACTIVE_REGIONS:-3}"
 
 # AWS regions, kubectl contexts and Submariner cluster IDs, one entry per slot.

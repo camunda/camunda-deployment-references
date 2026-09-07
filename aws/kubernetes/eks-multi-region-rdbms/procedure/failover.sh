@@ -32,7 +32,7 @@ set -euo pipefail
 # majority when one goes, and processing only resumes once the zone is removed.
 # Three or more keep a majority without it, and a zone expected back is cheaper
 # left in place: its brokers catch up from the Raft log, where a removed zone has
-# to be added back explicitly. See "Region loss" in ../README.md.
+# to be added back explicitly.
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${AWS_REGIONS:?AWS_REGIONS must be set, source export_environment_prerequisites.sh}"

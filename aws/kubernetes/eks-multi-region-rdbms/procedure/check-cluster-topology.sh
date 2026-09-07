@@ -85,8 +85,7 @@ while true; do
         401 | 403)
             echo "       The gateway never accepted the credentials, so this is a" >&2
             echo "       configuration problem rather than a slow start:" >&2
-            echo "       CAMUNDA_BASIC_AUTH_USER must match a user the chart provisions." >&2
-            echo "       In CI that is the overlay passed through CAMUNDA_EXTRA_VALUES." >&2
+            echo "       CAMUNDA_BASIC_AUTH_USER must match a user configured by the chart values." >&2
             ;;
         esac
         cat "$OUTPUT_FILE" >&2 2>/dev/null || true
