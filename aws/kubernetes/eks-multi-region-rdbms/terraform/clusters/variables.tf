@@ -6,7 +6,6 @@
 # topology up front, then bring its zones online one at a time with              #
 # `var.active_region_count`.                                                     #
 #                                                                              #
-# See ../../README.md, section "Region slots vs active regions".                #
 ################################################################################
 
 variable "regions" {
@@ -23,7 +22,7 @@ variable "regions" {
 
     There is no separate pod range. With the AWS VPC CNI a pod address IS a VPC
     address, so pods are reachable across regions over the Transit Gateway with
-    no overlay; see ../../README.md, section "Cross-region networking".
+    no overlay.
 
     `short_name` is used to suffix cluster and resource names and must be a
     valid DNS label.
@@ -57,7 +56,7 @@ variable "regions" {
     },
     # Slot 3 is wired but disabled by default. Uncomment to bootstrap a
     # four-region cluster, and raise `replication_factor` in the Helm values
-    # accordingly. See ../../README.md.
+    # accordingly.
     # {
     #   region             = "eu-south-1" # Milan
     #   short_name         = "milan"

@@ -13,7 +13,7 @@
 #                                                                              #
 # There are no Submariner tunnel ports here. Submariner is deployed for service #
 # discovery only; the data plane is the Transit Gateway, so there is no IPsec   #
-# or VXLAN to authorise. See ../../README.md, "Cross-region networking".        #
+# or VXLAN to authorise.                                                        #
 ################################################################################
 
 locals {
