@@ -414,6 +414,24 @@ run "extra_url_parameters_reject_injection_in_values" {
   ]
 }
 
+# The shape guard is about '&' and '=' only: a comma-separated value is a normal
+# JDBC parameter shape and must still be accepted.
+run "extra_url_parameters_accept_comma_separated_values" {
+  command = plan
+
+  variables {
+    extra_url_parameters = {
+      wrapperDialect = "aurora-pg"
+      someList       = "a,b,c"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "&someList=a,b,c")
+    error_message = "A comma-separated value should be accepted and rendered verbatim"
+  }
+}
+
 run "extra_url_parameters_reject_injection_in_keys" {
   command = plan
 

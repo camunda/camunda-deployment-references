@@ -96,9 +96,9 @@ variable "extra_url_parameters" {
   validation {
     condition = alltrue([
       for k, v in var.extra_url_parameters :
-      can(regex("^[A-Za-z][A-Za-z0-9]*$", k)) && can(regex("^[A-Za-z0-9._:/-]+$", v))
+      can(regex("^[A-Za-z][A-Za-z0-9]*$", k)) && can(regex("^[A-Za-z0-9._:/,-]+$", v))
     ])
-    error_message = "extra_url_parameters keys and values must be bare JDBC parameter tokens (no '&', '=' or spaces) — pass each parameter as its own map entry."
+    error_message = "extra_url_parameters keys must be bare JDBC parameter names (letters and digits, starting with a letter) and values may contain only letters, digits and . _ : / , - — notably no '&' or '=', so that no entry can append a parameter of its own."
   }
 
   validation {
