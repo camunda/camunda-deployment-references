@@ -253,6 +253,20 @@ jobs:
             # the resource group's Activity Log, which cleanup-clusters destroys.
             # cleanup-clusters needs: prepare-clusters, so dumping here is always
             # before teardown. See #3354.
+            # The OIDC assertion minted at job start lives five minutes, but the create
+            # step is allowed two hours before it fails, so by the time the dump runs the
+            # session is long dead and every az call returns AADSTS700024. Re-authenticate
+            # first, best effort: this exists to explain a failure, never to add one.
+            - name: 🔐 Refresh the Azure login before dumping diagnostics
+              if: failure() && steps.create_cluster.outcome == 'failure'
+              continue-on-error: true
+              timeout-minutes: 10
+              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              with:
+                  client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+
             - name: 🔬🚨 Dump Azure Activity Log for the failed resource group
               id: azure_activity_log
               # Scoped to the create step rather than a bare failure(): the resource group
