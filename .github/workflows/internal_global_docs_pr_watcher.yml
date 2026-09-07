@@ -146,11 +146,24 @@ jobs:
                     watchlist_matches=()
                     broken_links=()
 
-                    # Use headRefOid (commit SHA) so fork PRs resolve correctly
-                    pr_head=$(gh pr view "$pr_number" \
-                      --repo "$DOCS_REPO" \
-                      --json headRefOid \
-                      --jq '.headRefOid')
+                    # Use headRefOid (commit SHA) so fork PRs resolve correctly.
+                    # Retry: the GitHub GraphQL API returns transient 5xx, and a
+                    # single failure here used to abort the whole scan (set -e).
+                    pr_head=""
+                    for attempt in 1 2 3; do
+                      pr_head=$(gh pr view "$pr_number" \
+                        --repo "$DOCS_REPO" \
+                        --json headRefOid \
+                        --jq '.headRefOid' 2>/dev/null || echo "")
+                      [[ -n "$pr_head" ]] && break
+                      sleep $((attempt * 5))
+                    done
+
+                    if [[ -z "$pr_head" ]]; then
+                      echo "  Could not resolve head SHA after 3 attempts, skipping."
+                      echo "::endgroup::"
+                      continue
+                    fi
 
                     ###########################################################
                     # Dynamic detection: for each changed file, fetch its
