@@ -150,6 +150,7 @@ resource "aws_rds_cluster_instance" "this" {
   instance_class             = var.instance_class
   ca_cert_identifier         = var.ca_cert_identifier
   db_subnet_group_name       = aws_db_subnet_group.this.name
+  publicly_accessible        = false
   apply_immediately          = var.apply_immediately
   copy_tags_to_snapshot      = true
 
