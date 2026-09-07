@@ -423,7 +423,14 @@ destroy_resource() {
     if [[ "$output_tf_destroy" == *"clusters using OIDC config"* && $attempt -lt $max_destroy_attempts ]]; then
       echo "[$group_id][$module_name] OIDC config still in use by orphaned ROSA clusters (attempt $attempt/$max_destroy_attempts)"
 
-      rosa login --token="$RHCS_TOKEN"
+      # Without a session the orphans can be neither listed nor deleted, and the state
+      # surgery below would then abandon them — the exact outcome this branch exists to
+      # prevent. Leave the state untouched and retry; the loop fails loudly on exhaustion.
+      if ! rosa login --token="$RHCS_TOKEN"; then
+        echo "::warning::[$group_id][$module_name] rosa login failed; leaving the OIDC config in state rather than abandoning live clusters"
+        continue
+      fi
+
       local orphan orphan_left=false
       for orphan in "$cluster_1_name" "$cluster_2_name"; do
         if rosa describe cluster --cluster "$orphan" >/dev/null 2>&1; then
