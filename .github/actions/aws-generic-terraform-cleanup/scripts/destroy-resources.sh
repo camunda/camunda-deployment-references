@@ -421,7 +421,7 @@ destroy_module() {
   # Handle dual-region (we may need a better way to abstract this)
   local tf_config_file="$SCRIPT_DIR/config"
   if [[ "$module_name" =~ ^(clusters|peering)$ ]]; then
-    [[ -z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION" ]] && {
+    [[ -z "${TF_CONFIG_TEMPLATE:-}" && (-z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION") ]] && {
       echo "Error: CLUSTER_0_AWS_REGION and CLUSTER_1_AWS_REGION must be set"
       exit 1
     }
