@@ -37,5 +37,5 @@ if [[ -n "$ROUTER_DEPLOY" ]]; then
     # termination past the timeout (connection draining + managed PDB).
     # A slow rollout must not fail the deployment procedure.
     oc -n openshift-ingress rollout status "$ROUTER_DEPLOY" --timeout=5m ||
-        echo "::warning::router rollout did not settle within 5m; continuing (HTTP/2 annotation is already applied)"
+        echo "::warning::could not confirm the router rollout within 5m; continuing, the HTTP/2 annotation is already applied"
 fi
