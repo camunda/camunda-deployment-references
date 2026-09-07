@@ -109,8 +109,8 @@ run "postgresql_engine_selects_default_version" {
   }
 
   assert {
-    condition     = aws_rds_cluster.primary.engine_version == "18.3"
-    error_message = "PostgreSQL engine_version should default to postgresql_engine_version (18.3)"
+    condition     = aws_rds_cluster.primary.engine_version == "18.4"
+    error_message = "PostgreSQL engine_version should default to postgresql_engine_version (18.4)"
   }
 }
 
@@ -423,6 +423,70 @@ run "extra_wrapper_plugins_do_not_duplicate_builtins" {
     condition     = strcontains(output.jdbc_url, "wrapperPlugins=iam,failover,efm2")
     error_message = "A plugin already provided by the module should not be repeated in wrapperPlugins"
   }
+}
+
+run "jdbc_component_outputs_compose_the_same_url" {
+  command = plan
+
+  override_resource {
+    target          = aws_rds_global_cluster.this
+    override_during = plan
+    values = {
+      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.primary
+    override_during = plan
+    values = {
+      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+    }
+  }
+  override_resource {
+    target          = aws_rds_cluster.secondary
+    override_during = plan
+    values = {
+      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
+    }
+  }
+
+  # Assembling the components must reproduce the deprecated jdbc_url exactly, so
+  # a consumer can migrate off it without changing the resulting connection.
+  assert {
+    condition = output.jdbc_url == join("", [
+      "jdbc:aws-wrapper:",
+      output.jdbc_subprotocol,
+      "://",
+      output.global_cluster_endpoint,
+      ":",
+      tostring(output.db_port),
+      "/",
+      output.database_name,
+      "?wrapperPlugins=",
+      output.jdbc_wrapper_plugins,
+      "&globalClusterInstanceHostPatterns=",
+      output.jdbc_instance_host_patterns,
+      output.jdbc_ssl_param,
+    ])
+    error_message = "The jdbc_* component outputs must compose to exactly the deprecated jdbc_url"
+  }
+
+  assert {
+    condition     = output.jdbc_subprotocol == "postgresql" && output.jdbc_ssl_param == "&sslmode=require"
+    error_message = "PostgreSQL component outputs should expose the postgresql subprotocol and sslmode=require"
+  }
+}
+
+run "engine_version_rejects_empty_string" {
+  command = plan
+
+  variables {
+    engine_version = ""
+  }
+
+  expect_failures = [
+    var.engine_version,
+  ]
 }
 
 run "extra_wrapper_plugins_reject_comma_separated_input" {

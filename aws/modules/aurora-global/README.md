@@ -38,7 +38,7 @@ No modules.
 | <a name="input_master_password"></a> [master\_password](#input\_master\_password) | The password for the database admin user | `string` | n/a | yes |
 | <a name="input_master_username"></a> [master\_username](#input\_master\_username) | The username for the database admin user | `string` | n/a | yes |
 | <a name="input_mysql_engine_version"></a> [mysql\_engine\_version](#input\_mysql\_engine\_version) | Default Aurora MySQL engine version, used when engine = aurora-mysql and engine\_version is not set. | `string` | `"8.4.mysql_aurora.8.4.7"` | no |
-| <a name="input_postgresql_engine_version"></a> [postgresql\_engine\_version](#input\_postgresql\_engine\_version) | Default Aurora PostgreSQL engine version, used when engine = aurora-postgresql and engine\_version is not set. | `string` | `"18.3"` | no |
+| <a name="input_postgresql_engine_version"></a> [postgresql\_engine\_version](#input\_postgresql\_engine\_version) | Default Aurora PostgreSQL engine version, used when engine = aurora-postgresql and engine\_version is not set. | `string` | `"18.4"` | no |
 | <a name="input_primary_availability_zones"></a> [primary\_availability\_zones](#input\_primary\_availability\_zones) | Availability zones for the primary cluster | `list(string)` | n/a | yes |
 | <a name="input_primary_cidr_blocks"></a> [primary\_cidr\_blocks](#input\_primary\_cidr\_blocks) | CIDR blocks to allow access from/to the primary cluster | `list(string)` | n/a | yes |
 | <a name="input_primary_cluster_name"></a> [primary\_cluster\_name](#input\_primary\_cluster\_name) | Identifier for the primary Aurora cluster | `string` | n/a | yes |
@@ -56,13 +56,17 @@ No modules.
 
 | Name | Description |
 | ---- | ----------- |
+| <a name="output_database_name"></a> [database\_name](#output\_database\_name) | The database created on the cluster; the path segment of the JDBC URL. |
 | <a name="output_db_port"></a> [db\_port](#output\_db\_port) | The database port for the selected engine (5432 for PostgreSQL, 3306 for MySQL). |
 | <a name="output_global_cluster_arn"></a> [global\_cluster\_arn](#output\_global\_cluster\_arn) | The ARN of the Aurora Global Database cluster |
 | <a name="output_global_cluster_endpoint"></a> [global\_cluster\_endpoint](#output\_global\_cluster\_endpoint) | The writer endpoint for the Aurora Global Database cluster. This endpoint always points to the writer DB instance in the current primary cluster. |
 | <a name="output_global_cluster_id"></a> [global\_cluster\_id](#output\_global\_cluster\_id) | The ID of the Aurora Global Database cluster |
 | <a name="output_global_cluster_resource_id"></a> [global\_cluster\_resource\_id](#output\_global\_cluster\_resource\_id) | The resource ID of the Aurora Global Database cluster (used for IAM auth) |
 | <a name="output_jdbc_instance_host_patterns"></a> [jdbc\_instance\_host\_patterns](#output\_jdbc\_instance\_host\_patterns) | Comma-separated globalClusterInstanceHostPatterns for the AWS JDBC Wrapper failover plugin (primary,secondary). |
-| <a name="output_jdbc_url"></a> [jdbc\_url](#output\_jdbc\_url) | Ready-to-use AWS Advanced JDBC Wrapper URL for the Aurora Global writer, engine-aware, with iam (when enabled) + failover plugins and globalClusterInstanceHostPatterns. |
+| <a name="output_jdbc_ssl_param"></a> [jdbc\_ssl\_param](#output\_jdbc\_ssl\_param) | Engine-specific TLS query parameter, already prefixed with '&' ('&sslmode=require' for PostgreSQL, '&sslMode=REQUIRED' for MySQL). Pins TLS instead of relying on the driver default, which permits a plaintext downgrade. |
+| <a name="output_jdbc_subprotocol"></a> [jdbc\_subprotocol](#output\_jdbc\_subprotocol) | JDBC subprotocol for the selected engine ('postgresql' or 'mysql'), i.e. the segment after 'jdbc:aws-wrapper:'. |
+| <a name="output_jdbc_url"></a> [jdbc\_url](#output\_jdbc\_url) | DEPRECATED — prefer composing the URL from the jdbc\_* component outputs below.<br/><br/>A fully assembled AWS Advanced JDBC Wrapper URL for the Aurora Global writer<br/>(engine-aware subprotocol and port, iam when enabled + failover plugins,<br/>globalClusterInstanceHostPatterns, TLS pinned). Kept for backward<br/>compatibility, but building the URL here forces a change to any connection<br/>property — a timeout, a pool setting — through this module and a redeploy of<br/>the infrastructure layer. Consumers should instead read jdbc\_subprotocol,<br/>global\_cluster\_endpoint, db\_port, database\_name, jdbc\_wrapper\_plugins,<br/>jdbc\_instance\_host\_patterns and jdbc\_ssl\_param and assemble the URL where the<br/>application is configured. This output will be removed in a future major. |
+| <a name="output_jdbc_wrapper_plugins"></a> [jdbc\_wrapper\_plugins](#output\_jdbc\_wrapper\_plugins) | Value for the AWS Advanced JDBC Wrapper 'wrapperPlugins' property: 'failover' plus 'iam' when iam\_auth\_enabled, plus any extra\_wrapper\_plugins. |
 | <a name="output_primary_cluster_endpoint"></a> [primary\_cluster\_endpoint](#output\_primary\_cluster\_endpoint) | The writer endpoint of the primary Aurora cluster |
 | <a name="output_primary_cluster_identifier"></a> [primary\_cluster\_identifier](#output\_primary\_cluster\_identifier) | The identifier of the primary Aurora cluster |
 | <a name="output_primary_cluster_reader_endpoint"></a> [primary\_cluster\_reader\_endpoint](#output\_primary\_cluster\_reader\_endpoint) | The reader endpoint of the primary Aurora cluster |

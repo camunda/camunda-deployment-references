@@ -18,6 +18,11 @@ variable "engine_version" {
   type        = string
   default     = null
   description = "Exact engine version override. When null, the module selects the per-engine default (postgresql_engine_version or mysql_engine_version) based on var.engine."
+
+  validation {
+    condition     = var.engine_version == null ? true : trimspace(var.engine_version) != ""
+    error_message = "engine_version must be null (to use the per-engine default) or a non-empty version string; an empty string would be passed straight to RDS and rejected there."
+  }
 }
 
 variable "postgresql_engine_version" {
