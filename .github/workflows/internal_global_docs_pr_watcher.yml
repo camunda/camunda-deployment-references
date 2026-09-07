@@ -394,9 +394,15 @@ jobs:
                   echo "Scan complete. Flagged PRs: $flagged_count"
                   echo "========================================="
 
-                  if [[ "$skipped_count" -gt 0 ]]; then
-                    echo "::error::Docs scan incomplete: skipped $skipped_count PR(s) after head SHA resolution failed."
+                  # A blip on one pull request is self-healing: the next hourly run re-scans
+                  # it, and failing the whole run for that would page someone for nothing.
+                  # Every pull request failing is not a blip — it means the lookup itself is
+                  # broken, which is the case that would otherwise stay green forever.
+                  if [[ "$skipped_count" -gt 0 && "$skipped_count" -eq "$pr_count" ]]; then
+                    echo "::error::Docs scan resolved no pull requests at all ($skipped_count of $pr_count); the head SHA lookup is broken."
                     exit 1
+                  elif [[ "$skipped_count" -gt 0 ]]; then
+                    echo "::warning::Docs scan incomplete: skipped $skipped_count of $pr_count PR(s); the next hourly run will re-scan them."
                   fi
 
             - name: Notify in Slack in case of failure
