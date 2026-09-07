@@ -2248,7 +2248,7 @@
             "sigint_rollback": null,
             "tags": null,
             "timeouts": {
-              "create": "15m",
+              "create": "30m",
               "delete": "20m",
               "update": "30m"
             },
