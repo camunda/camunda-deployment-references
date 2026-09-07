@@ -74,7 +74,7 @@ override_data {
       aurora_secondary_cluster_endpoint         = "aurora-secondary.example.com"
       aurora_primary_cluster_identifier         = "test-app-r0-aurora"
       aurora_secondary_cluster_identifier       = "test-app-r1-aurora"
-      aurora_jdbc_url                           = "jdbc:aws-wrapper:postgresql://aurora-global.example.com:5432/camunda?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=?.p.example.com,?.s.example.com"
+      aurora_jdbc_url                           = "jdbc:aws-wrapper:postgresql://aurora-global.example.com:5432/camunda?wrapperPlugins=iam,failover,efm2&globalClusterInstanceHostPatterns=?.p.example.com,?.s.example.com&sslmode=require&failoverTimeoutMs=60000"
       opensearch_region_0_endpoint              = "opensearch-r0.example.com"
       opensearch_region_1_endpoint              = "opensearch-r1.example.com"
       s3_force_destroy                          = true
@@ -103,7 +103,7 @@ run "rdbms_env_vars_local_populated_when_rdbms" {
     condition = anytrue([
       for e in local.rdbms_env_vars :
       e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL" &&
-      e.value == "jdbc:aws-wrapper:postgresql://aurora-global.example.com:5432/camunda?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=?.p.example.com,?.s.example.com"
+      e.value == "jdbc:aws-wrapper:postgresql://aurora-global.example.com:5432/camunda?wrapperPlugins=iam,failover,efm2&globalClusterInstanceHostPatterns=?.p.example.com,?.s.example.com&sslmode=require&failoverTimeoutMs=60000"
     ])
     error_message = "RDBMS URL env var should equal the infra-provided aurora_jdbc_url"
   }

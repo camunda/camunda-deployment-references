@@ -82,30 +82,31 @@ variable "extra_wrapper_plugins" {
   }
 }
 
-variable "failover_timeout_ms" {
-  type = number
-  # The wrapper's own default. The module always loads the failover plugin, so
-  # its timeout is a first-class input rather than a free-form URL parameter.
-  default     = 300000
-  description = "Value of the failover plugin's failoverTimeoutMs: the maximum time in milliseconds the driver keeps trying to reconnect to a new writer or reader after a cluster failover. The wrapper default of 300000 (5 min) is usually far longer than an Aurora Global failover takes."
-
-  validation {
-    condition     = var.failover_timeout_ms > 0
-    error_message = "failover_timeout_ms must be greater than 0."
-  }
-}
-
 variable "extra_url_parameters" {
   type        = map(string)
   default     = {}
-  description = "Additional query parameters appended to the jdbc_url, e.g. the efm2 plugin's { failureDetectionTime = \"15000\" }. The parameters the module owns (wrapperPlugins, globalClusterInstanceHostPatterns, failoverTimeoutMs, TLS mode) are reserved — use the dedicated inputs for those."
+  description = "Additional query parameters appended to the jdbc_url, e.g. the failover plugin's { failoverTimeoutMs = \"60000\" } or the efm2 plugin's { failureDetectionTime = \"15000\" }. The parameters the module builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, TLS mode) are reserved."
+
+  # Two guards, both required. The shape check keeps '&' and '=' out of keys and
+  # values, without which a single entry could append arbitrary extra parameters
+  # to the URL (e.g. connectTimeout = "5000&wrapperPlugins=none") and defeat the
+  # reserved-key check below. Rejecting is preferred over url-encoding: such
+  # input can only be a mistake, and encoding would also mangle the ':' and '/'
+  # that legitimately appear in values.
+  validation {
+    condition = alltrue([
+      for k, v in var.extra_url_parameters :
+      can(regex("^[A-Za-z][A-Za-z0-9]*$", k)) && can(regex("^[A-Za-z0-9._:/-]+$", v))
+    ])
+    error_message = "extra_url_parameters keys and values must be bare JDBC parameter tokens (no '&', '=' or spaces) — pass each parameter as its own map entry."
+  }
 
   validation {
     condition = length(setintersection(
       keys(var.extra_url_parameters),
-      ["wrapperPlugins", "globalClusterInstanceHostPatterns", "failoverTimeoutMs", "sslmode", "sslMode"],
+      ["wrapperPlugins", "globalClusterInstanceHostPatterns", "sslmode", "sslMode"],
     )) == 0
-    error_message = "extra_url_parameters must not contain the module-owned parameters wrapperPlugins, globalClusterInstanceHostPatterns, failoverTimeoutMs, sslmode or sslMode — use extra_wrapper_plugins or failover_timeout_ms instead."
+    error_message = "extra_url_parameters must not contain the parameters the module builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, sslmode, sslMode) — use extra_wrapper_plugins for the plugin list; the TLS mode and host patterns are not overridable."
   }
 }
 

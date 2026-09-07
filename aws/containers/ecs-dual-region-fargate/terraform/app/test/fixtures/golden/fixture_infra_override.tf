@@ -87,7 +87,7 @@ locals {
     aurora_secondary_cluster_endpoint   = "camunda-secondary.cluster-r11111111111.eu-west-3.rds.amazonaws.com"
     aurora_engine                       = "aurora-postgresql"
     aurora_db_port                      = 5432
-    aurora_jdbc_url                     = "jdbc:aws-wrapper:postgresql://camunda-global.cluster-r00000000000.eu-west-2.rds.amazonaws.com:5432/camunda?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=?.r00000000000.eu-west-2.rds.amazonaws.com,?.r11111111111.eu-west-3.rds.amazonaws.com&sslmode=require"
+    aurora_jdbc_url                     = "jdbc:aws-wrapper:postgresql://camunda-global.cluster-r00000000000.eu-west-2.rds.amazonaws.com:5432/camunda?wrapperPlugins=iam,failover,efm2&globalClusterInstanceHostPatterns=?.r00000000000.eu-west-2.rds.amazonaws.com,?.r11111111111.eu-west-3.rds.amazonaws.com&sslmode=require&failoverTimeoutMs=60000"
 
     # OpenSearch (null in rdbms mode)
     opensearch_region_0_endpoint = null

@@ -65,11 +65,14 @@ locals {
     "aurora-mysql"      = "&sslMode=REQUIRED"
   }
 
-  # Caller-supplied parameters come last; a validation on the variable keeps
-  # them from shadowing the module-owned ones (the failover plugin's own
-  # settings included — those are typed inputs). Map iteration is key-sorted,
-  # so the generated URL is stable across plans.
+  # Caller-supplied parameters come last. Validations on the variable keep them
+  # from shadowing the ones built above and reject keys/values that could append
+  # a parameter of their own, so this interpolation is safe. Plugin parameters
+  # (failoverTimeoutMs, failureDetectionTime, ...) travel through here rather
+  # than as typed inputs: the module builds the plugin list, not the plugins'
+  # configuration, and defaulting them would mean vendoring the driver's own
+  # defaults. Map iteration is key-sorted, so the URL is stable across plans.
   jdbc_extra_url_parameters = join("", [for k, v in var.extra_url_parameters : "&${k}=${v}"])
 
-  jdbc_url = "jdbc:aws-wrapper:${local.jdbc_subprotocol}://${aws_rds_global_cluster.this.endpoint}:${local.db_port}/${var.database_name}?wrapperPlugins=${local.jdbc_wrapper_plugins}&globalClusterInstanceHostPatterns=${local.jdbc_instance_host_patterns}&failoverTimeoutMs=${var.failover_timeout_ms}${local.jdbc_ssl_params[var.engine]}${local.jdbc_extra_url_parameters}"
+  jdbc_url = "jdbc:aws-wrapper:${local.jdbc_subprotocol}://${aws_rds_global_cluster.this.endpoint}:${local.db_port}/${var.database_name}?wrapperPlugins=${local.jdbc_wrapper_plugins}&globalClusterInstanceHostPatterns=${local.jdbc_instance_host_patterns}${local.jdbc_ssl_params[var.engine]}${local.jdbc_extra_url_parameters}"
 }
