@@ -199,7 +199,7 @@
       "type": "aws_iam_policy",
       "values": {
         "delay_after_policy_creation_in_ms": null,
-        "description": "Allow ECS tasks to connect to Aurora PostgreSQL as IAM DB user 'camunda'",
+        "description": "Allow ECS tasks to connect to Aurora as IAM DB user 'camunda'",
         "name": "camunda-r0-rds-db-connect-camunda",
         "path": "/",
         "tags": null
@@ -221,7 +221,7 @@
       "type": "aws_iam_policy",
       "values": {
         "delay_after_policy_creation_in_ms": null,
-        "description": "Allow ECS tasks to connect to Aurora PostgreSQL as IAM DB user 'camunda'",
+        "description": "Allow ECS tasks to connect to Aurora as IAM DB user 'camunda'",
         "name": "camunda-r1-rds-db-connect-camunda",
         "path": "/",
         "tags": null
@@ -1481,14 +1481,7 @@
         "egress": [
           {
             "cidr_blocks": [
-              false
-            ],
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "security_groups": []
-          },
-          {
-            "cidr_blocks": [
+              false,
               false
             ],
             "ipv6_cidr_blocks": [],
@@ -1598,14 +1591,6 @@
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
             "security_groups": []
-          },
-          {
-            "cidr_blocks": [
-              false
-            ],
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "security_groups": []
           }
         ],
         "tags": {},
@@ -1615,6 +1600,20 @@
       "values": {
         "description": "Allow necessary Camunda ports within VPC and cross-region",
         "egress": [
+          {
+            "cidr_blocks": [
+              "10.192.0.0/16",
+              "10.202.0.0/16"
+            ],
+            "description": "Allow Aurora DB traffic within VPC and cross-region",
+            "from_port": 5432,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 5432
+          },
           {
             "cidr_blocks": [
               "10.192.0.0/16"
@@ -1658,19 +1657,6 @@
             "cidr_blocks": [
               "10.192.0.0/16"
             ],
-            "description": "Allow outbound on port 5432 to local VPC",
-            "from_port": 5432,
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "protocol": "tcp",
-            "security_groups": [],
-            "self": false,
-            "to_port": 5432
-          },
-          {
-            "cidr_blocks": [
-              "10.192.0.0/16"
-            ],
             "description": "Allow outbound on port 8080 to local VPC",
             "from_port": 8080,
             "ipv6_cidr_blocks": [],
@@ -1692,19 +1678,6 @@
             "security_groups": [],
             "self": false,
             "to_port": 9600
-          },
-          {
-            "cidr_blocks": [
-              "10.202.0.0/16"
-            ],
-            "description": "Allow Aurora traffic to region 1",
-            "from_port": 5432,
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "protocol": "tcp",
-            "security_groups": [],
-            "self": false,
-            "to_port": 5432
           },
           {
             "cidr_blocks": [
@@ -1774,19 +1747,6 @@
             "cidr_blocks": [
               "10.192.0.0/16"
             ],
-            "description": "Allow inbound on port 5432 from local VPC",
-            "from_port": 5432,
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "protocol": "tcp",
-            "security_groups": [],
-            "self": false,
-            "to_port": 5432
-          },
-          {
-            "cidr_blocks": [
-              "10.192.0.0/16"
-            ],
             "description": "Allow inbound on port 8080 from local VPC",
             "from_port": 8080,
             "ipv6_cidr_blocks": [],
@@ -1851,14 +1811,7 @@
         "egress": [
           {
             "cidr_blocks": [
-              false
-            ],
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "security_groups": []
-          },
-          {
-            "cidr_blocks": [
+              false,
               false
             ],
             "ipv6_cidr_blocks": [],
@@ -1968,14 +1921,6 @@
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
             "security_groups": []
-          },
-          {
-            "cidr_blocks": [
-              false
-            ],
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "security_groups": []
           }
         ],
         "tags": {},
@@ -1987,9 +1932,10 @@
         "egress": [
           {
             "cidr_blocks": [
-              "10.192.0.0/16"
+              "10.192.0.0/16",
+              "10.202.0.0/16"
             ],
-            "description": "Allow Aurora traffic to region 0 (Global DB writer)",
+            "description": "Allow Aurora DB traffic within VPC and cross-region",
             "from_port": 5432,
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -2049,19 +1995,6 @@
             "security_groups": [],
             "self": false,
             "to_port": 26502
-          },
-          {
-            "cidr_blocks": [
-              "10.202.0.0/16"
-            ],
-            "description": "Allow outbound on port 5432 to local VPC",
-            "from_port": 5432,
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "protocol": "tcp",
-            "security_groups": [],
-            "self": false,
-            "to_port": 5432
           },
           {
             "cidr_blocks": [
@@ -2152,19 +2085,6 @@
             "security_groups": [],
             "self": false,
             "to_port": 26502
-          },
-          {
-            "cidr_blocks": [
-              "10.202.0.0/16"
-            ],
-            "description": "Allow inbound on port 5432 from local VPC",
-            "from_port": 5432,
-            "ipv6_cidr_blocks": [],
-            "prefix_list_ids": [],
-            "protocol": "tcp",
-            "security_groups": [],
-            "self": false,
-            "to_port": 5432
           },
           {
             "cidr_blocks": [
@@ -3367,6 +3287,7 @@
       "values": {
         "triggers": {
           "db_name": "camunda",
+          "engine": "postgresql",
           "iam_auth": "true",
           "iam_users": "camunda",
           "run_id": "1"
