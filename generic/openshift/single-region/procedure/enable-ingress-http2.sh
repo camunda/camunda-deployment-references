@@ -32,5 +32,10 @@ ROUTER_DEPLOY=$(oc -n openshift-ingress get deploy -o name \
     | grep -E "router-${OC_INGRESS_CONTROLLER_NAME}$" | head -n1 || true)
 if [[ -n "$ROUTER_DEPLOY" ]]; then
     oc -n openshift-ingress rollout restart "$ROUTER_DEPLOY"
-    oc -n openshift-ingress rollout status "$ROUTER_DEPLOY" --timeout=5m
+    # Best effort: the ingress operator rolls the router on its own when the
+    # annotation changes, and on ROSA HCP the old router replica can stay in
+    # termination past the timeout (connection draining + managed PDB).
+    # A slow rollout must not fail the deployment procedure.
+    oc -n openshift-ingress rollout status "$ROUTER_DEPLOY" --timeout=5m ||
+        echo "::warning::router rollout did not settle within 5m; continuing (HTTP/2 annotation is already applied)"
 fi
