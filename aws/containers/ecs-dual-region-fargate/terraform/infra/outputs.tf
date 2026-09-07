@@ -247,7 +247,32 @@ output "aurora_engine" {
 
 output "aurora_jdbc_url" {
   value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_url : null
-  description = "Ready-to-use AWS Advanced JDBC Wrapper URL for the Aurora Global writer (engine-aware, iam+failover plugins, globalClusterInstanceHostPatterns embedded, TLS pinned). Consumed by the app layer."
+  description = "DEPRECATED — the app layer composes the URL from the aurora_jdbc_* component outputs below. A fully assembled AWS Advanced JDBC Wrapper URL, kept so existing consumers keep working; it will be removed in a future major."
+}
+
+################################################################
+#   JDBC URL components — the app layer assembles the URL so a  #
+#   connection property can change without redeploying infra.   #
+################################################################
+
+output "aurora_jdbc_subprotocol" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_subprotocol : null
+  description = "JDBC subprotocol for the selected engine ('postgresql' or 'mysql')."
+}
+
+output "aurora_jdbc_wrapper_plugins" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_wrapper_plugins : null
+  description = "Value for the AWS Advanced JDBC Wrapper 'wrapperPlugins' property (failover, plus iam when db_iam_auth_enabled, plus db_extra_wrapper_plugins)."
+}
+
+output "aurora_jdbc_instance_host_patterns" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_instance_host_patterns : null
+  description = "Value for the AWS Advanced JDBC Wrapper 'globalClusterInstanceHostPatterns' property (primary,secondary)."
+}
+
+output "aurora_jdbc_ssl_param" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_ssl_param : null
+  description = "Engine-specific TLS query parameter, already '&'-prefixed ('&sslmode=require' / '&sslMode=REQUIRED')."
 }
 
 output "aurora_db_port" {

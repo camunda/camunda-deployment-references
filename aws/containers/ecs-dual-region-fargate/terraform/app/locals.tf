@@ -88,12 +88,43 @@ locals {
     },
   ]
 
-  # JDBC URL for RDBMS secondary storage. The infra layer already builds an
-  # engine-aware URL (subprotocol, port, iam/failover plugins, global-cluster
-  # host patterns, TLS), so the app layer consumes it rather than rebuilding it.
-  # var.rdbms_jdbc_url overrides it, which also keeps this layer usable against
-  # an externally provisioned database or an infra state predating that output.
-  rdbms_jdbc_url = var.rdbms_jdbc_url != null ? var.rdbms_jdbc_url : try(local.infra.aurora_jdbc_url, null)
+  # JDBC URL for RDBMS secondary storage, assembled here rather than in the infra
+  # layer: a connection property (timeout, pool setting, an extra wrapper
+  # property) is an application concern, and changing one should not require
+  # re-applying the infrastructure state. The infra layer supplies only the
+  # engine-derived components.
+  #
+  # Precedence: var.rdbms_jdbc_url (full override) > components from infra.
+  # var.rdbms_extra_jdbc_params is appended to the composed URL only; a full
+  # override is taken verbatim so the caller keeps complete control.
+  rdbms_jdbc_components_available = alltrue([
+    for v in [
+      try(local.infra.aurora_jdbc_subprotocol, null),
+      try(local.infra.aurora_global_writer_endpoint, null),
+      try(local.infra.aurora_db_port, null),
+      try(local.infra.aurora_jdbc_wrapper_plugins, null),
+      try(local.infra.aurora_jdbc_instance_host_patterns, null),
+    ] : v != null && v != ""
+  ])
+
+  rdbms_jdbc_url_composed = local.rdbms_jdbc_components_available ? join("", [
+    "jdbc:aws-wrapper:",
+    local.infra.aurora_jdbc_subprotocol,
+    "://",
+    local.infra.aurora_global_writer_endpoint,
+    ":",
+    tostring(local.infra.aurora_db_port),
+    "/",
+    try(local.infra.db_name, "camunda"),
+    "?wrapperPlugins=",
+    local.infra.aurora_jdbc_wrapper_plugins,
+    "&globalClusterInstanceHostPatterns=",
+    local.infra.aurora_jdbc_instance_host_patterns,
+    try(local.infra.aurora_jdbc_ssl_param, ""),
+    var.rdbms_extra_jdbc_params,
+  ]) : null
+
+  rdbms_jdbc_url = var.rdbms_jdbc_url != null ? var.rdbms_jdbc_url : local.rdbms_jdbc_url_composed
 
   # Secondary storage environment variables (conditional on storage type)
   rdbms_env_vars = local.infra.secondary_storage_type == "rdbms" ? [

@@ -75,6 +75,11 @@ override_data {
       aurora_primary_cluster_identifier         = "test-app-r0-aurora"
       aurora_secondary_cluster_identifier       = "test-app-r1-aurora"
       aurora_jdbc_url                           = "jdbc:aws-wrapper:postgresql://aurora-global.example.com:5432/camunda?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=?.p.example.com,?.s.example.com"
+      aurora_jdbc_subprotocol                   = "postgresql"
+      aurora_db_port                            = 5432
+      aurora_jdbc_wrapper_plugins               = "iam,failover"
+      aurora_jdbc_instance_host_patterns        = "?.p.example.com,?.s.example.com"
+      aurora_jdbc_ssl_param                     = "&sslmode=require"
       opensearch_region_0_endpoint              = "opensearch-r0.example.com"
       opensearch_region_1_endpoint              = "opensearch-r1.example.com"
       s3_force_destroy                          = true
@@ -103,9 +108,9 @@ run "rdbms_env_vars_local_populated_when_rdbms" {
     condition = anytrue([
       for e in local.rdbms_env_vars :
       e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL" &&
-      e.value == "jdbc:aws-wrapper:postgresql://aurora-global.example.com:5432/camunda?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=?.p.example.com,?.s.example.com"
+      e.value == "jdbc:aws-wrapper:postgresql://aurora-global.example.com:5432/camunda?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=?.p.example.com,?.s.example.com&sslmode=require"
     ])
-    error_message = "RDBMS URL env var should equal the infra-provided aurora_jdbc_url"
+    error_message = "RDBMS URL env var should be composed in the app layer from the infra jdbc components"
   }
 }
 
@@ -124,6 +129,35 @@ run "rdbms_jdbc_url_variable_overrides_infra_output" {
     ])
     error_message = "var.rdbms_jdbc_url should override the infra-provided aurora_jdbc_url"
   }
+}
+
+run "rdbms_extra_jdbc_params_appended_to_composed_url" {
+  command = plan
+
+  variables {
+    rdbms_extra_jdbc_params = "&connectTimeout=10000"
+  }
+
+  assert {
+    condition = anytrue([
+      for e in local.rdbms_env_vars :
+      e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL" &&
+      endswith(e.value, "&sslmode=require&connectTimeout=10000")
+    ])
+    error_message = "rdbms_extra_jdbc_params should be appended to the composed URL"
+  }
+}
+
+run "rdbms_extra_jdbc_params_must_start_with_ampersand" {
+  command = plan
+
+  variables {
+    rdbms_extra_jdbc_params = "connectTimeout=10000"
+  }
+
+  expect_failures = [
+    var.rdbms_extra_jdbc_params,
+  ]
 }
 
 run "opensearch_env_vars_local_populated_when_opensearch" {
@@ -184,6 +218,11 @@ run "opensearch_env_vars_local_populated_when_opensearch" {
         aurora_primary_cluster_identifier         = ""
         aurora_secondary_cluster_identifier       = ""
         aurora_jdbc_url                           = null
+        aurora_jdbc_subprotocol                   = null
+        aurora_db_port                            = null
+        aurora_jdbc_wrapper_plugins               = null
+        aurora_jdbc_instance_host_patterns        = null
+        aurora_jdbc_ssl_param                     = null
         opensearch_region_0_endpoint              = "opensearch-r0.example.com"
         opensearch_region_1_endpoint              = "opensearch-r1.example.com"
         s3_force_destroy                          = true
