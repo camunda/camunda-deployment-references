@@ -127,45 +127,33 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              NS="${{ inputs.namespace }}"
-              RELEASE="${{ inputs.release-name }}"
+              NS="${INPUTS_NAMESPACE}"
+              RELEASE="${INPUTS_RELEASE_NAME}"
               SVC="${RELEASE}-zeebe-gateway"
 
               echo "Starting port-forward to ${SVC}..."
-              # Run the forward through a resilient supervisor that restarts
-              # kubectl whenever its SPDY stream is reaped (managed LBs / CNIs
-              # drop idle port-forwards after ~30-60s, which otherwise leaves
-              # the next step with connection-refused / HTTP 000 on :8080).
-              # setsid + nohup detaches it so it survives the composite-action
-              # step boundary and becomes its own process-group leader.
-              mkdir -p /tmp/smoke-pf
-              SUPERVISOR="${{ github.action_path }}/scripts/port-forward.sh"
-              # Clear any stale pid/stop/log left by an earlier job on this
-              # (self-hosted) runner, so the wait below can't be satisfied by a
-              # leftover PID and cleanup can't later kill an unrelated process.
-              rm -f /tmp/smoke-pf/zeebe.pid /tmp/smoke-pf/zeebe.stop /tmp/smoke-pf/zeebe.log
-              setsid nohup bash "$SUPERVISOR" \
-                  "$NS" "svc/${SVC}" 8080:8080 /tmp/smoke-pf/zeebe \
-                  </dev/null >/dev/null 2>&1 &
-              disown || true
-              # Wait for the supervisor to record its fresh PID before
-              # continuing; fail fast if it never starts.
-              for _ in $(seq 1 25); do
-                  [[ -s /tmp/smoke-pf/zeebe.pid ]] && break
-                  sleep 0.2
-              done
-              if [[ ! -s /tmp/smoke-pf/zeebe.pid ]]; then
-                  echo "::error::Zeebe port-forward supervisor did not start (no PID written)"
-                  cat /tmp/smoke-pf/zeebe.log 2>/dev/null || true
-                  exit 1
-              fi
-              echo "pf_zeebe_base=/tmp/smoke-pf/zeebe" >> "$GITHUB_OUTPUT"
+              # Resilient supervisor: managed LBs / CNIs drop idle
+              # port-forwards after ~30-60s, which otherwise leaves the next
+              # step with connection-refused / HTTP 000 on :8080. Rationale and
+              # the process-group contract live in the script.
+              bash "${{ github.action_path }}/scripts/port-forward.sh" \
+                  start "$NS" "svc/${SVC}" 8080:8080 /tmp/smoke-pf/zeebe
+              # Confirm *this* supervisor bound the port before probing it. Any
+              # HTTP answer on :8080 only proves something is listening there —
+              # the probe below accepts 200, 401 and 403 alike — so a stale
+              # forward left by an interrupted job would satisfy it while
+              # pointing at the previous cluster.
+              bash "${{ github.action_path }}/scripts/port-forward.sh" \
+                  wait /tmp/smoke-pf/zeebe 8080
 
               for i in $(seq 1 30); do
+                  # `-w` already prints 000 on a failed transfer, so a
+                  # `|| echo "000"` fallback would append a second one and
+                  # report the puzzling "HTTP 000000" below.
                   CODE=$(curl -s -o /dev/null \
                       -w "%{http_code}" \
                       http://localhost:8080/v2/topology \
-                      2>/dev/null || echo "000")
+                      2>/dev/null) || CODE="000"
                   if [[ "$CODE" =~ ^(200|401|403)$ ]]; then
                       echo "Zeebe port-forward ready"
                       break
@@ -173,6 +161,9 @@ runs:
                   echo "  attempt ${i}/30 (HTTP ${CODE})"
                   sleep 2
               done
+          env:
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
+              INPUTS_RELEASE_NAME: ${{ inputs.release-name }}
 
         # ==============================================================
         # Port-forward Keycloak + extract credentials (K8s OIDC)
@@ -185,11 +176,11 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              NS="${{ inputs.namespace }}"
-              RELEASE="${{ inputs.release-name }}"
+              NS="${INPUTS_NAMESPACE}"
+              RELEASE="${INPUTS_RELEASE_NAME}"
 
-              CLIENT_ID="${{ inputs.oidc-client-id }}"
-              CLIENT_SECRET="${{ inputs.oidc-client-secret }}"
+              CLIENT_ID="${INPUTS_OIDC_CLIENT_ID}"
+              CLIENT_SECRET="${INPUTS_OIDC_CLIENT_SECRET}"
               if [[ -z "$CLIENT_ID" || -z "$CLIENT_SECRET" ]]; then
                   # Prefer the test-only 'venom' client (created via
                   # generic/kubernetes/single-region/tests/helm-values/identity.yml).
@@ -224,7 +215,7 @@ runs:
                   echo "Successfully extracted OIDC credentials (client_id=${CLIENT_ID})"
               fi
 
-              KC_URL="${{ inputs.keycloak-url }}"
+              KC_URL="${INPUTS_KEYCLOAK_URL}"
               if [[ -z "$KC_URL" ]]; then
                   KC_URL="http://keycloak-service:18080/auth"
               fi
@@ -247,30 +238,14 @@ runs:
               LOCAL_KC_PORT=18080
 
               echo "Port-forwarding ${KC_HOST}..."
-              # Same resilient supervisor as the Zeebe forward above, so the
-              # Keycloak port-forward also survives SPDY-stream reaping and
-              # the composite-action step boundary.
-              mkdir -p /tmp/smoke-pf
-              SUPERVISOR="${{ github.action_path }}/scripts/port-forward.sh"
-              # Clear any stale pid/stop/log left by an earlier job on this
-              # (self-hosted) runner, so the wait below can't be satisfied by a
-              # leftover PID and cleanup can't later kill an unrelated process.
-              rm -f /tmp/smoke-pf/keycloak.pid /tmp/smoke-pf/keycloak.stop /tmp/smoke-pf/keycloak.log
-              setsid nohup bash "$SUPERVISOR" \
-                  "$NS" "svc/${KC_HOST}" "${LOCAL_KC_PORT}:${KC_REMOTE_PORT}" \
-                  /tmp/smoke-pf/keycloak \
-                  </dev/null >/dev/null 2>&1 &
-              disown || true
-              for _ in $(seq 1 25); do
-                  [[ -s /tmp/smoke-pf/keycloak.pid ]] && break
-                  sleep 0.2
-              done
-              if [[ ! -s /tmp/smoke-pf/keycloak.pid ]]; then
-                  echo "::error::Keycloak port-forward supervisor did not start (no PID written)"
-                  cat /tmp/smoke-pf/keycloak.log 2>/dev/null || true
-                  exit 1
-              fi
-              echo "pf_kc_base=/tmp/smoke-pf/keycloak" >> "$GITHUB_OUTPUT"
+              # Same resilient supervisor as the Zeebe forward above.
+              bash "${{ github.action_path }}/scripts/port-forward.sh" \
+                  start "$NS" "svc/${KC_HOST}" "${LOCAL_KC_PORT}:${KC_REMOTE_PORT}" \
+                  /tmp/smoke-pf/keycloak
+              # Same reasoning as the Zeebe forward: prove ownership of the port
+              # before trusting an HTTP answer on it.
+              bash "${{ github.action_path }}/scripts/port-forward.sh" \
+                  wait /tmp/smoke-pf/keycloak "${LOCAL_KC_PORT}"
 
               for i in $(seq 1 30); do
                   CODE=$(curl -s -o /dev/null \
@@ -294,6 +269,12 @@ runs:
                   echo "client_secret=${CLIENT_SECRET}"
                   echo "token_url=http://localhost:${LOCAL_KC_PORT}${KC_TOKEN_PATH}"
               } >> "$GITHUB_OUTPUT"
+          env:
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
+              INPUTS_RELEASE_NAME: ${{ inputs.release-name }}
+              INPUTS_OIDC_CLIENT_ID: ${{ inputs.oidc-client-id }}
+              INPUTS_OIDC_CLIENT_SECRET: ${{ inputs.oidc-client-secret }}
+              INPUTS_KEYCLOAK_URL: ${{ inputs.keycloak-url }}
 
         # ==============================================================
         # Run HTTP smoke test
@@ -338,19 +319,8 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              for BASE in \
-                  "${{ steps.port-forward.outputs.pf_zeebe_base }}" \
-                  "${{ steps.oidc-setup.outputs.pf_kc_base }}"; do
-                  [[ -z "$BASE" ]] && continue
-                  # Drop the stop sentinel first so the supervisor does not
-                  # restart kubectl after we kill it.
-                  touch "${BASE}.stop" 2>/dev/null || true
-                  if [[ -s "${BASE}.pid" ]]; then
-                      SPID=$(cat "${BASE}.pid")
-                      # Kill the whole process group (setsid made the
-                      # supervisor the group leader) so its kubectl child
-                      # dies with it.
-                      kill -- "-${SPID}" 2>/dev/null || true
-                      kill "$SPID" 2>/dev/null || true
-                  fi
-              done
+              PF="${{ github.action_path }}/scripts/port-forward.sh"
+              # Never let an always() teardown mask the failure that got us
+              # here: a missing script means no forward was ever started.
+              [[ -f "$PF" ]] || exit 0
+              bash "$PF" stop /tmp/smoke-pf

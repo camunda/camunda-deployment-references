@@ -101,8 +101,13 @@ With logs + artifacts in `debug/ci/<RUN_ID>/`:
 
 ### 6. Push and re-loop
 
+Commit the fix under the repository's staging and message rules — `AGENTS.md`,
+"Agent collaboration rules". This skill does not own the commit convention; do
+not reach for `git add -u` here.
+
+Then re-enter the loop:
+
 ```bash
-git add -u && git commit -m "fix(ci): <short description>" && git push
 # Either: poll later non-blockingly
 ci_fb locate
 # Or: explicitly wait (safe — hard timeout)
@@ -126,3 +131,4 @@ Repeat steps 2–6 until the pipeline is green.
 
 - [main.go](./main.go) — the full CLI (cobra subcommands)
 - [go.mod](./go.mod)
+- `AGENTS.md` → "Agent collaboration rules" — staging and commit-message rules.

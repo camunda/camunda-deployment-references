@@ -28,28 +28,34 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              echo "Deleting CNPG PostgreSQL cluster: ${{ inputs.cluster-name }}..."
-              if kubectl get cluster "${{ inputs.cluster-name }}" -n "${{ inputs.namespace }}" &>/dev/null; then
-                kubectl delete cluster "${{ inputs.cluster-name }}" -n "${{ inputs.namespace }}" --timeout=120s || true
-                echo "Deleted cluster: ${{ inputs.cluster-name }}"
+              echo "Deleting CNPG PostgreSQL cluster: ${INPUTS_CLUSTER_NAME}..."
+              if kubectl get cluster "${INPUTS_CLUSTER_NAME}" -n "${INPUTS_NAMESPACE}" &>/dev/null; then
+                kubectl delete cluster "${INPUTS_CLUSTER_NAME}" -n "${INPUTS_NAMESPACE}" --timeout=120s || true
+                echo "Deleted cluster: ${INPUTS_CLUSTER_NAME}"
               else
-                echo "Cluster ${{ inputs.cluster-name }} not found, skipping..."
+                echo "Cluster ${INPUTS_CLUSTER_NAME} not found, skipping..."
               fi
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
 
         - name: 🗑️ Delete cluster secrets
           if: inputs.cluster-name != ''
           shell: bash
           run: |
               set -euo pipefail
-              echo "Deleting secrets for cluster: ${{ inputs.cluster-name }}..."
-              for secret in "${{ inputs.cluster-name }}-superuser-secret" "${{ inputs.cluster-name }}-secret"; do
-                if kubectl get secret "$secret" -n "${{ inputs.namespace }}" &>/dev/null; then
-                  kubectl delete secret "$secret" -n "${{ inputs.namespace }}" || true
+              echo "Deleting secrets for cluster: ${INPUTS_CLUSTER_NAME}..."
+              for secret in "${INPUTS_CLUSTER_NAME}-superuser-secret" "${INPUTS_CLUSTER_NAME}-secret"; do
+                if kubectl get secret "$secret" -n "${INPUTS_NAMESPACE}" &>/dev/null; then
+                  kubectl delete secret "$secret" -n "${INPUTS_NAMESPACE}" || true
                   echo "Deleted secret: $secret"
                 else
                   echo "Secret $secret not found, skipping..."
                 fi
               done
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
 
         - name: 🗑️ Uninstall CloudNativePG Operator
           if: inputs.skip-operator-uninstall != 'true'
@@ -87,4 +93,6 @@ runs:
         - name: ✅ CNPG cluster cleanup completed
           shell: bash
           run: |
-              echo "CNPG cluster ${{ inputs.cluster-name }} cleanup completed"
+              echo "CNPG cluster ${INPUTS_CLUSTER_NAME} cleanup completed"
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}

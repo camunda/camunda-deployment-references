@@ -1,0 +1,54 @@
+---
+# =============================================================================
+# zizmor.yml — GitHub Actions supply-chain policy for camunda/camunda-deployment-references
+#
+# Consumed by the `zizmor` pre-commit hook (see .pre-commit-config.yaml), which
+# runs locally on `pre-commit run -a` and in CI through lint-global.
+#
+# Mirrors the policy adopted in camunda/infraex-common-config#562 and
+# camunda/keycloak#636, itself mirroring camunda/infra-global-github-actions#781.
+#
+# Docs: https://docs.zizmor.sh/configuration/
+# =============================================================================
+
+rules:
+    unpinned-uses:
+        config:
+            # `policies` maps action-owner globs to a pinning level.
+            #
+            #   any       — no constraint; any ref (SHA, tag, branch) is accepted.
+            #   ref-pin   — must carry an explicit ref, symbolic (tag/branch) or SHA.
+            #   hash-pin  — must be a 40-character commit SHA. Tags and branches fail.
+            #
+            # Local references (`uses: ./.github/actions/...`) are same-repo and are
+            # skipped by this audit entirely, so they need no policy entry.
+            #
+            # The binding constraint is not our own threat model but GitHub's `Require
+            # actions to be pinned to a full-length commit SHA` setting, which this
+            # repository enforces and which grants no exemption. That check is
+            # evaluated over the whole dependency tree at `Set up job`, so a tag left
+            # inside a third-party composite action refuses the job before any step
+            # runs — which is how the branch scheduler and the docs watcher were
+            # blocked for a day, fixed by #3014, #3015 and #3020, for references two
+            # levels below anything this repository writes.
+            policies:
+                # Everything is hash-pinned, with no namespace exemption, including
+                # `actions/*` and this organisation's own repositories.
+                '*': hash-pin
+
+    dangerous-triggers:
+        # Both entries below are `pull_request_target` / `workflow_run`, the two
+        # triggers that run with the base repository's secrets. What makes them
+        # dangerous is combining that with a checkout of the pull request, which
+        # neither of these does. Suppressed here rather than inline because the
+        # reasoning is about the workflow as a whole, not one line of it.
+        ignore:
+            # No checkout step at all. `actions/labeler` reads the diff through the
+            # API, and the trigger is required: a `pull_request` run from a fork gets
+            # a read-only token, so fork pull requests would stop being labelled.
+            - internal_global_pr_labeler.yml
+            # `workflow_run` is what lets a reporter on the default branch observe
+            # runs from every branch, which is the point of the workflow. Its
+            # checkout takes the default branch, never the observed run's ref, so it
+            # never executes code from the branch that triggered it.
+            - internal_global_ci_events_reporter.yml

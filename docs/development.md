@@ -120,7 +120,10 @@ kubectl create secret generic my-secret \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-This avoids failures when resources already exist, without silently swallowing real errors.
+This avoids failures when resources already exist, without silently swallowing real errors. Prefer it over:
+
+- `kubectl create ... || true` — hides every error, not only "already exists"
+- `kubectl create ... --ignore-existing` — only implemented for some resource types (e.g. `namespace`)
 
 ## Commit Messages
 

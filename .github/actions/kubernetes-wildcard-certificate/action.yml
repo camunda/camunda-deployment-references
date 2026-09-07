@@ -48,10 +48,10 @@ runs:
           run: |
               set -euo pipefail
 
-              echo "🌐 Creating TLS secret(s) for wildcard certificate *.${{ inputs.tld }}"
-              echo "📍 Target namespace: ${{ inputs.namespace }}"
+              echo "🌐 Creating TLS secret(s) for wildcard certificate *.${INPUTS_TLD}"
+              echo "📍 Target namespace: ${INPUTS_NAMESPACE}"
               echo "🔑 Secret name(s):"
-              echo "${{ inputs.secret-name }}" | sed 's/^/    - /'
+              echo "${INPUTS_SECRET_NAME}" | sed 's/^/    - /'
 
               # Mask sensitive certificate data in logs
               echo "::add-mask::$WILDCARD_CERT"
@@ -93,7 +93,7 @@ runs:
               # Create or update each requested TLS secret from the same wildcard cert.
               # Trim surrounding whitespace and skip blank lines so the action accepts both
               # a single secret name and a newline-separated list.
-              SECRET_NAMES_RAW="${{ inputs.secret-name }}"
+              SECRET_NAMES_RAW="${INPUTS_SECRET_NAME}"
               while IFS= read -r raw_name; do
                   secret_name="$(echo "$raw_name" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
                   [[ -z "$secret_name" ]] && continue
@@ -102,7 +102,7 @@ runs:
                   kubectl create secret tls "$secret_name" \
                       --cert="$CERT_FILE" \
                       --key="$KEY_FILE" \
-                      --namespace="${{ inputs.namespace }}" \
+                      --namespace="${INPUTS_NAMESPACE}" \
                       --dry-run=client -o yaml | \
                   kubectl apply -f -
               done <<< "$SECRET_NAMES_RAW"
@@ -110,9 +110,13 @@ runs:
               echo "✅ Wildcard certificate setup completed successfully"
               echo ""
               echo "📋 Created resources:"
-              echo "  - Namespace: ${{ inputs.namespace }}"
+              echo "  - Namespace: ${INPUTS_NAMESPACE}"
               echo "  - Type: kubernetes.io/tls"
-              echo "  - Certificate: *.${{ inputs.tld }}"
+              echo "  - Certificate: *.${INPUTS_TLD}"
               echo "  - Secret(s):"
-              echo "${{ inputs.secret-name }}" | sed 's/^/      - /'
+              echo "${INPUTS_SECRET_NAME}" | sed 's/^/      - /'
               echo ""
+          env:
+              INPUTS_TLD: ${{ inputs.tld }}
+              INPUTS_NAMESPACE: ${{ inputs.namespace }}
+              INPUTS_SECRET_NAME: ${{ inputs.secret-name }}

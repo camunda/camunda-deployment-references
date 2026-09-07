@@ -16,40 +16,51 @@
 #   - Touching a file in aws/modules/foo will run aws/modules/foo/tests, not
 #     downstream consumers that might also break. Run `terraform test` directly
 #     in the consumer state for that.
+#
+# Portability: this runs as a pre-commit hook on contributor machines, so it
+# sticks to bash 3.2 features. macOS still ships bash 3.2 as /bin/bash, where
+# `mapfile` and associative arrays (`declare -A`) do not exist; newline-delimited
+# strings plus `sort -u` cover the same ground everywhere.
 
 set -euo pipefail
 
 # Collect staged terraform-related files (added, modified, or renamed).
-mapfile -t STAGED < <(git diff --cached --name-only --diff-filter=ACMR -- '*.tf' '*.tftest.hcl' 2>/dev/null || true)
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR -- '*.tf' '*.tftest.hcl' 2>/dev/null || true)
 
-if [[ ${#STAGED[@]} -eq 0 ]]; then
+if [[ -z $STAGED ]]; then
     exit 0
 fi
 
 # For each staged file, walk up to find the nearest dir containing tests/*.tftest.hcl.
-declare -A TEST_DIRS=()
-for f in "${STAGED[@]}"; do
+# Fed by a here-string rather than a pipe, so the loop body stays in this shell.
+TEST_DIRS=""
+while IFS= read -r f; do
+    [[ -n $f ]] || continue
     dir=$(dirname "$f")
     while [[ "$dir" != "." && "$dir" != "/" ]]; do
         if compgen -G "$dir/tests/*.tftest.hcl" > /dev/null; then
-            TEST_DIRS[$dir]=1
+            TEST_DIRS+="$dir"$'\n'
             break
         fi
         dir=$(dirname "$dir")
     done
-done
+done <<< "$STAGED"
 
-if [[ ${#TEST_DIRS[@]} -eq 0 ]]; then
+# Deduplicate: `sort -u` stands in for the associative-array keys.
+TEST_DIRS=$(printf '%s' "$TEST_DIRS" | sort -u)
+
+if [[ -z $TEST_DIRS ]]; then
     exit 0
 fi
 
 fail=0
-for dir in "${!TEST_DIRS[@]}"; do
+while IFS= read -r dir; do
+    [[ -n $dir ]] || continue
     echo "[terraform test] running in $dir"
     if ! ( cd "$dir" && terraform init -input=false -backend=false -reconfigure > /dev/null && terraform test ); then
         fail=1
         echo "[terraform test] FAILED in $dir" >&2
     fi
-done
+done <<< "$TEST_DIRS"
 
 exit "$fail"

@@ -93,6 +93,22 @@ When a new version is ready for release, we need to cut the `main` branch to cre
 
      Skipping this leaves the branch carrying a `baseBranchPatterns` list frozen on the day of the cut, and invites the next person to add a rule there that Renovate will never apply. Anything genuinely specific to a maintenance branch goes on `main`, scoped with `matchBaseBranches`.
 
+8. **Delete the `gh-pages` publishers from the new branch**
+
+   On the freshly cut `stable/8.x`, delete the five workflows carrying a `TODO: [release-duty]` marker that says so — `git grep -l 'TODO: \[release-duty\] delete this workflow'` lists them:
+
+   ```sh
+   git rm .github/workflows/internal_openshift_artifact_rosa_versions.yml \
+          .github/workflows/internal_openshift_artifact_acm_versions.yml \
+          .github/workflows/internal_aws_artifact_aurora_versions.yml \
+          .github/workflows/internal_aws_artifact_opensearch_versions.yml \
+          .github/workflows/internal_bitnami_artifact_image_versions.yml
+   ```
+
+   These workflows publish version artifacts to this repository's single `gh-pages` branch, and the shared Renovate preset reads one URL per artifact for every repository and every branch. Whatever runs last wins, everywhere, so `main` is the only legitimate producer.
+
+   A copy left behind does not sit idle, it ages. By the time it was found on 2026-08-20, the `stable/8.7`, `stable/8.8` and `stable/8.9` copies published the ROSA classic list without the `--hosted-cp` merge `main` had since added, and the ACM and OpenSearch ones predated the guard that refuses to publish an empty artifact — so a run from a maintenance branch replaced the global artifact with a degraded one until `main` republished it the following night. Scheduled workflows only run on the default branch, so none of that was ever on purpose: a `pull_request` run did it until #3145, and a `workflow_dispatch` still could until #3153, #3154 and #3155.
+
 ---
 
 ## Modules

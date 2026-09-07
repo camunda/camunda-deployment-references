@@ -36,10 +36,61 @@ runs:
               echo "Running post-apply drift detection in $(pwd)..."
 
               PLAN_OUT="drift.plan.out"
+              PLAN_BIN="drift.plan.bin"
+
+              # `plan-extra-args` is a string holding several arguments, so it has to be
+              # split. An unquoted expansion splits on whitespace but leaves quotes and
+              # backslash-continuations as literal characters, which is not what callers
+              # write: the AKS one passes a quoted path continued over two lines, and a
+              # bare `\` reached terraform as an argument of its own.
+              #
+              # `xargs` tokenises the way the shell would -- honouring quotes, joining
+              # continuations -- without evaluating anything, so a `;` or a backtick in
+              # the value stays data. Empty tokens are dropped; terraform rejects them.
+              # `xargs` exits non-zero on unmatched quotes. Capturing it here rather than in a
+              # process substitution is what makes that failure visible: inside `< <(...)` the
+              # exit status is lost, the loop reads nothing, and terraform would plan without
+              # the arguments the caller asked for.
+              if ! parsed_extra_args=$(printf '%s' "${INPUTS_PLAN_EXTRA_ARGS}" | xargs -n1 printf '%s\n'); then
+                  # The value is echoed back so the failure names it, and callers write it
+                  # as a multiline block. A raw newline ends the `::error::` annotation, so
+                  # the message would be truncated at the first line and the rest emitted
+                  # as plain log output -- where a line starting with `::` would be read as
+                  # a workflow command. Percent-encoded the way the toolkit does it, `%`
+                  # first so the escapes are not re-escaped.
+                  reported=${INPUTS_PLAN_EXTRA_ARGS//'%'/%25}
+                  reported=${reported//$'\r'/%0D}
+                  reported=${reported//$'\n'/%0A}
+                  echo "::error::plan-extra-args could not be tokenised, check for unmatched quotes: ${reported}" >&2
+                  exit 1
+              fi
+
+              EXTRA_ARGS=()
+              while IFS= read -r arg; do
+                  [[ -n "$arg" ]] && EXTRA_ARGS+=("$arg")
+              done <<< "${parsed_extra_args}"
+
+              # This step reads the plan back with `terraform show -json`, so it needs to
+              # know where terraform wrote it. A caller passing its own `-out` would
+              # redirect the plan and leave `$PLAN_BIN` stale or absent, and the drift
+              # check would then inspect the wrong file -- or silently treat a real drift
+              # as clean. Rejected rather than overridden, so the caller is told why.
+              for arg in ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}; do
+                  case "$arg" in
+                    -out|-out=*)
+                      echo "::error::plan-extra-args must not set -out; the drift check writes its own plan file and reads it back." >&2
+                      exit 1
+                      ;;
+                  esac
+              done
 
               # Run plan with detailed exit code. 0 = no changes, 2 = changes, 1 = error
+              # `-out` is only there to let `terraform show -json` inspect what changed;
+              # the plan is never applied.
+              # `${EXTRA_ARGS[@]+...}` guards the expansion: `set -u` treats an empty
+              # array as unbound before bash 4.4, and the default input is empty.
               set +e
-              terraform plan -no-color -detailed-exitcode ${{ inputs.plan-extra-args }} > "$PLAN_OUT" 2>&1
+              terraform plan -no-color -detailed-exitcode -out "$PLAN_BIN" ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} > "$PLAN_OUT" 2>&1
               code=$?
               set -e
 
@@ -47,15 +98,63 @@ runs:
               cat "$PLAN_OUT"
               echo '--- Drift Plan Output End ---'
 
+              # The nightly cleanup tags every resource it has seen with
+              # `cloud-nuke-first-seen` (infraex-common-config, aws_regional_cleanup.sh).
+              # When it runs while a test is provisioning, terraform finds a tag its
+              # configuration does not declare and plans to remove it, so the post-apply
+              # check reports drift for a change our own tooling made a minute earlier.
+              #
+              # That is a false positive, and a timing-dependent one: it hits whichever
+              # pull request happens to overlap the cleanup window, which makes the check
+              # unusable as a signal. It is ignored here, and only here -- narrowly:
+              #
+              #   * every changed resource must be a plain `update` -- a create, a
+              #     delete or a replace is never waved through, whatever it says it
+              #     changes,
+              #   * it must differ in `tags`/`tags_all` and nothing else, and
+              #   * within those, the only differing key must be `cloud-nuke-first-seen`.
+              #
+              # A resource that also changes a real attribute, or a second tag, still
+              # counts as drift. If `terraform show` cannot produce the JSON, the plan is
+              # treated as drift rather than waved through.
+              if [ "$code" -eq 2 ]; then
+                if terraform show -json "$PLAN_BIN" > drift.plan.json 2>/dev/null; then
+                  if jq -e '
+                        [ .resource_changes[]
+                          | select((.change.actions // []) != ["no-op"])
+                          | if (.change.actions // []) != ["update"] then "not-an-update"
+                            else ( .change as $c
+                                   | (($c.before // {}) | keys) + (($c.after // {}) | keys) | unique
+                                   | map(select( ($c.before // {})[.] != ($c.after // {})[.] )) as $diff
+                                   | if ($diff - ["tags","tags_all"]) != [] then "other-attribute"
+                                     else ( $diff[] as $k
+                                            | ((($c.before[$k] // {}) | keys) + (($c.after[$k] // {}) | keys) | unique
+                                               | map(select( ($c.before[$k] // {})[.] != ($c.after[$k] // {})[.] ))) )
+                                     end )
+                            end ]
+                        | flatten
+                        | (length > 0) and (all(. == "cloud-nuke-first-seen"))
+                      ' drift.plan.json > /dev/null; then
+                    echo "::notice::Ignoring drift: the only change is the cloud-nuke-first-seen tag, written by the nightly cleanup while this test was running."
+                    code=0
+                  fi
+                else
+                  echo "::warning::Could not read the plan as JSON; treating the plan as drift."
+                fi
+              fi
+
               if [ $code -eq 0 ]; then
                 echo "No drift detected after apply."
                 echo "drift_detected=false" >> "$GITHUB_OUTPUT"
               else
                 echo "drift_detected=true" >> "$GITHUB_OUTPUT"
-                if [[ "${{ inputs.fail-on-drift }}" == "true" ]]; then
+                if [[ "${INPUTS_FAIL_ON_DRIFT}" == "true" ]]; then
                   echo "::error::Drift detected immediately after apply (configuration flapping - exit code $code)."
                   exit 1
                 else
                   echo "::warning::Drift detected but not failing as per configuration."
                 fi
               fi
+          env:
+              INPUTS_PLAN_EXTRA_ARGS: ${{ inputs.plan-extra-args }}
+              INPUTS_FAIL_ON_DRIFT: ${{ inputs.fail-on-drift }}

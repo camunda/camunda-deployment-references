@@ -40,6 +40,11 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
-              aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ inputs.aws-profile }}
-              aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ inputs.aws-profile }}
-              aws configure set region ${{ inputs.aws-region }} --profile ${{ inputs.aws-profile }}
+              aws configure set aws_access_key_id "${AWS_ACCESS_KEY}" --profile "${INPUTS_AWS_PROFILE}"
+              aws configure set aws_secret_access_key "${AWS_SECRET_KEY}" --profile "${INPUTS_AWS_PROFILE}"
+              aws configure set region "${INPUTS_AWS_REGION}" --profile "${INPUTS_AWS_PROFILE}"
+          env:
+              AWS_ACCESS_KEY: ${{ steps.secrets.outputs.AWS_ACCESS_KEY }}
+              AWS_SECRET_KEY: ${{ steps.secrets.outputs.AWS_SECRET_KEY }}
+              INPUTS_AWS_PROFILE: ${{ inputs.aws-profile }}
+              INPUTS_AWS_REGION: ${{ inputs.aws-region }}
