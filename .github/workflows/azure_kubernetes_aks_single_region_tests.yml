@@ -290,14 +290,15 @@ jobs:
                     > "${DUMP_DIR}/activity-log-full.json" 2>"${DUMP_DIR}/activity-log-full.err" || rc_activity=$?
 
                   # The actionable subset, and what to read first.
-                  jq '[.[] | select(.level == "Error" or .level == "Critical")
-                       | {eventTimestamp, level, operationName: .operationName.value,
-                          status: .status.value, subStatus: .subStatus.value,
-                          resourceId, correlationId,
-                          statusMessage: .properties.statusMessage,
-                          properties}]' \
+                  jq '[.[] | select(.level? == "Error" or .level? == "Critical")
+                       | {eventTimestamp: .eventTimestamp?, level: .level?,
+                          operationName: .operationName?.value?,
+                          status: .status?.value?, subStatus: .subStatus?.value?,
+                          resourceId: .resourceId?, correlationId: .correlationId?,
+                          statusMessage: .properties?.statusMessage?,
+                          properties: .properties?}]' \
                     "${DUMP_DIR}/activity-log-full.json" \
-                    > "${DUMP_DIR}/activity-log-errors.json" 2>/dev/null || rc_filter=$?
+                    > "${DUMP_DIR}/activity-log-errors.json" 2>"${DUMP_DIR}/activity-log-errors.err" || rc_filter=$?
 
                   # What actually survived in the resource group, to tell a rollback
                   # apart from a resource that was never attempted.
@@ -307,8 +308,8 @@ jobs:
                     > "${DUMP_DIR}/resources.json" 2>"${DUMP_DIR}/resources.err" || rc_resources=$?
 
                   echo "::group::Azure Activity Log errors for ${RESOURCE_GROUP_NAME}"
-                  jq -r '.[] | "\(.eventTimestamp) \(.level) \(.operationName) \(.status)/\(.subStatus) \(.statusMessage // "")"' \
-                    "${DUMP_DIR}/activity-log-errors.json" 2>/dev/null || rc_summary=$?
+                  jq -r '.[] | "\(.eventTimestamp?) \(.level?) \(.operationName?) \(.status?)/\(.subStatus?) \(.statusMessage? // "")"' \
+                    "${DUMP_DIR}/activity-log-errors.json" 2>"${DUMP_DIR}/activity-log-summary.err" || rc_summary=$?
                   echo "::endgroup::"
 
                   printf '%s\n' \
