@@ -40,6 +40,7 @@ architecture down.
 | `aws-regions` | <p>Space-separated AWS regions, one per active region slot</p> |
 | `submariner-cluster-ids` | <p>Space-separated Submariner cluster IDs, one per active region slot</p> |
 | `aurora-global-cluster-id` | <p>Identifier of the Aurora Global Database</p> |
+| `brokers-per-region` | <p>Number of brokers deployed in each region</p> |
 
 
 ## Runs

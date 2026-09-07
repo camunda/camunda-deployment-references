@@ -83,6 +83,9 @@ outputs:
     aurora-global-cluster-id:
         description: Identifier of the Aurora Global Database
         value: ${{ steps.outputs.outputs.aurora-global-cluster-id }}
+    brokers-per-region:
+        description: Number of brokers deployed in each region
+        value: ${{ steps.outputs.outputs.brokers-per-region }}
 
 runs:
     using: composite
@@ -186,36 +189,38 @@ runs:
               plan-extra-args: |
                   -var-file=terraform-cluster.tfvars
 
-        - name: Export topology outputs
+        - name: Export the environment contract
           id: outputs
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
           shell: bash
-          run: |
+          run: | # zizmor: ignore[github-env]
               set -euo pipefail
 
-              # A single terraform output call: each invocation takes the state lock.
-              tf_json="$(terraform output -json)"
-
-              slots="$(echo "$tf_json" | jq -r '.region_slot_count.value')"
-              active="$(echo "$tf_json" | jq -r '.active_region_count.value')"
-              regions="$(echo "$tf_json" | jq -r '[.regions.value | to_entries | sort_by(.key | tonumber) | .[].value.region] | join(" ")')"
-              short_names="$(echo "$tf_json" | jq -r '[.regions.value | to_entries | sort_by(.key | tonumber) | .[].value.short_name] | join(" ")')"
-              global_db="$(echo "$tf_json" | jq -r '.database_global_cluster_id.value // ""')"
-
-              contexts=""
-              for short in $short_names; do
-                contexts="${contexts}cluster-${short} "
-              done
-              contexts="${contexts% }"
+              # shellcheck disable=SC1091
+              source ../../procedure/export-terraform-outputs.sh
+              # shellcheck disable=SC1091
+              source ../../procedure/export_environment_prerequisites.sh
 
               {
-                echo "region-slot-count=${slots}"
-                echo "active-region-count=${active}"
-                echo "aws-regions=${regions}"
-                echo "submariner-cluster-ids=${short_names}"
-                echo "cluster-contexts=${contexts}"
-                echo "aurora-global-cluster-id=${global_db}"
+                echo "region-slot-count=${CAMUNDA_REGION_SLOTS}"
+                echo "active-region-count=${CAMUNDA_ACTIVE_REGIONS}"
+                echo "aws-regions=${AWS_REGIONS}"
+                echo "submariner-cluster-ids=${SUBMARINER_CLUSTER_IDS}"
+                echo "cluster-contexts=${CLUSTER_CONTEXTS}"
+                echo "aurora-global-cluster-id=${AURORA_GLOBAL_CLUSTER_ID}"
+                echo "brokers-per-region=${CAMUNDA_BROKERS_PER_REGION}"
               } | tee -a "$GITHUB_OUTPUT"
+
+              for name in CAMUNDA_REGION_SLOTS CAMUNDA_ACTIVE_REGIONS \
+                  CAMUNDA_BROKERS_PER_REGION CLUSTER_CONTEXTS AWS_REGIONS \
+                  SUBMARINER_CLUSTER_IDS AURORA_GLOBAL_CLUSTER_ID; do
+                value="${!name}"
+                if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
+                  echo "Invalid multiline value for $name" >&2
+                  exit 1
+                fi
+                printf '%s=%s\n' "$name" "$value" >> "$GITHUB_ENV"
+              done
 
         - name: Register kubectl contexts
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
