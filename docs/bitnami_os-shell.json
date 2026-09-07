@@ -77,6 +77,10 @@
     {
       "version": "12-debian-12-r72",
       "newDigest": "sha256:7ca231d9953b51956a0b7e32d4eb61d4fbab561dfdfa7f85dc8c796c167ba19e"
+    },
+    {
+      "version": "12-debian-12-r73",
+      "newDigest": "sha256:3226910207c0d860d692f8b15886dd7990468c40739e00cd21881ac5b3b4441b"
     }
   ]
 }
