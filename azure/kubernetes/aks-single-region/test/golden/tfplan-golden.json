@@ -82,7 +82,9 @@
                 "service_cidrs": []
               }
             ],
-            "node_provisioning_profile": [],
+            "node_provisioning_profile": [
+              {}
+            ],
             "oms_agent": [],
             "service_mesh_profile": [],
             "service_principal": [],
@@ -199,6 +201,13 @@
               }
             ],
             "node_os_upgrade_channel": "NodeImage",
+            "node_provisioning_profile": [
+              {
+                "default_node_pools": "Auto",
+                "mode": "Manual"
+              }
+            ],
+            "oidc_issuer_enabled": true,
             "oms_agent": [],
             "open_service_mesh_enabled": null,
             "private_cluster_enabled": false,
@@ -334,7 +343,6 @@
           "schema_version": 2,
           "sensitive_values": {
             "access_policy": [],
-            "contact": [],
             "network_acls": [
               {}
             ],
@@ -666,9 +674,7 @@
           "type": "azurerm_private_dns_zone_virtual_network_link",
           "values": {
             "name": "camunda-postgres-vnet-link",
-            "private_dns_zone_name": "privatelink.postgres.database.azure.com",
             "registration_enabled": false,
-            "resource_group_name": "camunda-rg",
             "tags": {
               "Environment": "Testing",
               "Purpose": "Reference Implementation"
@@ -693,7 +699,8 @@
               false
             ],
             "delegation": [],
-            "ip_address_pool": []
+            "ip_address_pool": [],
+            "service_endpoint": []
           },
           "type": "azurerm_subnet",
           "values": {
@@ -704,11 +711,15 @@
             "delegation": [],
             "ip_address_pool": [],
             "name": "camunda-aks-subnet",
+            "network_security_group_id_wo": null,
+            "network_security_group_id_wo_version": null,
             "private_endpoint_network_policies": "Disabled",
             "private_link_service_network_policies_enabled": true,
             "resource_group_name": "camunda-rg",
+            "route_table_id_wo": null,
+            "route_table_id_wo_version": null,
+            "service_endpoint": [],
             "service_endpoint_policy_ids": null,
-            "service_endpoints": null,
             "sharing_scope": null,
             "timeouts": null,
             "virtual_network_name": "camunda-vnet"
@@ -741,7 +752,8 @@
                 ]
               }
             ],
-            "ip_address_pool": []
+            "ip_address_pool": [],
+            "service_endpoint": []
           },
           "type": "azurerm_subnet",
           "values": {
@@ -764,11 +776,15 @@
             ],
             "ip_address_pool": [],
             "name": "camunda-db-subnet",
+            "network_security_group_id_wo": null,
+            "network_security_group_id_wo_version": null,
             "private_endpoint_network_policies": "Disabled",
             "private_link_service_network_policies_enabled": true,
             "resource_group_name": "camunda-rg",
+            "route_table_id_wo": null,
+            "route_table_id_wo_version": null,
+            "service_endpoint": [],
             "service_endpoint_policy_ids": null,
-            "service_endpoints": null,
             "sharing_scope": null,
             "timeouts": null,
             "virtual_network_name": "camunda-vnet"
@@ -791,7 +807,8 @@
               false
             ],
             "delegation": [],
-            "ip_address_pool": []
+            "ip_address_pool": [],
+            "service_endpoint": []
           },
           "type": "azurerm_subnet",
           "values": {
@@ -802,11 +819,15 @@
             "delegation": [],
             "ip_address_pool": [],
             "name": "camunda-pe-subnet",
+            "network_security_group_id_wo": null,
+            "network_security_group_id_wo_version": null,
             "private_endpoint_network_policies": "Disabled",
             "private_link_service_network_policies_enabled": true,
             "resource_group_name": "camunda-rg",
+            "route_table_id_wo": null,
+            "route_table_id_wo_version": null,
+            "service_endpoint": [],
             "service_endpoint_policy_ids": null,
-            "service_endpoints": null,
             "sharing_scope": null,
             "timeouts": null,
             "virtual_network_name": "camunda-vnet"
@@ -922,6 +943,7 @@
             "sku_name": "GP_Standard_D2ds_v5",
             "source_server_id": null,
             "storage_mb": 32768,
+            "storage_type": "Premium_LRS",
             "tags": {
               "Environment": "Testing",
               "Purpose": "Reference Implementation"

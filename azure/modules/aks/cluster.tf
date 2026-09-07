@@ -45,6 +45,12 @@ resource "azurerm_kubernetes_cluster" "aks" {
     dns_service_ip = var.dns_service_ip
   }
 
+  # Node pools are declared explicitly, so keep manual provisioning rather than
+  # delegating sizing to Node Auto Provisioning (Karpenter).
+  node_provisioning_profile {
+    mode = "Manual"
+  }
+
   identity {
     type         = "UserAssigned"
     identity_ids = [var.uami_id]
