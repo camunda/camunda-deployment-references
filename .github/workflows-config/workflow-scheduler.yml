@@ -68,6 +68,13 @@ schedules:
           - .github/workflows/aws_compute_ec2_single_region_daily_cleanup.yml
           - .github/workflows/azure_aks_single_region_daily_cleanup.yml
 
+    # The 8.9 suite is the largest of the weekly blocks. Dispatching all fourteen
+    # workflows in the same instant made every job race the others for the same
+    # unauthenticated github.com fetches during tooling install, and two of them
+    # died there on 2026-09-02 with "could not read Username for
+    # 'https://github.com'". Splitting the block spreads that burst over three
+    # hours, the same way the everyday schedules above are already staggered.
+    # Each part needs its own name: the working branch is derived from it.
     - name: Wednesday schedules 8.9
       branch: stable/8.9
       cron_every_day: Wednesday
@@ -82,6 +89,12 @@ schedules:
           - .github/workflows/aws_modules_eks_rds_os_create_destruct_tests.yml
           # AWS EKS Single Region
           - .github/workflows/aws_kubernetes_eks_single_region_tests.yml
+
+    - name: Wednesday schedules 8.9 part 2
+      branch: stable/8.9
+      cron_every_day: Wednesday
+      cron_every_hours: '23'
+      workflow_files:
           - .github/workflows/aws_common_procedure_s3_bucket.yml
           # AWS EC2 Single Region
           - .github/workflows/aws_compute_ec2_single_region_tests.yml
@@ -90,6 +103,14 @@ schedules:
           # AWS EKS Dual Region
           - .github/workflows/aws_kubernetes_eks_dual_region_teleport_tests.yml
           - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
+
+    # Thursday 00:00, i.e. the hour after part 2 — the day rolls over, the suite
+    # does not.
+    - name: Wednesday schedules 8.9 part 3
+      branch: stable/8.9
+      cron_every_day: Thursday
+      cron_every_hours: '0'
+      workflow_files:
           # Azure AKS Single Region
           - .github/workflows/azure_kubernetes_aks_single_region_tests.yml
           # Generic Kubernetes Operator Based
