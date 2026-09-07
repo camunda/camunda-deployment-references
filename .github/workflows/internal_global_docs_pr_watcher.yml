@@ -124,6 +124,7 @@ jobs:
                   fi
 
                   flagged_count=0
+                  skipped_count=0
 
                   for pr in $(echo "$prs_json" | jq -r '.[].number'); do
                     pr_number="$pr"
@@ -146,11 +147,31 @@ jobs:
                     watchlist_matches=()
                     broken_links=()
 
-                    # Use headRefOid (commit SHA) so fork PRs resolve correctly
-                    pr_head=$(gh pr view "$pr_number" \
-                      --repo "$DOCS_REPO" \
-                      --json headRefOid \
-                      --jq '.headRefOid')
+                    # Use headRefOid (commit SHA) so fork PRs resolve correctly.
+                    # Retry: the GitHub GraphQL API returns transient 5xx, and a
+                    # single failure here used to abort the whole scan (set -e).
+                    pr_head=""
+                    for attempt in 1 2 3; do
+                      pr_head=$(gh pr view "$pr_number" \
+                        --repo "$DOCS_REPO" \
+                        --json headRefOid \
+                        --jq '.headRefOid' 2>/dev/null || echo "")
+                      # jq prints a literal "null" when the field is missing, and that
+                      # would later be used as a git ref. Require a real object name
+                      # rather than merely a non-empty string.
+                      [[ "$pr_head" =~ ^[0-9a-f]{40}$ ]] && break
+                      pr_head=""
+                      if [[ "$attempt" -lt 3 ]]; then
+                        sleep $((attempt * 5))
+                      fi
+                    done
+
+                    if [[ -z "$pr_head" ]]; then
+                      skipped_count=$((skipped_count + 1))
+                      echo "::warning::Could not resolve head SHA for PR #$pr_number after 3 attempts; skipping this PR."
+                      echo "::endgroup::"
+                      continue
+                    fi
 
                     ###########################################################
                     # Dynamic detection: for each changed file, fetch its
@@ -372,6 +393,17 @@ jobs:
                   echo "========================================="
                   echo "Scan complete. Flagged PRs: $flagged_count"
                   echo "========================================="
+
+                  # A blip on one pull request is self-healing: the next hourly run re-scans
+                  # it, and failing the whole run for that would page someone for nothing.
+                  # Every pull request failing is not a blip — it means the lookup itself is
+                  # broken, which is the case that would otherwise stay green forever.
+                  if [[ "$skipped_count" -gt 0 && "$skipped_count" -eq "$pr_count" ]]; then
+                    echo "::error::Docs scan resolved no pull requests at all ($skipped_count of $pr_count); the head SHA lookup is broken."
+                    exit 1
+                  elif [[ "$skipped_count" -gt 0 ]]; then
+                    echo "::warning::Docs scan incomplete: skipped $skipped_count of $pr_count PR(s); the next hourly run will re-scan them."
+                  fi
 
             - name: Notify in Slack in case of failure
               id: slack-notification
