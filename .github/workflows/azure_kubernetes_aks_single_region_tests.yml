@@ -263,6 +263,10 @@ jobs:
 
                   # Best-effort throughout: this step exists to explain a failure,
                   # it must never mask it or add a second one.
+                  rc_activity=0
+                  rc_filter=0
+                  rc_resources=0
+                  rc_summary=0
 
                   # The create step is capped at 120 min, so 3h covers the whole
                   # attempt without needing a start timestamp threaded through.
@@ -271,7 +275,7 @@ jobs:
                     --offset 3h \
                     --max-events 500 \
                     --output json \
-                    > "${DUMP_DIR}/activity-log-full.json" 2>"${DUMP_DIR}/activity-log-full.err" || true
+                    > "${DUMP_DIR}/activity-log-full.json" 2>"${DUMP_DIR}/activity-log-full.err" || rc_activity=$?
 
                   # The actionable subset, and what to read first.
                   jq '[.[] | select(.level == "Error" or .level == "Critical")
@@ -281,19 +285,38 @@ jobs:
                           statusMessage: .properties.statusMessage,
                           properties}]' \
                     "${DUMP_DIR}/activity-log-full.json" \
-                    > "${DUMP_DIR}/activity-log-errors.json" 2>/dev/null || true
+                    > "${DUMP_DIR}/activity-log-errors.json" 2>/dev/null || rc_filter=$?
 
                   # What actually survived in the resource group, to tell a rollback
                   # apart from a resource that was never attempted.
                   az resource list \
                     --resource-group "$RESOURCE_GROUP_NAME" \
                     --output json \
-                    > "${DUMP_DIR}/resources.json" 2>"${DUMP_DIR}/resources.err" || true
+                    > "${DUMP_DIR}/resources.json" 2>"${DUMP_DIR}/resources.err" || rc_resources=$?
 
                   echo "::group::Azure Activity Log errors for ${RESOURCE_GROUP_NAME}"
                   jq -r '.[] | "\(.eventTimestamp) \(.level) \(.operationName) \(.status)/\(.subStatus) \(.statusMessage // "")"' \
-                    "${DUMP_DIR}/activity-log-errors.json" 2>/dev/null || cat "${DUMP_DIR}/activity-log-errors.json" 2>/dev/null || true
+                    "${DUMP_DIR}/activity-log-errors.json" 2>/dev/null || rc_summary=$?
                   echo "::endgroup::"
+
+                  printf '%s\n' \
+                    "activity-log-list=${rc_activity}" \
+                    "activity-log-filter=${rc_filter}" \
+                    "resource-list=${rc_resources}" \
+                    "activity-log-summary=${rc_summary}" \
+                    > "${DUMP_DIR}/status.txt"
+
+                  failed=()
+                  ((rc_activity == 0)) || failed+=("activity-log-list")
+                  ((rc_filter == 0)) || failed+=("activity-log-filter")
+                  ((rc_resources == 0)) || failed+=("resource-list")
+                  ((rc_summary == 0)) || failed+=("activity-log-summary")
+                  if ((${#failed[@]} > 0)); then
+                    failed_commands=$(IFS=,; echo "${failed[*]}")
+                    echo "::warning::Azure diagnostics failed: ${failed_commands}. See status.txt and stderr files in the artifact."
+                  fi
+
+                  exit 0
 
             - name: 📤 Upload Azure Activity Log dump
               if: failure() && steps.azure_activity_log.outputs.dump-dir != ''
