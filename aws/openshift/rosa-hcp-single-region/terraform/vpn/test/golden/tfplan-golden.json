@@ -279,6 +279,7 @@
           "schema_version": 0,
           "sensitive_values": {
             "private_key_pem": true,
+            "private_key_pem_wo": true,
             "subject": [
               {}
             ]
@@ -287,6 +288,8 @@
           "values": {
             "dns_names": null,
             "ip_addresses": null,
+            "private_key_pem_wo": null,
+            "private_key_pem_wo_version": null,
             "subject": [
               {
                 "common_name": "common.local.my-client",
@@ -311,6 +314,7 @@
           "schema_version": 0,
           "sensitive_values": {
             "private_key_pem": true,
+            "private_key_pem_wo": true,
             "subject": [
               {}
             ]
@@ -319,6 +323,8 @@
           "values": {
             "dns_names": null,
             "ip_addresses": null,
+            "private_key_pem_wo": null,
+            "private_key_pem_wo_version": null,
             "subject": [
               {
                 "common_name": "server.common.local",
@@ -347,7 +353,8 @@
               false,
               false
             ],
-            "ca_private_key_pem": true
+            "ca_private_key_pem": true,
+            "ca_private_key_pem_wo": true
           },
           "type": "tls_locally_signed_cert",
           "values": {
@@ -355,6 +362,8 @@
               "client_auth",
               "digital_signature"
             ],
+            "ca_private_key_pem_wo": null,
+            "ca_private_key_pem_wo_version": null,
             "early_renewal_hours": 0,
             "is_ca_certificate": false,
             "ready_for_renewal": false,
@@ -374,7 +383,8 @@
               false,
               false
             ],
-            "ca_private_key_pem": true
+            "ca_private_key_pem": true,
+            "ca_private_key_pem_wo": true
           },
           "type": "tls_locally_signed_cert",
           "values": {
@@ -384,6 +394,8 @@
               "server_auth",
               "client_auth"
             ],
+            "ca_private_key_pem_wo": null,
+            "ca_private_key_pem_wo_version": null,
             "early_renewal_hours": 0,
             "is_ca_certificate": false,
             "ready_for_renewal": false,
@@ -456,6 +468,7 @@
               false
             ],
             "private_key_pem": true,
+            "private_key_pem_wo": true,
             "subject": [
               {}
             ]
@@ -472,6 +485,8 @@
             "early_renewal_hours": 720,
             "ip_addresses": null,
             "is_ca_certificate": true,
+            "private_key_pem_wo": null,
+            "private_key_pem_wo_version": null,
             "ready_for_renewal": false,
             "set_authority_key_id": false,
             "set_subject_key_id": false,
