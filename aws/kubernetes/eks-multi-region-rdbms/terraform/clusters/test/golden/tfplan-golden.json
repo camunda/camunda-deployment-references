@@ -1621,6 +1621,7 @@
             "instance_class": "db.r6g.large",
             "monitoring_interval": 0,
             "promotion_tier": 0,
+            "publicly_accessible": false,
             "region": "eu-west-2",
             "tags": null,
             "timeouts": null
@@ -1643,9 +1644,6 @@
                 "cidr_blocks": [
                   false,
                   false,
-                  false,
-                  false,
-                  false,
                   false
                 ],
                 "ipv6_cidr_blocks": [],
@@ -1656,9 +1654,6 @@
             "ingress": [
               {
                 "cidr_blocks": [
-                  false,
-                  false,
-                  false,
                   false,
                   false,
                   false
@@ -1679,10 +1674,7 @@
                 "cidr_blocks": [
                   "10.192.0.0/16",
                   "10.202.0.0/16",
-                  "10.212.0.0/16",
-                  "10.190.0.0/16",
-                  "10.200.0.0/16",
-                  "10.210.0.0/16"
+                  "10.212.0.0/16"
                 ],
                 "description": "Allow PostgreSQL to every participating region",
                 "from_port": 5432,
@@ -1699,10 +1691,7 @@
                 "cidr_blocks": [
                   "10.192.0.0/16",
                   "10.202.0.0/16",
-                  "10.212.0.0/16",
-                  "10.190.0.0/16",
-                  "10.200.0.0/16",
-                  "10.210.0.0/16"
+                  "10.212.0.0/16"
                 ],
                 "description": "Allow PostgreSQL from every participating region",
                 "from_port": 5432,
@@ -1875,6 +1864,7 @@
             "instance_class": "db.r6g.large",
             "monitoring_interval": 0,
             "promotion_tier": 0,
+            "publicly_accessible": false,
             "region": "eu-west-3",
             "tags": null,
             "timeouts": null
@@ -1897,9 +1887,6 @@
                 "cidr_blocks": [
                   false,
                   false,
-                  false,
-                  false,
-                  false,
                   false
                 ],
                 "ipv6_cidr_blocks": [],
@@ -1910,9 +1897,6 @@
             "ingress": [
               {
                 "cidr_blocks": [
-                  false,
-                  false,
-                  false,
                   false,
                   false,
                   false
@@ -1933,10 +1917,7 @@
                 "cidr_blocks": [
                   "10.192.0.0/16",
                   "10.202.0.0/16",
-                  "10.212.0.0/16",
-                  "10.190.0.0/16",
-                  "10.200.0.0/16",
-                  "10.210.0.0/16"
+                  "10.212.0.0/16"
                 ],
                 "description": "Allow PostgreSQL to every participating region",
                 "from_port": 5432,
@@ -1953,10 +1934,7 @@
                 "cidr_blocks": [
                   "10.192.0.0/16",
                   "10.202.0.0/16",
-                  "10.212.0.0/16",
-                  "10.190.0.0/16",
-                  "10.200.0.0/16",
-                  "10.210.0.0/16"
+                  "10.212.0.0/16"
                 ],
                 "description": "Allow PostgreSQL from every participating region",
                 "from_port": 5432,
