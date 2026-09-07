@@ -142,13 +142,6 @@ module "orchestration_cluster" {
   # restore_enabled   = true
   # restore_backup_id = "my-backup-id"
 
-  # The module default (15m) equals service_health_check_grace_period_seconds
-  # (900s), so a single slow start is fatal. Raise the create budget above the
-  # grace period, as the dual-region caller already does.
-  service_timeouts = {
-    create = "30m"
-  }
-
 }
 
 module "connectors" {
