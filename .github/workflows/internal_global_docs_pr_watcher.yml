@@ -155,8 +155,14 @@ jobs:
                         --repo "$DOCS_REPO" \
                         --json headRefOid \
                         --jq '.headRefOid' 2>/dev/null || echo "")
-                      [[ -n "$pr_head" ]] && break
-                      sleep $((attempt * 5))
+                      # jq prints a literal "null" when the field is missing, and that
+                      # would later be used as a git ref. Require a real object name
+                      # rather than merely a non-empty string.
+                      [[ "$pr_head" =~ ^[0-9a-f]{40}$ ]] && break
+                      pr_head=""
+                      if [[ "$attempt" -lt 3 ]]; then
+                        sleep $((attempt * 5))
+                      fi
                     done
 
                     if [[ -z "$pr_head" ]]; then
