@@ -255,10 +255,14 @@ jobs:
             # before teardown. See #3354.
             - name: 🔬🚨 Dump Azure Activity Log for the failed resource group
               id: azure_activity_log
-              if: failure()
+              # Scoped to the create step rather than a bare failure(): the resource group
+              # only exists if that step ran, so any earlier failure would dump an absent
+              # group and spend up to 10 minutes doing it.
+              if: failure() && steps.create_cluster.outcome == 'failure'
               timeout-minutes: 10
-              # Passed as env, never interpolated into the script: the values reach
-              # the shell as data, so nothing below has to be quoted or escaped.
+              # Passed as env, never interpolated into the script, so the value reaches
+              # the shell as data and cannot be expanded into the source before bash parses
+              # it. It is still quoted at every use site below, as any variable must be.
               env:
                   RESOURCE_GROUP_NAME: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}-rg
               run: |
