@@ -4,21 +4,15 @@ name: Tests - Integration - Azure Kubernetes AKS Single Region
 permissions:
     contents: read
 
+# The automatic triggers are gone on this branch. This lane has not produced a
+# green run since 2025-08 — it provisions two AKS clusters, fails in the Helm
+# chart tests once they are up, and bills for both every time. With 8.7 close to
+# end of life there is nothing left to learn from running it on a schedule or on
+# every pull request.
+#
+# workflow_dispatch is kept so it can still be run by hand if someone needs it,
+# and the newer branches are unaffected.
 on:
-    schedule:
-        - cron: 0 3 * * 3 # Runs at 3 AM on Wednesdays
-    pull_request:
-        paths:
-            - .github/workflows/azure_kubernetes_aks_single_region_tests.yml
-            - .tool-versions
-            - generic/kubernetes/single-region/**
-            - azure/kubernetes/aks-single-region/**
-            - azure/modules/**
-            - generic/kubernetes/single-region/procedure/**
-            - '!azure/kubernetes/aks-single-region/test/golden/**'
-            - .github/actions/azure-kubernetes-aks-single-region-create/**
-            - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
-
     workflow_dispatch:
         inputs:
             delete_clusters:
