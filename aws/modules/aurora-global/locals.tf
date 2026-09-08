@@ -14,16 +14,19 @@ locals {
   }
   db_port = local.engine_ports[var.engine]
 
-  # Per-engine default version comes from the Renovate-tracked variables.
-  default_engine_versions = {
+  # One version variable per engine, each independently Renovate-tracked (the
+  # two engines resolve through different custom datasources). Selecting by
+  # engine here means there is exactly one way to pin a version: set that
+  # engine's variable.
+  engine_versions = {
     "aurora-postgresql" = var.postgresql_engine_version
     "aurora-mysql"      = var.mysql_engine_version
   }
-  engine_version = coalesce(var.engine_version, local.default_engine_versions[var.engine])
+  engine_version = local.engine_versions[var.engine]
 
   # Human-readable label for security-group rule descriptions. A map (not a
   # ternary) so an unhandled engine fails fast, matching the engine_ports /
-  # default_engine_versions / jdbc_subprotocols lookups.
+  # engine_versions / jdbc_subprotocols lookups.
   family_labels = {
     "aurora-postgresql" = "PostgreSQL"
     "aurora-mysql"      = "MySQL"

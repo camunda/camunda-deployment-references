@@ -14,22 +14,11 @@ variable "engine" {
   }
 }
 
-variable "engine_version" {
-  type        = string
-  default     = null
-  description = "Exact engine version override. When null, the module selects the per-engine default (postgresql_engine_version or mysql_engine_version) based on var.engine."
-
-  validation {
-    condition     = var.engine_version == null ? true : trimspace(var.engine_version) != ""
-    error_message = "engine_version must be null (to use the per-engine default) or a non-empty version string; an empty string would be passed straight to RDS and rejected there."
-  }
-}
-
 variable "postgresql_engine_version" {
   type = string
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
   default     = "18.4"
-  description = "Default Aurora PostgreSQL engine version, used when engine = aurora-postgresql and engine_version is not set."
+  description = "Aurora PostgreSQL engine version, used when engine = aurora-postgresql. Set this to pin a specific version for the PostgreSQL path."
 }
 
 variable "mysql_engine_version" {
@@ -41,7 +30,7 @@ variable "mysql_engine_version" {
   # is needed here. See camunda/team-infrastructure-experience#1209.
   # renovate: datasource=custom.aurora-mysql-camunda depName=aurora-mysql
   default     = "8.4.mysql_aurora.8.4.7"
-  description = "Default Aurora MySQL engine version, used when engine = aurora-mysql and engine_version is not set."
+  description = "Aurora MySQL engine version, used when engine = aurora-mysql. Set this to pin a specific version for the MySQL path."
 }
 
 variable "auto_minor_version_upgrade" {

@@ -137,17 +137,32 @@ run "mysql_engine_selects_default_version" {
   }
 }
 
-run "explicit_engine_version_override_wins" {
+run "per_engine_version_variable_pins_that_engine" {
   command = plan
 
   variables {
-    engine         = "aurora-mysql"
-    engine_version = "8.4.99"
+    engine               = "aurora-mysql"
+    mysql_engine_version = "8.4.mysql_aurora.8.4.99"
   }
 
   assert {
-    condition     = aws_rds_cluster.primary.engine_version == "8.4.99"
-    error_message = "Explicit engine_version should override the per-engine default"
+    condition     = aws_rds_cluster.primary.engine_version == "8.4.mysql_aurora.8.4.99"
+    error_message = "Setting mysql_engine_version should pin the version on the MySQL path"
+  }
+}
+
+run "per_engine_versions_do_not_leak_across_engines" {
+  command = plan
+
+  # Overriding the inactive engine's variable must not affect the selected one.
+  variables {
+    engine               = "aurora-postgresql"
+    mysql_engine_version = "8.4.mysql_aurora.8.4.99"
+  }
+
+  assert {
+    condition     = aws_rds_cluster.primary.engine_version == "18.4"
+    error_message = "mysql_engine_version must not affect the PostgreSQL path"
   }
 }
 
@@ -475,18 +490,6 @@ run "jdbc_component_outputs_compose_the_same_url" {
     condition     = output.jdbc_subprotocol == "postgresql" && output.jdbc_ssl_param == "&sslmode=require"
     error_message = "PostgreSQL component outputs should expose the postgresql subprotocol and sslmode=require"
   }
-}
-
-run "engine_version_rejects_empty_string" {
-  command = plan
-
-  variables {
-    engine_version = ""
-  }
-
-  expect_failures = [
-    var.engine_version,
-  ]
 }
 
 run "extra_wrapper_plugins_reject_comma_separated_input" {
