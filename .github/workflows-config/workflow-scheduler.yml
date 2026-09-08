@@ -15,8 +15,10 @@ schedules:
           # AWS EKS Single Region
           - .github/workflows/aws_kubernetes_eks_single_region_tests.yml
           - .github/workflows/aws_common_procedure_s3_bucket.yml
-          # Azure AKS Single Region
-          - .github/workflows/azure_kubernetes_aks_single_region_tests.yml
+          # Azure AKS single-region is deliberately absent: the lane is switched off on
+          # stable/8.7, which is close to end of life and has had no green run since
+          # 2025-08. Listing it here would keep the scheduler rewriting a workflow that
+          # can no longer trigger.
 
     # Everyday schedules are staggered by 1 hour to avoid GitHub Actions rate limits
     - name: Everyday schedules 8.7
