@@ -24,6 +24,7 @@ package multiregionrdbmstests
 
 import (
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -184,6 +185,12 @@ func TestMultiRegionActivateRegion(t *testing.T) {
 // the workflow engine keeps its quorum. This is the property the whole
 // architecture exists for, and the one that distinguishes it from the
 // dual-region setup, where the same event halts processing.
+//
+// Quorum is not the whole acceptance criterion. Losing slot 0 also promotes the
+// database writer, and secondary storage is required to survive that without
+// losing exported data. Continuity checks cannot see that: an empty secondary
+// storage answers a topology query exactly like a full one. So a known set of
+// process instances is exported before the outage and looked for afterwards.
 func TestMultiRegionRegionLoss(t *testing.T) {
 	env := testEnv(t)
 
@@ -194,12 +201,18 @@ func TestMultiRegionRegionLoss(t *testing.T) {
 	// Slot 0 hosts the Aurora writer. Losing it exercises the database switchover
 	// as well as Zeebe quorum; the management API is driven from a survivor.
 	lostSlot := 0
+	exportedRecords := filepath.Join(t.TempDir(), "exported-records.txt")
+
+	helpers.RunProcedure(t, env, 15*time.Minute, "verify-exported-data.sh", "record", exportedRecords)
 
 	defer helpers.RunProcedureAllowFailure(t, env, 5*time.Minute, "submariner/diagnose-submariner.sh")
 
 	helpers.RunProcedure(t, env, 15*time.Minute, "simulate-region-loss.sh", strconv.Itoa(lostSlot))
 	helpers.RunProcedure(t, env, 15*time.Minute, "verify-degraded-cluster.sh", strconv.Itoa(lostSlot))
 	helpers.RunProcedure(t, env, 20*time.Minute, "failover.sh", strconv.Itoa(lostSlot))
+
+	helpers.RunProcedure(t, env, 15*time.Minute, "verify-exported-data.sh",
+		"verify", exportedRecords, strconv.Itoa(lostSlot))
 }
 
 // TestMultiRegionDrainZone force-removes the lost zone after the workflow has

@@ -152,7 +152,7 @@ camunda::region_node_ids() {
 #     waiting for the cluster change to complete (last status: unknown) ...
 camunda::_request() {
     local context="$1" local_port="$2" remote_port="$3" auth="$4"
-    local method="$5" path="$6" body="${7:-}"
+    local method="$5" path="$6" body="${7:-}" form_file="${8:-}"
 
     kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
         port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" \
@@ -168,7 +168,13 @@ camunda::_request() {
         --connect-timeout "${CAMUNDA_API_CONNECT_TIMEOUT:-5}"
         --max-time "${CAMUNDA_API_MAX_TIME:-30}")
     [ -n "$auth" ] && curl_args+=(-u "$auth")
-    [ -n "$body" ] && curl_args+=(-H 'Content-Type: application/json' -d "$body")
+    # A resource upload is multipart, and curl sets that content type itself from
+    # -F. Setting it by hand omits the boundary and the gateway rejects the body.
+    if [ -n "$form_file" ]; then
+        curl_args+=(-F "resources=@${form_file}")
+    elif [ -n "$body" ]; then
+        curl_args+=(-H 'Content-Type: application/json' -d "$body")
+    fi
 
     local response
     response="$(curl "${curl_args[@]}" "http://localhost:${local_port}${path}")" || true
@@ -213,6 +219,22 @@ camunda::gateway_get() {
     camunda::_request "$context" "$GATEWAY_LOCAL_PORT" 8080 \
         "${CAMUNDA_BASIC_AUTH_USER:-demo}:${CAMUNDA_BASIC_AUTH_PASSWORD:-demo}" \
         GET "$path"
+}
+
+# camunda::gateway_post <context> <path> [json-body]
+camunda::gateway_post() {
+    local context="$1" path="$2" body="${3:-}"
+    camunda::_request "$context" "$GATEWAY_LOCAL_PORT" 8080 \
+        "${CAMUNDA_BASIC_AUTH_USER:-demo}:${CAMUNDA_BASIC_AUTH_PASSWORD:-demo}" \
+        POST "$path" "$body"
+}
+
+# camunda::gateway_upload <context> <path> <file>
+camunda::gateway_upload() {
+    local context="$1" path="$2" file="$3"
+    camunda::_request "$context" "$GATEWAY_LOCAL_PORT" 8080 \
+        "${CAMUNDA_BASIC_AUTH_USER:-demo}:${CAMUNDA_BASIC_AUTH_PASSWORD:-demo}" \
+        POST "$path" "" "$file"
 }
 
 # camunda::wait_for_cluster_change <context> [timeout_seconds]
