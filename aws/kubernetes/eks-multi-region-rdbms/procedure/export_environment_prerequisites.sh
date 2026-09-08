@@ -78,7 +78,7 @@ export CAMUNDA_REPLICATION_FACTOR="${CAMUNDA_REPLICATION_FACTOR:-$((CAMUNDA_REPL
 # camunda/camunda-platform-helm#6807.
 #
 # TODO [release-duty]: drop this pin once zoned mode is in a released chart.
-export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-feat/zoned-mode-node-id}"
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-main}"
 
 # TODO [release-duty]: pin to the released chart version and switch
 # HELM_CHART_REF to https://helm.camunda.io once 8.10 is generally available.
