@@ -410,12 +410,48 @@ destroy_resource() {
       continue
     fi
 
-    # On OIDC config deletion failure, the ROSA cluster destruction is still propagating
-    # on the Red Hat side. Wait and retry — this is a transient condition.
+    # "clusters using OIDC config" means the ROSA clusters are gone from the Terraform
+    # state (a previous partial destroy dropped them) but still live in RHCS. Retrying or
+    # waiting cannot clear it: Terraform no longer tracks those clusters, so nothing is
+    # deleting them.
+    #
+    # Order matters. The ROSA deletion has to happen before the state surgery below:
+    # dropping the OIDC config from state on its own would unblock the destroy by
+    # abandoning live HCP clusters, and on this branch nothing would ever reclaim them —
+    # the dual-region ghost-cluster pass exists only on main, and the S3 state is deleted
+    # as soon as the destroy succeeds.
     if [[ "$output_tf_destroy" == *"clusters using OIDC config"* && $attempt -lt $max_destroy_attempts ]]; then
-      echo "[$group_id][$module_name] OIDC config still in use (attempt $attempt/$max_destroy_attempts)"
-      echo "[$group_id][$module_name] Waiting 60s for ROSA cluster deletion to propagate..."
-      sleep 60
+      echo "[$group_id][$module_name] OIDC config still in use by orphaned ROSA clusters (attempt $attempt/$max_destroy_attempts)"
+
+      # Without a session the orphans can be neither listed nor deleted, and the state
+      # surgery below would then abandon them — the exact outcome this branch exists to
+      # prevent. Leave the state untouched and retry; the loop fails loudly on exhaustion.
+      if ! rosa login --token="$RHCS_TOKEN"; then
+        echo "::warning::[$group_id][$module_name] rosa login failed; leaving the OIDC config in state rather than abandoning live clusters"
+        continue
+      fi
+
+      local orphan orphan_left=false
+      for orphan in "$cluster_1_name" "$cluster_2_name"; do
+        if rosa describe cluster --cluster "$orphan" >/dev/null 2>&1; then
+          echo "[$group_id][$module_name] Deleting orphaned ROSA cluster $orphan..."
+          if ! rosa delete cluster --cluster "$orphan" --yes; then
+            orphan_left=true
+            echo "::warning::[$group_id][$module_name] could not delete orphaned ROSA cluster $orphan; it must be removed by hand"
+          fi
+        fi
+      done
+
+      # The deletions above are asynchronous and outlive this loop, so the OIDC config is
+      # still referenced and has to leave the state for the rest of the destroy to finish.
+      echo "[$group_id][$module_name] Removing OIDC config resources from Terraform state to unblock destroy..."
+      terraform state list 2>/dev/null | grep "oidc_config" | while read -r resource; do
+        echo "[$group_id][$module_name] Removing from state: $resource"
+        terraform state rm "$resource" 2>/dev/null || true
+      done
+      if [[ "$orphan_left" == "true" ]]; then
+        echo "::warning::[$group_id][$module_name] OIDC config dropped from state with at least one cluster still live"
+      fi
       continue
     fi
 
