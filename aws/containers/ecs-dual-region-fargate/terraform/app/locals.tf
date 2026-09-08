@@ -65,10 +65,39 @@ locals {
       name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_1_PRIORITY"
       value = "500"
     },
-    # enable async replication in zeebe to avoid data loss on failover.
+    # Async replication monitoring. The exporter acknowledges a record to the
+    # broker only once Aurora reports it replicated, which holds back Zeebe log
+    # compaction so an unplanned writer promotion can be replayed from the log.
     # reference: https://docs.camunda.io/docs/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED"
+      value = "true"
+    },
+    # LOG_SEQ reads Aurora's own replication position and is the engine default,
+    # pinned here because it is not universally supported: Aurora Global
+    # Database for PostgreSQL and MySQL, MSSQL and PostgreSQL only. Any other
+    # backend falls back to DELAY, a static timer with no replication signal.
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE"
+      value = "LOG_SEQ"
+    },
+    # The lag budget. Deferred acknowledgement keeps log segments on the EFS
+    # data volume for as long as Aurora is behind, so this value drives storage
+    # growth. min-sync-replicas stays at its default of 1: the global cluster
+    # has exactly one secondary to wait for.
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG"
+      value = "PT15M"
+    },
+    # Safety valve, not an RPO control. Acknowledgement is gated on confirmed
+    # replication either way, so leaving this off loses no data; what it decides
+    # is the failure mode once the lag budget is blown. EFS grows on demand
+    # rather than filling up like a fixed volume, so here the unbounded case
+    # costs storage and burns EFS throughput instead of stopping the broker.
+    # Pausing makes the degradation visible and bounded: exporting stops, Zeebe
+    # keeps processing, and the APIs serve stale data until Aurora catches up.
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED"
       value = "true"
     },
   ]
