@@ -12,15 +12,17 @@ Workflow filenames mirror the folder structure of the architecture they test:
 
 **Abbreviation rules** (apply when the solution name implies the category):
 
-| Long form | Short form |
-|-----------|-----------|
-| `aws_kubernetes_eks_` | `aws_eks_` |
-| `aws_containers_ecs_` | `aws_ecs_` |
-| `aws_openshift_rosa_hcp_` | `aws_rosa_hcp_` |
-| `azure_kubernetes_aks_` | `azure_aks_` |
-| `local_kubernetes_kind_` | `local_kind_` |
+| Long form | Short form | Reason |
+|-----------|-----------|--------|
+| `aws_kubernetes_eks_` | `aws_eks_` | EKS already implies Kubernetes |
+| `aws_containers_ecs_` | `aws_ecs_` | ECS already implies containers |
+| `aws_openshift_rosa_hcp_` | `aws_rosa_hcp_` | ROSA already implies OpenShift |
+| `azure_kubernetes_aks_` | `azure_aks_` | AKS already implies Kubernetes |
+| `local_kubernetes_kind_` | `local_kind_` | Kind already implies Kubernetes |
 
-**Constraint:** The resulting skip label (`skip_<filename_without_ext>`) must be ≤ 50 characters (GitHub label limit). The `internal-triage-skip` action validates this at runtime and fails if exceeded.
+**Constraint:** The resulting skip label (`skip_<filename_without_ext>`) must be ≤ 50 characters (GitHub label limit). The `internal-triage-skip` action validates this at runtime and fails if exceeded, printing the offending filename.
+
+Unabbreviated, `aws_containers_ecs_single_region_fargate_daily_cleanup.yml` would need the label `skip_aws_containers_ecs_single_region_fargate_daily_cleanup` — 59 characters, rejected. The short form fits.
 
 ### Display Names
 

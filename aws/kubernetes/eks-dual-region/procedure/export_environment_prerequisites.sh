@@ -42,5 +42,6 @@ export CAMUNDA_NAMESPACE_1=${CAMUNDA_NAMESPACE_1:-camunda-paris}
 export CAMUNDA_RELEASE_NAME=${CAMUNDA_RELEASE_NAME:-camunda}
 
 # TODO: [release-duty] before the release, update the below versions to the stable release!
-# renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+# Parked: pre-GA dev chart tag until 8.10 GA.
+# renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ renovate-inert-ok
 export HELM_CHART_VERSION=${HELM_CHART_VERSION:-"15-dev-latest"}

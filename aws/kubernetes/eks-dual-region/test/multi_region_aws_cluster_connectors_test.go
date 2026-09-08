@@ -52,9 +52,15 @@ func TestConnectorWebhookFlowDeploy(t *testing.T) {
 
 // TestConnectorWebhookFlowTest tests the connector webhook flow:
 // 1. Triggers the workflow via webhook 10 times
-// 2. Verifies the mock server received exactly 10 requests
-// 3. Verifies both connector deployments processed jobs
-// 4. Cleans up the mock API server
+// 2. Verifies the mock server received at least 10 requests
+// 3. Cleans up the mock API server
+//
+// Known limit: the callback count is a cluster-wide total, so a run where the
+// primary region's connectors served all 10 jobs and the secondary's served
+// none still passes. That split is a legal Zeebe outcome — a job goes to
+// whichever worker polls first — so it cannot be asserted against. What is
+// checked deterministically is that both regions' connectors deployments
+// become available, in deployC8Helm.
 func TestConnectorWebhookFlowTest(t *testing.T) {
 	t.Log("[CONNECTOR TEST] Testing Connector Webhook Flow in multi-region mode 🚀")
 
@@ -71,7 +77,6 @@ func TestConnectorWebhookFlowTest(t *testing.T) {
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestTriggerWebhookWorkflow", triggerWebhookWorkflow},
 		{"TestVerifyMockServerReceivedRequests", verifyMockServerReceivedRequests},
-		{"TestVerifyConnectorsProcessedJobs", verifyConnectorsProcessedJobs},
 		{"TestCleanupMockApiServer", cleanupMockApiServer},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -217,9 +222,9 @@ type MockServerRequest struct {
 	Body      map[string]interface{} `json:"body"`
 }
 
-// verifyMockServerReceivedRequests verifies that the mock server received exactly the expected number of requests
+// verifyMockServerReceivedRequests verifies that the mock server received at least the expected number of requests
 func verifyMockServerReceivedRequests(t *testing.T) {
-	t.Logf("[VERIFICATION] Verifying mock server received exactly %d requests 🔍", webhookTriggerCount)
+	t.Logf("[VERIFICATION] Verifying mock server received at least %d requests 🔍", webhookTriggerCount)
 
 	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "mock-api-server", 0, 8080, 5, 10*time.Second)
 	defer closeFn()
@@ -251,13 +256,16 @@ func verifyMockServerReceivedRequests(t *testing.T) {
 		}
 	}
 
-	// Final verification
+	// Final verification.
+	// At least, not exactly: Zeebe job execution is at-least-once, so a callback
+	// whose response was lost is legitimately retried and delivered twice. Under
+	// delivery is the regression worth failing on.
 	receivedCount := len(requestsResponse.Requests)
-	require.Equal(t, webhookTriggerCount, receivedCount,
-		"Expected exactly %d requests, but received %d. Response: %s",
+	require.GreaterOrEqual(t, receivedCount, webhookTriggerCount,
+		"Expected at least %d requests, but received %d. Response: %s",
 		webhookTriggerCount, receivedCount, lastBody)
 
-	t.Logf("[VERIFICATION] ✅ Mock server received exactly %d requests as expected", webhookTriggerCount)
+	t.Logf("[VERIFICATION] ✅ Mock server received %d requests, expected at least %d", receivedCount, webhookTriggerCount)
 
 	// Log some details about the received requests
 	for i, req := range requestsResponse.Requests {
@@ -271,37 +279,6 @@ func verifyMockServerReceivedRequests(t *testing.T) {
 			}
 		}
 	}
-}
-
-// verifyConnectorsProcessedJobs checks that both connector deployments have processed jobs
-func verifyConnectorsProcessedJobs(t *testing.T) {
-	t.Log("[CONNECTORS CHECK] Verifying both connector deployments processed jobs 🔍")
-
-	// Check primary region connectors
-	primaryLogs, err := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "logs", "deployment/camunda-connectors", "--tail=1000")
-	require.NoError(t, err, "Failed to get primary region connector logs")
-	primaryJobCount := strings.Count(primaryLogs, "Completing job")
-	t.Logf("[CONNECTORS CHECK] Primary region connectors completed %d jobs", primaryJobCount)
-
-	// Check secondary region connectors
-	secondaryLogs, err := k8s.RunKubectlAndGetOutputE(t, &secondary.KubectlNamespace, "logs", "deployment/camunda-connectors", "--tail=1000")
-	require.NoError(t, err, "Failed to get secondary region connector logs")
-	secondaryJobCount := strings.Count(secondaryLogs, "Completing job")
-	t.Logf("[CONNECTORS CHECK] Secondary region connectors completed %d jobs", secondaryJobCount)
-
-	// Both regions should have processed jobs
-	require.Greater(t, primaryJobCount, 0, "Primary region connectors did not process any jobs (no 'Completing job' in logs)")
-	require.Greater(t, secondaryJobCount, 0, "Secondary region connectors did not process any jobs (no 'Completing job' in logs)")
-
-	// Log total jobs processed
-	totalJobs := primaryJobCount + secondaryJobCount
-	t.Logf("[CONNECTORS CHECK] Total jobs completed: %d (primary: %d, secondary: %d)", totalJobs, primaryJobCount, secondaryJobCount)
-
-	// Verify total matches expected (each webhook triggers one REST connector job)
-	require.GreaterOrEqual(t, totalJobs, webhookTriggerCount,
-		"Expected at least %d jobs to be completed, but only %d were found", webhookTriggerCount, totalJobs)
-
-	t.Log("[CONNECTORS CHECK] ✅ Both connector deployments have processed jobs")
 }
 
 // cleanupMockApiServer removes the mock API server

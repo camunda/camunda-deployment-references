@@ -225,6 +225,26 @@ class FindUnknownKeysTest(unittest.TestCase):
 
 
 class CommandLineTest(unittest.TestCase):
+    def schema_and_values_for_gap(self, gap):
+        """Nest a SCHEMA_GAPS key so its last segment is absent from the schema."""
+        parts = gap.split(".")
+
+        schema = {"type": "object", "properties": {}}
+        node = schema
+        for part in parts[:-1]:
+            child = {"type": "object", "properties": {}}
+            node["properties"][part] = child
+            node = child
+
+        values = {}
+        node = values
+        for part in parts[:-1]:
+            node[part] = {}
+            node = node[part]
+        node[parts[-1]] = ["someone"]
+
+        return schema, values
+
     def run_script(self, schema, values):
         with tempfile.TemporaryDirectory() as tmp:
             schema_path = Path(tmp) / "schema.json"
@@ -258,6 +278,32 @@ class CommandLineTest(unittest.TestCase):
                 check=False,
             )
         self.assertEqual(result.returncode, 2)
+
+    def test_known_schema_gap_is_reported_as_ignored_not_unknown(self):
+        # Build the nested schema/values shape for a SCHEMA_GAPS entry so the
+        # test follows the constant instead of hard-coding one key path.
+        gap = sorted(validate_unknown_keys.SCHEMA_GAPS)[0]
+        schema, values = self.schema_and_values_for_gap(gap)
+
+        result = self.run_script(schema, values)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Ignoring 1 key(s)", result.stdout)
+        self.assertIn(gap, result.stdout)
+
+    def test_schema_gap_does_not_mask_a_real_unknown_key(self):
+        # Both must be present at once: a gap alone would pass even if the
+        # filter wrongly discarded every unknown key found beside it.
+        gap = sorted(validate_unknown_keys.SCHEMA_GAPS)[0]
+        schema, values = self.schema_and_values_for_gap(gap)
+        schema["properties"]["a"] = {"type": "object", "properties": {}}
+        values["a"] = {"typo": 1}
+
+        result = self.run_script(schema, values)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Ignoring 1 key(s)", result.stdout)
+        self.assertIn(gap, result.stdout)
+        self.assertIn("Found 1 unknown key(s)", result.stdout)
+        self.assertIn("- a.typo", result.stdout)
 
 
 if __name__ == "__main__":

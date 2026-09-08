@@ -19,6 +19,7 @@ on:
             - azure/kubernetes/aks-single-region*/**
             - '!azure/kubernetes/aks-single-region/test/golden/**'
             - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
+            - .github/actions/observe-build-status/**
 
     schedule:
         - cron: 0 4 * * * # At 04:00 everyday.
@@ -96,6 +97,11 @@ jobs:
             contents: read
             id-token: write # required for azure/login
         steps:
+            # Telemetry must never block the job: a monitoring outage may cost a
+            # duration metric, never a teardown.
+            - continue-on-error: true
+              uses: camunda/infra-global-github-actions/start-build-monitor@02b3f0e49b00b98fffc76af690ebc83c28f24dae # main
+
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
@@ -190,6 +196,17 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0 # the previous step alters the age and resets it to 0
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+
+            - name: Observe build status
+              if: always()
+              continue-on-error: true
+              uses: ./.github/actions/observe-build-status
+              with:
+                  job_name: ${{ github.job }}/${{ matrix.scenario.name }}
+                  build_status: ${{ job.status }}
+                  secret_vault_address: ${{ secrets.VAULT_ADDR }}
+                  secret_vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  secret_vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
 
     report-failure:
         name: Report failures

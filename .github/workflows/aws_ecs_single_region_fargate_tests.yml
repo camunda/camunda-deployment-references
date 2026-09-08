@@ -39,7 +39,7 @@ on:
             - .github/workflows/aws_ecs_single_region_fargate_tests.yml
             - .tool-versions
             - aws/containers/ecs-single-region-fargate/**
-            - '!aws/containers/ecs-single-region-fargate/terraform/test/golden/**'
+            - '!aws/containers/ecs-single-region-fargate/terraform/*/test/golden/**'
             - aws/modules/ecs/**
 
 # limit to a single execution per actor of this workflow
@@ -361,7 +361,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup ECS cluster
-        if: always()
+        if: always() && needs.clusters-info.result != 'skipped'
         runs-on: ubuntu-latest
         needs:
             - clusters-info

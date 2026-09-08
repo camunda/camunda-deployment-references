@@ -23,8 +23,6 @@ global:
 
     identity:
         auth:
-            identity:
-                redirectUrl: http://localhost:8085
             webModeler:
                 redirectUrl: http://localhost:8070
             optimize:
