@@ -67,7 +67,7 @@ export CAMUNDA_REPLICAS_PER_ZONE="${CAMUNDA_REPLICAS_PER_ZONE:-1}"
 export CAMUNDA_REPLICATION_FACTOR="${CAMUNDA_REPLICATION_FACTOR:-$((CAMUNDA_REPLICAS_PER_ZONE * CAMUNDA_REGION_SLOTS))}"
 
 # Zone awareness is not in a released chart yet. The reference architecture
-# builds the chart from source, so it is pinned to the branch implementing
+# builds the chart from the main branch until a release includes
 # `orchestration.multiregion.mode: zoned`.
 #
 # The alternative was hand-assembling CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_*
@@ -77,7 +77,6 @@ export CAMUNDA_REPLICATION_FACTOR="${CAMUNDA_REPLICATION_FACTOR:-$((CAMUNDA_REPL
 # it -- `${VAR:-default}` treats an empty value as unset. See
 # camunda/camunda-platform-helm#6807.
 #
-# TODO [release-duty]: drop this pin once zoned mode is in a released chart.
 export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-main}"
 
 # TODO [release-duty]: pin to the released chart version and switch
