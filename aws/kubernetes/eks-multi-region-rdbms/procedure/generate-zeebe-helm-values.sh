@@ -108,9 +108,16 @@ for ((i = 0; i < CAMUNDA_REGION_SLOTS; i++)); do
         exit 1
     fi
 
+    priority=$((ZONE_PRIORITY_BASE - i * ZONE_PRIORITY_STEP))
+    if [ "$priority" -lt 1 ]; then
+        echo "ERROR: zone slot $i has priority $priority; every zone priority must be at least 1." >&2
+        echo "       Raise CAMUNDA_ZONE_PRIORITY_BASE or lower CAMUNDA_ZONE_PRIORITY_STEP." >&2
+        exit 1
+    fi
+
     entry="$(printf '{"name":"%s","numberOfBrokers":%d,"numberOfReplicas":%d,"priority":%d}' \
         "$zone_name" "$CAMUNDA_BROKERS_PER_REGION" "$ZONE_REPLICAS" \
-        "$((ZONE_PRIORITY_BASE - i * ZONE_PRIORITY_STEP))")"
+        "$priority")"
 
     zones_json="${zones_json:+$zones_json,}${entry}"
 done
