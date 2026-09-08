@@ -74,6 +74,34 @@ variable "extra_wrapper_plugins" {
   }
 }
 
+variable "extra_url_parameters" {
+  type        = map(string)
+  default     = {}
+  description = "Additional query parameters appended to the jdbc_url, e.g. the failover plugin's { failoverTimeoutMs = \"60000\" } or the efm2 plugin's { failureDetectionTime = \"15000\" }. The parameters the module builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, TLS mode) are reserved."
+
+  # Two guards, both required. The shape check keeps '&' and '=' out of keys and
+  # values, without which a single entry could append arbitrary extra parameters
+  # to the URL (e.g. connectTimeout = "5000&wrapperPlugins=none") and defeat the
+  # reserved-key check below. Rejecting is preferred over url-encoding: such
+  # input can only be a mistake, and encoding would also mangle the ':' and '/'
+  # that legitimately appear in values.
+  validation {
+    condition = alltrue([
+      for k, v in var.extra_url_parameters :
+      can(regex("^[A-Za-z][A-Za-z0-9]*$", k)) && can(regex("^[A-Za-z0-9._:/,-]+$", v))
+    ])
+    error_message = "extra_url_parameters keys must be bare JDBC parameter names (letters and digits, starting with a letter) and values may contain only letters, digits and . _ : / , - — notably no '&' or '=', so that no entry can append a parameter of its own."
+  }
+
+  validation {
+    condition = length(setintersection(
+      keys(var.extra_url_parameters),
+      ["wrapperPlugins", "globalClusterInstanceHostPatterns", "sslmode", "sslMode"],
+    )) == 0
+    error_message = "extra_url_parameters must not contain the parameters the module builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, sslmode, sslMode) — use extra_wrapper_plugins for the plugin list; the TLS mode and host patterns are not overridable."
+  }
+}
+
 variable "instance_class" {
   type        = string
   default     = "db.r6g.large"

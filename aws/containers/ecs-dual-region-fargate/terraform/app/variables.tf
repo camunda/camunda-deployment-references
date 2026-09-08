@@ -65,18 +65,7 @@ variable "camunda_image" {
 variable "rdbms_jdbc_url" {
   type        = string
   default     = null
-  description = "Full override for the RDBMS secondary-storage JDBC URL. When null (default), the URL is composed from the infra layer's aurora_jdbc_* component outputs. Set it to point this app layer at a database provisioned outside this reference architecture, or at an infra state that predates those outputs. Taken verbatim: rdbms_extra_jdbc_params is NOT appended to it. Only used when secondary storage is 'rdbms'."
-}
-
-variable "rdbms_extra_jdbc_params" {
-  type        = string
-  default     = ""
-  description = "Extra query parameters appended to the composed RDBMS JDBC URL, e.g. '&connectTimeout=10000&socketTimeout=30000'. Must start with '&'. Because the URL is assembled in this layer, connection tuning does not require re-applying the infra state. Ignored when rdbms_jdbc_url is set."
-
-  validation {
-    condition     = var.rdbms_extra_jdbc_params == "" || startswith(var.rdbms_extra_jdbc_params, "&")
-    error_message = "rdbms_extra_jdbc_params must be empty or start with '&' — it is appended to an existing query string."
-  }
+  description = "Full override for the RDBMS secondary-storage JDBC URL. When null (default), the URL is composed from the infra layer's aurora_jdbc_* component outputs. Set it to point this app layer at a database provisioned outside this reference architecture, or at an infra state that predates those outputs. Taken verbatim: the infra-provided extra parameters are NOT appended to it. Only used when secondary storage is 'rdbms'."
 }
 
 variable "connectors_image" {

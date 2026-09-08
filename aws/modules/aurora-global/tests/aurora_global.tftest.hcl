@@ -26,6 +26,35 @@ variables {
   master_password            = "test-password-32-chars-long-ok!!"
 }
 
+# Override the computed regional/global endpoints with deterministic, RDS-shaped
+# values so jdbc_url is known at plan time and stable between runs. Values are
+# chosen to not contain the substring "iam". File-level overrides apply to every
+# run; `override_during = plan` is what makes them take effect for the
+# `command = plan` runs, which is all of them.
+override_resource {
+  target          = aws_rds_global_cluster.this
+  override_during = plan
+  values = {
+    endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
+  }
+}
+
+override_resource {
+  target          = aws_rds_cluster.primary
+  override_during = plan
+  values = {
+    endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
+  }
+}
+
+override_resource {
+  target          = aws_rds_cluster.secondary
+  override_during = plan
+  values = {
+    endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
+  }
+}
+
 run "default_primary_instance_count" {
   command = plan
 
@@ -233,31 +262,6 @@ run "mysql_security_group_uses_3306" {
 run "postgresql_jdbc_url_uses_postgresql_subprotocol_and_port" {
   command = plan
 
-  # Override the computed regional/global endpoints with deterministic,
-  # RDS-shaped values so jdbc_url is known at plan time and stable between
-  # runs. Values are chosen to not contain the substring "iam".
-  override_resource {
-    target          = aws_rds_global_cluster.this
-    override_during = plan
-    values = {
-      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.primary
-    override_during = plan
-    values = {
-      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.secondary
-    override_during = plan
-    values = {
-      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
-    }
-  }
-
   assert {
     condition     = strcontains(output.jdbc_url, "jdbc:aws-wrapper:postgresql://")
     error_message = "PostgreSQL jdbc_url should use the aws-wrapper:postgresql:// subprotocol"
@@ -296,28 +300,6 @@ run "mysql_jdbc_url_uses_mysql_subprotocol_and_port" {
     engine = "aurora-mysql"
   }
 
-  override_resource {
-    target          = aws_rds_global_cluster.this
-    override_during = plan
-    values = {
-      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.primary
-    override_during = plan
-    values = {
-      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.secondary
-    override_during = plan
-    values = {
-      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
-    }
-  }
-
   assert {
     condition     = strcontains(output.jdbc_url, "jdbc:aws-wrapper:mysql://")
     error_message = "MySQL jdbc_url should use the aws-wrapper:mysql:// subprotocol"
@@ -342,28 +324,6 @@ run "mysql_jdbc_url_uses_mysql_subprotocol_and_port" {
 run "jdbc_url_includes_iam_plugin_by_default" {
   command = plan
 
-  override_resource {
-    target          = aws_rds_global_cluster.this
-    override_during = plan
-    values = {
-      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.primary
-    override_during = plan
-    values = {
-      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.secondary
-    override_during = plan
-    values = {
-      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
-    }
-  }
-
   assert {
     condition     = strcontains(output.jdbc_url, "wrapperPlugins=iam,failover")
     error_message = "jdbc_url should include the iam plugin when iam_auth_enabled is true (default)"
@@ -375,28 +335,6 @@ run "extra_wrapper_plugins_are_appended" {
 
   variables {
     extra_wrapper_plugins = ["efm2", "readWriteSplitting"]
-  }
-
-  override_resource {
-    target          = aws_rds_global_cluster.this
-    override_during = plan
-    values = {
-      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.primary
-    override_during = plan
-    values = {
-      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.secondary
-    override_during = plan
-    values = {
-      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
-    }
   }
 
   assert {
@@ -412,28 +350,6 @@ run "extra_wrapper_plugins_do_not_duplicate_builtins" {
     extra_wrapper_plugins = ["failover", "efm2"]
   }
 
-  override_resource {
-    target          = aws_rds_global_cluster.this
-    override_during = plan
-    values = {
-      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.primary
-    override_during = plan
-    values = {
-      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.secondary
-    override_during = plan
-    values = {
-      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
-    }
-  }
-
   assert {
     condition     = strcontains(output.jdbc_url, "wrapperPlugins=iam,failover,efm2")
     error_message = "A plugin already provided by the module should not be repeated in wrapperPlugins"
@@ -442,28 +358,6 @@ run "extra_wrapper_plugins_do_not_duplicate_builtins" {
 
 run "jdbc_component_outputs_compose_the_same_url" {
   command = plan
-
-  override_resource {
-    target          = aws_rds_global_cluster.this
-    override_during = plan
-    values = {
-      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.primary
-    override_during = plan
-    values = {
-      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.secondary
-    override_during = plan
-    values = {
-      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
-    }
-  }
 
   # Assembling the components must reproduce the deprecated jdbc_url exactly, so
   # a consumer can migrate off it without changing the resulting connection.
@@ -511,28 +405,6 @@ run "jdbc_url_omits_iam_plugin_when_iam_disabled" {
     iam_auth_enabled = false
   }
 
-  override_resource {
-    target          = aws_rds_global_cluster.this
-    override_during = plan
-    values = {
-      endpoint = "test-global.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.primary
-    override_during = plan
-    values = {
-      endpoint = "test-primary.cluster-abc123def.us-east-1.rds.amazonaws.com"
-    }
-  }
-  override_resource {
-    target          = aws_rds_cluster.secondary
-    override_during = plan
-    values = {
-      endpoint = "test-secondary.cluster-xyz789ghi.us-east-2.rds.amazonaws.com"
-    }
-  }
-
   assert {
     condition     = strcontains(output.jdbc_url, "wrapperPlugins=failover")
     error_message = "jdbc_url should omit the iam plugin when iam_auth_enabled = false"
@@ -541,5 +413,99 @@ run "jdbc_url_omits_iam_plugin_when_iam_disabled" {
   assert {
     condition     = !strcontains(output.jdbc_url, "wrapperPlugins=iam")
     error_message = "jdbc_url should not include the iam plugin when iam_auth_enabled = false"
+  }
+}
+
+run "extra_url_parameters_are_appended" {
+  command = plan
+
+  variables {
+    extra_url_parameters = {
+      failureDetectionTime = "15000"
+      connectTimeout       = "5000"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "&connectTimeout=5000&failureDetectionTime=15000")
+    error_message = "extra_url_parameters should be appended to the jdbc_url, key-sorted"
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "sslmode=require&connectTimeout=5000")
+    error_message = "extra_url_parameters should come after the module-owned parameters"
+  }
+}
+
+run "extra_url_parameters_reject_module_owned_keys" {
+  command = plan
+
+  variables {
+    extra_url_parameters = {
+      wrapperPlugins = "none"
+    }
+  }
+
+  expect_failures = [
+    var.extra_url_parameters,
+  ]
+}
+
+run "extra_url_parameters_reject_injection_in_values" {
+  command = plan
+
+  variables {
+    extra_url_parameters = {
+      connectTimeout = "5000&wrapperPlugins=none"
+    }
+  }
+
+  expect_failures = [
+    var.extra_url_parameters,
+  ]
+}
+
+run "extra_url_parameters_accept_comma_separated_values" {
+  command = plan
+
+  variables {
+    extra_url_parameters = {
+      wrapperDialect = "aurora-pg"
+      someList       = "a,b,c"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "&someList=a,b,c")
+    error_message = "A comma-separated value should be accepted and rendered verbatim"
+  }
+}
+
+run "extra_url_parameters_reject_injection_in_keys" {
+  command = plan
+
+  variables {
+    extra_url_parameters = {
+      "connectTimeout=5000&wrapperPlugins" = "none"
+    }
+  }
+
+  expect_failures = [
+    var.extra_url_parameters,
+  ]
+}
+
+run "failover_timeout_passes_through_extra_url_parameters" {
+  command = plan
+
+  variables {
+    extra_url_parameters = {
+      failoverTimeoutMs = "60000"
+    }
+  }
+
+  assert {
+    condition     = strcontains(output.jdbc_url, "&failoverTimeoutMs=60000")
+    error_message = "failoverTimeoutMs should be rendered into the jdbc_url when passed through extra_url_parameters"
   }
 }

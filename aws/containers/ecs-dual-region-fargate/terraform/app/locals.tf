@@ -95,8 +95,10 @@ locals {
   # engine-derived components.
   #
   # Precedence: var.rdbms_jdbc_url (full override) > components from infra.
-  # var.rdbms_extra_jdbc_params is appended to the composed URL only; a full
-  # override is taken verbatim so the caller keeps complete control.
+  # Connection parameters are tuned through the infra layer's
+  # db_extra_url_parameters, which the module validates and renders into
+  # aurora_jdbc_extra_url_parameters; a full override is taken verbatim so the
+  # caller keeps complete control.
   rdbms_jdbc_components_available = alltrue([
     for v in [
       try(local.infra.aurora_jdbc_subprotocol, null),
@@ -121,7 +123,10 @@ locals {
     "&globalClusterInstanceHostPatterns=",
     local.infra.aurora_jdbc_instance_host_patterns,
     try(local.infra.aurora_jdbc_ssl_param, ""),
-    var.rdbms_extra_jdbc_params,
+    # Caller parameters come last, rendered and validated by the Aurora module
+    # (keys/values cannot contain '&' or '=', so none can append a parameter of
+    # its own or shadow the module-owned ones above).
+    try(local.infra.aurora_jdbc_extra_url_parameters, ""),
   ]) : null
 
   rdbms_jdbc_url = var.rdbms_jdbc_url != null ? var.rdbms_jdbc_url : local.rdbms_jdbc_url_composed

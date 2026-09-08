@@ -130,7 +130,13 @@ variable "db_admin_password" {
 variable "db_extra_wrapper_plugins" {
   type        = list(string)
   default     = []
-  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the generated JDBC URL. 'failover' (and 'iam' when db_iam_auth_enabled) are always set, so list only the extras, e.g. ['efm2']. Only applies when secondary_storage_type = 'rdbms'."
+  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the generated JDBC URL. 'failover' (and 'iam' when db_iam_auth_enabled) are always set and this reference architecture always adds 'efm2', so list only the extras, e.g. ['readWriteSplitting']. Only applies when secondary_storage_type = 'rdbms'."
+}
+
+variable "db_extra_url_parameters" {
+  type        = map(string)
+  default     = {}
+  description = "Additional query parameters appended to the generated JDBC URL, e.g. the efm2 plugin's { failureDetectionTime = \"15000\" }. Entries here override the reference architecture's own (failoverTimeoutMs = 60000). The Aurora module rejects the parameters it builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, TLS mode) as well as keys or values containing '&' or '='. Only applies when secondary_storage_type = 'rdbms'."
 }
 
 variable "db_iam_auth_enabled" {

@@ -108,3 +108,8 @@ output "jdbc_ssl_param" {
   value       = local.jdbc_ssl_params[var.engine]
   description = "Engine-specific TLS query parameter, already prefixed with '&' ('&sslmode=require' for PostgreSQL, '&sslMode=REQUIRED' for MySQL). Pins TLS instead of relying on the driver default, which permits a plaintext downgrade."
 }
+
+output "jdbc_extra_url_parameters" {
+  value       = local.jdbc_extra_url_parameters
+  description = "The extra_url_parameters rendered as a query-string fragment, already '&'-prefixed and key-sorted (e.g. '&failoverTimeoutMs=60000'). Append last when composing the URL, so caller parameters follow the module-owned ones."
+}

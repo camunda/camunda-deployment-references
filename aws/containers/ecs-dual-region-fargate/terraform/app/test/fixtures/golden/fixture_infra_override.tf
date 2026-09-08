@@ -88,9 +88,10 @@ locals {
     # JDBC URL components — the app layer assembles the URL from these.
     aurora_db_port                     = 5432
     aurora_jdbc_subprotocol            = "postgresql"
-    aurora_jdbc_wrapper_plugins        = "iam,failover"
+    aurora_jdbc_wrapper_plugins        = "iam,failover,efm2"
     aurora_jdbc_instance_host_patterns = "?.r00000000000.eu-west-2.rds.amazonaws.com,?.r11111111111.eu-west-3.rds.amazonaws.com"
     aurora_jdbc_ssl_param              = "&sslmode=require"
+    aurora_jdbc_extra_url_parameters   = "&failoverTimeoutMs=60000"
 
     # OpenSearch (null in rdbms mode)
     opensearch_region_0_endpoint = null
