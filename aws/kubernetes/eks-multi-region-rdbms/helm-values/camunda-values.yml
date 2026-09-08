@@ -136,15 +136,51 @@ orchestration:
         - name: CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST
           value: ${DOLLAR}(K8S_NAME).$ZEEBE_SERVICE_NAME
 
-        # Without this the RDBMS exporter does not enable async replication,
-        # and an Aurora failover can lose exported data. This architecture
-        # delegates replication entirely to the database and treats a writer
-        # failover as a routine operation, so it is not optional here.
+        # Async replication monitoring. The exporter acknowledges a record to
+        # the broker only once the database reports it replicated, which holds
+        # back Zeebe log compaction so an unplanned writer promotion can be
+        # replayed from the log. Without it the exporter acknowledges records
+        # the standby has not received and a promotion loses them. This
+        # architecture delegates replication entirely to the database and
+        # treats a writer failover as routine, so it is not optional here.
         # Added to the sibling ECS dual-region reference in #2952 for the same
-        # reason. Set as an env var rather than a chart key so it applies
-        # regardless of whether the chart exposes it.
+        # reason. The four settings below are set as env vars rather than chart
+        # keys so they apply regardless of whether the chart exposes them.
         # https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED
+          value: 'true'
+
+        # Strategy. LOG_SEQ reads the database's own replication position and
+        # is the engine default, but it is pinned here because it is not
+        # universally supported: Aurora Global Database for PostgreSQL and
+        # MySQL, MSSQL and PostgreSQL only. Any other backend behind
+        # `deploy_database = false` has to fall back to DELAY, a static timer
+        # with no replication signal that needs its own `delay` value and
+        # external lag monitoring. Swapping the database means revisiting this.
+        - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE
+          value: LOG_SEQ
+
+        # The lag budget, and the input to `pvcSize` below. Deferred
+        # acknowledgement keeps log segments on disk for as long as the
+        # database is behind, so this value and the disk size are one decision
+        # rather than two. `min-sync-replicas` is left at its default of 1
+        # because `database_region_slots` defaults to [0, 1]: there is exactly
+        # one Aurora secondary to wait for. Raise it only alongside the slot
+        # list, never on its own, or the exporter waits for a quorum of
+        # replicas that does not exist.
+        - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG
+          value: PT15M
+
+        # Safety valve, not an RPO control. Acknowledgement is gated on
+        # confirmed replication either way, so leaving this off loses no data;
+        # what it decides is the failure mode once the lag budget is blown.
+        # Off, the exporter keeps going and the log keeps growing until the
+        # volume fills and the broker stops writing. On, exporting pauses,
+        # Zeebe keeps processing, and the APIs and web applications that read
+        # secondary storage serve stale data until the database catches up.
+        # For an architecture whose whole claim is that processing survives a
+        # region loss, stale reads beat a full disk.
+        - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED
           value: 'true'
 
         - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
@@ -225,6 +261,14 @@ orchestration:
                 done
                 echo "Cross-region DNS gate complete; starting broker."
 
+    # Sized from the replication lag budget, not from process volume. Deferred
+    # acknowledgement (ASYNCREPLICATION_MAXLAG above) keeps log segments on disk
+    # for as long as the database is behind, so the volume has to hold normal
+    # retention plus MAXLAG worth of log: roughly `write rate x 15 min` on top
+    # of the steady state. At the write rate this reference generates that is a
+    # few hundred MB and 32Gi is generous. Re-derive it from your own write rate
+    # before reusing this value, and alert on broker disk usage rather than
+    # trusting the headroom, because the log grows whenever replication lags.
     pvcSize: 32Gi
     logLevel: ERROR
 
