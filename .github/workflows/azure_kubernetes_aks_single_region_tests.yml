@@ -249,6 +249,110 @@ jobs:
                         "ci-event": "${{ github.event_name }}"
                       }
 
+            # The Terraform error for a platform-side rollback carries only the
+            # rollback state (e.g. ServerDropping) and no cause; the cause lives in
+            # the resource group's Activity Log, which cleanup-clusters destroys.
+            # cleanup-clusters needs: prepare-clusters, so dumping here is always
+            # before teardown. See #3354.
+            # The OIDC assertion minted at job start lives five minutes, but the create
+            # step is allowed two hours before it fails, so by the time the dump runs the
+            # session is long dead and every az call returns AADSTS700024. Re-authenticate
+            # first, best effort: this exists to explain a failure, never to add one.
+            - name: 🔐 Refresh the Azure login before dumping diagnostics
+              if: failure() && steps.create_cluster.outcome == 'failure'
+              continue-on-error: true
+              timeout-minutes: 10
+              uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
+              with:
+                  client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
+
+            - name: 🔬🚨 Dump Azure Activity Log for the failed resource group
+              id: azure_activity_log
+              # Scoped to the create step rather than a bare failure(): the resource group
+              # only exists if that step ran, so any earlier failure would dump an absent
+              # group and spend up to 10 minutes doing it.
+              if: failure() && steps.create_cluster.outcome == 'failure'
+              timeout-minutes: 10
+              # Passed as env, never interpolated into the script, so the value reaches
+              # the shell as data and cannot be expanded into the source before bash parses
+              # it. It is still quoted at every use site below, as any variable must be.
+              env:
+                  RESOURCE_GROUP_NAME: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}-rg
+              run: |
+                  set -euo pipefail
+
+                  DUMP_DIR="${RUNNER_TEMP}/azure-activity-log"
+                  mkdir -p "$DUMP_DIR"
+                  echo "dump-dir=${DUMP_DIR}" | tee -a "$GITHUB_OUTPUT"
+
+                  # Best-effort throughout: this step exists to explain a failure,
+                  # it must never mask it or add a second one.
+                  rc_activity=0
+                  rc_filter=0
+                  rc_resources=0
+                  rc_summary=0
+
+                  # The create step is capped at 120 min, so 3h covers the whole
+                  # attempt without needing a start timestamp threaded through.
+                  az monitor activity-log list \
+                    --resource-group "$RESOURCE_GROUP_NAME" \
+                    --offset 3h \
+                    --max-events 500 \
+                    --output json \
+                    > "${DUMP_DIR}/activity-log-full.json" 2>"${DUMP_DIR}/activity-log-full.err" || rc_activity=$?
+
+                  # The actionable subset, and what to read first.
+                  jq '[.[] | select(.level? == "Error" or .level? == "Critical")
+                       | {eventTimestamp: .eventTimestamp?, level: .level?,
+                          operationName: .operationName?.value?,
+                          status: .status?.value?, subStatus: .subStatus?.value?,
+                          resourceId: .resourceId?, correlationId: .correlationId?,
+                          statusMessage: .properties?.statusMessage?,
+                          properties: .properties?}]' \
+                    "${DUMP_DIR}/activity-log-full.json" \
+                    > "${DUMP_DIR}/activity-log-errors.json" 2>"${DUMP_DIR}/activity-log-errors.err" || rc_filter=$?
+
+                  # What actually survived in the resource group, to tell a rollback
+                  # apart from a resource that was never attempted.
+                  az resource list \
+                    --resource-group "$RESOURCE_GROUP_NAME" \
+                    --output json \
+                    > "${DUMP_DIR}/resources.json" 2>"${DUMP_DIR}/resources.err" || rc_resources=$?
+
+                  echo "::group::Azure Activity Log errors for ${RESOURCE_GROUP_NAME}"
+                  jq -r '.[] | "\(.eventTimestamp?) \(.level?) \(.operationName?) \(.status?)/\(.subStatus?) \(.statusMessage? // "")"' \
+                    "${DUMP_DIR}/activity-log-errors.json" 2>"${DUMP_DIR}/activity-log-summary.err" || rc_summary=$?
+                  echo "::endgroup::"
+
+                  printf '%s\n' \
+                    "activity-log-list=${rc_activity}" \
+                    "activity-log-filter=${rc_filter}" \
+                    "resource-list=${rc_resources}" \
+                    "activity-log-summary=${rc_summary}" \
+                    > "${DUMP_DIR}/status.txt"
+
+                  failed=()
+                  ((rc_activity == 0)) || failed+=("activity-log-list")
+                  ((rc_filter == 0)) || failed+=("activity-log-filter")
+                  ((rc_resources == 0)) || failed+=("resource-list")
+                  ((rc_summary == 0)) || failed+=("activity-log-summary")
+                  if ((${#failed[@]} > 0)); then
+                    failed_commands=$(IFS=,; echo "${failed[*]}")
+                    echo "::warning::Azure diagnostics failed: ${failed_commands}. See status.txt and stderr files in the artifact."
+                  fi
+
+                  exit 0
+
+            - name: 📤 Upload Azure Activity Log dump
+              if: failure() && steps.azure_activity_log.outputs.dump-dir != ''
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              with:
+                  name: azure-activity-log-${{ matrix.distro.name }}-${{ matrix.scenario.name }}
+                  path: ${{ steps.azure_activity_log.outputs.dump-dir }}
+                  retention-days: 7
+
             - name: Source env from Terraform
               id: db_env
               working-directory: ${{ env.TF_MODULES_PATH }}/azure/kubernetes/${{ matrix.scenario.name }}/
