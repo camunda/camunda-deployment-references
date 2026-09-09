@@ -160,10 +160,10 @@ orchestration:
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE
           value: LOG_SEQ
 
-        # The lag budget, and the input to `pvcSize` below. Deferred
-        # acknowledgement keeps log segments on disk for as long as the
-        # database is behind, so this value and the disk size are one decision
-        # rather than two. `min-sync-replicas` is left at its default of 1
+        # The lag threshold controls when the exporter pauses. It does not cap
+        # retained log growth: Zeebe continues processing while export is
+        # paused, so size the disk for the longest replication outage you plan
+        # to tolerate. `min-sync-replicas` is left at its default of 1
         # because `database_region_slots` defaults to [0, 1]: there is exactly
         # one Aurora secondary to wait for. Raise it only alongside the slot
         # list, never on its own, or the exporter waits for a quorum of
@@ -261,14 +261,11 @@ orchestration:
                 done
                 echo "Cross-region DNS gate complete; starting broker."
 
-    # Sized from the replication lag budget, not from process volume. Deferred
-    # acknowledgement (ASYNCREPLICATION_MAXLAG above) keeps log segments on disk
-    # for as long as the database is behind, so the volume has to hold normal
-    # retention plus MAXLAG worth of log: roughly `write rate x 15 min` on top
-    # of the steady state. At the write rate this reference generates that is a
-    # few hundred MB and 32Gi is generous. Re-derive it from your own write rate
-    # before reusing this value, and alert on broker disk usage rather than
-    # trusting the headroom, because the log grows whenever replication lags.
+    # The volume must hold normal retention plus all records produced while the
+    # exporter cannot acknowledge replication. The 15-minute max-lag above is
+    # only the pause threshold; it does not cap disk growth after exporting
+    # pauses. Re-derive this value from your write rate and longest tolerated
+    # replication outage, and alert on broker disk usage.
     pvcSize: 32Gi
     logLevel: ERROR
 
