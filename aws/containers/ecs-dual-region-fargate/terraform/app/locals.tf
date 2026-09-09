@@ -99,14 +99,23 @@ locals {
   # db_extra_url_parameters, which the module validates and renders into
   # aurora_jdbc_extra_url_parameters; a full override is taken verbatim so the
   # caller keeps complete control.
+  #
+  # Every component is required, TLS included: defaulting the SSL parameter to ""
+  # would let a missing output silently drop the TLS pinning the module exists to
+  # enforce. Absent any one of these we compose no URL at all and the precondition
+  # in validations.tf reports it. tostring() keeps the emptiness check honest for
+  # aurora_db_port, which is a number.
+  rdbms_jdbc_required_components = [
+    try(local.infra.aurora_jdbc_subprotocol, null),
+    try(local.infra.aurora_global_writer_endpoint, null),
+    try(local.infra.aurora_db_port, null),
+    try(local.infra.aurora_jdbc_wrapper_plugins, null),
+    try(local.infra.aurora_jdbc_instance_host_patterns, null),
+    try(local.infra.aurora_jdbc_ssl_param, null),
+  ]
+
   rdbms_jdbc_components_available = alltrue([
-    for v in [
-      try(local.infra.aurora_jdbc_subprotocol, null),
-      try(local.infra.aurora_global_writer_endpoint, null),
-      try(local.infra.aurora_db_port, null),
-      try(local.infra.aurora_jdbc_wrapper_plugins, null),
-      try(local.infra.aurora_jdbc_instance_host_patterns, null),
-    ] : v != null && v != ""
+    for v in local.rdbms_jdbc_required_components : v != null && tostring(v) != ""
   ])
 
   rdbms_jdbc_url_composed = local.rdbms_jdbc_components_available ? join("", [
@@ -122,7 +131,7 @@ locals {
     local.infra.aurora_jdbc_wrapper_plugins,
     "&globalClusterInstanceHostPatterns=",
     local.infra.aurora_jdbc_instance_host_patterns,
-    try(local.infra.aurora_jdbc_ssl_param, ""),
+    local.infra.aurora_jdbc_ssl_param,
     # Caller parameters come last, rendered and validated by the Aurora module
     # (keys/values cannot contain '&' or '=', so none can append a parameter of
     # its own or shadow the module-owned ones above).

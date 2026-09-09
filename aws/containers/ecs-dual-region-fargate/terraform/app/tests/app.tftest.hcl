@@ -113,6 +113,14 @@ run "rdbms_env_vars_local_populated_when_rdbms" {
     ])
     error_message = "RDBMS URL env var should be composed in the app layer from the infra jdbc components"
   }
+
+  # TLS is a required component, not an optional one: if the SSL parameter is
+  # ever moved back to a try(..., "") default, a missing infra output would
+  # silently produce a URL without TLS pinning.
+  assert {
+    condition     = contains(local.rdbms_jdbc_required_components, "&sslmode=require")
+    error_message = "The TLS parameter must be one of the required JDBC URL components"
+  }
 }
 
 run "rdbms_jdbc_url_variable_overrides_infra_output" {

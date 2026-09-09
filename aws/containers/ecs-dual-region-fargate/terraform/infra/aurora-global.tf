@@ -39,7 +39,8 @@ module "aurora_global" {
   # Engine versions are pinned (and Renovate-tracked) once, on the module's
   # postgresql_engine_version / mysql_engine_version defaults. Overriding them
   # here would duplicate the pins and make Renovate bump both engines in every
-  # consumer; set engine_version instead to deviate for a single deployment.
+  # consumer; to deviate for a single deployment, set the variable for the engine
+  # in use (postgresql_engine_version or mysql_engine_version).
 
   auto_minor_version_upgrade = false
   database_name              = var.db_name
