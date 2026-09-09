@@ -6,7 +6,7 @@ set -euo pipefail
 # using the shared operator-based configurations from generic/kubernetes/operator-based/
 #
 # Usage:
-#   CLUSTER_FILTER="pg-keycloak,pg-identity,pg-webmodeler" SECONDARY_STORAGE=elasticsearch CAMUNDA_MODE=domain ./operators-deploy.sh
+#   CLUSTER_FILTER="pg-keycloak,pg-identity,pg-hub" SECONDARY_STORAGE=elasticsearch CAMUNDA_MODE=domain ./operators-deploy.sh
 #   SECONDARY_STORAGE=postgres CAMUNDA_MODE=no-domain ./operators-deploy.sh
 #
 # Environment variables:
@@ -36,11 +36,11 @@ CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN:-camunda.example.com}"
 export CAMUNDA_DOMAIN
 
 # Both secondary-storage modes need the application PG clusters
-# (Keycloak, Identity, WebModeler). RDBMS (postgres) mode additionally needs the
+# (Keycloak, Identity, Camunda Hub). RDBMS (postgres) mode additionally needs the
 # orchestration cluster (pg-camunda), appended just before deployment below.
 # Overridable, as the usage above advertises, so a debugging session can deploy
 # a subset.
-CLUSTER_FILTER="${CLUSTER_FILTER:-pg-keycloak,pg-identity,pg-webmodeler}"
+CLUSTER_FILTER="${CLUSTER_FILTER:-pg-keycloak,pg-identity,pg-hub}"
 
 export CAMUNDA_NAMESPACE
 

@@ -607,13 +607,13 @@ jobs:
                   keycloak-mode: ${{ matrix.declination.declination_mode == 'domain' && 'domain-openshift' || 'no-domain' }}
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
-            - name: 🐘 Deploy CNPG cluster pg-webmodeler
+            - name: 🐘 Deploy CNPG cluster pg-hub
               if: env.HUB_ENABLED == 'true'
               timeout-minutes: 10
               uses: ./.github/actions/kubernetes-cnpg-cluster
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  cluster-name: pg-webmodeler
+                  cluster-name: pg-hub
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 10
@@ -842,12 +842,12 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   cluster-name: pg-identity
 
-            - name: 🧹 Cleanup CNPG cluster pg-webmodeler
+            - name: 🧹 Cleanup CNPG cluster pg-hub
               if: always() && env.CLEANUP_CLUSTERS == 'true' && env.HUB_ENABLED == 'true'
               uses: ./.github/actions/kubernetes-cnpg-cluster-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  cluster-name: pg-webmodeler
+                  cluster-name: pg-hub
 
             - name: 🧹 Cleanup ECK Elasticsearch deployment
               if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.declination.secondary_storage != 'rdbms'

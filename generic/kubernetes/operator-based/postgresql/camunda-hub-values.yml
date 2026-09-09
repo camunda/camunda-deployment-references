@@ -4,11 +4,7 @@
 # - PostgreSQL: CloudNativePG operator with a dedicated cluster for Camunda Hub
 #
 # Authentication Secrets:
-# - pg-webmodeler-secret: Contains PostgreSQL user credentials for Camunda Hub
-#
-# The CloudNativePG cluster, database, user and secret keep their `webmodeler`
-# names: renaming them would recreate the database and drop its contents. Only
-# the Helm values were moved to the Camunda Hub key.
+# - pg-hub-secret: Contains PostgreSQL user credentials for Camunda Hub
 #
 # Requires `camundaHub.enabled: true` in the consuming values file, for example
 # local/kubernetes/kind-single-region/helm-values/values-*.yml.
@@ -16,12 +12,12 @@ camundaHub:
     restapi:
         # Use external PostgreSQL for Camunda Hub
         externalDatabase:
-            host: pg-webmodeler-rw
+            host: pg-hub-rw
             port: 5432
-            database: webmodeler
-            username: webmodeler
+            database: hub
+            username: hub
             secret:
-                existingSecret: pg-webmodeler-secret
+                existingSecret: pg-hub-secret
                 existingSecretKey: password
 
         # Mail configuration (required). The from-address/from-name values keys are
