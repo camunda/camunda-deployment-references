@@ -834,6 +834,37 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	require.True(t, exporterHasStatus(lastBody, "camundaregion1", "ENABLED"), "camundaregion1 should be ENABLED, got: %s", lastBody)
 }
 
+// topologyHasActivePartition reports whether the /actuator/cluster payload shows
+// partitionID as ACTIVE on any broker, in either the current or the expected
+// topology. Parsed rather than substring-matched: 8.10.0-alpha5 inserts
+// physicalTenant between a partition's id and its state.
+func topologyHasActivePartition(body string, partitionID int) bool {
+	type partition struct {
+		ID    int    `json:"id"`
+		State string `json:"state"`
+	}
+	type broker struct {
+		Partitions []partition `json:"partitions"`
+	}
+	var payload struct {
+		CurrentTopology  []broker `json:"currentTopology"`
+		ExpectedTopology []broker `json:"expectedTopology"`
+	}
+	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+		return false
+	}
+	for _, brokers := range [][]broker{payload.ExpectedTopology, payload.CurrentTopology} {
+		for _, b := range brokers {
+			for _, p := range b.Partitions {
+				if p.ID == partitionID && p.State == "ACTIVE" {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func addSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILBACK] Adding secondary brokers 🚀")
 
@@ -847,7 +878,7 @@ func addSecondaryBrokers(t *testing.T) {
 	require.NoError(t, err, "[FAILBACK] failed to request broker addition")
 	require.Equal(t, 202, status)
 	require.NotEmpty(t, body)
-	require.Contains(t, body, "\"id\":8,\"state\":\"ACTIVE\"")
+	require.True(t, topologyHasActivePartition(body, 8), "[FAILBACK] partition 8 should be ACTIVE, got: %s", body)
 
 	// Check that the addition of new brokers was completed. This can take a while,
 	// and brokers restart during redistribution, so tolerate transient connection
