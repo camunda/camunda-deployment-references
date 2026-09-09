@@ -69,7 +69,7 @@ output "oidc_provider_arns" {
 
 output "transit_gateway_ids" {
   description = "Transit Gateway ID per active region slot"
-  value       = { for i, h in local.tgw_hubs : i => h.transit_gateway_id }
+  value       = { for i, h in module.tgw_hub : i => h.transit_gateway_id }
 }
 
 output "all_cidr_blocks" {

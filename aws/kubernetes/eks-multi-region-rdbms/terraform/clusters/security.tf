@@ -60,14 +60,13 @@ locals {
     },
   ]
 
-  # (region slot, remote CIDR, rule) triples, flattened into one map per region
-  # so that each aws_vpc_security_group_ingress_rule resource can for_each it.
-  ingress_rules_by_region = {
-    for i in local.active_indices : i => {
-      for entry in flatten([
+  ingress_rules = {
+    for entry in flatten([
+      for i in local.active_indices : [
         for cidr in local.remote_cidr_blocks[i] : [
           for rule in local.cross_region_rules : {
-            key         = "${rule.key}|${cidr}"
+            key         = "${i}|${rule.key}|${cidr}"
+            region_slot = i
             cidr        = cidr
             from_port   = rule.from_port
             to_port     = rule.to_port
@@ -75,54 +74,16 @@ locals {
             description = rule.description
           }
         ]
-      ]) : entry.key => entry
-    }
+      ]
+    ]) : entry.key => entry
   }
 }
 
-resource "aws_vpc_security_group_ingress_rule" "region_0" {
-  for_each = var.active_region_count > 0 ? local.ingress_rules_by_region[0] : {}
+resource "aws_vpc_security_group_ingress_rule" "cross_region" {
+  for_each = local.ingress_rules
 
-  security_group_id = local.clusters[0].cluster_primary_security_group_id
-  cidr_ipv4         = each.value.cidr
-  from_port         = each.value.from_port
-  to_port           = each.value.to_port
-  ip_protocol       = each.value.ip_protocol
-  description       = each.value.description
-}
-
-resource "aws_vpc_security_group_ingress_rule" "region_1" {
-  provider = aws.region_1
-
-  for_each = var.active_region_count > 1 ? local.ingress_rules_by_region[1] : {}
-
-  security_group_id = local.clusters[1].cluster_primary_security_group_id
-  cidr_ipv4         = each.value.cidr
-  from_port         = each.value.from_port
-  to_port           = each.value.to_port
-  ip_protocol       = each.value.ip_protocol
-  description       = each.value.description
-}
-
-resource "aws_vpc_security_group_ingress_rule" "region_2" {
-  provider = aws.region_2
-
-  for_each = var.active_region_count > 2 ? local.ingress_rules_by_region[2] : {}
-
-  security_group_id = local.clusters[2].cluster_primary_security_group_id
-  cidr_ipv4         = each.value.cidr
-  from_port         = each.value.from_port
-  to_port           = each.value.to_port
-  ip_protocol       = each.value.ip_protocol
-  description       = each.value.description
-}
-
-resource "aws_vpc_security_group_ingress_rule" "region_3" {
-  provider = aws.region_3
-
-  for_each = var.active_region_count > 3 ? local.ingress_rules_by_region[3] : {}
-
-  security_group_id = local.clusters[3].cluster_primary_security_group_id
+  region            = var.regions[each.value.region_slot].region
+  security_group_id = local.clusters[each.value.region_slot].cluster_primary_security_group_id
   cidr_ipv4         = each.value.cidr
   from_port         = each.value.from_port
   to_port           = each.value.to_port

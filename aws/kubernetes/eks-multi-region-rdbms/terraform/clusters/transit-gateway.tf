@@ -11,90 +11,26 @@
 # Direct Connect attachments.                                                   #
 ################################################################################
 
-module "tgw_hub_region_0" {
+module "tgw_hub" {
   # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/transit-gateway-hub"
 
-  count = var.active_region_count > 0 ? 1 : 0
+  for_each = local.active_regions
 
-  name       = "${var.cluster_name}-${var.regions[0].short_name}"
-  vpc_id     = local.clusters[0].vpc_id
-  subnet_ids = local.clusters[0].private_subnet_ids
+  region     = each.value.region
+  name       = "${var.cluster_name}-${each.value.short_name}"
+  vpc_id     = local.clusters[each.key].vpc_id
+  subnet_ids = local.clusters[each.key].private_subnet_ids
   vpc_route_table_ids = concat(
-    [local.clusters[0].vpc_main_route_table_id],
-    local.clusters[0].private_route_table_ids,
+    [local.clusters[each.key].vpc_main_route_table_id],
+    local.clusters[each.key].private_route_table_ids,
   )
-  remote_cidr_blocks = local.remote_cidr_blocks[0]
-}
-
-module "tgw_hub_region_1" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "../../../../modules/transit-gateway-hub"
-
-  count = var.active_region_count > 1 ? 1 : 0
-
-  name       = "${var.cluster_name}-${var.regions[1].short_name}"
-  vpc_id     = local.clusters[1].vpc_id
-  subnet_ids = local.clusters[1].private_subnet_ids
-  vpc_route_table_ids = concat(
-    [local.clusters[1].vpc_main_route_table_id],
-    local.clusters[1].private_route_table_ids,
-  )
-  remote_cidr_blocks = local.remote_cidr_blocks[1]
-
-  providers = {
-    aws = aws.region_1
-  }
-}
-
-module "tgw_hub_region_2" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "../../../../modules/transit-gateway-hub"
-
-  count = var.active_region_count > 2 ? 1 : 0
-
-  name       = "${var.cluster_name}-${var.regions[2].short_name}"
-  vpc_id     = local.clusters[2].vpc_id
-  subnet_ids = local.clusters[2].private_subnet_ids
-  vpc_route_table_ids = concat(
-    [local.clusters[2].vpc_main_route_table_id],
-    local.clusters[2].private_route_table_ids,
-  )
-  remote_cidr_blocks = local.remote_cidr_blocks[2]
-
-  providers = {
-    aws = aws.region_2
-  }
-}
-
-module "tgw_hub_region_3" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "../../../../modules/transit-gateway-hub"
-
-  count = var.active_region_count > 3 ? 1 : 0
-
-  name       = "${var.cluster_name}-${var.regions[3].short_name}"
-  vpc_id     = local.clusters[3].vpc_id
-  subnet_ids = local.clusters[3].private_subnet_ids
-  vpc_route_table_ids = concat(
-    [local.clusters[3].vpc_main_route_table_id],
-    local.clusters[3].private_route_table_ids,
-  )
-  remote_cidr_blocks = local.remote_cidr_blocks[3]
-
-  providers = {
-    aws = aws.region_3
-  }
+  remote_cidr_blocks = local.remote_cidr_blocks[each.key]
 }
 
 locals {
-  tgw_hubs = {
-    for i, m in [
-      module.tgw_hub_region_0,
-      module.tgw_hub_region_1,
-      module.tgw_hub_region_2,
-      module.tgw_hub_region_3,
-    ] : i => one(m) if length(m) > 0
+  active_regions = {
+    for i in local.active_indices : i => var.regions[i]
   }
 }
 
@@ -104,134 +40,34 @@ locals {
 # Pairs are ordered (i < j) so that adding a region only appends new peerings.  #
 ################################################################################
 
-module "tgw_peering_0_1" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "../../../../modules/transit-gateway-peering"
-
-  count = var.active_region_count > 1 ? 1 : 0
-
-  name = "${var.cluster_name}-${var.regions[0].short_name}-${var.regions[1].short_name}"
-
-  owner_transit_gateway_id             = local.tgw_hubs[0].transit_gateway_id
-  owner_transit_gateway_route_table_id = local.tgw_hubs[0].transit_gateway_route_table_id
-  owner_cidr_blocks                    = local.region_cidr_blocks[0]
-
-  accepter_transit_gateway_id             = local.tgw_hubs[1].transit_gateway_id
-  accepter_transit_gateway_route_table_id = local.tgw_hubs[1].transit_gateway_route_table_id
-  accepter_cidr_blocks                    = local.region_cidr_blocks[1]
-
-  providers = {
-    aws.owner    = aws
-    aws.accepter = aws.region_1
+locals {
+  tgw_peering_pairs = {
+    for pair in flatten([
+      for owner in local.active_indices : [
+        for accepter in local.active_indices : {
+          owner    = owner
+          accepter = accepter
+        } if owner < accepter
+      ]
+    ]) : "${pair.owner}_${pair.accepter}" => pair
   }
 }
 
-module "tgw_peering_0_2" {
+module "tgw_peering" {
   # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/transit-gateway-peering"
 
-  count = var.active_region_count > 2 ? 1 : 0
+  for_each = local.tgw_peering_pairs
 
-  name = "${var.cluster_name}-${var.regions[0].short_name}-${var.regions[2].short_name}"
+  name            = "${var.cluster_name}-${var.regions[each.value.owner].short_name}-${var.regions[each.value.accepter].short_name}"
+  owner_region    = var.regions[each.value.owner].region
+  accepter_region = var.regions[each.value.accepter].region
 
-  owner_transit_gateway_id             = local.tgw_hubs[0].transit_gateway_id
-  owner_transit_gateway_route_table_id = local.tgw_hubs[0].transit_gateway_route_table_id
-  owner_cidr_blocks                    = local.region_cidr_blocks[0]
+  owner_transit_gateway_id             = module.tgw_hub[each.value.owner].transit_gateway_id
+  owner_transit_gateway_route_table_id = module.tgw_hub[each.value.owner].transit_gateway_route_table_id
+  owner_cidr_blocks                    = local.region_cidr_blocks[each.value.owner]
 
-  accepter_transit_gateway_id             = local.tgw_hubs[2].transit_gateway_id
-  accepter_transit_gateway_route_table_id = local.tgw_hubs[2].transit_gateway_route_table_id
-  accepter_cidr_blocks                    = local.region_cidr_blocks[2]
-
-  providers = {
-    aws.owner    = aws
-    aws.accepter = aws.region_2
-  }
-}
-
-module "tgw_peering_1_2" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "../../../../modules/transit-gateway-peering"
-
-  count = var.active_region_count > 2 ? 1 : 0
-
-  name = "${var.cluster_name}-${var.regions[1].short_name}-${var.regions[2].short_name}"
-
-  owner_transit_gateway_id             = local.tgw_hubs[1].transit_gateway_id
-  owner_transit_gateway_route_table_id = local.tgw_hubs[1].transit_gateway_route_table_id
-  owner_cidr_blocks                    = local.region_cidr_blocks[1]
-
-  accepter_transit_gateway_id             = local.tgw_hubs[2].transit_gateway_id
-  accepter_transit_gateway_route_table_id = local.tgw_hubs[2].transit_gateway_route_table_id
-  accepter_cidr_blocks                    = local.region_cidr_blocks[2]
-
-  providers = {
-    aws.owner    = aws.region_1
-    aws.accepter = aws.region_2
-  }
-}
-
-module "tgw_peering_0_3" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "../../../../modules/transit-gateway-peering"
-
-  count = var.active_region_count > 3 ? 1 : 0
-
-  name = "${var.cluster_name}-${var.regions[0].short_name}-${var.regions[3].short_name}"
-
-  owner_transit_gateway_id             = local.tgw_hubs[0].transit_gateway_id
-  owner_transit_gateway_route_table_id = local.tgw_hubs[0].transit_gateway_route_table_id
-  owner_cidr_blocks                    = local.region_cidr_blocks[0]
-
-  accepter_transit_gateway_id             = local.tgw_hubs[3].transit_gateway_id
-  accepter_transit_gateway_route_table_id = local.tgw_hubs[3].transit_gateway_route_table_id
-  accepter_cidr_blocks                    = local.region_cidr_blocks[3]
-
-  providers = {
-    aws.owner    = aws
-    aws.accepter = aws.region_3
-  }
-}
-
-module "tgw_peering_1_3" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "../../../../modules/transit-gateway-peering"
-
-  count = var.active_region_count > 3 ? 1 : 0
-
-  name = "${var.cluster_name}-${var.regions[1].short_name}-${var.regions[3].short_name}"
-
-  owner_transit_gateway_id             = local.tgw_hubs[1].transit_gateway_id
-  owner_transit_gateway_route_table_id = local.tgw_hubs[1].transit_gateway_route_table_id
-  owner_cidr_blocks                    = local.region_cidr_blocks[1]
-
-  accepter_transit_gateway_id             = local.tgw_hubs[3].transit_gateway_id
-  accepter_transit_gateway_route_table_id = local.tgw_hubs[3].transit_gateway_route_table_id
-  accepter_cidr_blocks                    = local.region_cidr_blocks[3]
-
-  providers = {
-    aws.owner    = aws.region_1
-    aws.accepter = aws.region_3
-  }
-}
-
-module "tgw_peering_2_3" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "../../../../modules/transit-gateway-peering"
-
-  count = var.active_region_count > 3 ? 1 : 0
-
-  name = "${var.cluster_name}-${var.regions[2].short_name}-${var.regions[3].short_name}"
-
-  owner_transit_gateway_id             = local.tgw_hubs[2].transit_gateway_id
-  owner_transit_gateway_route_table_id = local.tgw_hubs[2].transit_gateway_route_table_id
-  owner_cidr_blocks                    = local.region_cidr_blocks[2]
-
-  accepter_transit_gateway_id             = local.tgw_hubs[3].transit_gateway_id
-  accepter_transit_gateway_route_table_id = local.tgw_hubs[3].transit_gateway_route_table_id
-  accepter_cidr_blocks                    = local.region_cidr_blocks[3]
-
-  providers = {
-    aws.owner    = aws.region_2
-    aws.accepter = aws.region_3
-  }
+  accepter_transit_gateway_id             = module.tgw_hub[each.value.accepter].transit_gateway_id
+  accepter_transit_gateway_route_table_id = module.tgw_hub[each.value.accepter].transit_gateway_route_table_id
+  accepter_cidr_blocks                    = local.region_cidr_blocks[each.value.accepter]
 }

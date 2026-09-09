@@ -28,14 +28,13 @@ terraform {
 ################################################################################
 # Provider slots                                                               #
 #                                                                              #
-# Terraform cannot generate provider configurations dynamically, so one alias   #
-# per region SLOT is declared statically. `local.region_slot_count` is derived  #
-# from `var.regions`; slots beyond that length fall back to region 0 and are    #
-# never used because every resource attached to them is count-gated to zero.    #
+# The shared EKS module and its nested upstream modules require statically       #
+# associated providers. Terraform cannot generate provider configurations       #
+# dynamically, so one alias per region SLOT is declared for those EKS modules.  #
+# Slots beyond `var.regions` fall back to region 0 and remain count-gated off.   #
 #                                                                              #
 # Raising MAX_REGION_SLOTS is a mechanical change: add a provider block here,   #
-# a cluster module in clusters.tf, a Transit Gateway hub in                     #
-# transit-gateway.tf and the new peering pairs. See README.md.                  #
+# and an EKS cluster module in clusters.tf. See README.md.                      #
 #                                                                              #
 # Every provider block validates its credentials with sts:GetCallerIdentity at  #
 # plan time, including the slots that create nothing. Four blocks per plan,     #

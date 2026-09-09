@@ -6,32 +6,19 @@
 | Name | Source | Version |
 | ---- | ------ | ------- |
 | <a name="module_database_region_0"></a> [database\_region\_0](#module\_database\_region\_0) | ../../../../modules/aurora-global-member | n/a |
-| <a name="module_database_region_1"></a> [database\_region\_1](#module\_database\_region\_1) | ../../../../modules/aurora-global-member | n/a |
-| <a name="module_database_region_2"></a> [database\_region\_2](#module\_database\_region\_2) | ../../../../modules/aurora-global-member | n/a |
-| <a name="module_database_region_3"></a> [database\_region\_3](#module\_database\_region\_3) | ../../../../modules/aurora-global-member | n/a |
+| <a name="module_database_secondary"></a> [database\_secondary](#module\_database\_secondary) | ../../../../modules/aurora-global-member | n/a |
 | <a name="module_eks_cluster_region_0"></a> [eks\_cluster\_region\_0](#module\_eks\_cluster\_region\_0) | ../../../../modules/eks-cluster | n/a |
 | <a name="module_eks_cluster_region_1"></a> [eks\_cluster\_region\_1](#module\_eks\_cluster\_region\_1) | ../../../../modules/eks-cluster | n/a |
 | <a name="module_eks_cluster_region_2"></a> [eks\_cluster\_region\_2](#module\_eks\_cluster\_region\_2) | ../../../../modules/eks-cluster | n/a |
 | <a name="module_eks_cluster_region_3"></a> [eks\_cluster\_region\_3](#module\_eks\_cluster\_region\_3) | ../../../../modules/eks-cluster | n/a |
-| <a name="module_tgw_hub_region_0"></a> [tgw\_hub\_region\_0](#module\_tgw\_hub\_region\_0) | ../../../../modules/transit-gateway-hub | n/a |
-| <a name="module_tgw_hub_region_1"></a> [tgw\_hub\_region\_1](#module\_tgw\_hub\_region\_1) | ../../../../modules/transit-gateway-hub | n/a |
-| <a name="module_tgw_hub_region_2"></a> [tgw\_hub\_region\_2](#module\_tgw\_hub\_region\_2) | ../../../../modules/transit-gateway-hub | n/a |
-| <a name="module_tgw_hub_region_3"></a> [tgw\_hub\_region\_3](#module\_tgw\_hub\_region\_3) | ../../../../modules/transit-gateway-hub | n/a |
-| <a name="module_tgw_peering_0_1"></a> [tgw\_peering\_0\_1](#module\_tgw\_peering\_0\_1) | ../../../../modules/transit-gateway-peering | n/a |
-| <a name="module_tgw_peering_0_2"></a> [tgw\_peering\_0\_2](#module\_tgw\_peering\_0\_2) | ../../../../modules/transit-gateway-peering | n/a |
-| <a name="module_tgw_peering_0_3"></a> [tgw\_peering\_0\_3](#module\_tgw\_peering\_0\_3) | ../../../../modules/transit-gateway-peering | n/a |
-| <a name="module_tgw_peering_1_2"></a> [tgw\_peering\_1\_2](#module\_tgw\_peering\_1\_2) | ../../../../modules/transit-gateway-peering | n/a |
-| <a name="module_tgw_peering_1_3"></a> [tgw\_peering\_1\_3](#module\_tgw\_peering\_1\_3) | ../../../../modules/transit-gateway-peering | n/a |
-| <a name="module_tgw_peering_2_3"></a> [tgw\_peering\_2\_3](#module\_tgw\_peering\_2\_3) | ../../../../modules/transit-gateway-peering | n/a |
+| <a name="module_tgw_hub"></a> [tgw\_hub](#module\_tgw\_hub) | ../../../../modules/transit-gateway-hub | n/a |
+| <a name="module_tgw_peering"></a> [tgw\_peering](#module\_tgw\_peering) | ../../../../modules/transit-gateway-peering | n/a |
 ## Resources
 
 | Name | Type |
 | ---- | ---- |
 | [aws_rds_global_cluster.camunda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/rds_global_cluster) | resource |
-| [aws_vpc_security_group_ingress_rule.region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_security_group_ingress_rule) | resource |
-| [aws_vpc_security_group_ingress_rule.region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_security_group_ingress_rule) | resource |
-| [aws_vpc_security_group_ingress_rule.region_2](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_security_group_ingress_rule) | resource |
-| [aws_vpc_security_group_ingress_rule.region_3](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_security_group_ingress_rule) | resource |
+| [aws_vpc_security_group_ingress_rule.cross_region](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpc_security_group_ingress_rule) | resource |
 | [random_password.database](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [terraform_data.topology_guard](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [time_sleep.wait_for_database_writer](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |

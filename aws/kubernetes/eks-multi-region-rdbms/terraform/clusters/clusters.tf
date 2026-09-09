@@ -1,10 +1,9 @@
 ################################################################################
 # Cluster creation, one EKS cluster per active region slot                     #
 #                                                                              #
-# Terraform providers cannot be iterated, so each slot is written out           #
-# explicitly and gated with `count`. Slots are activated in order, which keeps  #
-# the Zeebe region IDs and the AWS resource addresses stable when a region is   #
-# added later.                                                                 #
+# The EKS module's nested upstream modules require statically associated AWS     #
+# providers, so each slot is explicit and count-gated. Slots activate in order, #
+# preserving Zeebe region IDs and EKS resource addresses as regions are added.  #
 ################################################################################
 
 module "eks_cluster_region_0" {
@@ -44,8 +43,7 @@ module "eks_cluster_region_1" {
   cluster_service_ipv4_cidr = var.regions[1].service_cidr_block
   cluster_node_ipv4_cidr    = var.regions[1].vpc_cidr_block
 
-  # Every resource of a non-default region must be pinned to its provider alias,
-  # otherwise it is silently created in the default region.
+  # EKS and its nested upstream modules require a statically associated provider.
   providers = {
     aws = aws.region_1
   }

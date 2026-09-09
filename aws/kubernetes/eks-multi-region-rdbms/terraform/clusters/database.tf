@@ -173,6 +173,7 @@ module "database_region_0" {
 
   count = local.database_member_enabled[0] ? 1 : 0
 
+  region                    = var.regions[0].region
   cluster_identifier        = "${var.cluster_name}-${var.regions[0].short_name}-db"
   global_cluster_identifier = one(aws_rds_global_cluster.camunda[*].id)
   is_primary                = true
@@ -203,13 +204,17 @@ resource "time_sleep" "wait_for_database_writer" {
   create_duration = "30s"
 }
 
-module "database_region_1" {
+module "database_secondary" {
   # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/aurora-global-member"
 
-  count = local.database_member_enabled[1] ? 1 : 0
+  for_each = {
+    for slot in var.database_region_slots : slot => var.regions[slot]
+    if local.database_enabled && slot != local.database_writer_slot
+  }
 
-  cluster_identifier        = "${var.cluster_name}-${var.regions[1].short_name}-db"
+  region                    = each.value.region
+  cluster_identifier        = "${var.cluster_name}-${each.value.short_name}-db"
   global_cluster_identifier = one(aws_rds_global_cluster.camunda[*].id)
   # Secondary member: master credentials, database name and availability zones
   # are inherited from the writer through replication and rejected by AWS here.
@@ -219,83 +224,19 @@ module "database_region_1" {
   instance_class = var.database_instance_class
   num_instances  = var.database_instances_per_region
 
-  vpc_id              = local.clusters[1].vpc_id
-  subnet_ids          = local.clusters[1].private_subnet_ids
+  vpc_id              = local.clusters[each.key].vpc_id
+  subnet_ids          = local.clusters[each.key].private_subnet_ids
   allowed_cidr_blocks = local.database_allowed_cidr_blocks
   iam_auth_enabled    = var.database_iam_auth_enabled
-
-  providers = {
-    aws = aws.region_1
-  }
-
-  depends_on = [time_sleep.wait_for_database_writer]
-}
-
-module "database_region_2" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "../../../../modules/aurora-global-member"
-
-  count = local.database_member_enabled[2] ? 1 : 0
-
-  cluster_identifier        = "${var.cluster_name}-${var.regions[2].short_name}-db"
-  global_cluster_identifier = one(aws_rds_global_cluster.camunda[*].id)
-  # Secondary member: master credentials, database name and availability zones
-  # are inherited from the writer through replication and rejected by AWS here.
-  is_primary = false
-
-  engine_version = var.database_engine_version
-  instance_class = var.database_instance_class
-  num_instances  = var.database_instances_per_region
-
-  vpc_id              = local.clusters[2].vpc_id
-  subnet_ids          = local.clusters[2].private_subnet_ids
-  allowed_cidr_blocks = local.database_allowed_cidr_blocks
-  iam_auth_enabled    = var.database_iam_auth_enabled
-
-  providers = {
-    aws = aws.region_2
-  }
-
-  depends_on = [time_sleep.wait_for_database_writer]
-}
-
-module "database_region_3" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "../../../../modules/aurora-global-member"
-
-  count = local.database_member_enabled[3] ? 1 : 0
-
-  cluster_identifier        = "${var.cluster_name}-${var.regions[3].short_name}-db"
-  global_cluster_identifier = one(aws_rds_global_cluster.camunda[*].id)
-  # Secondary member: master credentials, database name and availability zones
-  # are inherited from the writer through replication and rejected by AWS here.
-  is_primary = false
-
-  engine_version = var.database_engine_version
-  instance_class = var.database_instance_class
-  num_instances  = var.database_instances_per_region
-
-  vpc_id              = local.clusters[3].vpc_id
-  subnet_ids          = local.clusters[3].private_subnet_ids
-  allowed_cidr_blocks = local.database_allowed_cidr_blocks
-  iam_auth_enabled    = var.database_iam_auth_enabled
-
-  providers = {
-    aws = aws.region_3
-  }
 
   depends_on = [time_sleep.wait_for_database_writer]
 }
 
 locals {
-  database_members = {
-    for i, m in [
-      module.database_region_0,
-      module.database_region_1,
-      module.database_region_2,
-      module.database_region_3,
-    ] : i => one(m) if length(m) > 0
-  }
+  database_members = merge(
+    local.database_member_enabled[0] ? { 0 = one(module.database_region_0) } : {},
+    module.database_secondary,
+  )
 
   # Instance host patterns for the AWS Advanced JDBC Wrapper. Passing every
   # member lets the driver discover the new writer after a global failover
