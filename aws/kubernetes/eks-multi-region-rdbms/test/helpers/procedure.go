@@ -89,7 +89,7 @@ func (e Env) Vars() []string {
 		"CAMUNDA_RDBMS_USERNAME":      e.RdbmsUsername,
 		"CAMUNDA_RDBMS_PASSWORD":      e.RdbmsPassword,
 		"AURORA_GLOBAL_CLUSTER_ID":    e.AuroraGlobalID,
-		"CAMUNDA_HELM_CHART_GIT_REF":  GetEnv("CAMUNDA_HELM_CHART_GIT_REF", "main"),
+		"CAMUNDA_HELM_CHART_GIT_REF":  GetEnv("CAMUNDA_HELM_CHART_GIT_REF", "e3d2a7271b113dbca6f179e3c4bb486bde828451"),
 		"CAMUNDA_BASIC_AUTH_USER":     GetEnv("CAMUNDA_BASIC_AUTH_USER", "demo"),
 		"CAMUNDA_BASIC_AUTH_PASSWORD": GetEnv("CAMUNDA_BASIC_AUTH_PASSWORD", "demo"),
 		// Optional Helm overlay, e.g. the CI credentials values file. Empty
