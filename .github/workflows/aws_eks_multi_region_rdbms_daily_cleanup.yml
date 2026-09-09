@@ -112,7 +112,6 @@ jobs:
             # the Aurora Global Database, so one destroy tears the whole architecture down.
             - name: Delete clusters
               id: delete_clusters
-              continue-on-error: true
               timeout-minutes: 125
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
