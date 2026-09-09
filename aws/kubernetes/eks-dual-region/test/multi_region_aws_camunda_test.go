@@ -672,8 +672,27 @@ func checkTheMathFailover_8_6_plus(t *testing.T) {
 	require.True(t, helpers.IsEven(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlNamespace, "camunda-zeebe-3")))
 }
 
+// waitForNoPendingClusterChange blocks until /actuator/cluster reports no change
+// in flight. Zeebe answers 409 to a configuration change that overlaps one already
+// in progress, and the exporter and broker steps issue changes back to back.
+func waitForNoPendingClusterChange(t *testing.T, kubectlOptions *k8s.KubectlOptions, phase string) {
+	t.Helper()
+
+	for i := 0; i < 40; i++ {
+		status, body, err := kubectlHelpers.GatewayManagementRequest(t, kubectlOptions, "GET", "/actuator/cluster", nil)
+		if err == nil && status == 200 && !strings.Contains(body, "pendingChange") {
+			return
+		}
+		t.Logf("%s cluster configuration change still in flight, waiting (attempt %d/40)", phase, i+1)
+		time.Sleep(15 * time.Second)
+	}
+	t.Fatalf("%s a cluster configuration change was still in flight after the retry budget", phase)
+}
+
 func removeSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILOVER] Removing secondary brokers 🚀")
+
+	waitForNoPendingClusterChange(t, &primary.KubectlNamespace, "[FAILOVER]")
 
 	// Redistribute to remaining brokers. Each request uses its own short-lived
 	// port-forward (see GatewayManagementRequest) so a broker restarting during
@@ -817,6 +836,8 @@ func enableElasticExportersToSecondary(t *testing.T) {
 
 func addSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILBACK] Adding secondary brokers 🚀")
+
+	waitForNoPendingClusterChange(t, &primary.KubectlNamespace, "[FAILBACK]")
 
 	// Request the scaling change and poll for completion. Each request uses its
 	// own short-lived port-forward (see GatewayManagementRequest), because a broker
