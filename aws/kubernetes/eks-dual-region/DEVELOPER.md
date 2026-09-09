@@ -65,6 +65,10 @@ Otherwise defaults to published Helm versions and the latest stable release.
 # Note: a camunda-platform-helm release tag carries the *previous* version in Chart.yaml
 # (tag N ships version N-1), so this tag's chart is one alpha behind the tag name (the
 # known-good set the tests validate); the deployed image tags come from GLOBAL_IMAGE_TAG below.
+# TODO: [release-duty] before the release, update this!
+# TODO: [release-duty] bump the 8.10 chart tag below as the 15.x line advances, and drop
+# the whole source-build once the chart is published (keep in sync with the pins in
+# procedure/build-camunda-chart.sh and .github/actions/internal-multi-region-tests).
 export HELM_CHART_VERSION=15-dev-latest
 CHART_DIR="$(mktemp -d)"
 git clone --depth 1 --branch camunda-platform-8.10-15.0.0-alpha5 \
