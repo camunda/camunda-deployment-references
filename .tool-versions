@@ -17,7 +17,7 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.12
 
-awscli 2.36.6
+awscli 2.36.41
 
 delta 0.18.2
 
@@ -27,10 +27,10 @@ eksctl 0.229.0
 golang 1.26.5
 
 # renovate: datasource=github-tags depName=fullstorydev/grpcurl
-grpcurl 1.9.3
+grpcurl 1.9.4
 
 # datasource=custom.helm-camunda depName=helm
-helm 4.2.3
+helm 4.2.4
 
 jq 1.7.1
 
@@ -46,9 +46,9 @@ kustomize 5.8.1 # used by the tests
 # renovate: datasource=github-tags depName=FiloSottile/mkcert
 mkcert 1.4.4
 
-pre-commit 4.6.1
+pre-commit 4.6.2
 
-python 3.14.6
+python 3.14.7
 
 shellcheck 0.11.0
 
@@ -60,4 +60,4 @@ terraform-docs 0.24.0
 
 tflint 0.64.0
 
-yq 4.53.3
+yq 4.53.6
