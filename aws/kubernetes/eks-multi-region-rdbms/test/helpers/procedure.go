@@ -11,10 +11,12 @@ package helpers
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -29,17 +31,21 @@ import (
 func ProcedureDir(t *testing.T) string {
 	t.Helper()
 
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("cannot resolve the procedure directory: no caller information")
-	}
-
-	// <arch>/test/helpers/procedure.go -> <arch>/procedure
-	dir, err := filepath.Abs(filepath.Join(filepath.Dir(thisFile), "..", "..", "procedure"))
+	dir, err := procedureDir()
 	if err != nil {
 		t.Fatalf("cannot resolve the procedure directory: %v", err)
 	}
 	return dir
+}
+
+func procedureDir() (string, error) {
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", errors.New("no caller information")
+	}
+
+	// <arch>/test/helpers/procedure.go -> <arch>/procedure
+	return filepath.Abs(filepath.Join(filepath.Dir(thisFile), "..", "..", "procedure"))
 }
 
 // Env is the environment contract shared by every procedure.
@@ -69,29 +75,32 @@ func (e Env) Vars() []string {
 	clusterSize := e.BrokersPerRegion * e.RegionSlots
 
 	vars := map[string]string{
-		"CAMUNDA_REGION_SLOTS":        fmt.Sprint(e.RegionSlots),
-		"CAMUNDA_ACTIVE_REGIONS":      fmt.Sprint(e.ActiveRegions),
-		"CAMUNDA_BROKERS_PER_REGION":  fmt.Sprint(e.BrokersPerRegion),
-		"CAMUNDA_CLUSTER_SIZE":        fmt.Sprint(clusterSize),
-		"CAMUNDA_PARTITION_COUNT":     fmt.Sprint(clusterSize),
-		"CAMUNDA_REPLICATION_FACTOR":  fmt.Sprint(e.RegionSlots),
-		"CLUSTER_CONTEXTS":            strings.Join(e.ClusterContexts, " "),
-		"AWS_REGIONS":                 strings.Join(e.AWSRegions, " "),
-		"SUBMARINER_CLUSTER_IDS":      strings.Join(e.SubmarinerClusters, " "),
-		"CAMUNDA_ZONE_NAMES":          strings.Join(e.ZoneNames, " "),
-		"SUBMARINER_BROKER_SLOT":      fmt.Sprint(e.SubmarinerBrokerSlot),
-		"EKS_CLUSTER_NAMES":           strings.Join(e.ClusterNames, " "),
-		"REGION_VPC_CIDRS":            strings.Join(e.VPCCidrBlocks, " "),
-		"REGION_SERVICE_CIDRS":        strings.Join(e.ServiceCidrBlocks, " "),
-		"CAMUNDA_NAMESPACE":           e.Namespace,
-		"CAMUNDA_RELEASE_NAME":        e.ReleaseName,
-		"CAMUNDA_RDBMS_URL":           e.RdbmsURL,
-		"CAMUNDA_RDBMS_USERNAME":      e.RdbmsUsername,
-		"CAMUNDA_RDBMS_PASSWORD":      e.RdbmsPassword,
-		"AURORA_GLOBAL_CLUSTER_ID":    e.AuroraGlobalID,
-		"CAMUNDA_HELM_CHART_GIT_REF":  GetEnv("CAMUNDA_HELM_CHART_GIT_REF", "e3d2a7271b113dbca6f179e3c4bb486bde828451"),
-		"CAMUNDA_BASIC_AUTH_USER":     GetEnv("CAMUNDA_BASIC_AUTH_USER", "demo"),
-		"CAMUNDA_BASIC_AUTH_PASSWORD": GetEnv("CAMUNDA_BASIC_AUTH_PASSWORD", "demo"),
+		"CAMUNDA_REGION_SLOTS":       fmt.Sprint(e.RegionSlots),
+		"CAMUNDA_ACTIVE_REGIONS":     fmt.Sprint(e.ActiveRegions),
+		"CAMUNDA_BROKERS_PER_REGION": fmt.Sprint(e.BrokersPerRegion),
+		"CAMUNDA_CLUSTER_SIZE":       fmt.Sprint(clusterSize),
+		"CAMUNDA_PARTITION_COUNT":    fmt.Sprint(clusterSize),
+		"CAMUNDA_REPLICATION_FACTOR": fmt.Sprint(e.RegionSlots),
+		"CLUSTER_CONTEXTS":           strings.Join(e.ClusterContexts, " "),
+		"AWS_REGIONS":                strings.Join(e.AWSRegions, " "),
+		"SUBMARINER_CLUSTER_IDS":     strings.Join(e.SubmarinerClusters, " "),
+		"CAMUNDA_ZONE_NAMES":         strings.Join(e.ZoneNames, " "),
+		"SUBMARINER_BROKER_SLOT":     fmt.Sprint(e.SubmarinerBrokerSlot),
+		"EKS_CLUSTER_NAMES":          strings.Join(e.ClusterNames, " "),
+		"REGION_VPC_CIDRS":           strings.Join(e.VPCCidrBlocks, " "),
+		"REGION_SERVICE_CIDRS":       strings.Join(e.ServiceCidrBlocks, " "),
+		"CAMUNDA_NAMESPACE":          e.Namespace,
+		"CAMUNDA_RELEASE_NAME":       e.ReleaseName,
+		"CAMUNDA_RDBMS_URL":          e.RdbmsURL,
+		"CAMUNDA_RDBMS_USERNAME":     e.RdbmsUsername,
+		"CAMUNDA_RDBMS_PASSWORD":     e.RdbmsPassword,
+		"AURORA_GLOBAL_CLUSTER_ID":   e.AuroraGlobalID,
+		"CAMUNDA_HELM_CHART_GIT_REF": ChartGitRef(),
+		// Forwarded as-is, with no fallback. The chart's demo/demo admin login
+		// caused INC-5340, so an unset credential has to surface as the
+		// procedure refusing to run; camunda::_basic_auth does exactly that.
+		"CAMUNDA_BASIC_AUTH_USER":     os.Getenv("CAMUNDA_BASIC_AUTH_USER"),
+		"CAMUNDA_BASIC_AUTH_PASSWORD": os.Getenv("CAMUNDA_BASIC_AUTH_PASSWORD"),
 		// Optional Helm overlay, e.g. the CI credentials values file. Empty
 		// outside CI, where install-chart.sh simply skips it.
 		"CAMUNDA_EXTRA_VALUES": GetEnv("CAMUNDA_EXTRA_VALUES", ""),
@@ -100,7 +109,17 @@ func (e Env) Vars() []string {
 		vars[k] = v
 	}
 
-	out := os.Environ()
+	out := make([]string, 0, len(os.Environ())+len(vars))
+	for _, entry := range os.Environ() {
+		// Drop the inherited copy of every key the harness sets: which one wins
+		// otherwise depends on the developer's shell and on the reader's libc.
+		if key, _, found := strings.Cut(entry, "="); found {
+			if _, overridden := vars[key]; overridden {
+				continue
+			}
+		}
+		out = append(out, entry)
+	}
 	for k, v := range vars {
 		out = append(out, k+"="+v)
 	}
@@ -194,4 +213,37 @@ func GetEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+var chartGitRefPattern = regexp.MustCompile(`(?m)^export CAMUNDA_HELM_CHART_GIT_REF="\$\{CAMUNDA_HELM_CHART_GIT_REF:-([^}"]+)\}"`)
+
+// ChartGitRef returns the Helm chart pin that the procedures use.
+//
+// The value is read from procedure/export_environment_prerequisites.sh instead
+// of being repeated here. That script is what a user sources, so it owns the
+// pin; the tests run one procedure at a time and never source it, which is why
+// the value has to be read rather than inherited. Repeating the commit would
+// let the harness and the documented procedure drift onto different charts
+// without anything failing. An explicit environment override still wins.
+func ChartGitRef() string {
+	if ref, ok := os.LookupEnv("CAMUNDA_HELM_CHART_GIT_REF"); ok && ref != "" {
+		return ref
+	}
+
+	dir, err := procedureDir()
+	if err != nil {
+		panic("cannot resolve the procedure directory: " + err.Error())
+	}
+
+	path := filepath.Join(dir, "export_environment_prerequisites.sh")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		panic("cannot read the Helm chart pin: " + err.Error())
+	}
+
+	match := chartGitRefPattern.FindSubmatch(content)
+	if match == nil {
+		panic("no CAMUNDA_HELM_CHART_GIT_REF default found in " + path)
+	}
+	return string(match[1])
 }
