@@ -714,7 +714,9 @@ jobs:
               timeout-minutes: 60
               uses: ./.github/actions/internal-camunda-chart-tests
               with:
-                  secrets: ${{ toJSON(secrets) }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}
                   tests-camunda-helm-chart-repo-path: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_PATH }}

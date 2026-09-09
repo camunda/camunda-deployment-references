@@ -874,7 +874,9 @@ jobs:
               with:
                   # Required inputs
                   camunda-version: ${{ steps.camunda-version.outputs.CAMUNDA_VERSION }}
-                  secrets: ${{ toJSON(secrets) }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
 
                   # Test repository configuration
                   tests-camunda-helm-chart-repo-ref: ${{ env.TESTS_CAMUNDA_HELM_CHART_REPO_REF }}

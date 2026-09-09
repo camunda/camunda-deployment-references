@@ -28,8 +28,14 @@ inputs:
     tests-c8-sm-checks-repo-path:
         description: Path to clone the c8-sm-checks repository
         default: ./.c8-sm-checks
-    secrets:
-        description: JSON wrapped secrets for easier secret passing
+    vault-addr:
+        description: The URL of the Vault server
+        required: true
+    vault-role-id:
+        description: The Vault Role ID
+        required: true
+    vault-secret-id:
+        description: The Vault Secret ID
         required: true
     camunda-version:
         description: The version of the Camunda to test
@@ -140,10 +146,10 @@ runs:
           if: ${{ inputs.enable-helm-chart-tests == 'true' || inputs.zeebe-authenticated == 'true' }}
           uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
           with:
-              url: ${{ fromJSON(inputs.secrets).VAULT_ADDR }}
+              url: ${{ inputs.vault-addr }}
               method: approle
-              roleId: ${{ fromJSON(inputs.secrets).VAULT_ROLE_ID }}
-              secretId: ${{ fromJSON(inputs.secrets).VAULT_SECRET_ID }}
+              roleId: ${{ inputs.vault-role-id }}
+              secretId: ${{ inputs.vault-secret-id }}
               exportEnv: false
               secrets: |
                   secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;

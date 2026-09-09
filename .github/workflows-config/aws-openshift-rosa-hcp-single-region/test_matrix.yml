@@ -21,11 +21,26 @@ matrix:
           # Therefore, to ensure compatibility and support, we test the latest and the older.
           # For more details, refer to the official support policy at https://endoflife.date/red-hat-openshift.
 
-        - name: OpenShift 4.18
+        - name: OpenShift 4.19 public VPC
           schedule_only: true
           private_vpc: false
-          # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.18(\.(?<patch>\d+))?$
-          version: 4.18.51
+          # 4.18 reached end of life on 2026-08-25, so this leg could no longer create a
+          # cluster: `CLUSTERS-MGMT-400: Version 'openshift-v4.18.51' reached end of life`.
+          # Renovate could not rescue it — the annotation locks the minor, so every version
+          # it could offer was another dead 4.18 patch.
+          #
+          # Red Hat now supports 4.19 through 4.22, and the `latest` entry above is itself
+          # on 4.19: there is no supported minor left *below* it, so this leg cannot be the
+          # older half of an older/newer pair on this branch. What it still covers on its
+          # own is the public-VPC path (`private_vpc: false`), which the entry above does
+          # not exercise — hence the same minor, named for what actually differs.
+          #
+          # Restoring a genuine oldest/newest pair means moving `latest` off 4.19, which on
+          # this branch also moves the dual-region and operator-based matrices and every
+          # terraform default. That is a maintenance decision, not a side effect of
+          # unblocking a dead pin, so it is deliberately left out of this change.
+          # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.19(\.(?<patch>\d+))?$
+          version: 4.19.43
 
     scenario:
         - name: rosa-hcp-single-region
