@@ -1,4 +1,6 @@
 #!/bin/bash
+# Resolve sourced files relative to this script, not the caller working directory.
+# shellcheck source-path=SCRIPTDIR
 set -euo pipefail
 
 # Creates the Camunda namespace in every active cluster.
@@ -13,9 +15,14 @@ set -euo pipefail
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib-management-api.sh"
+
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 
-for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+mapfile -t slots < <(camunda::target_slots "$@")
+
+for i in "${slots[@]}"; do
     context="${contexts[$i]}"
     echo "Creating namespace $CAMUNDA_NAMESPACE in $context"
     kubectl --context "$context" create namespace "$CAMUNDA_NAMESPACE" \

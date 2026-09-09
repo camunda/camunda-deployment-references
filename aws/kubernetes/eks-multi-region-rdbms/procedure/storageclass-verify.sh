@@ -1,4 +1,6 @@
 #!/bin/bash
+# Resolve sourced files relative to this script, not the caller working directory.
+# shellcheck source-path=SCRIPTDIR
 set -euo pipefail
 
 # Asserts that ebs-sc is the one and only default StorageClass in every active
@@ -9,10 +11,15 @@ set -euo pipefail
 
 SC_NAME="ebs-sc"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib-management-api.sh"
+
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 
 failed=0
-for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+mapfile -t slots < <(camunda::target_slots "$@")
+
+for i in "${slots[@]}"; do
     context="${contexts[$i]}"
 
     defaults="$(kubectl --context "$context" get storageclass -o json |

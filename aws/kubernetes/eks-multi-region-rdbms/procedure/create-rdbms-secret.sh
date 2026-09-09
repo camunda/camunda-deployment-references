@@ -1,4 +1,6 @@
 #!/bin/bash
+# Resolve sourced files relative to this script, not the caller working directory.
+# shellcheck source-path=SCRIPTDIR
 set -euo pipefail
 
 # Creates the Kubernetes secret holding the RDBMS password in every active
@@ -13,9 +15,14 @@ set -euo pipefail
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_RDBMS_PASSWORD:?CAMUNDA_RDBMS_PASSWORD must be set, e.g. from 'terraform output -raw database_password'}"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib-management-api.sh"
+
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 
-for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+mapfile -t slots < <(camunda::target_slots "$@")
+
+for i in "${slots[@]}"; do
     context="${contexts[$i]}"
     echo "Creating secret camunda-rdbms-secret in $context/$CAMUNDA_NAMESPACE"
     printf '%s' "$CAMUNDA_RDBMS_PASSWORD" | kubectl --context "$context" create secret generic camunda-rdbms-secret \

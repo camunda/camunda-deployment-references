@@ -51,17 +51,17 @@ echo "==> 1/6 Joining region slot $SLOT ($new_context) to the Submariner Cluster
 "$SCRIPT_DIR/submariner/join-clusters.sh" "$SLOT"
 "$SCRIPT_DIR/submariner/verify-submariner.sh"
 
-echo "==> 2/6 Preparing every active cluster, $new_context included: storage class, namespace and RDBMS secret"
-# These scripts iterate over CAMUNDA_ACTIVE_REGIONS, which already counts the new
-# slot, so a failure here can come from a cluster that was already running.
-# The new cluster has none of these. The storage class in particular is easy to
-# forget because the bootstrap configured it for the regions that existed then:
-# without it the broker PVCs never bind and the Pods sit in Pending, which the
-# rest of this script would then wait out as a failure to join.
-"$SCRIPT_DIR/storageclass-configure.sh"
-"$SCRIPT_DIR/storageclass-verify.sh"
-"$SCRIPT_DIR/setup-namespaces.sh"
-"$SCRIPT_DIR/create-rdbms-secret.sh"
+echo "==> 2/6 Preparing $new_context: storage class, namespace and RDBMS secret"
+# Scoped to the new slot: the regions already running have all of this, and a
+# recovery has no business touching clusters that still serve traffic. The
+# storage class in particular is easy to forget because the bootstrap configured
+# it for the regions that existed then: without it the broker PVCs never bind
+# and the Pods sit in Pending, which the rest of this script would then wait out
+# as a failure to join.
+"$SCRIPT_DIR/storageclass-configure.sh" "$SLOT"
+"$SCRIPT_DIR/storageclass-verify.sh" "$SLOT"
+"$SCRIPT_DIR/setup-namespaces.sh" "$SLOT"
+"$SCRIPT_DIR/create-rdbms-secret.sh" "$SLOT"
 
 echo "==> 3/6 Rendering the Helm values with the new contact point list"
 . "$SCRIPT_DIR/generate-zeebe-helm-values.sh"

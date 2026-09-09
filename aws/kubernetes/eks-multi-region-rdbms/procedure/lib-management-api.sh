@@ -70,6 +70,25 @@ camunda::require_slot() {
     fi
 }
 
+# camunda::target_slots [slot] -> one slot number per line.
+#
+# No argument means every active slot, which is what a bootstrap wants. Passing
+# a slot narrows the operation to it, so activating one region or bringing one
+# back does not put the regions still serving traffic in its blast radius.
+camunda::target_slots() {
+    if [ "$#" -ge 1 ] && [ -n "${1:-}" ]; then
+        camunda::require_slot "$1" "the target region slot" || return 1
+        echo "$1"
+        return 0
+    fi
+
+    : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
+    local i
+    for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
+        echo "$i"
+    done
+}
+
 # camunda::use_surviving_region <excluded-slot>
 #
 # Points the AWS CLI at a region that is still up, when nothing else has.

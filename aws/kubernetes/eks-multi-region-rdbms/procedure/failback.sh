@@ -64,8 +64,11 @@ echo "==============================================================="
 echo
 echo "--> 1/4 Redeploying Camunda in region slot $RECOVERED_SLOT"
 
-"$SCRIPT_DIR/setup-namespaces.sh"
-"$SCRIPT_DIR/create-rdbms-secret.sh"
+# Scoped to the recovered slot, like the install below it. The surviving regions
+# carried the cluster through the outage and must not be touched to bring one
+# region back.
+"$SCRIPT_DIR/setup-namespaces.sh" "$RECOVERED_SLOT"
+"$SCRIPT_DIR/create-rdbms-secret.sh" "$RECOVERED_SLOT"
 
 . "$SCRIPT_DIR/generate-zeebe-helm-values.sh"
 "$SCRIPT_DIR/assemble-envsubst-values.sh"

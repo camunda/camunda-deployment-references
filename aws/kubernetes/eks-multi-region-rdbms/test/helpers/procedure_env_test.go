@@ -107,3 +107,57 @@ camunda::_basic_auth`)
 		t.Fatalf("expected alice:s3cret, got %q", got)
 	}
 }
+
+// A bootstrap prepares every active region; a single-region activation or
+// failback must not reach into the clusters that are still serving traffic.
+func TestTargetSlotsDefaultsToEveryActiveRegion(t *testing.T) {
+	t.Parallel()
+
+	if got := runTargetSlots(t, ""); got != "0\n1\n2" {
+		t.Fatalf("expected every active slot, got %q", got)
+	}
+}
+
+func TestTargetSlotsNarrowsToTheGivenSlot(t *testing.T) {
+	t.Parallel()
+
+	if got := runTargetSlots(t, "1"); got != "1" {
+		t.Fatalf("expected only slot 1, got %q", got)
+	}
+}
+
+func TestTargetSlotsRejectsAnUndeployedSlot(t *testing.T) {
+	t.Parallel()
+
+	dir := ProcedureDir(t)
+	cmd := exec.Command("bash", "-c",
+		`source ./lib-management-api.sh
+camunda::target_slots 9`)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "CAMUNDA_ACTIVE_REGIONS=3")
+
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected slot 9 to be rejected, got %q", output)
+	}
+	if !strings.Contains(string(output), "is not a deployed slot") {
+		t.Fatalf("expected the slot guard message, got %q", output)
+	}
+}
+
+func runTargetSlots(t *testing.T, slot string) string {
+	t.Helper()
+
+	dir := ProcedureDir(t)
+	cmd := exec.Command("bash", "-c",
+		`source ./lib-management-api.sh
+camunda::target_slots "$1"`, "bash", slot)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "CAMUNDA_ACTIVE_REGIONS=3")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("camunda::target_slots failed: %v\n%s", err, output)
+	}
+	return strings.TrimSpace(string(output))
+}
