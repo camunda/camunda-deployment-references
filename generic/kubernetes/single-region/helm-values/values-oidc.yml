@@ -54,14 +54,16 @@ global:
             identity:
                 clientId: ${IDENTITY_CLIENT_ID}
                 audience: ${IDENTITY_CLIENT_ID}
-                existingSecret: identity-secret-for-components
-                existingSecretKey: identity-client-secret
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: identity-client-secret
 
             optimize:
                 clientId: ${OPTIMIZE_CLIENT_ID}
                 audience: ${OPTIMIZE_CLIENT_ID}
-                existingSecret: identity-secret-for-components
-                existingSecretKey: optimize-client-secret
+                secret:
+                    existingSecret: identity-secret-for-components
+                    existingSecretKey: optimize-client-secret
                 redirectUrl: https://${CAMUNDA_DOMAIN}/optimize/api/authentication/callback
 
             webModeler:
