@@ -32,31 +32,40 @@ esac
 archive="subctl-v${SUBCTL_VERSION}-${platform}.tar.gz"
 base_url="https://github.com/submariner-io/releases/releases/download/v${SUBCTL_VERSION}"
 
-# Wrapped in a function so the temporary directory is removed on every path out,
-# including a failed download. An EXIT trap would be wrong here: this file is
-# sourced, so it would fire only when the CALLER's shell exits and would replace
-# whatever trap the caller had set.
+# The download runs in a subshell so the temporary directory is removed on every
+# path out, including a failed curl, without a trap. Traps are the wrong tool in
+# a sourced file: an EXIT trap would fire only when the CALLER's shell exits and
+# would clobber the caller's own trap, and a RETURN trap also fires when this
+# file returns, when the local below is already out of scope, which aborts a
+# caller running under `set -u`.
 camunda::_fetch_subctl() {
-    local tmp_dir
+    local tmp_dir status=0
     tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "$tmp_dir"' RETURN
 
-    curl -fLsS "$base_url/$archive" -o "$tmp_dir/$archive"
-    curl -fLsS "$base_url/subctl-checksums.txt" -o "$tmp_dir/subctl-checksums.txt"
-    local expected_sha actual_sha
-    expected_sha="$(grep " $archive$" "$tmp_dir/subctl-checksums.txt" | cut -d' ' -f1)"
-    if command -v sha256sum >/dev/null 2>&1; then
-        actual_sha="$(sha256sum "$tmp_dir/$archive" | cut -d' ' -f1)"
-    else
-        actual_sha="$(shasum -a 256 "$tmp_dir/$archive" | cut -d' ' -f1)"
-    fi
-    if [ -z "$expected_sha" ] || [ "$actual_sha" != "$expected_sha" ]; then
-        echo "ERROR: checksum verification failed for $archive." >&2
-        return 1
-    fi
-    tar -xzf "$tmp_dir/$archive" -C "$tmp_dir"
-    mkdir -p "$HOME/.local/bin"
-    install -m 0755 "$tmp_dir/subctl-v${SUBCTL_VERSION}/subctl" "$HOME/.local/bin/subctl"
+    (
+        set -euo pipefail
+
+        curl -fLsS "$base_url/$archive" -o "$tmp_dir/$archive"
+        curl -fLsS "$base_url/subctl-checksums.txt" -o "$tmp_dir/subctl-checksums.txt"
+
+        expected_sha="$(grep " $archive$" "$tmp_dir/subctl-checksums.txt" | cut -d' ' -f1)"
+        if command -v sha256sum >/dev/null 2>&1; then
+            actual_sha="$(sha256sum "$tmp_dir/$archive" | cut -d' ' -f1)"
+        else
+            actual_sha="$(shasum -a 256 "$tmp_dir/$archive" | cut -d' ' -f1)"
+        fi
+        if [ -z "$expected_sha" ] || [ "$actual_sha" != "$expected_sha" ]; then
+            echo "ERROR: checksum verification failed for $archive." >&2
+            exit 1
+        fi
+
+        tar -xzf "$tmp_dir/$archive" -C "$tmp_dir"
+        mkdir -p "$HOME/.local/bin"
+        install -m 0755 "$tmp_dir/subctl-v${SUBCTL_VERSION}/subctl" "$HOME/.local/bin/subctl"
+    ) || status=$?
+
+    rm -rf "$tmp_dir"
+    return "$status"
 }
 
 camunda::_fetch_subctl
