@@ -266,4 +266,4 @@ repos:
             # string-typed clusterSize/partitionCount/replicationFactor into
             # integers and fails the chart JSON schema validation.
             # yamllint disable-line rule:line-length
-            exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.*\.yml|local/kubernetes/kind-single-region/configs/elasticsearch-cluster.yml|aws/kubernetes/eks-multi-region-rdbms/helm-values/camunda-values.yml)
+            exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.*\.yml|local/kubernetes/kind-single-region/configs/elasticsearch-cluster.yml|aws/kubernetes/eks-multi-region-rdbms/helm-values/camunda-values.yml|aws/kubernetes/eks-multi-region-rdbms/procedure/manifests/load-generator\.job\.yml)
