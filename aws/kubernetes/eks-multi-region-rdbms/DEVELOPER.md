@@ -197,6 +197,43 @@ Point it at a slot other than the one you are about to lose. Slot 0 hosts the
 Aurora writer, so it is the slot worth losing in a test and the worst place to
 run the generator, which is why `start` defaults away from it.
 
+### Why the community benchmark, and not the RT load tests
+
+Camunda has two load-testing stacks, and this reference uses the community one
+([`camunda-8-benchmark`](https://github.com/camunda-community-hub/camunda-8-benchmark))
+on purpose.
+
+The reliability-testing stack is not usable from here, for two independent
+reasons. Its images live in `gcr.io/zeebe-io` and are not publicly pullable, so
+anyone copying this reference would get `ImagePullBackOff`. And the
+[load test chart](https://github.com/camunda/camunda-load-tests-helm) has no
+basic-auth path: its SaaS branch uses OIDC and its self-managed branch sets no
+authentication at all, while this reference runs
+`global.security.authentication.method: basic` with no default credentials.
+`load-tests/setup` in the monorepo is further still: it provisions Camunda
+itself onto Camunda's own GKE benchmark cluster, reached through Teleport.
+
+Using the community benchmark also gets something back: it is what customers
+run, so exercising it here is coverage of the path they are on.
+
+If you are inside Camunda and want the RT chart against this cluster anyway,
+you need image pull access plus overrides the chart does not set itself:
+
+```bash
+helm install load camunda-load-tests/camunda-load-tests \
+  --set global.connect.serviceName="$CAMUNDA_RELEASE_NAME-zeebe-gateway" \
+  --set-json 'global.extraEnvVars=[
+    {"name":"CAMUNDA_CLIENT_MODE","value":"self-managed"},
+    {"name":"CAMUNDA_CLIENT_AUTH_METHOD","value":"basic"},
+    {"name":"CAMUNDA_CLIENT_AUTH_USERNAME","valueFrom":{"secretKeyRef":{"name":"camunda-load-generator-auth","key":"username"}}},
+    {"name":"CAMUNDA_CLIENT_AUTH_PASSWORD","valueFrom":{"secretKeyRef":{"name":"camunda-load-generator-auth","key":"password"}}}
+  ]'
+```
+
+The two stacks are tracked for consolidation in
+[camunda/camunda#51191](https://github.com/camunda/camunda/issues/51191); revisit
+this choice when that lands.
+
 ## Tearing down
 
 ```bash
