@@ -83,7 +83,7 @@ env:
     # Vars with "TEST_" prefix are used in the test runner tool (Task).
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
     # renovate: datasource=github-tags depName=camunda/camunda-platform-helm
-    TESTS_CAMUNDA_HELM_CHART_REPO_REF: camunda-platform-8.7-12.13.3   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
+    TESTS_CAMUNDA_HELM_CHART_REPO_REF: camunda-platform-8.7-12.13.5   # git reference used to clone the camunda/camunda-platform-helm repository to perform the tests
     TESTS_CAMUNDA_HELM_CHART_REPO_PATH: ./.camunda_helm_repo   # where to clone it
 
     # Optional components that are not enabled by default in the doc
@@ -149,7 +149,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
 
             - name: Import Secrets
               id: secrets
@@ -176,7 +176,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -248,7 +248,7 @@ jobs:
               if: failure() && steps.create_cluster.outcome == 'failure'
               continue-on-error: true
               timeout-minutes: 10
-              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -432,7 +432,7 @@ jobs:
             - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
 
             - name: Import Secrets
               id: secrets
@@ -490,7 +490,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -843,7 +843,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
 
             - name: Import Secrets
               id: secrets
@@ -860,7 +860,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
 
             - name: Azure Login with OIDC
-              uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+              uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -931,7 +931,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

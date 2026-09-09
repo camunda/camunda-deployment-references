@@ -26,7 +26,7 @@ matrix:
           # The annotation has to stay on the line directly above `version`, or it extracts
           # nothing and the dependency silently stops being updated.
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-          version: 4.22.5
+          version: 4.22.12
           # /!\ Warning: When a new minor version of OpenShift is released,
           # you must update the N-3 versions in this matrix.
           # rationale: Red Hat supports the last four minor versions of OpenShift.
