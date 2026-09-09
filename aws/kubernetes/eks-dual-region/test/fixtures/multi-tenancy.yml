@@ -1,21 +1,16 @@
 ---
+# The chart renders `camunda.multiTenancy.checksEnabled` into the orchestration
+# ConfigMap from these values (templates/orchestration/files/_application.yaml).
+# Setting them here rather than through `extraConfiguration` keeps the chart's
+# own rendering from overriding the intent with its default of false.
+#
+# Scoped to `orchestration` on purpose: `global.multitenancy.enabled` also
+# turns on Identity multi-tenancy, which the chart refuses unless Identity runs
+# against an external database. The dual-region suite only needs the
+# orchestration-side checks.
 orchestration:
-    extraConfiguration:
-        - file: orchestration-multitenancy.yaml
-          content: |
-              camunda:
-                security:
-                  multiTenancy:
-                    checksEnabled: true
-                    apiEnabled: true
-                operate:
-                  multiTenancy:
-                    enabled: true
-                tasklist:
-                  multiTenancy:
-                    enabled: true
-              zeebe:
-                broker:
-                  gateway:
-                    multitenancy:
-                      enabled: true
+    multitenancy:
+        checks:
+            enabled: true
+        api:
+            enabled: true

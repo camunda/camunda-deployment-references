@@ -92,6 +92,10 @@ resource "aws_rds_cluster" "primary" {
 
   lifecycle {
     prevent_destroy = false
+    # Same guard as aws_rds_cluster.secondary below: a managed failover stamps
+    # ReplicationSourceIdentifier on whichever member it demoted, and clearing
+    # it is the provider's PromoteReadReplicaDBCluster path.
+    ignore_changes = [replication_source_identifier]
   }
 }
 

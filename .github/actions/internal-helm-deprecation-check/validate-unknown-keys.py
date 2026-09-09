@@ -25,6 +25,27 @@ import re
 import sys
 
 
+# Keys the chart honours at runtime but forgot to declare in values.schema.json.
+# Reporting them is a false positive: dropping them from our values would
+# silently change the deployment. Each entry needs a reason and must be removed
+# once the schema catches up.
+#
+# - orchestration.security.initialization.defaultRoles.admin.clients
+#   The chart renders the whole `defaultRoles` map verbatim
+#   (`.Values.orchestration.security.initialization.defaultRoles | toYaml`), and
+#   the sibling `defaultRoles.connectors.clients` *is* declared, so `clients`
+#   works for every role. Only the `admin` branch is missing from the schema.
+#   Declared upstream by camunda/camunda-platform-helm#6560, merged one day after
+#   15.0.0-alpha4 was cut, so no published 8.10 chart carries it yet.
+#   TODO: [release-duty] drop this entry once the chart pin reaches an 8.10 chart
+#   that declares the key (15.0.0-alpha5 or later).
+SCHEMA_GAPS = frozenset(
+    {
+        "orchestration.security.initialization.defaultRoles.admin.clients",
+    }
+)
+
+
 def make_schema_strict(schema):
     """
     Recursively add additionalProperties: false to object schemas that enumerate
@@ -195,6 +216,18 @@ def main():
 
     strict_schema = make_schema_strict(schema)
     unknown_keys = find_unknown_keys(strict_schema, values)
+
+    ignored = sorted(k for k in unknown_keys if k in SCHEMA_GAPS)
+    unknown_keys = [k for k in unknown_keys if k not in SCHEMA_GAPS]
+
+    if ignored:
+        print(
+            f"Ignoring {len(ignored)} key(s) known to be missing from the chart "
+            "schema but honoured at runtime:\n"
+        )
+        for key_path in ignored:
+            print(f"  - {key_path}")
+        print("")
 
     if unknown_keys:
         print(f"Found {len(unknown_keys)} unknown key(s) in deployed values:\n")
