@@ -10,6 +10,11 @@ set -euo pipefail
 # where the message can.
 assert_no_duplicate_extra_configuration() {
     local values_file=$1 duplicates
+    if ! command -v yq >/dev/null 2>&1; then
+        echo "ERROR: yq is required to check $values_file for duplicate extraConfiguration entries." >&2
+        echo "       Install it (see .tool-versions) or run 'just install-tooling'." >&2
+        return 1
+    fi
     duplicates=$(yq -r \
         '[.. | select(kind == "map" and has("extraConfiguration")) | .extraConfiguration | .[].file] | .[]' \
         "$values_file" | sort | uniq -d)
