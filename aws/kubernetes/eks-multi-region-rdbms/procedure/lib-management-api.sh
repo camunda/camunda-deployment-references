@@ -204,6 +204,17 @@ camunda::management() {
         "$method" "$path" "$body"
 }
 
+# camunda::_basic_auth
+#
+# Emits the gateway basic-auth pair, refusing to invent one. The chart's
+# demo/demo admin login caused INC-5340, so an unset credential stops the
+# procedure here instead of reaching the gateway with a guess.
+camunda::_basic_auth() {
+    : "${CAMUNDA_BASIC_AUTH_USER:?CAMUNDA_BASIC_AUTH_USER must be set, source export_environment_prerequisites.sh (INC-5340)}"
+    : "${CAMUNDA_BASIC_AUTH_PASSWORD:?CAMUNDA_BASIC_AUTH_PASSWORD must be set, source export_environment_prerequisites.sh (INC-5340)}"
+    printf '%s:%s' "$CAMUNDA_BASIC_AUTH_USER" "$CAMUNDA_BASIC_AUTH_PASSWORD"
+}
+
 # camunda::gateway_get <context> <path>
 #
 # Orchestration Cluster REST API, port 8080, basic authentication. Used to read
@@ -212,7 +223,7 @@ camunda::management() {
 camunda::gateway_get() {
     local context="$1" path="$2"
     camunda::_request "$context" "$GATEWAY_LOCAL_PORT" 8080 \
-        "${CAMUNDA_BASIC_AUTH_USER:-demo}:${CAMUNDA_BASIC_AUTH_PASSWORD:-demo}" \
+        "$(camunda::_basic_auth)" \
         GET "$path"
 }
 
@@ -220,7 +231,7 @@ camunda::gateway_get() {
 camunda::gateway_post() {
     local context="$1" path="$2" body="${3:-}"
     camunda::_request "$context" "$GATEWAY_LOCAL_PORT" 8080 \
-        "${CAMUNDA_BASIC_AUTH_USER:-demo}:${CAMUNDA_BASIC_AUTH_PASSWORD:-demo}" \
+        "$(camunda::_basic_auth)" \
         POST "$path" "$body"
 }
 
@@ -228,7 +239,7 @@ camunda::gateway_post() {
 camunda::gateway_upload() {
     local context="$1" path="$2" file="$3"
     camunda::_request "$context" "$GATEWAY_LOCAL_PORT" 8080 \
-        "${CAMUNDA_BASIC_AUTH_USER:-demo}:${CAMUNDA_BASIC_AUTH_PASSWORD:-demo}" \
+        "$(camunda::_basic_auth)" \
         POST "$path" "" "$file"
 }
 

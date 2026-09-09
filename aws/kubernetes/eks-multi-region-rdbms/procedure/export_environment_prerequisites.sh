@@ -105,6 +105,19 @@ export CAMUNDA_RDBMS_PASSWORD="${CAMUNDA_RDBMS_PASSWORD:-}"
 export AURORA_GLOBAL_CLUSTER_ID="${AURORA_GLOBAL_CLUSTER_ID:-}"
 
 ###############################################################################
+# Orchestration Cluster credentials                                           #
+###############################################################################
+
+# Basic-auth user the procedures authenticate the v2 API with. It has to match a
+# user the chart provisions.
+#
+# There is deliberately no default. The chart's demo/demo admin login is what
+# caused INC-5340 on publicly reachable deployments, so an unset value has to
+# stop the procedure rather than silently reach for it.
+export CAMUNDA_BASIC_AUTH_USER="${CAMUNDA_BASIC_AUTH_USER:-}"
+export CAMUNDA_BASIC_AUTH_PASSWORD="${CAMUNDA_BASIC_AUTH_PASSWORD:-}"
+
+###############################################################################
 # Consistency checks                                                          #
 ###############################################################################
 
