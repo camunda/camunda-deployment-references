@@ -743,7 +743,7 @@ func disableElasticExportersToSecondary(t *testing.T) {
 		if err != nil {
 			t.Logf("[FAILOVER] exporters status request failed (attempt %d/20), retrying: %v", i+1, err)
 		} else {
-			t.Log("[FAILOVER] Exporter not yet disabled, retrying...")
+			t.Logf("[FAILOVER] Exporter not yet disabled, retrying... (status=%d body=%s)", status, lastBody)
 		}
 		if kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6) == 0 {
 			kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
@@ -782,7 +782,7 @@ func enableElasticExportersToSecondary(t *testing.T) {
 		if err != nil {
 			t.Logf("[FAILBACK] exporters status request failed (attempt %d/60), retrying: %v", i+1, err)
 		} else {
-			t.Log("[FAILBACK] Exporter not yet enabled, retrying...")
+			t.Logf("[FAILBACK] Exporter not yet enabled, retrying... (status=%d body=%s)", status, lastBody)
 		}
 		if kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6) == 0 {
 			kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
