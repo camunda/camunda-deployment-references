@@ -7,13 +7,13 @@
 #   * the VPC route table entries pointing remote CIDRs at the local TGW      #
 #                                                                             #
 # Cross-region wiring (TGW <-> TGW peering) is handled by the companion       #
-# module `transit-gateway-peering`, which needs two provider aliases and is    #
-# therefore kept separate. Splitting the two lets a caller scale the mesh by   #
-# instantiating N hubs and N*(N-1)/2 peerings instead of duplicating a         #
+# module `transit-gateway-peering`. Splitting the two lets a caller scale the  #
+# mesh by instantiating N hubs and N*(N-1)/2 peerings instead of duplicating a #
 # hardcoded two-region module.                                                #
 ###############################################################################
 
 resource "aws_ec2_transit_gateway" "this" {
+  region      = var.region
   description = "Transit Gateway for ${var.name}"
 
   # Peering attachments are associated with the default route table but never
@@ -29,6 +29,7 @@ resource "aws_ec2_transit_gateway" "this" {
 }
 
 resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
+  region             = var.region
   transit_gateway_id = aws_ec2_transit_gateway.this.id
   vpc_id             = var.vpc_id
   subnet_ids         = var.subnet_ids
@@ -71,6 +72,7 @@ locals {
 resource "aws_route" "remote" {
   for_each = local.vpc_routes
 
+  region                 = var.region
   route_table_id         = var.vpc_route_table_ids[each.value.route_table_index]
   destination_cidr_block = each.value.cidr_block
   transit_gateway_id     = aws_ec2_transit_gateway.this.id

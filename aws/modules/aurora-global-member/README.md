@@ -35,6 +35,7 @@ No modules.
 | <a name="input_master_username"></a> [master\_username](#input\_master\_username) | Master username. Only honoured on the primary member. | `string` | `null` | no |
 | <a name="input_num_instances"></a> [num\_instances](#input\_num\_instances) | Number of Aurora instances in this region. Use at least 2 in production for intra-region failover. | `number` | `1` | no |
 | <a name="input_port"></a> [port](#input\_port) | Database port | `number` | `5432` | no |
+| <a name="input_region"></a> [region](#input\_region) | AWS region where this Aurora Global Database member is created | `string` | n/a | yes |
 | <a name="input_skip_final_snapshot"></a> [skip\_final\_snapshot](#input\_skip\_final\_snapshot) | Whether the final snapshot is skipped on destroy. Kept true for the reference architecture, which is disposable. | `bool` | `true` | no |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | Subnet IDs used for the Aurora DB subnet group | `list(string)` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags applied to every resource created by this module | `map(string)` | `{}` | no |

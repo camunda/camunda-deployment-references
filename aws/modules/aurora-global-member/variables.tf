@@ -1,3 +1,8 @@
+variable "region" {
+  description = "AWS region where this Aurora Global Database member is created"
+  type        = string
+}
+
 variable "cluster_identifier" {
   description = "Identifier of the regional Aurora cluster. Lowercase letters, digits and hyphens, starting with a letter and not ending with one."
   type        = string

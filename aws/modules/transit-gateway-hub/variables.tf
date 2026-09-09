@@ -1,3 +1,8 @@
+variable "region" {
+  description = "AWS region where the Transit Gateway and its routes are created"
+  type        = string
+}
+
 variable "name" {
   description = "Name prefix for the Transit Gateway and its attachment, typically `<cluster_name>-<region_short_name>`"
   type        = string

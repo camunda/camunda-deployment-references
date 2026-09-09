@@ -3,6 +3,16 @@ variable "name" {
   type        = string
 }
 
+variable "owner_region" {
+  description = "AWS region containing the Transit Gateway that initiates the peering request"
+  type        = string
+}
+
+variable "accepter_region" {
+  description = "AWS region containing the Transit Gateway that accepts the peering request"
+  type        = string
+}
+
 variable "owner_transit_gateway_id" {
   description = "ID of the Transit Gateway initiating the peering request"
   type        = string

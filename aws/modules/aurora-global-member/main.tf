@@ -2,9 +2,8 @@
 # One regional member of an Aurora Global Database                            #
 #                                                                             #
 # This module deliberately owns a SINGLE region so that an N-region topology   #
-# can be built by instantiating it once per region with the matching provider  #
-# alias. The `aws_rds_global_cluster` resource itself stays in the caller,     #
-# because it is a global (region-less) object that must exist exactly once.    #
+# can be built by instantiating it once per region. The global cluster itself  #
+# stays in the caller because it must exist exactly once.                      #
 #                                                                             #
 # Compared to `aws/modules/aurora-global` (hardcoded primary + one secondary), #
 # this module is the building block used by the multi-region reference         #
@@ -12,6 +11,7 @@
 ###############################################################################
 
 resource "aws_kms_key" "this" {
+  region                  = var.region
   description             = "${var.cluster_identifier}-key"
   deletion_window_in_days = 7
   enable_key_rotation     = true
@@ -38,6 +38,7 @@ resource "aws_kms_key" "this" {
 ###############################################################################
 
 resource "aws_db_subnet_group" "this" {
+  region      = var.region
   name        = "${var.cluster_identifier}-${trimprefix(var.vpc_id, "vpc-")}"
   description = "Subnet group for Aurora cluster ${var.cluster_identifier}"
   subnet_ids  = var.subnet_ids
@@ -46,6 +47,7 @@ resource "aws_db_subnet_group" "this" {
 }
 
 resource "aws_security_group" "this" {
+  region      = var.region
   name        = "${var.cluster_identifier}-aurora"
   description = "Security group for Aurora cluster ${var.cluster_identifier}"
   vpc_id      = var.vpc_id
@@ -80,6 +82,7 @@ resource "aws_security_group" "this" {
 ###############################################################################
 
 resource "aws_rds_cluster" "this" {
+  region                    = var.region
   cluster_identifier        = var.cluster_identifier
   global_cluster_identifier = var.global_cluster_identifier
   engine                    = var.engine
@@ -142,6 +145,7 @@ resource "aws_rds_cluster" "this" {
 resource "aws_rds_cluster_instance" "this" {
   count = var.num_instances
 
+  region                     = var.region
   cluster_identifier         = aws_rds_cluster.this.id
   identifier                 = "${var.cluster_identifier}-${count.index}"
   engine                     = var.engine
