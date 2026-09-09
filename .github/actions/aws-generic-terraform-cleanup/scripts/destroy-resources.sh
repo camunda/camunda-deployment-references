@@ -457,12 +457,18 @@ destroy_module() {
         cp "$SCRIPT_DIR/matching-vpc.yml" "$nuke_config"
         local safe_id
         safe_id=$(printf '%s' "$group_id" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
-        NAME_REGEX="^${safe_id}.*" yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX)]' -i "$nuke_config"
+        NAME_REGEX="^${safe_id}.*" yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX)] | .EKSCluster.include.names_regex = [strenv(NAME_REGEX)]' -i "$nuke_config"
         for region in $CLEANUP_REGIONS; do
           vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
                       --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
-          [[ -n "$vpc_check" && "$vpc_check" != "None" ]] && \
+          if [[ -n "$vpc_check" && "$vpc_check" != "None" ]]; then
+            # EKS first, VPC second. A run that dies mid-apply leaves clusters
+            # whose node groups never reached the state: terraform destroy then
+            # fails with "Cluster has nodegroups attached" while the cluster's
+            # ENIs keep the VPC alive, so nuking VPCs alone loops on that pair.
+            cloud-nuke aws --config "$nuke_config" --resource-type eks-cluster --region "$region" --force
             cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$region" --force
+          fi
         done
       fi
     elif [[ "$module_name" == "clusters" ]]; then
@@ -755,6 +761,26 @@ destroy_selftest() {
       failures=$((failures + 1))
     fi
   done
+
+  # cloud-nuke deletes whatever its config matches. An EKS entry left unscoped
+  # would take every cluster in the CI account, not just this group's, so the
+  # scoping is asserted rather than assumed.
+  if command -v yq >/dev/null 2>&1; then
+    local scoped_config scoped_vpc scoped_eks
+    scoped_config="$(mktemp)"
+    cp "$SCRIPT_DIR/matching-vpc.yml" "$scoped_config"
+    NAME_REGEX='^example-group.*' yq eval \
+      '.VPC.include.names_regex = [strenv(NAME_REGEX)] | .EKSCluster.include.names_regex = [strenv(NAME_REGEX)]' \
+      -i "$scoped_config"
+    scoped_vpc="$(yq eval '.VPC.include.names_regex[0]' "$scoped_config")"
+    scoped_eks="$(yq eval '.EKSCluster.include.names_regex[0]' "$scoped_config")"
+    rm -f "$scoped_config"
+
+    _expect "cloud-nuke VPC target is scoped to the group" "$scoped_vpc" '^example-group.*'
+    _expect "cloud-nuke EKS target is scoped to the group" "$scoped_eks" '^example-group.*'
+  else
+    echo "skip cloud-nuke scoping check: yq unavailable"
+  fi
 
   [[ "$failures" -eq 0 ]] || return 1
 }
