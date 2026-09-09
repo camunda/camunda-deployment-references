@@ -178,6 +178,25 @@ export CAMUNDA_ACTIVE_REGIONS=3
 ./failback.sh 1
 ```
 
+"Observe that nothing stops" is easier to believe with something running. The
+load generator starts process instances and completes their jobs at a fixed
+rate, from a Job inside one region's cluster, so it keeps writing while another
+region goes away:
+
+```bash
+./load-generator.sh start        # defaults to the last active slot
+./load-generator.sh status       # job, pod, and the last throughput lines
+
+# In another shell, watch the rate while the region goes
+kubectl --context "$CTX" -n "$CAMUNDA_NAMESPACE" logs -f job/camunda-load-generator
+
+./load-generator.sh stop
+```
+
+Point it at a slot other than the one you are about to lose. Slot 0 hosts the
+Aurora writer, so it is the slot worth losing in a test and the worst place to
+run the generator, which is why `start` defaults away from it.
+
 ## Tearing down
 
 ```bash

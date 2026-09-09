@@ -1,0 +1,109 @@
+---
+# Load generator for the multi-region reference: a camunda-8-benchmark Job that
+# starts process instances and completes their jobs at a steady rate.
+#
+# Rendered by procedure/load-generator.sh, which fills the ${...} placeholders
+# with envsubst. Do not apply this file directly.
+#
+# It runs inside one region's cluster rather than from a laptop, so the load
+# survives losing a different region: a port-forward from outside would have to
+# be re-established, and a generator pointed at the region under test would stop
+# exactly when the interesting part starts.
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: camunda-load-generator
+    namespace: ${CAMUNDA_NAMESPACE}
+    labels:
+        app: camunda-load-generator
+spec:
+    # The Job is meant to be ended by ./load-generator.sh stop, or by this
+    # deadline if the operator walks away. It is not expected to complete.
+    activeDeadlineSeconds: ${LOAD_DURATION_SECONDS}
+    backoffLimit: 0
+    ttlSecondsAfterFinished: 3600
+    template:
+        metadata:
+            labels:
+                app: camunda-load-generator
+        spec:
+            restartPolicy: Never
+            volumes:
+                - name: process
+                  configMap:
+                      name: camunda-load-generator-process
+            containers:
+                - name: benchmark
+                  image: ${LOAD_IMAGE}
+                  volumeMounts:
+                      - name: process
+                        mountPath: /process
+                        readOnly: true
+                  env:
+                      # The gateway of this region only. Zeebe routes internally,
+                      # so a request landing here still reaches the partition
+                      # leader wherever it lives.
+                      - name: CAMUNDA_CLIENT_MODE
+                        value: self-managed
+                      - name: CAMUNDA_CLIENT_ZEEBE_GRPC_ADDRESS
+                        value: http://${CAMUNDA_RELEASE_NAME}-zeebe-gateway:26500
+                      - name: CAMUNDA_CLIENT_ZEEBE_REST_ADDRESS
+                        value: http://${CAMUNDA_RELEASE_NAME}-zeebe-gateway:8080/rest
+                      - name: CAMUNDA_CLIENT_ZEEBE_PREFER_REST_OVER_GRPC
+                        value: 'false'
+
+                      # This reference deploys no Management Identity, so the
+                      # client authenticates the same way the procedures do.
+                      - name: CAMUNDA_CLIENT_AUTH_METHOD
+                        value: basic
+                      - name: CAMUNDA_CLIENT_AUTH_USERNAME
+                        valueFrom:
+                            secretKeyRef:
+                                name: camunda-load-generator-auth
+                                key: username
+                      - name: CAMUNDA_CLIENT_AUTH_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: camunda-load-generator-auth
+                                key: password
+
+                      - name: BENCHMARK_BPMN_RESOURCE
+                        value: file:/process/load-generator.bpmn
+                      - name: BENCHMARK_BPMN_PROCESS_ID
+                        value: multiRegionLoad
+                      - name: BENCHMARK_AUTO_DEPLOY_PROCESS
+                        value: 'true'
+                      - name: BENCHMARK_START_PROCESSES
+                        value: 'true'
+                      - name: BENCHMARK_START_PI_PER_SECOND
+                        value: '${LOAD_RATE}'
+
+                      # Workers complete what the starter creates. Without them
+                      # instances pile up as active work and the export rate
+                      # stops reflecting the start rate, which is the number
+                      # this generator exists to hold steady.
+                      - name: BENCHMARK_START_WORKERS
+                        value: 'true'
+                      - name: BENCHMARK_JOBTYPE
+                        value: multi-region-load
+                      - name: BENCHMARK_MULTIPLEJOBTYPES
+                        value: '3'
+                      - name: BENCHMARK_TASK_COMPLETION_DELAY
+                        value: '100'
+
+                      # A fixed rate, not an adaptive one. During a region loss
+                      # the cluster is briefly slower, and a strategy that
+                      # backs off would hide exactly the dip the demo is there
+                      # to show.
+                      - name: BENCHMARK_START_RATE_ADJUSTMENT_STRATEGY
+                        value: none
+                      - name: BENCHMARK_WARMUP_PHASE_DURATION_MILLIS
+                        value: '10000'
+                  resources:
+                      requests:
+                          cpu: 500m
+                          memory: 512Mi
+                      limits:
+                          cpu: '1'
+                          memory: 1Gi
