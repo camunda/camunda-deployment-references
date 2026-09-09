@@ -28,7 +28,7 @@ global:
 identity:
     fullURL: http://localhost:8085
 
-webModeler:
+camundaHub:
     restapi:
         env:
             - name: CAMUNDA_IDENTITY_BASE_URL

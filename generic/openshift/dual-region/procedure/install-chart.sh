@@ -1,6 +1,26 @@
 #!/bin/bash
 set -euo pipefail
 
+# The values overlays are layered with `yq '. *+ load(...)'`, which *appends*
+# arrays instead of replacing them. That append is wanted for `*.env` lists, but
+# it means two overlays that each add an `extraConfiguration` entry for the same
+# `file:` mount that file twice. Helm renders it happily; server-side apply then
+# rejects the Deployment with `volumeMounts: duplicate entries for key
+# [mountPath=...]`, which does not name the values file at fault. Fail here,
+# where the message can.
+assert_no_duplicate_extra_configuration() {
+    local values_file=$1 duplicates
+    duplicates=$(yq -r \
+        '[.. | select(kind == "map" and has("extraConfiguration")) | .extraConfiguration | .[].file] | .[]' \
+        "$values_file" | sort | uniq -d)
+    [[ -z "$duplicates" ]] && return 0
+
+    echo "ERROR: $values_file mounts the same extraConfiguration file more than once:" >&2
+    while IFS= read -r duplicate; do echo "  - $duplicate" >&2; done <<<"$duplicates"
+    echo "       Each file may be contributed by only one values overlay." >&2
+    return 1
+}
+
 # Warn that this deploys an unreleased, in-development chart (to stderr).
 # TODO: [release-duty] remove this pre-release warning at release.
 cat >&2 <<'PRERELEASE_WARNING'
@@ -61,6 +81,10 @@ for region_values in generated-values-region-0.yml generated-values-region-1.yml
   # shellcheck disable=SC2016
   envsubst '${BROKER_IMAGE}' <"$region_values" >"$region_values.tmp"
   mv "$region_values.tmp" "$region_values"
+done
+
+for region_values in generated-values-region-0.yml generated-values-region-1.yml; do
+  assert_no_duplicate_extra_configuration "$region_values"
 done
 
 helm upgrade --install \

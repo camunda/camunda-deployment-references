@@ -158,7 +158,7 @@ orchestration:
                         - ${CONNECTORS_CLIENT_ID}
 
 
-webModeler:
+camundaHub:
     restapi:
         env:
             - name: CAMUNDA_IDENTITY_BASE_URL

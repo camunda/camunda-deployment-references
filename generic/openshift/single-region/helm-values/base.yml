@@ -60,9 +60,9 @@ camundaHub:
         # from-address is intentionally NOT set here: when Camunda Hub is enabled this
         # deployment also merges operator-based/postgresql/camunda-hub-values.yml,
         # which supplies camunda.modeler.mail.from-address via
-        # camundaHub.restapi.extraConfiguration. Setting extraConfiguration here too
-        # would duplicate the webmodeler-mail.yaml volumeMount and break OpenShift
-        # server-side apply.
+        # camundaHub.restapi.extraConfiguration. Adding extraConfiguration here too
+        # would mount webmodeler-mail.yaml twice; install-chart.sh fails on that
+        # rather than letting server-side apply reject the Deployment.
         mail:
             secret:
                 existingSecret: webmodeler-secret
