@@ -24,10 +24,10 @@ delta 0.18.2
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
 eksctl 0.215.0
 
-golang 1.25.13
+golang 1.25.14
 
 # renovate: datasource=github-tags depName=fullstorydev/grpcurl
-grpcurl 1.9.3
+grpcurl 1.9.4
 
 # datasource=custom.helm-camunda depName=helm
 helm 3.19.5
@@ -39,7 +39,7 @@ just 1.43.1
 # renovate: datasource=github-tags depName=kubernetes-sigs/kind
 kind 0.30.0
 
-kubectl 1.35.7
+kubectl 1.35.8
 
 kustomize 5.7.1 # used by the tests
 
