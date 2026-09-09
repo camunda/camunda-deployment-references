@@ -31,7 +31,7 @@ data "aws_availability_zones" "region_1" {
 
 module "vpc_region_0" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "v6.6.1"
+  version = "v6.7.2"
 
   providers = { aws = aws.region_0 }
 
@@ -54,7 +54,7 @@ module "vpc_region_0" {
 
 module "vpc_region_1" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "v6.6.1"
+  version = "v6.7.2"
 
   providers = { aws = aws.region_1 }
 
