@@ -25,7 +25,7 @@ echo "Services available at:"
 echo "  - Zeebe gRPC API:    localhost:26500"
 echo "  - Zeebe REST API:    localhost:8080   (Operate, Tasklist, Admin)"
 if kubectl get svc camunda-optimize -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
-echo "  - Optimize:          localhost:8083"
+    echo "  - Optimize:          localhost:8083"
 fi
 echo "  - Camunda Hub:       localhost:8070"
 echo "  - Connectors:        localhost:8088"

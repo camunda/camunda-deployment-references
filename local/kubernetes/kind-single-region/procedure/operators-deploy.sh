@@ -12,6 +12,8 @@ set -euo pipefail
 # Environment variables:
 #   SECONDARY_STORAGE  - Required: "elasticsearch" or "postgres"
 #   CAMUNDA_MODE       - "domain" (TLS) or "no-domain" (port-forward), default: no-domain
+#   CLUSTER_FILTER     - Comma-separated CNPG clusters to deploy; defaults to the
+#                        application clusters, plus pg-camunda in RDBMS mode
 
 # Validate SECONDARY_STORAGE is set (must be first check)
 if [[ -z "${SECONDARY_STORAGE:-}" ]]; then
