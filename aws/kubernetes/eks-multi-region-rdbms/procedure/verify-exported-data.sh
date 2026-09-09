@@ -62,6 +62,16 @@ probe::search_keys() {
     jq -r '.items[]?.processInstanceKey // empty' "$OUTPUT_FILE" 2>/dev/null || true
 }
 
+probe::missing_keys() {
+    local visible="$1"
+    shift
+
+    local key
+    for key in "$@"; do
+        grep -qx "$key" <<<"$visible" || printf '%s\n' "$key"
+    done
+}
+
 probe::record() {
     local context
     read -r -a contexts <<<"$CLUSTER_CONTEXTS"
@@ -155,34 +165,24 @@ probe::verify() {
     # then compare, otherwise this reports data loss for a database that was
     # still coming up.
     local deadline=$((SECONDS + PROBE_EXPORT_TIMEOUT_SECONDS))
-    local visible=""
+    local visible="" missing=""
     while true; do
         visible="$(probe::search_keys "$context" || true)"
-        [ -n "$visible" ] && break
+        missing="$(probe::missing_keys "$visible" "${expected[@]}")"
+        [ -z "$missing" ] && break
 
         if [ "$SECONDS" -ge "$deadline" ]; then
-            echo "ERROR: secondary storage returned no probe instance at all within ${PROBE_EXPORT_TIMEOUT_SECONDS}s (last status: ${CAMUNDA_LAST_STATUS:-unknown})." >&2
+            missing_count="$(wc -l <<<"$missing" | tr -d ' ')"
+            echo "ERROR: $missing_count of ${#expected[@]} exported process instance(s) are still missing after ${PROBE_EXPORT_TIMEOUT_SECONDS}s." >&2
+            echo "       Missing keys: $(tr '\n' ' ' <<<"$missing")" >&2
+            echo "       The writer promotion lost exported data or replay did not finish." >&2
             exit 1
         fi
 
-        echo "    no rows yet, waiting ..."
+        missing_count="$(wc -l <<<"$missing" | tr -d ' ')"
+        echo "    $missing_count/${#expected[@]} still missing, waiting ..."
         sleep 10
     done
-
-    local missing=()
-    local key
-    for key in "${expected[@]}"; do
-        grep -qx "$key" <<<"$visible" || missing+=("$key")
-    done
-
-    if [ "${#missing[@]}" -gt 0 ]; then
-        echo "ERROR: ${#missing[@]} of ${#expected[@]} exported process instance(s) are gone from secondary storage." >&2
-        echo "       Missing keys: ${missing[*]}" >&2
-        echo "       The writer promotion lost exported data. Check that" >&2
-        echo "       camunda.data.secondary-storage.rdbms.async-replication is enabled and that the" >&2
-        echo "       broker volume held the retained log segments needed to replay." >&2
-        exit 1
-    fi
 
     echo
     echo "All ${#expected[@]} exported process instance(s) survived the writer promotion."
