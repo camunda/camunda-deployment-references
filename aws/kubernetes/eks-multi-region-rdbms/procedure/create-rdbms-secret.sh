@@ -18,8 +18,8 @@ read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     context="${contexts[$i]}"
     echo "Creating secret camunda-rdbms-secret in $context/$CAMUNDA_NAMESPACE"
-    kubectl --context "$context" create secret generic camunda-rdbms-secret \
+    printf '%s' "$CAMUNDA_RDBMS_PASSWORD" | kubectl --context "$context" create secret generic camunda-rdbms-secret \
         --namespace "$CAMUNDA_NAMESPACE" \
-        --from-literal=password="$CAMUNDA_RDBMS_PASSWORD" \
+        --from-file=password=/dev/stdin \
         --dry-run=client -o yaml | kubectl --context "$context" apply -f -
 done
