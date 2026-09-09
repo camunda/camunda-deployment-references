@@ -9,9 +9,8 @@
 #                                                                              #
 # Aurora Global Database is the implementation exercised here, but any backend  #
 # exposing a single writer endpoint that survives a region loss works the same  #
-# way (Patroni + a floating endpoint, CockroachDB, AlloyDB, a managed proxy...). #
-# Set `deploy_database = false` and feed `CAMUNDA_RDBMS_URL` yourself to use     #
-# one.                                                                          #
+# way. Set `deploy_database = false` and feed `CAMUNDA_RDBMS_URL` yourself to    #
+# use one.                                                                      #
 #                                                                              #
 # Note that the database regions are deliberately decoupled from the compute    #
 # regions: `database_region_slots` selects which region slots host a database   #
