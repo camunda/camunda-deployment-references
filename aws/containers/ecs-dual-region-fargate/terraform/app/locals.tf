@@ -94,11 +94,9 @@ locals {
   # re-applying the infrastructure state. The infra layer supplies only the
   # engine-derived components.
   #
-  # Precedence: var.rdbms_jdbc_url (full override) > components from infra.
-  # Connection parameters are tuned through the infra layer's
-  # db_extra_url_parameters, which the module validates and renders into
-  # aurora_jdbc_extra_url_parameters; a full override is taken verbatim so the
-  # caller keeps complete control.
+  # Precedence: var.rdbms_jdbc_url (full override) > var.rdbms_extra_jdbc_params
+  # > the parameters and components the infra layer supplies. A full override is
+  # taken verbatim, so the caller keeps complete control.
   #
   # Every component is required, TLS included: defaulting the SSL parameter to ""
   # would let a missing output silently drop the TLS pinning the module exists to
@@ -118,6 +116,22 @@ locals {
     for v in local.rdbms_jdbc_required_components : v != null && tostring(v) != ""
   ])
 
+  # The app layer's parameters merge *over* the infra layer's rather than being
+  # concatenated after them: two rendered fragments can carry the same key
+  # twice, and which occurrence a driver honours is driver-specific. try({})
+  # covers an infra state older than the map output — the URL then falls back to
+  # the driver's own defaults for these, a tuning loss rather than a correctness
+  # one, which is why they are not among the required components above.
+  rdbms_jdbc_url_parameters = merge(
+    try(local.infra.aurora_jdbc_url_parameters, {}),
+    var.rdbms_extra_jdbc_params,
+  )
+
+  # Map iteration is key-sorted, so the fragment is stable across plans.
+  rdbms_jdbc_url_parameters_rendered = join("", [
+    for k, v in local.rdbms_jdbc_url_parameters : "&${k}=${v}"
+  ])
+
   rdbms_jdbc_url_composed = local.rdbms_jdbc_components_available ? join("", [
     "jdbc:aws-wrapper:",
     local.infra.aurora_jdbc_subprotocol,
@@ -132,10 +146,11 @@ locals {
     "&globalClusterInstanceHostPatterns=",
     local.infra.aurora_jdbc_instance_host_patterns,
     local.infra.aurora_jdbc_ssl_param,
-    # Caller parameters come last, rendered and validated by the Aurora module
-    # (keys/values cannot contain '&' or '=', so none can append a parameter of
-    # its own or shadow the module-owned ones above).
-    try(local.infra.aurora_jdbc_extra_url_parameters, ""),
+    # Query parameters come last, after the module-owned ones above. Both maps
+    # are validated the same way — no '&' or '=' in keys or values, and the
+    # parameters composed above are reserved — so no entry can append a
+    # parameter of its own or shadow one of them.
+    local.rdbms_jdbc_url_parameters_rendered,
   ]) : null
 
   rdbms_jdbc_url = var.rdbms_jdbc_url != null ? var.rdbms_jdbc_url : local.rdbms_jdbc_url_composed

@@ -24,10 +24,8 @@ Cluster configuration: `cluster_size=8`, `replication_factor=4`, `partition_coun
 | `postgresql` (default) | `aurora-postgresql` | 5432 |
 | `mysql` | `aurora-mysql` | 3306 |
 
-**This reference architecture is built and validated on PostgreSQL.** `db_engine = "mysql"` exists so the underlying `aurora-global` module can *provision* an Aurora Global MySQL cluster — useful for evaluating Aurora MySQL — but running Camunda on MySQL is not covered here.
-
 > [!NOTE]
-> Camunda supports MySQL 8.4 as a secondary-storage engine, but the MySQL JDBC driver is never shipped inside the Camunda container image: licensing prevents bundling it, so it must always be supplied at runtime. That is a property of the Camunda distribution, not of this Terraform code, and this reference architecture does not provide it. Consult [JDBC driver management](https://docs.camunda.io/docs/next/self-managed/deployment/helm/configure/database/rdbms-jdbc-drivers/) and the [RDBMS support policy](https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/rdbms-support-policy/) for the authoritative guidance on supported engines, versions, managed services, and driver provisioning.
+> Running Camunda against `db_engine = "mysql"` requires a custom Camunda image carrying the MySQL JDBC driver — the published image does not include it. See [user-supplied drivers](https://docs.camunda.io/docs/self-managed/deployment/manual/rdbms/configuration/#user-supplied-drivers-oracle-mysql).
 
 ## Prerequisites
 

@@ -52,7 +52,7 @@ variable "secondary_storage_type" {
 variable "db_engine" {
   type        = string
   default     = "postgresql"
-  description = "Aurora RDBMS engine for secondary storage: 'postgresql' or 'mysql'. Only applies when secondary_storage_type = 'rdbms' (inert otherwise). This reference architecture is validated on PostgreSQL; 'mysql' provisions an Aurora Global MySQL cluster for evaluation but running Camunda on MySQL is not covered here — the MySQL JDBC driver is never bundled in the Camunda image (licensing) and must be supplied at runtime, see https://docs.camunda.io/docs/next/self-managed/deployment/helm/configure/database/rdbms-jdbc-drivers/."
+  description = "Aurora RDBMS engine for secondary storage: 'postgresql' or 'mysql'. Only applies when secondary_storage_type = 'rdbms' (inert otherwise). Running Camunda against 'mysql' requires a custom Camunda image carrying the MySQL JDBC driver, which the published image does not include: https://docs.camunda.io/docs/self-managed/deployment/manual/rdbms/configuration/#user-supplied-drivers-oracle-mysql"
 
   validation {
     condition     = contains(["postgresql", "mysql"], var.db_engine)
@@ -100,7 +100,7 @@ variable "ports" {
     zeebe_gateway_network_port            = 26500
     zeebe_broker_network_command_api_port = 26501
   }
-  description = "The ports to open for the security groups within the VPC"
+  description = "The ports to open for the security groups within the VPC. The Aurora port is deliberately absent: it follows db_engine (5432 PostgreSQL / 3306 MySQL) and is opened by dedicated rules in security.tf, so it cannot fall out of sync with the engine."
 }
 
 ################################################################

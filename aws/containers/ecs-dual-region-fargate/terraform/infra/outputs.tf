@@ -270,9 +270,9 @@ output "aurora_jdbc_instance_host_patterns" {
   description = "Value for the AWS Advanced JDBC Wrapper 'globalClusterInstanceHostPatterns' property (primary,secondary)."
 }
 
-output "aurora_jdbc_extra_url_parameters" {
-  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_extra_url_parameters : null
-  description = "Extra JDBC query parameters rendered as an '&'-prefixed, key-sorted fragment (the reference architecture's failoverTimeoutMs plus any db_extra_url_parameters). Appended last by the app layer."
+output "aurora_jdbc_url_parameters" {
+  value       = var.secondary_storage_type == "rdbms" ? local.db_url_parameters : null
+  description = "JDBC query parameters this reference architecture sets (failoverTimeoutMs, plus any db_extra_url_parameters). A map rather than a rendered fragment so the app layer can merge its own rdbms_extra_jdbc_params over it by key: concatenating two rendered fragments can emit the same parameter twice, and which occurrence a driver honours is driver-specific."
 }
 
 output "aurora_jdbc_ssl_param" {

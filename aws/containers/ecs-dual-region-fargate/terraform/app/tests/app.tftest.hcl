@@ -80,7 +80,7 @@ override_data {
       aurora_jdbc_wrapper_plugins               = "iam,failover"
       aurora_jdbc_instance_host_patterns        = "?.p.example.com,?.s.example.com"
       aurora_jdbc_ssl_param                     = "&sslmode=require"
-      aurora_jdbc_extra_url_parameters          = "&failoverTimeoutMs=60000"
+      aurora_jdbc_url_parameters                = { failoverTimeoutMs = "60000" }
       opensearch_region_0_endpoint              = "opensearch-r0.example.com"
       opensearch_region_1_endpoint              = "opensearch-r1.example.com"
       s3_force_destroy                          = true
@@ -140,10 +140,10 @@ run "rdbms_jdbc_url_variable_overrides_infra_output" {
   }
 }
 
-run "infra_extra_url_parameters_come_last_in_composed_url" {
+run "infra_url_parameters_come_last_in_composed_url" {
   command = plan
 
-  # Caller parameters must follow the module-owned ones, so they cannot be
+  # Query parameters must follow the module-owned ones, so they cannot be
   # shadowed by a later duplicate of the same key.
   assert {
     condition = anytrue([
@@ -151,8 +151,99 @@ run "infra_extra_url_parameters_come_last_in_composed_url" {
       e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL" &&
       endswith(e.value, "&sslmode=require&failoverTimeoutMs=60000")
     ])
-    error_message = "The infra-provided extra URL parameters should be appended last to the composed URL"
+    error_message = "The infra-provided URL parameters should be appended last to the composed URL"
   }
+}
+
+run "app_extra_jdbc_params_are_appended" {
+  command = plan
+
+  variables {
+    rdbms_extra_jdbc_params = {
+      connectTimeout = "5000"
+    }
+  }
+
+  # Rendering is key-sorted, so connectTimeout precedes failoverTimeoutMs.
+  assert {
+    condition = anytrue([
+      for e in local.rdbms_env_vars :
+      e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL" &&
+      endswith(e.value, "&sslmode=require&connectTimeout=5000&failoverTimeoutMs=60000")
+    ])
+    error_message = "An app-layer parameter should be appended without dropping the infra-provided ones"
+  }
+}
+
+run "app_extra_jdbc_params_retune_an_infra_parameter_exactly_once" {
+  command = plan
+
+  variables {
+    rdbms_extra_jdbc_params = {
+      failoverTimeoutMs = "30000"
+    }
+  }
+
+  # The merge is why this holds: concatenating the two rendered fragments would
+  # emit failoverTimeoutMs twice, and which occurrence a driver honours is
+  # driver-specific.
+  assert {
+    condition = anytrue([
+      for e in local.rdbms_env_vars :
+      e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL" &&
+      endswith(e.value, "&sslmode=require&failoverTimeoutMs=30000") &&
+      !strcontains(e.value, "60000")
+    ])
+    error_message = "An app-layer parameter should replace the infra-provided value, not duplicate the key"
+  }
+}
+
+run "rdbms_jdbc_url_override_ignores_extra_params" {
+  command = plan
+
+  variables {
+    rdbms_jdbc_url = "jdbc:aws-wrapper:postgresql://byo-db.example.com:5432/camunda?wrapperPlugins=failover&sslmode=require"
+    rdbms_extra_jdbc_params = {
+      connectTimeout = "5000"
+    }
+  }
+
+  assert {
+    condition = anytrue([
+      for e in local.rdbms_env_vars :
+      e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL" &&
+      e.value == "jdbc:aws-wrapper:postgresql://byo-db.example.com:5432/camunda?wrapperPlugins=failover&sslmode=require"
+    ])
+    error_message = "A full URL override should be taken verbatim, with no parameters appended to it"
+  }
+}
+
+run "app_extra_jdbc_params_reject_reserved_keys" {
+  command = plan
+
+  variables {
+    rdbms_extra_jdbc_params = {
+      wrapperPlugins = "none"
+    }
+  }
+
+  expect_failures = [
+    var.rdbms_extra_jdbc_params,
+  ]
+}
+
+run "app_extra_jdbc_params_reject_embedded_parameters" {
+  command = plan
+
+  variables {
+    rdbms_extra_jdbc_params = {
+      connectTimeout = "5000&wrapperPlugins=none"
+    }
+  }
+
+  expect_failures = [
+    var.rdbms_extra_jdbc_params,
+  ]
 }
 
 run "opensearch_env_vars_local_populated_when_opensearch" {
@@ -218,7 +309,7 @@ run "opensearch_env_vars_local_populated_when_opensearch" {
         aurora_jdbc_wrapper_plugins               = null
         aurora_jdbc_instance_host_patterns        = null
         aurora_jdbc_ssl_param                     = null
-        aurora_jdbc_extra_url_parameters          = null
+        aurora_jdbc_url_parameters                = null
         opensearch_region_0_endpoint              = "opensearch-r0.example.com"
         opensearch_region_1_endpoint              = "opensearch-r1.example.com"
         s3_force_destroy                          = true
