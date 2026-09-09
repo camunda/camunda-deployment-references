@@ -81,9 +81,6 @@ for region_values in generated-values-region-0.yml generated-values-region-1.yml
   # shellcheck disable=SC2016
   envsubst '${BROKER_IMAGE}' <"$region_values" >"$region_values.tmp"
   mv "$region_values.tmp" "$region_values"
-done
-
-for region_values in generated-values-region-0.yml generated-values-region-1.yml; do
   assert_no_duplicate_extra_configuration "$region_values"
 done
 
