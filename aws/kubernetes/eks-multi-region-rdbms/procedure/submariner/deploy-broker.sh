@@ -14,9 +14,8 @@ set -euo pipefail
 # Consequences worth knowing:
 #   * no gateway nodes, no IPsec, no VXLAN, no MTU overhead, nothing to fail
 #     over: `subctl show connections` is empty by design;
-#   * cross-region traffic crosses the AWS backbone unencrypted. It stays on
-#     private addresses and never touches the internet, but if you need
-#     confidentiality in transit, terminate TLS in the workload.
+#   * AWS encrypts inter-region Transit Gateway traffic. Use workload TLS when
+#     you need customer-controlled keys or end-to-end verification.
 #
 # The broker is a metadata-only component: it holds the ServiceImport registry
 # Lighthouse resolves from. Its loss stops new exports from propagating but does
@@ -34,6 +33,11 @@ set -euo pipefail
 SUBMARINER_COMPONENTS="${SUBMARINER_COMPONENTS:-service-discovery}"
 
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
+if ! [[ "$SUBMARINER_BROKER_SLOT" =~ ^[0-9]+$ ]] ||
+    [ "$SUBMARINER_BROKER_SLOT" -ge "${#contexts[@]}" ]; then
+    echo "ERROR: SUBMARINER_BROKER_SLOT must be an index in CLUSTER_CONTEXTS, got '$SUBMARINER_BROKER_SLOT'." >&2
+    exit 1
+fi
 broker_context="${contexts[$SUBMARINER_BROKER_SLOT]}"
 
 echo "Deploying the Submariner broker into $broker_context"
