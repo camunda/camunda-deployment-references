@@ -79,7 +79,7 @@ export CAMUNDA_REPLICATION_FACTOR="${CAMUNDA_REPLICATION_FACTOR:-$((CAMUNDA_REPL
 #
 export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-e3d2a7271b113dbca6f179e3c4bb486bde828451}"
 
-# TODO [release-duty]: pin to the released chart version and switch
+# TODO: [release-duty] pin to the released chart version and switch
 # HELM_CHART_REF to https://helm.camunda.io once 8.10 is generally available.
 # The chart is deliberately parked on the pre-release tag until 8.10 ships, so
 # no released version can match; renovate-inert-ok until the TODO above is done.
