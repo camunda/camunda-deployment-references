@@ -16,4 +16,10 @@ exclude_path = [
 # Explicitly exclude some URLs
 exclude = [
   "^file:",
+  # The multi-region RDBMS pages are published when camunda/camunda-docs#9739
+  # merges. The architecture README points at the documentation instead of
+  # repeating it, so the links exist here before the pages do.
+  # TODO: [docs] drop both entries once camunda/camunda-docs#9739 is merged.
+  "^https://docs\\.camunda\\.io/docs/next/self-managed/deployment/helm/cloud-providers/amazon/amazon-eks/multi-region-rdbms/$",
+  "^https://docs\\.camunda\\.io/docs/next/self-managed/deployment/helm/operational-tasks/multi-region-rdbms-ops/$",
 ]
