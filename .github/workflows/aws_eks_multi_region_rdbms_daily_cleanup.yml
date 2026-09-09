@@ -112,7 +112,10 @@ jobs:
             # the Aurora Global Database, so one destroy tears the whole architecture down.
             - name: Delete clusters
               id: delete_clusters
-              timeout-minutes: 125
+              # Covers both destroy passes below back to back, plus the cloud-nuke
+              # install and the log upload. A shorter envelope kills the retry pass
+              # that exists precisely to recover what the first one could not.
+              timeout-minutes: 255
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
@@ -120,7 +123,8 @@ jobs:
                   max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: clusters
-                  tf-config-template: config-multi-region
+                  tf-config-path: aws/kubernetes/eks-multi-region-rdbms/terraform/cleanup/config-multi-region
+                  cleanup-regions: ${{ env.CLEANUP_REGIONS }}
                   destroy-pass-timeout-minutes: '120'
                   retry-destroy-pass-timeout-minutes: '120'
 

@@ -32,15 +32,28 @@ inputs:
         description: Destruction order of modules, e.g. "vpn,cluster" or "cluster,vpn"
         required: true
 
-    tf-config-template:
+    tf-config-path:
         description: |
-            Name of the provider template under scripts/ to destroy the state with, e.g.
-            `config-multi-region`. Leave empty to let the script infer it from the module
-            name, which only distinguishes a single-region state from a dual-region one.
+            Repository-relative path to the provider configuration to destroy the state
+            with, e.g. `aws/kubernetes/eks-multi-region-rdbms/terraform/cleanup/config-multi-region`.
+            Leave empty to let the script infer one from the module name, which only
+            distinguishes a single-region state from a dual-region one.
 
             Set it for any architecture whose state references provider aliases the
-            inferred template does not declare: `terraform destroy` then fails with
+            inferred configuration does not declare: `terraform destroy` then fails with
             "Provider configuration not present" and leaves the infrastructure behind.
+            The architecture owns that file, so this action stays free of per-architecture
+            provider schemas.
+        default: ''
+
+    cleanup-regions:
+        description: |
+            Space-separated regions to sweep for leftover VPCs when the first destroy pass
+            fails, for architectures spanning more than two regions.
+
+            Declared explicitly rather than inherited from the caller's environment: this
+            action destroys infrastructure, so every input that widens what it touches has
+            to be visible at the call site.
         default: ''
 
     openshift:
@@ -80,6 +93,10 @@ inputs:
             Nothing enforces it, and a step the runner kills takes the log upload down with it,
             which is how the 2026-08-29 EC2 and ECS cleanups ended with no artifact and no
             verdict. A caller on a shorter leash has to lower both, or it gets no protection.
+
+            A caller that raises the budgets has to raise its step and job envelopes to match.
+            Two 120-minute passes under a 125-minute step means the retry is killed a few minutes
+            in, which turns the recovery pass into a no-op exactly when it is needed.
         default: '30'
 
 outputs:
@@ -155,9 +172,9 @@ runs:
               INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
               INPUTS_FAIL_ON_NOT_FOUND: ${{ inputs.fail-on-not-found }}
               INPUTS_DELETE_GHOST_ROSA_CLUSTERS: ${{ inputs.delete-ghost-rosa-clusters }}
-              # Read under this exact name by scripts/destroy-resources.sh, so it
-              # keeps the bare name rather than the INPUTS_ prefix above.
-              TF_CONFIG_TEMPLATE: ${{ inputs.tf-config-template }}
+              # Read under these exact names by scripts/destroy-resources.sh, so they
+              # keep the bare name rather than the INPUTS_ prefix above.
+              TF_CONFIG_PATH: ${{ inputs.tf-config-path }}
               # Where cleanup-ghost-rosa-clusters.sh records when it first saw each
               # candidate. OCM exposes no deletion-start timestamp, so without a
               # store that outlives the run there is no way to tell a cluster Red Hat
@@ -168,7 +185,7 @@ runs:
               STUCK_STATE_KEY: ${{ inputs.tf-bucket-key-prefix }}ghost-rosa-cluster-deletion-state.json
               INPUTS_DESTROY_PASS_TIMEOUT_MINUTES: ${{ inputs.destroy-pass-timeout-minutes }}
               INPUTS_RETRY_DESTROY_PASS_TIMEOUT_MINUTES: ${{ inputs.retry-destroy-pass-timeout-minutes }}
-              CLEANUP_REGIONS: ${{ env.CLEANUP_REGIONS }}
+              CLEANUP_REGIONS: ${{ inputs.cleanup-regions }}
               ACTION_PATH: ${{ github.action_path }}
           run: |
               set -euo pipefail

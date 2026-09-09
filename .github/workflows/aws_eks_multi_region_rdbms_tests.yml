@@ -335,9 +335,62 @@ jobs:
               working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
               run: go test --count=1 -v -timeout 30m -run TestMultiRegionCleanup || true
 
+    # Teardown owns its own job on purpose. As a step of `integration-tests` it
+    # shared that job's lifetime: when the job hit its own `timeout-minutes`, or
+    # when the run was cancelled, the runner was killed and `if: always()` never
+    # got to finish `terraform destroy`. That is not theoretical — it is how two
+    # cancelled runs leaked EKS clusters, Transit Gateways and NAT gateways that
+    # then needed manual sweeps. A separate job gets a fresh runner and a budget
+    # that is not spent by the tests.
+    destroy-infrastructure:
+        needs: [triage, clusters-info, integration-tests]
+        # `always()` is what makes the teardown run after a failed or cancelled
+        # test job, but it also makes this job evaluate its matrix when the suite
+        # was skipped, where `clusters-info` produced nothing. Gating on the
+        # producer's result keeps a skipped suite skipped instead of failing.
+        if: always() && needs.clusters-info.result == 'success'
+        runs-on: ubuntu-latest
+        # Both destroy passes below can run to their full budget, back to back,
+        # plus checkout, tooling and credentials. The step envelope has to cover
+        # them or the fallback that exists to recover leaked infrastructure is
+        # killed halfway through it.
+        timeout-minutes: 270
+        strategy:
+            fail-fast: false
+            matrix: ${{ fromJson(needs.clusters-info.outputs.platform-matrix) }}
+        env:
+            CLUSTER_NAME: ${{ matrix.distro.clusterName }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Export the Terraform state key prefix
+              id: s3_prefix
+              run: |
+                  set -euo pipefail
+                  echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ env.REF_ARCH }}/${{ steps.target-branch.outputs.TARGET_BRANCH }}/" | tee -a "$GITHUB_OUTPUT"
+
             - name: Destroy the infrastructure
-              if: always()
-              timeout-minutes: 125
+              timeout-minutes: 255
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
@@ -347,6 +400,7 @@ jobs:
                   modules-order: clusters
                   destroy-pass-timeout-minutes: '120'
                   retry-destroy-pass-timeout-minutes: '120'
+                  cleanup-regions: ${{ env.CLEANUP_REGIONS }}
                   # The action defaults to 12, which is right for the daily sweep
                   # it was built for and wrong here: this state is minutes old, so
                   # the age gate in destroy-resources.sh skipped every module and
@@ -358,7 +412,7 @@ jobs:
                   # declares neither, and `terraform destroy` then refuses to
                   # touch anything it cannot resolve a provider for, leaving two
                   # EKS clusters and an Aurora Global Database running.
-                  tf-config-template: config-multi-region
+                  tf-config-path: aws/kubernetes/eks-multi-region-rdbms/terraform/cleanup/config-multi-region
                   # This teardown runs on every exit path, including a run that
                   # failed before creating anything. Finding no state to destroy
                   # is then the expected outcome and must not fail the job a
@@ -367,7 +421,7 @@ jobs:
 
     report-failure:
         if: failure() && github.event_name == 'schedule'
-        needs: [integration-tests]
+        needs: [integration-tests, destroy-infrastructure]
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository

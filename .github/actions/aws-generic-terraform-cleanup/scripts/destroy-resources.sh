@@ -421,7 +421,7 @@ destroy_module() {
   # Handle dual-region (we may need a better way to abstract this)
   local tf_config_file="$SCRIPT_DIR/config"
   if [[ "$module_name" =~ ^(clusters|peering)$ ]]; then
-    [[ -z "${TF_CONFIG_TEMPLATE:-}" && (-z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION") ]] && {
+    [[ -z "${TF_CONFIG_PATH:-}" && (-z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION") ]] && {
       echo "Error: CLUSTER_0_AWS_REGION and CLUSTER_1_AWS_REGION must be set"
       exit 1
     }
@@ -521,24 +521,29 @@ destroy_module() {
     fi
   fi
 
-  # An explicit template wins over the heuristics above. The module name alone
-  # cannot tell a two-region state from an N-region one -- both call their
-  # module `clusters` -- and picking the wrong provider set makes the destroy
-  # fail with "Provider configuration not present", leaving a whole regional
-  # deployment behind.
-  if [[ -n "${TF_CONFIG_TEMPLATE:-}" ]]; then
-    # A bare filename, so the value cannot walk out of $SCRIPT_DIR and hand the
-    # destroy run an arbitrary file as its provider config.
-    if [[ "$TF_CONFIG_TEMPLATE" == */* ]]; then
-      echo "Error: TF_CONFIG_TEMPLATE '$TF_CONFIG_TEMPLATE' must be a filename in $SCRIPT_DIR, not a path"
+  # An explicit provider configuration wins over the heuristics above. The module
+  # name alone cannot tell a two-region state from an N-region one -- both call
+  # their module `clusters` -- and picking the wrong provider set makes the
+  # destroy fail with "Provider configuration not present", leaving a whole
+  # regional deployment behind.
+  if [[ -n "${TF_CONFIG_PATH:-}" ]]; then
+    # Resolved inside the checkout so an architecture can own its own file, and
+    # confined to it so the value cannot hand the destroy run an arbitrary file
+    # from the runner as its provider config.
+    local repo_root resolved
+    repo_root="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+    resolved="$(cd "$repo_root" && realpath -m -- "$TF_CONFIG_PATH")"
+
+    if [[ "$resolved" != "$repo_root/"* ]]; then
+      echo "Error: tf-config-path '$TF_CONFIG_PATH' resolves outside the repository"
       exit 1
     fi
-    if [[ ! -f "$SCRIPT_DIR/$TF_CONFIG_TEMPLATE" ]]; then
-      echo "Error: TF_CONFIG_TEMPLATE '$TF_CONFIG_TEMPLATE' not found in $SCRIPT_DIR"
+    if [[ ! -f "$resolved" ]]; then
+      echo "Error: tf-config-path '$TF_CONFIG_PATH' not found"
       exit 1
     fi
-    echo "[$group_id][$module_name] Using the provider template $TF_CONFIG_TEMPLATE"
-    tf_config_file="$SCRIPT_DIR/$TF_CONFIG_TEMPLATE"
+    echo "[$group_id][$module_name] Using the provider configuration $TF_CONFIG_PATH"
+    tf_config_file="$resolved"
   fi
 
   mkdir -p "$temp_dir"
