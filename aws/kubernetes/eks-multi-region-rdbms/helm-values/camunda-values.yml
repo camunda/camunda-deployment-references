@@ -16,15 +16,15 @@
 global:
     security:
         authentication:
-            # Basic auth for inter-component communication, because Management
-            # Identity (Keycloak) is not supported in multi-region setups.
+            # Basic auth for inter-component communication: this reference does
+            # not deploy Management Identity, so there is no OIDC provider.
             method: basic
     identity:
         auth:
             enabled: false
 
-# Management Identity is not available in multi-region topologies; the
-# Orchestration Cluster ships its own Admin component instead.
+# Out of scope for this reference. The Orchestration Cluster ships its own Admin
+# component, which is what the procedures and tests use.
 identity:
     enabled: false
 
@@ -143,8 +143,7 @@ orchestration:
         # the standby has not received and a promotion loses them. This
         # architecture delegates replication entirely to the database and
         # treats a writer failover as routine, so it is not optional here.
-        # Added to the sibling ECS dual-region reference in #2952 for the same
-        # reason. The four settings below are set as env vars rather than chart
+        # The four settings below are set as env vars rather than chart
         # keys so they apply regardless of whether the chart exposes them.
         # https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED
@@ -203,17 +202,16 @@ orchestration:
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
 
-    # TEMPORARY WORKAROUND — remove once the upstream Camunda fix is released.
     # A Zeebe broker resolves its initialContactPoints only once at startup; if
     # a cross-region "*.svc.clusterset.local" name is not yet published by
     # Submariner Lighthouse at that moment (NXDOMAIN), the broker hangs forever
     # (pod stays 0/1 Running, port 9600 never opens) instead of re-resolving.
     # This init container gates broker startup until every initial contact
-    # point resolves, so the broker process never sees an NXDOMAIN.
+    # point resolves, so the broker process never sees an NXDOMAIN. The same
+    # gate is used by the OpenShift dual-region reference.
     # It reuses the broker image (already pulled on the node) to avoid an extra
     # image pull; ${DOLLAR}{BROKER_IMAGE} is resolved at deploy time by
     # procedure/install-chart.sh from the chart being installed.
-    # Tracking issue: https://github.com/camunda/camunda/issues/55038
     initContainers:
         - name: wait-clusterset-dns
           image: ${DOLLAR}{BROKER_IMAGE}
