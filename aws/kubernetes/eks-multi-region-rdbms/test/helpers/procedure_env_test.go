@@ -14,8 +14,12 @@ func TestChartGitRefComesFromTheProcedure(t *testing.T) {
 	t.Setenv("CAMUNDA_HELM_CHART_GIT_REF", "")
 
 	dir := ProcedureDir(t)
+	// Matched on the `${VAR:-default}` structure rather than by splitting on a
+	// character: the default is a commit SHA today, but a tag such as
+	// camunda-platform-8.10-15.0.0-alpha3 contains the separators a naive cut
+	// would break on, and this check has to survive that.
 	cmd := exec.Command("bash", "-c",
-		`grep -o 'CAMUNDA_HELM_CHART_GIT_REF:-[^}]*' export_environment_prerequisites.sh | head -1 | cut -d- -f2-`)
+		`sed -n 's/^export CAMUNDA_HELM_CHART_GIT_REF="\${CAMUNDA_HELM_CHART_GIT_REF:-\(.*\)}"$/\1/p' export_environment_prerequisites.sh | head -1`)
 	cmd.Dir = dir
 
 	out, err := cmd.Output()
