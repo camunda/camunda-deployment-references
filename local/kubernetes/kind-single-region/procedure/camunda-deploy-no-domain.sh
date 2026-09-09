@@ -45,7 +45,7 @@ if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
         --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \
         --values "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-no-domain-values.yml" \
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
-        --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
+        --values "$OPERATOR_VALUES_DIR/postgresql/camunda-hub-values.yml" \
         --values helm-values/values-no-domain.yml
 else
     echo "Installing Camunda Platform (no-domain mode, PostgreSQL RDBMS)..."
@@ -54,7 +54,7 @@ else
         --namespace "camunda" \
         --values "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-no-domain-values.yml" \
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
-        --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
+        --values "$OPERATOR_VALUES_DIR/postgresql/camunda-hub-values.yml" \
         --values helm-values/values-no-domain.yml \
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml"
 fi
@@ -69,7 +69,7 @@ fi
 #         --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \
 #         --values "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-no-domain-values.yml" \
 #         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
-#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
+#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-hub-values.yml" \
 #         --values helm-values/values-no-domain.yml
 # else
 #     helm upgrade --install "camunda" camunda-platform \
@@ -78,7 +78,7 @@ fi
 #         --namespace "camunda" \
 #         --values "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-no-domain-values.yml" \
 #         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
-#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
+#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-hub-values.yml" \
 #         --values helm-values/values-no-domain.yml \
 #         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml"
 # fi

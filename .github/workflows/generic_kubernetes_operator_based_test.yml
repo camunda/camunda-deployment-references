@@ -546,7 +546,7 @@ jobs:
                   # Add component-specific configurations
                   VALUES_FILES+=(
                     "postgresql/camunda-identity-values.yml"
-                    "postgresql/camunda-webmodeler-values.yml"
+                    "postgresql/camunda-hub-values.yml"
                     "elasticsearch/camunda-elastic-values.yml"
                     "tests/utils/camunda-values-identity-secrets.yml"
                     "tests/helm-values/identity.yml"

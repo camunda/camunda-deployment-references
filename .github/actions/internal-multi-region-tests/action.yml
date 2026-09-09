@@ -152,7 +152,7 @@ runs:
                 # is intentional — the known-good set the integration tests validate).
                 # Parked: pre-GA alpha chart until 8.10 GA.
                 # renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$ renovate-inert-ok
-                CHART_GIT_REF="camunda-platform-8.10-15.0.0-alpha3"
+                CHART_GIT_REF="camunda-platform-8.10-15.0.0-alpha5"
                 CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
                 CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"
                 git clone --depth 1 --branch "$CHART_GIT_REF" \

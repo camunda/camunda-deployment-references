@@ -1,19 +1,20 @@
 ---
-# Camunda Platform 8 Values - CNPG Webmodeler Snippet
+# Camunda Platform 8 Values - CNPG Camunda Hub Snippet
 # This configuration uses external services managed by Kubernetes operators:
-# - PostgreSQL: CloudNativePG operator with a dedicated cluster for WebModeler
+# - PostgreSQL: CloudNativePG operator with a dedicated cluster for Camunda Hub
 #
 # Authentication Secrets:
-# - pg-webmodeler-secret: Contains PostgreSQL user credentials for WebModeler
-
-# WebModeler configuration. WebModeler is deployed as a sub-component of
-# Camunda Hub when `camundaHub.enabled: true` is set in the consuming values
-# file (see local/kubernetes/kind-single-region/helm-values/values-*.yml).
-# Legacy `webModeler.*` overrides below pass through to the Hub WebModeler
-# sub-component via the chart's `or` fallback.
-webModeler:
-    # Use external PostgreSQL for WebModeler
+# - pg-webmodeler-secret: Contains PostgreSQL user credentials for Camunda Hub
+#
+# The CloudNativePG cluster, database, user and secret keep their `webmodeler`
+# names: renaming them would recreate the database and drop its contents. Only
+# the Helm values were moved to the Camunda Hub key.
+#
+# Requires `camundaHub.enabled: true` in the consuming values file, for example
+# local/kubernetes/kind-single-region/helm-values/values-*.yml.
+camundaHub:
     restapi:
+        # Use external PostgreSQL for Camunda Hub
         externalDatabase:
             host: pg-webmodeler-rw
             port: 5432
