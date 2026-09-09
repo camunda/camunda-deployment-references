@@ -5,6 +5,16 @@ set -euo pipefail
 #
 #   source ./install-subctl.sh
 #
+# Executed instead of sourced, the install would succeed and the PATH change
+# would vanish with the subshell, which reads as a broken install rather than a
+# misuse. Refuse that outright. `exit` is safe here precisely because this
+# branch only runs when the script is NOT sourced.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    echo "ERROR: source this script, do not execute it: . ${BASH_SOURCE[0]}" >&2
+    echo "       Executed, subctl is installed but PATH is left unchanged." >&2
+    exit 1
+fi
+
 # renovate: datasource=github-releases depName=submariner-io/subctl
 SUBCTL_VERSION=0.24.0
 
@@ -21,25 +31,35 @@ esac
 
 archive="subctl-v${SUBCTL_VERSION}-${platform}.tar.gz"
 base_url="https://github.com/submariner-io/releases/releases/download/v${SUBCTL_VERSION}"
-tmp_dir="$(mktemp -d)"
 
-curl -fLsS "$base_url/$archive" -o "$tmp_dir/$archive"
-curl -fLsS "$base_url/subctl-checksums.txt" -o "$tmp_dir/subctl-checksums.txt"
-expected_sha="$(grep " $archive$" "$tmp_dir/subctl-checksums.txt" | cut -d' ' -f1)"
-if command -v sha256sum >/dev/null 2>&1; then
-    actual_sha="$(sha256sum "$tmp_dir/$archive" | cut -d' ' -f1)"
-else
-    actual_sha="$(shasum -a 256 "$tmp_dir/$archive" | cut -d' ' -f1)"
-fi
-if [ -z "$expected_sha" ] || [ "$actual_sha" != "$expected_sha" ]; then
-    echo "ERROR: checksum verification failed for $archive." >&2
-    rm -rf "$tmp_dir"
-    false
-fi
-tar -xzf "$tmp_dir/$archive" -C "$tmp_dir"
-mkdir -p "$HOME/.local/bin"
-install -m 0755 "$tmp_dir/subctl-v${SUBCTL_VERSION}/subctl" "$HOME/.local/bin/subctl"
-rm -rf "$tmp_dir"
+# Wrapped in a function so the temporary directory is removed on every path out,
+# including a failed download. An EXIT trap would be wrong here: this file is
+# sourced, so it would fire only when the CALLER's shell exits and would replace
+# whatever trap the caller had set.
+camunda::_fetch_subctl() {
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' RETURN
+
+    curl -fLsS "$base_url/$archive" -o "$tmp_dir/$archive"
+    curl -fLsS "$base_url/subctl-checksums.txt" -o "$tmp_dir/subctl-checksums.txt"
+    local expected_sha actual_sha
+    expected_sha="$(grep " $archive$" "$tmp_dir/subctl-checksums.txt" | cut -d' ' -f1)"
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual_sha="$(sha256sum "$tmp_dir/$archive" | cut -d' ' -f1)"
+    else
+        actual_sha="$(shasum -a 256 "$tmp_dir/$archive" | cut -d' ' -f1)"
+    fi
+    if [ -z "$expected_sha" ] || [ "$actual_sha" != "$expected_sha" ]; then
+        echo "ERROR: checksum verification failed for $archive." >&2
+        return 1
+    fi
+    tar -xzf "$tmp_dir/$archive" -C "$tmp_dir"
+    mkdir -p "$HOME/.local/bin"
+    install -m 0755 "$tmp_dir/subctl-v${SUBCTL_VERSION}/subctl" "$HOME/.local/bin/subctl"
+}
+
+camunda::_fetch_subctl
 
 # `$HOME` rather than `~`: the tilde does expand after a colon in an assignment,
 # but the rule is obscure enough that every reader has to look it up, and in the
