@@ -24,10 +24,10 @@
         "timeouts": null
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"icmp|10.200.0.0/16\"]": {
-      "index": "icmp|10.200.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|icmp|10.200.0.0/16\"]": {
+      "index": "0|icmp|10.200.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -48,10 +48,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"icmp|10.202.0.0/16\"]": {
-      "index": "icmp|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|icmp|10.202.0.0/16\"]": {
+      "index": "0|icmp|10.202.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -72,10 +72,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"icmp|10.210.0.0/16\"]": {
-      "index": "icmp|10.210.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|icmp|10.210.0.0/16\"]": {
+      "index": "0|icmp|10.210.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -96,10 +96,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"icmp|10.212.0.0/16\"]": {
-      "index": "icmp|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|icmp|10.212.0.0/16\"]": {
+      "index": "0|icmp|10.212.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -120,10 +120,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns-tcp|10.200.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.200.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|kubernetes-dns-tcp|10.200.0.0/16\"]": {
+      "index": "0|kubernetes-dns-tcp|10.200.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -144,10 +144,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns-tcp|10.202.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|kubernetes-dns-tcp|10.202.0.0/16\"]": {
+      "index": "0|kubernetes-dns-tcp|10.202.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -168,10 +168,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns-tcp|10.210.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.210.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|kubernetes-dns-tcp|10.210.0.0/16\"]": {
+      "index": "0|kubernetes-dns-tcp|10.210.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -192,10 +192,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns-tcp|10.212.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|kubernetes-dns-tcp|10.212.0.0/16\"]": {
+      "index": "0|kubernetes-dns-tcp|10.212.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -216,10 +216,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns|10.200.0.0/16\"]": {
-      "index": "kubernetes-dns|10.200.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|kubernetes-dns|10.200.0.0/16\"]": {
+      "index": "0|kubernetes-dns|10.200.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -240,10 +240,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns|10.202.0.0/16\"]": {
-      "index": "kubernetes-dns|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|kubernetes-dns|10.202.0.0/16\"]": {
+      "index": "0|kubernetes-dns|10.202.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -264,10 +264,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns|10.210.0.0/16\"]": {
-      "index": "kubernetes-dns|10.210.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|kubernetes-dns|10.210.0.0/16\"]": {
+      "index": "0|kubernetes-dns|10.210.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -288,10 +288,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"kubernetes-dns|10.212.0.0/16\"]": {
-      "index": "kubernetes-dns|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|kubernetes-dns|10.212.0.0/16\"]": {
+      "index": "0|kubernetes-dns|10.212.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -312,10 +312,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-rest|10.200.0.0/16\"]": {
-      "index": "orchestration-rest|10.200.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|orchestration-rest|10.200.0.0/16\"]": {
+      "index": "0|orchestration-rest|10.200.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -336,10 +336,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-rest|10.202.0.0/16\"]": {
-      "index": "orchestration-rest|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|orchestration-rest|10.202.0.0/16\"]": {
+      "index": "0|orchestration-rest|10.202.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -360,10 +360,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-rest|10.210.0.0/16\"]": {
-      "index": "orchestration-rest|10.210.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|orchestration-rest|10.210.0.0/16\"]": {
+      "index": "0|orchestration-rest|10.210.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -384,10 +384,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"orchestration-rest|10.212.0.0/16\"]": {
-      "index": "orchestration-rest|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|orchestration-rest|10.212.0.0/16\"]": {
+      "index": "0|orchestration-rest|10.212.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -408,10 +408,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-apis|10.200.0.0/16\"]": {
-      "index": "zeebe-apis|10.200.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|zeebe-apis|10.200.0.0/16\"]": {
+      "index": "0|zeebe-apis|10.200.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -432,10 +432,10 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-apis|10.202.0.0/16\"]": {
-      "index": "zeebe-apis|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|zeebe-apis|10.202.0.0/16\"]": {
+      "index": "0|zeebe-apis|10.202.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -456,10 +456,10 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-apis|10.210.0.0/16\"]": {
-      "index": "zeebe-apis|10.210.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|zeebe-apis|10.210.0.0/16\"]": {
+      "index": "0|zeebe-apis|10.210.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -480,10 +480,10 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_0[\"zeebe-apis|10.212.0.0/16\"]": {
-      "index": "zeebe-apis|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"0|zeebe-apis|10.212.0.0/16\"]": {
+      "index": "0|zeebe-apis|10.212.0.0/16",
       "mode": "managed",
-      "name": "region_0",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -504,10 +504,10 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"icmp|10.190.0.0/16\"]": {
-      "index": "icmp|10.190.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|icmp|10.190.0.0/16\"]": {
+      "index": "1|icmp|10.190.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -528,10 +528,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"icmp|10.192.0.0/16\"]": {
-      "index": "icmp|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|icmp|10.192.0.0/16\"]": {
+      "index": "1|icmp|10.192.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -552,10 +552,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"icmp|10.210.0.0/16\"]": {
-      "index": "icmp|10.210.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|icmp|10.210.0.0/16\"]": {
+      "index": "1|icmp|10.210.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -576,10 +576,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"icmp|10.212.0.0/16\"]": {
-      "index": "icmp|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|icmp|10.212.0.0/16\"]": {
+      "index": "1|icmp|10.212.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -600,10 +600,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns-tcp|10.190.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.190.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|kubernetes-dns-tcp|10.190.0.0/16\"]": {
+      "index": "1|kubernetes-dns-tcp|10.190.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -624,10 +624,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns-tcp|10.192.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|kubernetes-dns-tcp|10.192.0.0/16\"]": {
+      "index": "1|kubernetes-dns-tcp|10.192.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -648,10 +648,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns-tcp|10.210.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.210.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|kubernetes-dns-tcp|10.210.0.0/16\"]": {
+      "index": "1|kubernetes-dns-tcp|10.210.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -672,10 +672,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns-tcp|10.212.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|kubernetes-dns-tcp|10.212.0.0/16\"]": {
+      "index": "1|kubernetes-dns-tcp|10.212.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -696,10 +696,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns|10.190.0.0/16\"]": {
-      "index": "kubernetes-dns|10.190.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|kubernetes-dns|10.190.0.0/16\"]": {
+      "index": "1|kubernetes-dns|10.190.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -720,10 +720,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns|10.192.0.0/16\"]": {
-      "index": "kubernetes-dns|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|kubernetes-dns|10.192.0.0/16\"]": {
+      "index": "1|kubernetes-dns|10.192.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -744,10 +744,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns|10.210.0.0/16\"]": {
-      "index": "kubernetes-dns|10.210.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|kubernetes-dns|10.210.0.0/16\"]": {
+      "index": "1|kubernetes-dns|10.210.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -768,10 +768,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"kubernetes-dns|10.212.0.0/16\"]": {
-      "index": "kubernetes-dns|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|kubernetes-dns|10.212.0.0/16\"]": {
+      "index": "1|kubernetes-dns|10.212.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -792,10 +792,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-rest|10.190.0.0/16\"]": {
-      "index": "orchestration-rest|10.190.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|orchestration-rest|10.190.0.0/16\"]": {
+      "index": "1|orchestration-rest|10.190.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -816,10 +816,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-rest|10.192.0.0/16\"]": {
-      "index": "orchestration-rest|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|orchestration-rest|10.192.0.0/16\"]": {
+      "index": "1|orchestration-rest|10.192.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -840,10 +840,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-rest|10.210.0.0/16\"]": {
-      "index": "orchestration-rest|10.210.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|orchestration-rest|10.210.0.0/16\"]": {
+      "index": "1|orchestration-rest|10.210.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -864,10 +864,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"orchestration-rest|10.212.0.0/16\"]": {
-      "index": "orchestration-rest|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|orchestration-rest|10.212.0.0/16\"]": {
+      "index": "1|orchestration-rest|10.212.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -888,10 +888,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-apis|10.190.0.0/16\"]": {
-      "index": "zeebe-apis|10.190.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|zeebe-apis|10.190.0.0/16\"]": {
+      "index": "1|zeebe-apis|10.190.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -912,10 +912,10 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-apis|10.192.0.0/16\"]": {
-      "index": "zeebe-apis|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|zeebe-apis|10.192.0.0/16\"]": {
+      "index": "1|zeebe-apis|10.192.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -936,10 +936,10 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-apis|10.210.0.0/16\"]": {
-      "index": "zeebe-apis|10.210.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|zeebe-apis|10.210.0.0/16\"]": {
+      "index": "1|zeebe-apis|10.210.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -960,10 +960,10 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_1[\"zeebe-apis|10.212.0.0/16\"]": {
-      "index": "zeebe-apis|10.212.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"1|zeebe-apis|10.212.0.0/16\"]": {
+      "index": "1|zeebe-apis|10.212.0.0/16",
       "mode": "managed",
-      "name": "region_1",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -984,10 +984,10 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"icmp|10.190.0.0/16\"]": {
-      "index": "icmp|10.190.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|icmp|10.190.0.0/16\"]": {
+      "index": "2|icmp|10.190.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1008,10 +1008,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"icmp|10.192.0.0/16\"]": {
-      "index": "icmp|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|icmp|10.192.0.0/16\"]": {
+      "index": "2|icmp|10.192.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1032,10 +1032,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"icmp|10.200.0.0/16\"]": {
-      "index": "icmp|10.200.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|icmp|10.200.0.0/16\"]": {
+      "index": "2|icmp|10.200.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1056,10 +1056,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"icmp|10.202.0.0/16\"]": {
-      "index": "icmp|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|icmp|10.202.0.0/16\"]": {
+      "index": "2|icmp|10.202.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1080,10 +1080,10 @@
         "to_port": -1
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns-tcp|10.190.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.190.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|kubernetes-dns-tcp|10.190.0.0/16\"]": {
+      "index": "2|kubernetes-dns-tcp|10.190.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1104,10 +1104,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns-tcp|10.192.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|kubernetes-dns-tcp|10.192.0.0/16\"]": {
+      "index": "2|kubernetes-dns-tcp|10.192.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1128,10 +1128,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns-tcp|10.200.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.200.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|kubernetes-dns-tcp|10.200.0.0/16\"]": {
+      "index": "2|kubernetes-dns-tcp|10.200.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1152,10 +1152,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns-tcp|10.202.0.0/16\"]": {
-      "index": "kubernetes-dns-tcp|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|kubernetes-dns-tcp|10.202.0.0/16\"]": {
+      "index": "2|kubernetes-dns-tcp|10.202.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1176,10 +1176,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns|10.190.0.0/16\"]": {
-      "index": "kubernetes-dns|10.190.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|kubernetes-dns|10.190.0.0/16\"]": {
+      "index": "2|kubernetes-dns|10.190.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1200,10 +1200,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns|10.192.0.0/16\"]": {
-      "index": "kubernetes-dns|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|kubernetes-dns|10.192.0.0/16\"]": {
+      "index": "2|kubernetes-dns|10.192.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1224,10 +1224,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns|10.200.0.0/16\"]": {
-      "index": "kubernetes-dns|10.200.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|kubernetes-dns|10.200.0.0/16\"]": {
+      "index": "2|kubernetes-dns|10.200.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1248,10 +1248,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"kubernetes-dns|10.202.0.0/16\"]": {
-      "index": "kubernetes-dns|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|kubernetes-dns|10.202.0.0/16\"]": {
+      "index": "2|kubernetes-dns|10.202.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1272,10 +1272,10 @@
         "to_port": 53
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-rest|10.190.0.0/16\"]": {
-      "index": "orchestration-rest|10.190.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|orchestration-rest|10.190.0.0/16\"]": {
+      "index": "2|orchestration-rest|10.190.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1296,10 +1296,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-rest|10.192.0.0/16\"]": {
-      "index": "orchestration-rest|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|orchestration-rest|10.192.0.0/16\"]": {
+      "index": "2|orchestration-rest|10.192.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1320,10 +1320,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-rest|10.200.0.0/16\"]": {
-      "index": "orchestration-rest|10.200.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|orchestration-rest|10.200.0.0/16\"]": {
+      "index": "2|orchestration-rest|10.200.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1344,10 +1344,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"orchestration-rest|10.202.0.0/16\"]": {
-      "index": "orchestration-rest|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|orchestration-rest|10.202.0.0/16\"]": {
+      "index": "2|orchestration-rest|10.202.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1368,10 +1368,10 @@
         "to_port": 8080
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-apis|10.190.0.0/16\"]": {
-      "index": "zeebe-apis|10.190.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|zeebe-apis|10.190.0.0/16\"]": {
+      "index": "2|zeebe-apis|10.190.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1392,10 +1392,10 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-apis|10.192.0.0/16\"]": {
-      "index": "zeebe-apis|10.192.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|zeebe-apis|10.192.0.0/16\"]": {
+      "index": "2|zeebe-apis|10.192.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1416,10 +1416,10 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-apis|10.200.0.0/16\"]": {
-      "index": "zeebe-apis|10.200.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|zeebe-apis|10.200.0.0/16\"]": {
+      "index": "2|zeebe-apis|10.200.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1440,10 +1440,10 @@
         "to_port": 26502
       }
     },
-    "aws_vpc_security_group_ingress_rule.region_2[\"zeebe-apis|10.202.0.0/16\"]": {
-      "index": "zeebe-apis|10.202.0.0/16",
+    "aws_vpc_security_group_ingress_rule.cross_region[\"2|zeebe-apis|10.202.0.0/16\"]": {
+      "index": "2|zeebe-apis|10.202.0.0/16",
       "mode": "managed",
-      "name": "region_2",
+      "name": "cross_region",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
@@ -1717,9 +1717,9 @@
         }
       }
     },
-    "module.database_region_1[0]": {
+    "module.database_secondary[\"1\"]": {
       "resources": {
-        "module.database_region_1[0].aws_db_subnet_group.this": {
+        "module.database_secondary[\"1\"].aws_db_subnet_group.this": {
           "identity": {
             "account_id": null,
             "name": null,
@@ -1742,7 +1742,7 @@
             "tags": null
           }
         },
-        "module.database_region_1[0].aws_kms_key.this": {
+        "module.database_secondary[\"1\"].aws_kms_key.this": {
           "identity": {
             "account_id": null,
             "id": null,
@@ -1772,7 +1772,7 @@
             "xks_key_id": null
           }
         },
-        "module.database_region_1[0].aws_rds_cluster.this": {
+        "module.database_secondary[\"1\"].aws_rds_cluster.this": {
           "identity": {
             "account_id": null,
             "cluster_identifier": null,
@@ -1841,7 +1841,7 @@
             "timeouts": null
           }
         },
-        "module.database_region_1[0].aws_rds_cluster_instance.this[0]": {
+        "module.database_secondary[\"1\"].aws_rds_cluster_instance.this[0]": {
           "index": 0,
           "mode": "managed",
           "name": "this",
@@ -1870,7 +1870,7 @@
             "timeouts": null
           }
         },
-        "module.database_region_1[0].aws_security_group.this": {
+        "module.database_secondary[\"1\"].aws_security_group.this": {
           "identity": {
             "account_id": null,
             "id": null,
@@ -11023,9 +11023,9 @@
         }
       }
     },
-    "module.tgw_hub_region_0[0]": {
+    "module.tgw_hub[\"0\"]": {
       "resources": {
-        "module.tgw_hub_region_0[0].aws_ec2_transit_gateway.this": {
+        "module.tgw_hub[\"0\"].aws_ec2_transit_gateway.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -11056,7 +11056,7 @@
             "vpn_ecmp_support": "enable"
           }
         },
-        "module.tgw_hub_region_0[0].aws_ec2_transit_gateway_vpc_attachment.this": {
+        "module.tgw_hub[\"0\"].aws_ec2_transit_gateway_vpc_attachment.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -11082,7 +11082,7 @@
             "transit_gateway_default_route_table_propagation": true
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"0|10.200.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"0|10.200.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11116,7 +11116,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"0|10.202.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"0|10.202.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11150,7 +11150,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"0|10.210.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"0|10.210.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11184,7 +11184,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"0|10.212.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"0|10.212.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11218,7 +11218,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"1|10.200.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"1|10.200.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11252,7 +11252,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"1|10.202.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"1|10.202.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11286,7 +11286,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"1|10.210.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"1|10.210.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11320,7 +11320,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"1|10.212.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"1|10.212.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11354,7 +11354,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"2|10.200.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"2|10.200.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11388,7 +11388,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"2|10.202.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"2|10.202.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11422,7 +11422,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"2|10.210.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"2|10.210.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11456,7 +11456,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"2|10.212.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"2|10.212.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11490,7 +11490,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"3|10.200.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"3|10.200.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11524,7 +11524,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"3|10.202.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"3|10.202.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11558,7 +11558,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"3|10.210.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"3|10.210.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11592,7 +11592,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_0[0].aws_route.remote[\"3|10.212.0.0/16\"]": {
+        "module.tgw_hub[\"0\"].aws_route.remote[\"3|10.212.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11628,9 +11628,9 @@
         }
       }
     },
-    "module.tgw_hub_region_1[0]": {
+    "module.tgw_hub[\"1\"]": {
       "resources": {
-        "module.tgw_hub_region_1[0].aws_ec2_transit_gateway.this": {
+        "module.tgw_hub[\"1\"].aws_ec2_transit_gateway.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -11661,7 +11661,7 @@
             "vpn_ecmp_support": "enable"
           }
         },
-        "module.tgw_hub_region_1[0].aws_ec2_transit_gateway_vpc_attachment.this": {
+        "module.tgw_hub[\"1\"].aws_ec2_transit_gateway_vpc_attachment.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -11687,7 +11687,7 @@
             "transit_gateway_default_route_table_propagation": true
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"0|10.190.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"0|10.190.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11721,7 +11721,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"0|10.192.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"0|10.192.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11755,7 +11755,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"0|10.210.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"0|10.210.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11789,7 +11789,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"0|10.212.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"0|10.212.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11823,7 +11823,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"1|10.190.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"1|10.190.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11857,7 +11857,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"1|10.192.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"1|10.192.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11891,7 +11891,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"1|10.210.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"1|10.210.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11925,7 +11925,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"1|10.212.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"1|10.212.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11959,7 +11959,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"2|10.190.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"2|10.190.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -11993,7 +11993,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"2|10.192.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"2|10.192.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12027,7 +12027,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"2|10.210.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"2|10.210.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12061,7 +12061,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"2|10.212.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"2|10.212.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12095,7 +12095,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"3|10.190.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"3|10.190.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12129,7 +12129,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"3|10.192.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"3|10.192.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12163,7 +12163,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"3|10.210.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"3|10.210.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12197,7 +12197,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_1[0].aws_route.remote[\"3|10.212.0.0/16\"]": {
+        "module.tgw_hub[\"1\"].aws_route.remote[\"3|10.212.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12233,9 +12233,9 @@
         }
       }
     },
-    "module.tgw_hub_region_2[0]": {
+    "module.tgw_hub[\"2\"]": {
       "resources": {
-        "module.tgw_hub_region_2[0].aws_ec2_transit_gateway.this": {
+        "module.tgw_hub[\"2\"].aws_ec2_transit_gateway.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -12266,7 +12266,7 @@
             "vpn_ecmp_support": "enable"
           }
         },
-        "module.tgw_hub_region_2[0].aws_ec2_transit_gateway_vpc_attachment.this": {
+        "module.tgw_hub[\"2\"].aws_ec2_transit_gateway_vpc_attachment.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -12292,7 +12292,7 @@
             "transit_gateway_default_route_table_propagation": true
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"0|10.190.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"0|10.190.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12326,7 +12326,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"0|10.192.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"0|10.192.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12360,7 +12360,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"0|10.200.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"0|10.200.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12394,7 +12394,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"0|10.202.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"0|10.202.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12428,7 +12428,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"1|10.190.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"1|10.190.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12462,7 +12462,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"1|10.192.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"1|10.192.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12496,7 +12496,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"1|10.200.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"1|10.200.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12530,7 +12530,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"1|10.202.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"1|10.202.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12564,7 +12564,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"2|10.190.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"2|10.190.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12598,7 +12598,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"2|10.192.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"2|10.192.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12632,7 +12632,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"2|10.200.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"2|10.200.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12666,7 +12666,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"2|10.202.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"2|10.202.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12700,7 +12700,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"3|10.190.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"3|10.190.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12734,7 +12734,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"3|10.192.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"3|10.192.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12768,7 +12768,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"3|10.200.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"3|10.200.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12802,7 +12802,7 @@
             "vpc_peering_connection_id": null
           }
         },
-        "module.tgw_hub_region_2[0].aws_route.remote[\"3|10.202.0.0/16\"]": {
+        "module.tgw_hub[\"2\"].aws_route.remote[\"3|10.202.0.0/16\"]": {
           "identity": {
             "account_id": null,
             "destination_cidr_block": null,
@@ -12838,9 +12838,9 @@
         }
       }
     },
-    "module.tgw_peering_0_1[0]": {
+    "module.tgw_peering[\"0_1\"]": {
       "resources": {
-        "module.tgw_peering_0_1[0].aws_ec2_transit_gateway_peering_attachment.this": {
+        "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_peering_attachment.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -12863,7 +12863,7 @@
             }
           }
         },
-        "module.tgw_peering_0_1[0].aws_ec2_transit_gateway_peering_attachment_accepter.this": {
+        "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_peering_attachment_accepter.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -12883,7 +12883,7 @@
             }
           }
         },
-        "module.tgw_peering_0_1[0].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.190.0.0/16\"]": {
+        "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.190.0.0/16\"]": {
           "index": "10.190.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -12897,7 +12897,7 @@
             "region": "eu-west-3"
           }
         },
-        "module.tgw_peering_0_1[0].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.192.0.0/16\"]": {
+        "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.192.0.0/16\"]": {
           "index": "10.192.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -12911,7 +12911,7 @@
             "region": "eu-west-3"
           }
         },
-        "module.tgw_peering_0_1[0].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.200.0.0/16\"]": {
+        "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.200.0.0/16\"]": {
           "index": "10.200.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -12925,7 +12925,7 @@
             "region": "eu-west-2"
           }
         },
-        "module.tgw_peering_0_1[0].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.202.0.0/16\"]": {
+        "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.202.0.0/16\"]": {
           "index": "10.202.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -12941,9 +12941,9 @@
         }
       }
     },
-    "module.tgw_peering_0_2[0]": {
+    "module.tgw_peering[\"0_2\"]": {
       "resources": {
-        "module.tgw_peering_0_2[0].aws_ec2_transit_gateway_peering_attachment.this": {
+        "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_peering_attachment.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -12966,7 +12966,7 @@
             }
           }
         },
-        "module.tgw_peering_0_2[0].aws_ec2_transit_gateway_peering_attachment_accepter.this": {
+        "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_peering_attachment_accepter.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -12986,7 +12986,7 @@
             }
           }
         },
-        "module.tgw_peering_0_2[0].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.190.0.0/16\"]": {
+        "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.190.0.0/16\"]": {
           "index": "10.190.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13000,7 +13000,7 @@
             "region": "eu-central-2"
           }
         },
-        "module.tgw_peering_0_2[0].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.192.0.0/16\"]": {
+        "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.192.0.0/16\"]": {
           "index": "10.192.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13014,7 +13014,7 @@
             "region": "eu-central-2"
           }
         },
-        "module.tgw_peering_0_2[0].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.210.0.0/16\"]": {
+        "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.210.0.0/16\"]": {
           "index": "10.210.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13028,7 +13028,7 @@
             "region": "eu-west-2"
           }
         },
-        "module.tgw_peering_0_2[0].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.212.0.0/16\"]": {
+        "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.212.0.0/16\"]": {
           "index": "10.212.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13044,9 +13044,9 @@
         }
       }
     },
-    "module.tgw_peering_1_2[0]": {
+    "module.tgw_peering[\"1_2\"]": {
       "resources": {
-        "module.tgw_peering_1_2[0].aws_ec2_transit_gateway_peering_attachment.this": {
+        "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_peering_attachment.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -13069,7 +13069,7 @@
             }
           }
         },
-        "module.tgw_peering_1_2[0].aws_ec2_transit_gateway_peering_attachment_accepter.this": {
+        "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_peering_attachment_accepter.this": {
           "mode": "managed",
           "name": "this",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -13089,7 +13089,7 @@
             }
           }
         },
-        "module.tgw_peering_1_2[0].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.200.0.0/16\"]": {
+        "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.200.0.0/16\"]": {
           "index": "10.200.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13103,7 +13103,7 @@
             "region": "eu-central-2"
           }
         },
-        "module.tgw_peering_1_2[0].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.202.0.0/16\"]": {
+        "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.202.0.0/16\"]": {
           "index": "10.202.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13117,7 +13117,7 @@
             "region": "eu-central-2"
           }
         },
-        "module.tgw_peering_1_2[0].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.210.0.0/16\"]": {
+        "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.210.0.0/16\"]": {
           "index": "10.210.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13131,7 +13131,7 @@
             "region": "eu-west-3"
           }
         },
-        "module.tgw_peering_1_2[0].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.212.0.0/16\"]": {
+        "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.212.0.0/16\"]": {
           "index": "10.212.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13171,6 +13171,18 @@
         "override_special": "!#%&*()-_=+[]{}:?",
         "special": true,
         "upper": true
+      }
+    },
+    "terraform_data.topology_guard": {
+      "mode": "managed",
+      "name": "topology_guard",
+      "provider_name": "terraform.io/builtin/terraform",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "terraform_data",
+      "values": {
+        "input": "3/3",
+        "triggers_replace": null
       }
     },
     "time_sleep.wait_for_database_writer[0]": {
