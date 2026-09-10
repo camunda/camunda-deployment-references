@@ -80,6 +80,14 @@ resource "terraform_data" "validate_authentication_mode" {
       condition     = !var.enable_camunda_hub || local.oidc_enabled
       error_message = "enable_camunda_hub requires authentication_mode = \"oidc\" (Camunda Hub / Web Modeler cannot use basic auth)."
     }
+    # Camunda Hub resolves every permission through Management Identity's RBAC model, and
+    # Identity ships no roles by default. Without the authorization seed the Hub still
+    # authenticates, so the deployment looks healthy while every project call is denied
+    # (403 on the management API, 404 on org-scoped resources). Fail at plan time instead.
+    precondition {
+      condition     = !var.enable_camunda_hub || var.enable_web_modeler_authorization
+      error_message = "enable_camunda_hub requires enable_web_modeler_authorization = true, otherwise Management Identity declares no Web Modeler roles and every Hub authorization check is denied."
+    }
   }
 }
 
@@ -89,9 +97,12 @@ locals {
   deploy_bundled_keycloak = local.oidc_enabled && var.external_oidc == null # ship the default IdP
 
   # Browser-facing base URL of the shared ALB. For the bundled Keycloak it is also the
-  # OIDC issuer host, so the token `iss` is identical for the browser and the backend
-  # (which reaches the ALB via NAT egress). HTTP only in this demo.
-  alb_base_url                = "http://${join("", aws_lb.main[*].dns_name)}"
+  # OIDC issuer host, so the token `iss` is identical for the browser and the backend.
+  # The scheme follows the listener actually in front of the ALB: plain HTTP by default,
+  # HTTPS once var.alb_certificate_arn adds the :443 listener. It must not be pinned to
+  # http, or the issuer, the OIDC redirect URIs and the Hub's server URL would advertise
+  # http while the components are simultaneously told the deployment is HTTPS-only.
+  alb_base_url                = "${local.alb_https_enabled ? "https" : "http"}://${join("", aws_lb.main[*].dns_name)}"
   keycloak_public_base_url    = "${local.alb_base_url}/auth"
   camunda_realm_issuer_public = "${local.keycloak_public_base_url}/realms/camunda-platform"
 
@@ -100,33 +111,32 @@ locals {
   # bundled realm import).
   identity_public_base = "${local.alb_base_url}/identity"
 
-  # Backend-reachable issuer URL, used only for *server-side* OIDC metadata/JWKS fetches
-  # (the Identity SDK's issuerBackendUrl). Browser-facing values stay on local.oidc.
-  #
-  # For the bundled Keycloak this is the in-VPC Service Connect address. Pointing it at
-  # the public ALB makes every backend metadata fetch leave the private subnet, cross NAT
-  # and re-enter through the internet-facing load balancer; that path intermittently
-  # returns a truncated response, so the fetch fails (java.io.EOFException) and every
-  # authorization check on a freshly started task is denied until a later attempt
-  # succeeds and the JWKS cache warms.
-  #
-  # Safe even though Keycloak runs with KC_HOSTNAME_STRICT=false and therefore reports
-  # its own internal host in the document's `issuer` field: the SDK only needs `jwks_uri`
-  # from it (also internal, and reachable), and the token's `iss` is validated against
-  # local.oidc.issuer_uri, which stays the public ALB URL.
-  #
-  # Deliberately not a member of local.oidc: that object is consumed by the bundled
-  # Keycloak's realm import, so referencing the Keycloak module from inside it would
-  # create a dependency cycle.
-  oidc_issuer_backend_uri = (local.deploy_bundled_keycloak
-    ? "http://${join("", module.keycloak[*].keycloak_service_connect)}:18080/auth/realms/camunda-platform"
-    : local.oidc.issuer_uri
-  )
+  # Service Connect DNS name for the bundled Keycloak. Owned here and passed into the
+  # module (keycloak.tf) so it stays a plain constant: taking it from the module output
+  # instead would route a literal through the resource graph and, because the module
+  # consumes the realm import built from local.oidc, force the backend URL out of that
+  # object to avoid a cycle.
+  keycloak_service_connect_name = "keycloak"
 
   # Single provider-agnostic OIDC interface. Every component reads only this object;
   # it is populated identically whether the IdP is the bundled Keycloak or external.
   oidc = {
-    issuer_uri   = local.use_external ? try(var.external_oidc.issuer_uri, "") : local.camunda_realm_issuer_public
+    issuer_uri = local.use_external ? try(var.external_oidc.issuer_uri, "") : local.camunda_realm_issuer_public
+
+    # Backend-reachable issuer, used only for *server-side* metadata/JWKS fetches. For the
+    # bundled Keycloak this is the in-VPC Service Connect address: pointing it at the public
+    # ALB makes every backend fetch leave the private subnet, cross NAT and re-enter through
+    # the internet-facing load balancer, a path that intermittently returns a truncated
+    # response (java.io.EOFException) and denies every authorization check on a freshly
+    # started task until a later attempt warms the JWKS cache.
+    #
+    # Safe even though Keycloak runs with KC_HOSTNAME_STRICT=false and so reports its own
+    # internal host in the document's `issuer`: only `jwks_uri` is read from it, and the
+    # token's `iss` is validated against issuer_uri above, which stays the public ALB URL.
+    issuer_backend_uri = (local.deploy_bundled_keycloak
+      ? "http://${local.keycloak_service_connect_name}:18080/auth/realms/camunda-platform"
+      : local.use_external ? try(var.external_oidc.issuer_uri, "") : local.camunda_realm_issuer_public
+    )
     token_uri    = local.use_external ? try(var.external_oidc.token_uri, "") : "${local.camunda_realm_issuer_public}/protocol/openid-connect/token"
     audience     = local.use_external ? try(var.external_oidc.audience, "") : "orchestration-api"
     redirect_uri = "${local.alb_base_url}/sso-callback"

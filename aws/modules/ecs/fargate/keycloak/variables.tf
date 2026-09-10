@@ -183,3 +183,9 @@ variable "enable_realm_import" {
     error_message = "enable_realm_import = true requires a secret named \"KEYCLOAK_REALM_IMPORT_JSON\" in var.secrets."
   }
 }
+
+variable "service_connect_dns_name" {
+  description = "Service Connect discovery/DNS name registered for Keycloak, reachable in-cluster at http://<this>:18080/auth. Exposed as an input so callers can build backend URLs from a constant instead of routing this name through the resource graph."
+  type        = string
+  default     = "keycloak"
+}

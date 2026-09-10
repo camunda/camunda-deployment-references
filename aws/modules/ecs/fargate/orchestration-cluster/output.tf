@@ -13,17 +13,23 @@ output "s2s_cloudmap_namespace" {
 }
 
 output "grpc_service_connect" {
-  value       = aws_ecs_service.orchestration_cluster.service_connect_configuration[0].service[0].discovery_name
+  value = one([for s in aws_ecs_service.orchestration_cluster.service_connect_configuration[0].service :
+    s.discovery_name if s.port_name == "grpc"
+  ])
   description = "The Service Connect discovery name for the orchestration cluster ECS service targeting gRPC"
 }
 
 output "rest_service_connect" {
-  value       = aws_ecs_service.orchestration_cluster.service_connect_configuration[0].service[2].discovery_name
+  value = one([for s in aws_ecs_service.orchestration_cluster.service_connect_configuration[0].service :
+    s.discovery_name if s.port_name == "rest"
+  ])
   description = "The Service Connect discovery name for the orchestration cluster ECS service targeting REST"
 }
 
 output "management_service_connect" {
-  value       = aws_ecs_service.orchestration_cluster.service_connect_configuration[0].service[3].discovery_name
+  value = one([for s in aws_ecs_service.orchestration_cluster.service_connect_configuration[0].service :
+    s.discovery_name if s.port_name == "management"
+  ])
   description = "The Service Connect discovery name for the orchestration cluster management/actuator port (reachable at http://<this>:9600 within the ECS cluster)"
 }
 

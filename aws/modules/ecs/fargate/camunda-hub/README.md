@@ -26,7 +26,7 @@ No modules.
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_alb_listener_http_webapp_arn"></a> [alb\_listener\_http\_webapp\_arn](#input\_alb\_listener\_http\_webapp\_arn) | The ARN of the ALB listener for the web application port HTTP(s) traffic | `string` | `""` | no |
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | The AWS region to deploy resources in | `string` | n/a | yes |
-| <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The URL context path Camunda Hub is served under (used for ALB routing and app config). The restapi readiness path is derived from this. | `string` | `"/hub"` | no |
+| <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The URL context path Camunda Hub is served under (used for ALB routing and app config). Note the restapi readiness endpoint is not served under it: the management port exposes /health/readiness unprefixed. | `string` | `"/hub"` | no |
 | <a name="input_ecs_cluster_id"></a> [ecs\_cluster\_id](#input\_ecs\_cluster\_id) | The cluster id of the ECS cluster to spawn the ECS service in | `string` | n/a | yes |
 | <a name="input_ecs_task_execution_role_arn"></a> [ecs\_task\_execution\_role\_arn](#input\_ecs\_task\_execution\_role\_arn) | ARN of the ECS task execution role (centrally managed) | `string` | n/a | yes |
 | <a name="input_enable_alb_http_webapp_listener_rule"></a> [enable\_alb\_http\_webapp\_listener\_rule](#input\_enable\_alb\_http\_webapp\_listener\_rule) | Whether to create the ALB listener rules for Camunda Hub (must be a known boolean at plan time) | `bool` | `true` | no |
@@ -36,8 +36,8 @@ No modules.
 | <a name="input_log_group_name"></a> [log\_group\_name](#input\_log\_group\_name) | The name of the CloudWatch log group for the ECS tasks | `string` | `""` | no |
 | <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for naming resources | `string` | n/a | yes |
 | <a name="input_pusher_app_id"></a> [pusher\_app\_id](#input\_pusher\_app\_id) | The Pusher app id shared between the restapi and websockets containers | `string` | `"camunda-hub"` | no |
-| <a name="input_pusher_app_key_secret_arn"></a> [pusher\_app\_key\_secret\_arn](#input\_pusher\_app\_key\_secret\_arn) | Secrets Manager ARN holding the Pusher app key (shared between both containers) | `string` | `""` | no |
-| <a name="input_pusher_app_secret_secret_arn"></a> [pusher\_app\_secret\_secret\_arn](#input\_pusher\_app\_secret\_secret\_arn) | Secrets Manager ARN holding the Pusher app secret (shared between both containers) | `string` | `""` | no |
+| <a name="input_pusher_app_key_secret_arn"></a> [pusher\_app\_key\_secret\_arn](#input\_pusher\_app\_key\_secret\_arn) | Secrets Manager ARN holding the Pusher app key (shared between both containers). Leave empty to omit the secret entirely; an empty ARN is dropped rather than rendered into the task definition. | `string` | `""` | no |
+| <a name="input_pusher_app_secret_secret_arn"></a> [pusher\_app\_secret\_secret\_arn](#input\_pusher\_app\_secret\_secret\_arn) | Secrets Manager ARN holding the Pusher app secret (shared between both containers). Leave empty to omit the secret entirely; an empty ARN is dropped rather than rendered into the task definition. | `string` | `""` | no |
 | <a name="input_registry_credentials_arn"></a> [registry\_credentials\_arn](#input\_registry\_credentials\_arn) | The ARN of the Secrets Manager secret containing registry credentials | `string` | `""` | no |
 | <a name="input_restapi_image"></a> [restapi\_image](#input\_restapi\_image) | The container image for the Camunda Hub REST API + web UI (formerly Web Modeler restapi/webapp) | `string` | `"camunda/hub:8.10.0-alpha3"` | no |
 | <a name="input_s2s_cloudmap_namespace"></a> [s2s\_cloudmap\_namespace](#input\_s2s\_cloudmap\_namespace) | The ARN of the Service Connect namespace for service-to-service communication | `string` | `""` | no |

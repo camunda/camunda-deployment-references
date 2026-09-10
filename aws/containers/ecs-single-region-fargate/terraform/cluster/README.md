@@ -21,10 +21,8 @@ This directory contains the Terraform implementation for the ECS single-region (
 
 | Name | Type |
 | ---- | ---- |
-| [aws_cloudwatch_log_group.camunda_hub_db_seed](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_cloudwatch_log_group.db_seed](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_ecs_cluster.ecs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_cluster) | resource |
-| [aws_ecs_task_definition.camunda_hub_db_seed](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
 | [aws_ecs_task_definition.db_seed](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
 | [aws_iam_policy.ecs_task_secrets_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.rds_db_connect_camunda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
@@ -88,7 +86,6 @@ This directory contains the Terraform implementation for the ECS single-region (
 | [aws_security_group.allow_remote_9600](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.allow_remote_grpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.efs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
-| [null_resource.run_camunda_hub_db_seed](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [null_resource.run_db_seed_task](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [random_password.admin_user_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.camunda_hub_pusher_app_key](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
@@ -116,6 +113,8 @@ This directory contains the Terraform implementation for the ECS single-region (
 | <a name="input_alb_certificate_arn"></a> [alb\_certificate\_arn](#input\_alb\_certificate\_arn) | ACM certificate ARN for the shared ALB. When set, an HTTPS :443 listener is created, all web-app/OIDC traffic is served over TLS (and HTTP :80 redirects to it), and Keycloak trusts the ALB's X-Forwarded-Proto so the realm needs no sslRequired relaxation. Empty (default) keeps this reference on plain HTTP :80 for the demo. | `string` | `""` | no |
 | <a name="input_alb_ssl_policy"></a> [alb\_ssl\_policy](#input\_alb\_ssl\_policy) | SSL negotiation policy for the HTTPS ALB listener (used only when alb\_certificate\_arn is set). | `string` | `"ELBSecurityPolicy-TLS13-1-2-2021-06"` | no |
 | <a name="input_authentication_mode"></a> [authentication\_mode](#input\_authentication\_mode) | Platform authentication: 'basic' (built-in users, no IdP deployed) or 'oidc' (OIDC via the bundled Keycloak by default, or an external provider when var.external\_oidc is set). | `string` | `"basic"` | no |
+| <a name="input_camunda_hub_db_name"></a> [camunda\_hub\_db\_name](#input\_camunda\_hub\_db\_name) | Dedicated database name for Camunda Hub on the shared Aurora cluster | `string` | `"camunda-hub"` | no |
+| <a name="input_camunda_hub_db_username"></a> [camunda\_hub\_db\_username](#input\_camunda\_hub\_db\_username) | Database role for Camunda Hub. Authenticates with an IAM token via the AWS Advanced JDBC wrapper, so it carries no password. | `string` | `"camunda-hub"` | no |
 | <a name="input_camunda_hub_restapi_image"></a> [camunda\_hub\_restapi\_image](#input\_camunda\_hub\_restapi\_image) | Container image for the Camunda Hub REST API + web UI. Registry credentials are only attached when this points at registry.camunda.cloud (private); public Docker Hub images pull without credentials. | `string` | `"camunda/hub:8.10.0-alpha3"` | no |
 | <a name="input_camunda_hub_websockets_image"></a> [camunda\_hub\_websockets\_image](#input\_camunda\_hub\_websockets\_image) | Container image for the Camunda Hub websockets relay. Registry credentials are only attached when this (or the restapi image) points at registry.camunda.cloud (private). | `string` | `"camunda/hub-websockets:8.10.0-alpha3"` | no |
 | <a name="input_camunda_license_key"></a> [camunda\_license\_key](#input\_camunda\_license\_key) | (Optional) Camunda license key. When set (and enable\_camunda\_hub = true) it is stored in Secrets Manager and injected as CAMUNDA\_LICENSE\_KEY. Leave empty to run Camunda Hub in its trial mode (fine for tests). | `string` | `""` | no |
@@ -136,7 +135,7 @@ This directory contains the Terraform implementation for the ECS single-region (
 | <a name="input_keycloak_db_name"></a> [keycloak\_db\_name](#input\_keycloak\_db\_name) | Dedicated database name for Keycloak on the shared Aurora cluster | `string` | `"keycloak"` | no |
 | <a name="input_keycloak_db_username"></a> [keycloak\_db\_username](#input\_keycloak\_db\_username) | Password-authenticated database role for Keycloak | `string` | `"keycloak"` | no |
 | <a name="input_limit_access_to_cidrs"></a> [limit\_access\_to\_cidrs](#input\_limit\_access\_to\_cidrs) | List of CIDR blocks to allow access to ssh of Bastion and LoadBalancer | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
-| <a name="input_ports"></a> [ports](#input\_ports) | The ports to open for the security groups within the VPC | `map(number)` | <pre>{<br/>  "camunda_metrics_endpoint": 9600,<br/>  "camunda_web_ui": 8080,<br/>  "keycloak_http": 18080,<br/>  "keycloak_management": 9000,<br/>  "management_identity_app": 8084,<br/>  "management_identity_management": 8082,<br/>  "postgresql": 5432,<br/>  "zeebe_broker_network_command_api_port": 26501,<br/>  "zeebe_gateway_cluster_port": 26502,<br/>  "zeebe_gateway_network_port": 26500<br/>}</pre> | no |
+| <a name="input_ports"></a> [ports](#input\_ports) | The ports to open for the security groups within the VPC | `map(number)` | <pre>{<br/>  "camunda_hub_management": 8091,<br/>  "camunda_hub_restapi": 8081,<br/>  "camunda_hub_websockets": 8060,<br/>  "camunda_metrics_endpoint": 9600,<br/>  "camunda_web_ui": 8080,<br/>  "keycloak_http": 18080,<br/>  "keycloak_management": 9000,<br/>  "management_identity_app": 8084,<br/>  "management_identity_management": 8082,<br/>  "postgresql": 5432,<br/>  "zeebe_broker_network_command_api_port": 26501,<br/>  "zeebe_gateway_cluster_port": 26502,<br/>  "zeebe_gateway_network_port": 26500<br/>}</pre> | no |
 | <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for names of resources | `string` | `"camunda"` | no |
 | <a name="input_registry_password"></a> [registry\_password](#input\_registry\_password) | (Optional) The password for the container registry (e.g., Docker Hub) | `string` | `""` | no |
 | <a name="input_registry_username"></a> [registry\_username](#input\_registry\_username) | (Optional) The username for the container registry (e.g., Docker Hub) | `string` | `""` | no |

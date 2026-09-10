@@ -253,7 +253,6 @@ resource "aws_ecs_service" "orchestration_cluster" {
     enabled   = true
     namespace = aws_service_discovery_http_namespace.service_connect.arn
 
-    # dynamic for_each is not deterministic and we consume the outputs by index
     service {
       port_name      = "grpc"
       discovery_name = "orchestration-cluster-grpc"
@@ -286,7 +285,7 @@ resource "aws_ecs_service" "orchestration_cluster" {
     # the unauthenticated health endpoints: Camunda Hub's Console reads cluster health
     # from `/actuator/health/readiness`, which is not served on the API port (8080
     # returns 404) and cannot use the v2 API (it requires a bearer token no background
-    # probe holds). Appended last on purpose — the outputs above index into this list.
+    # probe holds). Outputs look this entry up by port_name, so ordering here is free.
     service {
       port_name      = "management"
       discovery_name = "orchestration-cluster-management"

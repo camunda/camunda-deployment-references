@@ -262,7 +262,7 @@ resource "aws_iam_policy" "rds_db_connect_camunda_hub" {
   count = var.enable_camunda_hub ? 1 : 0
 
   name        = "${var.prefix}-rds-db-connect-camunda-hub"
-  description = "Allow ECS tasks to connect to Aurora PostgreSQL as the IAM DB user 'camunda-hub'"
+  description = "Allow ECS tasks to connect to Aurora PostgreSQL as the IAM DB user '${var.camunda_hub_db_username}'"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -274,7 +274,7 @@ resource "aws_iam_policy" "rds_db_connect_camunda_hub" {
           "rds-db:connect"
         ]
         Resource = [
-          "arn:aws:rds-db:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:dbuser:${module.postgresql.aurora_cluster_resource_id}/camunda-hub"
+          "arn:aws:rds-db:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:dbuser:${module.postgresql.aurora_cluster_resource_id}/${var.camunda_hub_db_username}"
         ]
       }
     ]

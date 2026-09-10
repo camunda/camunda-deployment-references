@@ -125,6 +125,22 @@ locals {
     [for role in preset.roles : role.name]
   ]))
 
+  # Bootstrap env for the first admin. Mutually exclusive with the declared mapping rule:
+  # Identity creates a "Default" ROLE rule from these two vars, and the initializer that
+  # reads `identity.mapping-rules` de-duplicates on the (claim-name, claim-value, rule-type)
+  # triple rather than on the rule name, so a declared rule matching the same claim is
+  # silently skipped and the roles it grants never apply. When the model below is seeded the
+  # declared rule bootstraps the admin instead, granting a superset of the auto-created one.
+  identity_bootstrap_env = local.webmodeler_authorization_enabled ? [] : [
+    { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
+    { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
+  ]
+
+  # Seeded authorization model, handed to the task as a single SPRING_APPLICATION_JSON.
+  identity_authorization_env = local.webmodeler_authorization_enabled ? [
+    { name = "SPRING_APPLICATION_JSON", value = local.identity_authorization_json },
+  ] : []
+
   # Nested maps and lists cannot be expressed as relaxed-binding environment variables,
   # so the whole block is handed to the task as a single SPRING_APPLICATION_JSON value.
   # It sets only identity.component-presets and identity.mapping-rules; the scalar

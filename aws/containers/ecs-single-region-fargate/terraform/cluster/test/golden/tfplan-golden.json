@@ -1402,6 +1402,30 @@
             "security_groups": []
           },
           {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
             "cidr_blocks": [],
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -1409,6 +1433,30 @@
           }
         ],
         "ingress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
           {
             "cidr_blocks": [
               false
@@ -1566,6 +1614,19 @@
             "cidr_blocks": [
               "10.190.0.0/16"
             ],
+            "description": "Allow outbound traffic on port 8060",
+            "from_port": 8060,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8060
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
             "description": "Allow outbound traffic on port 8080",
             "from_port": 8080,
             "ipv6_cidr_blocks": [],
@@ -1574,6 +1635,19 @@
             "security_groups": [],
             "self": false,
             "to_port": 8080
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow outbound traffic on port 8081",
+            "from_port": 8081,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8081
           },
           {
             "cidr_blocks": [
@@ -1600,6 +1674,19 @@
             "security_groups": [],
             "self": false,
             "to_port": 8084
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow outbound traffic on port 8091",
+            "from_port": 8091,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8091
           },
           {
             "cidr_blocks": [
@@ -1708,6 +1795,19 @@
             "cidr_blocks": [
               "10.190.0.0/16"
             ],
+            "description": "Allow inbound traffic on port 8060",
+            "from_port": 8060,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8060
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
             "description": "Allow inbound traffic on port 8080",
             "from_port": 8080,
             "ipv6_cidr_blocks": [],
@@ -1716,6 +1816,19 @@
             "security_groups": [],
             "self": false,
             "to_port": 8080
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow inbound traffic on port 8081",
+            "from_port": 8081,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8081
           },
           {
             "cidr_blocks": [
@@ -1742,6 +1855,19 @@
             "security_groups": [],
             "self": false,
             "to_port": 8084
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow inbound traffic on port 8091",
+            "from_port": 8091,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8091
           },
           {
             "cidr_blocks": [
@@ -4700,7 +4826,8 @@
             "source_region": null,
             "storage_encrypted": true,
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.postgresql.aws_rds_cluster_instance.aurora_instance[0]": {
@@ -4730,7 +4857,8 @@
             "promotion_tier": 0,
             "region": "eu-west-2",
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.postgresql.aws_security_group.this": {

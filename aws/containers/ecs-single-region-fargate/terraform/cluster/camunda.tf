@@ -301,31 +301,13 @@ module "management_identity" {
     { name = "CAMUNDA_IDENTITY_TYPE", value = "GENERIC" },
     { name = "CAMUNDA_IDENTITY_BASE_URL", value = local.identity_public_base },
     { name = "CAMUNDA_IDENTITY_ISSUER", value = local.oidc.issuer_uri },
-    # Backend metadata/JWKS fetches use the in-VPC address; see local.oidc_issuer_backend_uri.
-    { name = "CAMUNDA_IDENTITY_ISSUER_BACKEND_URL", value = local.oidc_issuer_backend_uri },
+    # Backend metadata/JWKS fetches use the in-VPC address; see local.oidc.issuer_backend_uri.
+    { name = "CAMUNDA_IDENTITY_ISSUER_BACKEND_URL", value = local.oidc.issuer_backend_uri },
     { name = "CAMUNDA_IDENTITY_CLIENT_ID", value = local.oidc.identity.client_id },
     { name = "CAMUNDA_IDENTITY_AUDIENCE", value = local.oidc.identity.audience },
     ],
-    # First admin is granted by matching this claim/value (write-once at first boot).
-    #
-    # Mutually exclusive with the declared mapping rule below. Identity bootstraps a
-    # mapping rule named "Default" from these two vars, and the initializer that reads
-    # `identity.mapping-rules` de-duplicates on the (claim-name, claim-value, rule-type)
-    # triple rather than on the rule name — so a declared rule matching the same claim is
-    # silently skipped and the roles it grants are never applied. When the authorization
-    # model is seeded we therefore let the declared rule do the bootstrapping too: it
-    # grants ManagementIdentity plus the Web Modeler roles, a superset of the
-    # auto-created one. See identity_authorization.tf.
-    local.webmodeler_authorization_enabled ? [] : [
-      { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
-      { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
-    ],
-    # Identity's own authorization model (roles + claim-based grants). Opt-in, because
-    # it only matters once a component that resolves permissions through Identity is
-    # deployed; see identity_authorization.tf.
-    local.webmodeler_authorization_enabled ? [
-      { name = "SPRING_APPLICATION_JSON", value = local.identity_authorization_json },
-    ] : [],
+    local.identity_bootstrap_env,
+    local.identity_authorization_env,
   )
 
   # No IDENTITY_DATABASE_PASSWORD: the task authenticates to Aurora with an IAM token.
@@ -408,7 +390,7 @@ module "camunda_hub" {
   count  = var.enable_camunda_hub ? 1 : 0
   source = "../../../../modules/ecs/fargate/camunda-hub"
 
-  depends_on = [null_resource.run_camunda_hub_db_seed, module.management_identity]
+  depends_on = [null_resource.run_db_seed_task, module.management_identity]
 
   prefix                               = "${var.prefix}-oc1"
   ecs_cluster_id                       = aws_ecs_cluster.ecs.id
@@ -446,8 +428,8 @@ module "camunda_hub" {
 
   environment_variables = [
     # --- Database (dedicated camunda-hub database, IAM auth via AWS JDBC wrapper) ---
-    { name = "SPRING_DATASOURCE_URL", value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/camunda-hub?wrapperPlugins=iam" },
-    { name = "SPRING_DATASOURCE_USERNAME", value = "camunda-hub" },
+    { name = "SPRING_DATASOURCE_URL", value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.camunda_hub_db_name}?wrapperPlugins=iam" },
+    { name = "SPRING_DATASOURCE_USERNAME", value = var.camunda_hub_db_username },
     { name = "SPRING_DATASOURCE_DRIVER_CLASS_NAME", value = "software.amazon.jdbc.Driver" },
 
     # --- Console feature (Camunda Hub consolidation) ---
@@ -471,10 +453,16 @@ module "camunda_hub" {
     { name = "CAMUNDA_IDENTITY_BASEURL", value = "http://${module.management_identity[0].identity_service_connect}:8084" },
     { name = "CAMUNDA_IDENTITY_ISSUER", value = local.oidc.issuer_uri },
     # Backend metadata/JWKS fetches use the in-VPC address, which is what makes
-    # authorization work on a freshly started task; see local.oidc_issuer_backend_uri.
-    { name = "CAMUNDA_IDENTITY_ISSUERBACKENDURL", value = local.oidc_issuer_backend_uri },
+    # authorization work on a freshly started task; see local.oidc.issuer_backend_uri.
+    { name = "CAMUNDA_IDENTITY_ISSUERBACKENDURL", value = local.oidc.issuer_backend_uri },
     # Spring's resource server keeps the public issuer: it validates the token's `iss`.
     { name = "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI", value = local.oidc.issuer_uri },
+    # ...but the key set is fetched server-side, so it uses the in-VPC address for the
+    # same reason as the Identity SDK above. Setting jwk-set-uri also stops Spring
+    # resolving the discovery document over the public ALB at startup. The keys are
+    # host-independent, and `iss` is still validated against the public issuer-uri.
+    # Mirrors the reference chart, which pins jwk-set-uri to the backend endpoint.
+    { name = "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI", value = "${local.oidc.issuer_backend_uri}/protocol/openid-connect/certs" },
     { name = "CAMUNDA_MODELER_OAUTH2_CLIENT_ID", value = local.oidc.webmodeler.client_id },
     { name = "CAMUNDA_MODELER_SECURITY_JWT_AUDIENCE_INTERNAL_API", value = local.oidc.webmodeler.audience_internal },
     { name = "CAMUNDA_MODELER_SECURITY_JWT_AUDIENCE_PUBLIC_API", value = local.oidc.webmodeler.audience_public },

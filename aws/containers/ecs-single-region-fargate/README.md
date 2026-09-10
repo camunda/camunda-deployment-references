@@ -43,6 +43,14 @@ Camunda Hub authenticates via OIDC, so it **requires `authentication_mode =
 `web-modeler-api` / `web-modeler-public-api` audiences) in the bundled Keycloak
 realm; the same HTTP/TLS caveat as above applies to the Web Modeler browser login.
 
+> **Enable this on a new cluster, not an existing one.** Keycloak imports the realm only
+> when that realm does not yet exist (`kc.sh start --import-realm`), and the `web-modeler`
+> client lives in that import. Turning `enable_camunda_hub` on against a deployment whose
+> realm already exists therefore applies cleanly and still leaves Keycloak with no client
+> for the Hub, so the browser login cannot complete and nothing in the plan warns about it.
+> Either deploy the flag from the start, or register the client out of band (for example a
+> one-shot `kcadm` task) before enabling it.
+
 A Camunda license is **optional** — leave `camunda_license_key` empty to run
 Camunda Hub in its trial mode (fine for tests); set it to store the key in
 Secrets Manager and inject it as `CAMUNDA_LICENSE_KEY`.

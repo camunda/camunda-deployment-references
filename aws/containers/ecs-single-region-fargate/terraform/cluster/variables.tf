@@ -59,6 +59,9 @@ variable "ports" {
     management_identity_management        = 8082
     keycloak_http                         = 18080
     keycloak_management                   = 9000
+    camunda_hub_restapi                   = 8081
+    camunda_hub_management                = 8091
+    camunda_hub_websockets                = 8060
   }
   description = "The ports to open for the security groups within the VPC"
 }
@@ -134,6 +137,31 @@ variable "identity_db_username" {
   validation {
     condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.identity_db_username)) && length(var.identity_db_username) <= 63
     error_message = "identity_db_username must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
+}
+
+variable "camunda_hub_db_name" {
+  type        = string
+  description = "Dedicated database name for Camunda Hub on the shared Aurora cluster"
+  default     = "camunda-hub"
+
+  validation {
+    # Hyphens are allowed here (unlike the neighbours) because the default is the
+    # app-conventional "camunda-hub"; every use quotes the identifier, in the seed SQL
+    # and in the JDBC URL alike.
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_-]*$", var.camunda_hub_db_name)) && length(var.camunda_hub_db_name) <= 63
+    error_message = "camunda_hub_db_name must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores/hyphens, and be at most 63 characters."
+  }
+}
+
+variable "camunda_hub_db_username" {
+  type        = string
+  description = "Database role for Camunda Hub. Authenticates with an IAM token via the AWS Advanced JDBC wrapper, so it carries no password."
+  default     = "camunda-hub"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_-]*$", var.camunda_hub_db_username)) && length(var.camunda_hub_db_username) <= 63
+    error_message = "camunda_hub_db_username must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores/hyphens, and be at most 63 characters."
   }
 }
 

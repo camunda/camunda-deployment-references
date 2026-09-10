@@ -82,3 +82,51 @@ run "extra_task_role_attachments_count_matches_var" {
     error_message = "extra_task_role_attachments should produce one IAM attachment per ARN"
   }
 }
+
+# The Pusher secret ARNs default to empty. An empty string must never reach the task
+# definition `secrets` list: ECS rejects it at RegisterTaskDefinition with an error that
+# does not name the offending entry, which is expensive to diagnose at apply time.
+run "empty_pusher_secret_arns_are_not_rendered" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for c in jsondecode(aws_ecs_task_definition.camunda_hub.container_definitions) :
+      alltrue([for s in lookup(c, "secrets", []) : s.valueFrom != ""])
+    ])
+    error_message = "No task definition secret may be rendered with an empty valueFrom"
+  }
+}
+
+run "pusher_secret_arns_are_rendered_when_set" {
+  command = plan
+
+  variables {
+    pusher_app_key_secret_arn    = "arn:aws:secretsmanager:us-east-1:000000000000:secret:pusher-key"
+    pusher_app_secret_secret_arn = "arn:aws:secretsmanager:us-east-1:000000000000:secret:pusher-secret"
+  }
+
+  assert {
+    condition = length([
+      for c in jsondecode(aws_ecs_task_definition.camunda_hub.container_definitions) :
+      c if length([for s in lookup(c, "secrets", []) : s if strcontains(s.valueFrom, "pusher")]) == 2
+    ]) == 2
+    error_message = "Both containers must receive the Pusher key and secret when the ARNs are set"
+  }
+}
+
+# The service must be appliable with the listener rules turned off. The target groups are
+# only associated with a load balancer by those rules, so attaching them unconditionally
+# makes ECS reject CreateService and the "off" state of the flag unusable.
+run "service_has_no_load_balancer_when_listener_rules_disabled" {
+  command = plan
+
+  variables {
+    enable_alb_http_webapp_listener_rule = false
+  }
+
+  assert {
+    condition     = length(aws_ecs_service.camunda_hub.load_balancer) == 0
+    error_message = "The service must not attach target groups when the listener rules are disabled"
+  }
+}
