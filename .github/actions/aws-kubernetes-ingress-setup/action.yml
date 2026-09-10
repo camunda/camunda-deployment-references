@@ -125,6 +125,11 @@ runs:
               # Camunda's MAP id; the cloud provider then propagates it onto the NLB.
               map_lb_service="contour-envoy"
               map_lb_namespace="projectcontour"
+              # install-contour.sh does not pass --wait, so the Service may not exist yet.
+              for _ in $(seq 1 30); do
+                  kubectl get service "$map_lb_service" --namespace "$map_lb_namespace" >/dev/null 2>&1 && break
+                  sleep 2
+              done
               echo "Tagging ${map_lb_service} (${map_lb_namespace}) load balancer with map-migrated for AWS MAP ..."
               kubectl annotate service "$map_lb_service" --namespace "$map_lb_namespace" --overwrite \
                   'service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags=map-migrated=migARUADZHVWZ'
