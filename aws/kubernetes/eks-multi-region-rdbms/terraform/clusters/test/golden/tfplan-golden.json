@@ -1595,7 +1595,8 @@
             "source_region": null,
             "storage_encrypted": true,
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.database_region_0[0].aws_rds_cluster_instance.this[0]": {
@@ -1624,7 +1625,8 @@
             "publicly_accessible": false,
             "region": "eu-west-2",
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.database_region_0[0].aws_security_group.this": {
@@ -1838,7 +1840,8 @@
             "source_region": null,
             "storage_encrypted": true,
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.database_secondary[\"1\"].aws_rds_cluster_instance.this[0]": {
@@ -1867,7 +1870,8 @@
             "publicly_accessible": false,
             "region": "eu-west-3",
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.database_secondary[\"1\"].aws_security_group.this": {
