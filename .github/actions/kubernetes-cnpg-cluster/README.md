@@ -12,7 +12,7 @@ Uses scripts and manifests from generic/kubernetes/operator-based/postgresql/.
 | name | description | required | default |
 | --- | --- | --- | --- |
 | `namespace` | <p>Kubernetes namespace for the PostgreSQL cluster</p> | `false` | `camunda` |
-| `cluster-name` | <p>Name of the CNPG cluster to deploy (must match a cluster in postgresql-clusters.yml). Examples: pg-keycloak, pg-identity, pg-webmodeler</p> | `true` | `""` |
+| `cluster-name` | <p>Name of the CNPG cluster to deploy (must match a cluster in postgresql-clusters.yml or postgresql-orchestration-cluster.yml for pg-camunda). Examples: pg-keycloak, pg-identity, pg-webmodeler, pg-camunda</p> | `true` | `""` |
 
 
 ## Outputs
@@ -40,8 +40,9 @@ This action is a `composite` action.
     # Default: camunda
 
     cluster-name:
-    # Name of the CNPG cluster to deploy (must match a cluster in postgresql-clusters.yml).
-    # Examples: pg-keycloak, pg-identity, pg-webmodeler
+    # Name of the CNPG cluster to deploy (must match a cluster in postgresql-clusters.yml
+    # or postgresql-orchestration-cluster.yml for pg-camunda).
+    # Examples: pg-keycloak, pg-identity, pg-webmodeler, pg-camunda
     #
     # Required: true
     # Default: ""
