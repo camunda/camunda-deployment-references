@@ -1,0 +1,1 @@
+../../eks-single-region/procedure/install-cert-manager-issuer.sh
