@@ -130,6 +130,10 @@ runs:
                   kubectl get service "$map_lb_service" --namespace "$map_lb_namespace" >/dev/null 2>&1 && break
                   sleep 2
               done
+              if ! kubectl get service "$map_lb_service" --namespace "$map_lb_namespace" >/dev/null 2>&1; then
+                  echo "❌ ERROR: service ${map_lb_service} did not appear in namespace ${map_lb_namespace} within 60s of installing Contour." >&2
+                  exit 1
+              fi
               echo "Tagging ${map_lb_service} (${map_lb_namespace}) load balancer with map-migrated for AWS MAP ..."
               kubectl annotate service "$map_lb_service" --namespace "$map_lb_namespace" --overwrite \
                   'service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags=map-migrated=migARUADZHVWZ'
