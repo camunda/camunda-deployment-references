@@ -31,6 +31,14 @@ fi
 ROUTER_DEPLOY=$(oc -n openshift-ingress get deploy -o name \
     | grep -E "router-${OC_INGRESS_CONTROLLER_NAME}$" | head -n1 || true)
 if [[ -n "$ROUTER_DEPLOY" ]]; then
-    oc -n openshift-ingress rollout restart "$ROUTER_DEPLOY"
-    oc -n openshift-ingress rollout status "$ROUTER_DEPLOY" --timeout=5m
+    # The whole rollout nudge is best effort. The ingress operator already rolls the
+    # router itself when the annotation changes; this only asks it to be prompt. On ROSA
+    # HCP the old replica can then sit in termination past the timeout, held by
+    # connection draining and a managed PDB. Neither a refused restart nor a slow
+    # rollout means HTTP/2 is missing, so neither may fail the procedure.
+    if ! oc -n openshift-ingress rollout restart "$ROUTER_DEPLOY"; then
+        echo "⚠️  Could not restart the router; the ingress operator rolls it out on its own"
+    elif ! oc -n openshift-ingress rollout status "$ROUTER_DEPLOY" --timeout=5m; then
+        echo "⚠️  Could not confirm the router rollout within 5m; continuing, the HTTP/2 annotation is already applied"
+    fi
 fi

@@ -188,6 +188,15 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
 }
 
 resource "aws_ecs_service" "orchestration_cluster" {
+  # The EFS mount targets and the task-role EFS policy attachment are otherwise
+  # siblings of the service in the graph, so tasks can be placed before the
+  # mount is resolvable (ResourceInitializationError) or before IAM has
+  # propagated. Both failures burn the create timeout.
+  depends_on = [
+    aws_efs_mount_target.efs_mounts,
+    aws_iam_role_policy_attachment.ecs_task_efs_policy,
+  ]
+
   name                              = "${var.prefix}-orchestration-cluster"
   cluster                           = var.ecs_cluster_id # aws_ecs_cluster.ecs.id
   task_definition                   = aws_ecs_task_definition.orchestration_cluster.arn

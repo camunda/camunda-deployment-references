@@ -14,10 +14,19 @@ matrix:
           # TODO: Re-enable 'oidc' (AWS Cognito) once https://github.com/camunda/camunda/issues/44650 is fixed
           #       Currently, Cognito M2M tokens lack 'aud' claim and Camunda's AudienceValidator rejects them.
           auth_provider: keycloak-operator
+          secondary_storage: opensearch
 
         - name: eks-single-region-irsa
           private_vpc: true
           auth_provider: keycloak-operator
+          secondary_storage: opensearch
+
+        - name: eks-single-region-rdbms
+          private_vpc: false
+          auth_provider: keycloak-operator
+          # Aurora PostgreSQL replaces the OpenSearch domain as secondary storage.
+          # Optimize is disabled in this scenario: it still requires Elasticsearch/OpenSearch.
+          secondary_storage: rdbms
 
     declination:
         - name: no-domain

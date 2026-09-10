@@ -78,7 +78,7 @@ env:
     CAMUNDA_RELEASE_NAME: camunda
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 14.8.3
+    CAMUNDA_HELM_CHART_VERSION: 14.9.0
 
 jobs:
     triage:
@@ -235,7 +235,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@475528365f4010480dccff71ccac554cc3352e7c # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@2fa2e5ecfa1d82a6d2a93106bd43889f68500f4f # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
