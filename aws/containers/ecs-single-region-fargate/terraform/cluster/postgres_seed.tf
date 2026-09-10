@@ -328,6 +328,16 @@ resource "null_resource" "run_camunda_hub_db_seed" {
 
   triggers = {
     aurora_endpoint = module.postgresql.aurora_endpoint
+
+    # Same reasoning as run_db_seed_task above: re-run when the seed task definition
+    # changes, which is what happens when the SQL or any of the values baked into it
+    # (endpoint, admin database, admin username, hub role/database) is edited. Without
+    # this the task definition is replaced but never executed, so a change to the script
+    # silently never reaches the database on an existing deployment. Safe to re-run:
+    # every statement in it is idempotent. The revision is used rather than a hash of
+    # container_definitions because the latter carries sensitive values, which the null
+    # provider rejects in triggers.
+    seed_revision = aws_ecs_task_definition.camunda_hub_db_seed[0].revision
   }
 
   provisioner "local-exec" {
