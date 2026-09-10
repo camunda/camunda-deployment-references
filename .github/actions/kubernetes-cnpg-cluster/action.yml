@@ -12,8 +12,9 @@ inputs:
         default: camunda
     cluster-name:
         description: |
-            Name of the CNPG cluster to deploy (must match a cluster in postgresql-clusters.yml).
-            Examples: pg-keycloak, pg-identity, pg-webmodeler
+            Name of the CNPG cluster to deploy (must match a cluster in postgresql-clusters.yml
+            or postgresql-orchestration-cluster.yml for pg-camunda).
+            Examples: pg-keycloak, pg-identity, pg-webmodeler, pg-camunda
         required: true
 
 outputs:
