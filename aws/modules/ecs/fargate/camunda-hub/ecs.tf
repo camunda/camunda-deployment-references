@@ -136,11 +136,15 @@ resource "aws_ecs_service" "camunda_hub" {
     namespace = var.s2s_cloudmap_namespace
   }
 
+  # Only attach the target groups when the listener rules exist: ECS CreateService
+  # rejects a load_balancer block whose target group is not associated with a load
+  # balancer, and the rules are what associate them (same gating as the sibling
+  # orchestration-cluster and management-identity modules).
   dynamic "load_balancer" {
-    for_each = {
+    for_each = var.enable_alb_http_webapp_listener_rule ? {
       (aws_lb_target_group.restapi.arn)    = { name = "camunda-hub-restapi", port = 8081 }
       (aws_lb_target_group.websockets.arn) = { name = "camunda-hub-websockets", port = 8060 }
-    }
+    } : {}
     content {
       target_group_arn = load_balancer.key
       container_name   = load_balancer.value.name
