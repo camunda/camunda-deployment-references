@@ -9,6 +9,11 @@ variables {
   vpc_private_subnets         = ["subnet-aaa1aaaa", "subnet-aaa2aaaa", "subnet-aaa3aaaa"]
   prefix                      = "test-hub"
   ecs_task_execution_role_arn = "arn:aws:iam::000000000000:role/test-exec"
+
+  # Required inputs: the task definition always renders these into its secrets list,
+  # so the module refuses to plan without them.
+  pusher_app_key_secret_arn    = "arn:aws:secretsmanager:us-east-1:000000000000:secret:test-pusher-key"
+  pusher_app_secret_secret_arn = "arn:aws:secretsmanager:us-east-1:000000000000:secret:test-pusher-secret"
 }
 
 run "task_definition_has_two_containers" {
