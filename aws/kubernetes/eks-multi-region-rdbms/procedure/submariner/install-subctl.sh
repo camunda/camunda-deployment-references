@@ -15,7 +15,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     exit 1
 fi
 
-# renovate: datasource=github-releases depName=submariner-io/subctl
+# renovate: datasource=github-releases depName=submariner-io/releases
 SUBCTL_VERSION=0.24.0
 
 case "$(uname -s)-$(uname -m)" in
