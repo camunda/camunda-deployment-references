@@ -61,18 +61,51 @@ type Env struct {
 	VPCCidrBlocks        []string
 	ServiceCidrBlocks    []string
 	SubmarinerBrokerSlot int
-	Namespace            string
-	ReleaseName          string
-	RdbmsURL             string
-	RdbmsUsername        string
-	RdbmsPassword        string
-	AuroraGlobalID       string
-	Extra                map[string]string
+	// ZoneReplicas holds the replicas of each partition per zone slot. Empty
+	// means the default layout, which DefaultZoneReplicas keeps in step with
+	// the procedure that owns it.
+	ZoneReplicas   []int
+	Namespace      string
+	ReleaseName    string
+	RdbmsURL       string
+	RdbmsUsername  string
+	RdbmsPassword  string
+	AuroraGlobalID string
+	Extra          map[string]string
+}
+
+// DefaultZoneReplicas mirrors the default layout of
+// procedure/export_environment_prerequisites.sh: two replicas in each database
+// zone and one in the remaining tie-breaker, so three slots give 2-2-1.
+//
+// The procedure owns the default; this is a copy, and TestZoneReplicasDefault
+// MatchesTheProcedure fails if the two drift apart.
+func DefaultZoneReplicas(slots int) []int {
+	replicas := make([]int, slots)
+	for i := range replicas {
+		if i < 2 {
+			replicas[i] = 2
+		} else {
+			replicas[i] = 1
+		}
+	}
+	return replicas
 }
 
 // Vars renders the environment as a KEY=VALUE slice suitable for exec.Cmd.
 func (e Env) Vars() []string {
 	clusterSize := e.BrokersPerRegion * e.RegionSlots
+
+	zoneReplicas := e.ZoneReplicas
+	if len(zoneReplicas) == 0 {
+		zoneReplicas = DefaultZoneReplicas(e.RegionSlots)
+	}
+	replicationFactor := 0
+	fields := make([]string, len(zoneReplicas))
+	for i, r := range zoneReplicas {
+		replicationFactor += r
+		fields[i] = fmt.Sprint(r)
+	}
 
 	vars := map[string]string{
 		"CAMUNDA_REGION_SLOTS":       fmt.Sprint(e.RegionSlots),
@@ -80,7 +113,8 @@ func (e Env) Vars() []string {
 		"CAMUNDA_BROKERS_PER_REGION": fmt.Sprint(e.BrokersPerRegion),
 		"CAMUNDA_CLUSTER_SIZE":       fmt.Sprint(clusterSize),
 		"CAMUNDA_PARTITION_COUNT":    fmt.Sprint(clusterSize),
-		"CAMUNDA_REPLICATION_FACTOR": fmt.Sprint(e.RegionSlots),
+		"CAMUNDA_REPLICATION_FACTOR": fmt.Sprint(replicationFactor),
+		"CAMUNDA_ZONE_REPLICAS":      strings.Join(fields, " "),
 		"CLUSTER_CONTEXTS":           strings.Join(e.ClusterContexts, " "),
 		"AWS_REGIONS":                strings.Join(e.AWSRegions, " "),
 		"SUBMARINER_CLUSTER_IDS":     strings.Join(e.SubmarinerClusters, " "),

@@ -60,11 +60,46 @@ export CAMUNDA_BROKERS_PER_REGION="${CAMUNDA_BROKERS_PER_REGION:-2}"
 export CAMUNDA_CLUSTER_SIZE="${CAMUNDA_CLUSTER_SIZE:-$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_REGION_SLOTS))}"
 export CAMUNDA_PARTITION_COUNT="${CAMUNDA_PARTITION_COUNT:-$CAMUNDA_CLUSTER_SIZE}"
 
-# One replica per zone, so the replication factor equals the zone count. With
-# zone awareness the chart derives both from the zone list rather than from this
-# value; it is kept because the topology check asserts against it.
-export CAMUNDA_REPLICAS_PER_ZONE="${CAMUNDA_REPLICAS_PER_ZONE:-1}"
-export CAMUNDA_REPLICATION_FACTOR="${CAMUNDA_REPLICATION_FACTOR:-$((CAMUNDA_REPLICAS_PER_ZONE * CAMUNDA_REGION_SLOTS))}"
+# Replicas of every partition placed in each zone, one entry per slot.
+#
+# The default is 2 in the first two zones and 1 in the rest, so three slots give
+# 2-2-1 at replicationFactor 5. The single-replica zone is the tie-breaker: with
+# `database_region_slots = [0, 1]` it is also the zone with no Aurora member, so
+# it carries a vote without carrying a database. Losing either database zone
+# still leaves 3 replicas of 5.
+#
+# This is a default, not a constraint. Any layout the chart accepts works --
+# uniform 1-1-1, 3-3-3, or an asymmetric one -- as long as every zone has at
+# least one replica, no zone has more replicas than it has brokers, and the
+# deployed zones hold a majority of the replicas. All three are checked below.
+#
+#   export CAMUNDA_ZONE_REPLICAS="2 2 1"
+if [ -z "${CAMUNDA_ZONE_REPLICAS:-}" ]; then
+    _zone_replicas=""
+    for ((_i = 0; _i < CAMUNDA_REGION_SLOTS; _i++)); do
+        if [ "$_i" -lt 2 ]; then
+            _zone_replicas="${_zone_replicas:+$_zone_replicas }2"
+        else
+            _zone_replicas="${_zone_replicas:+$_zone_replicas }1"
+        fi
+    done
+    CAMUNDA_ZONE_REPLICAS="$_zone_replicas"
+    unset _i _zone_replicas
+fi
+export CAMUNDA_ZONE_REPLICAS
+
+# Derived from the layout above rather than configured on its own, so the two
+# can never disagree. With zone awareness the chart computes the placement from
+# the zone list; this value is what check-cluster-topology.sh asserts against.
+if [ -z "${CAMUNDA_REPLICATION_FACTOR:-}" ]; then
+    _rf=0
+    for _r in $CAMUNDA_ZONE_REPLICAS; do
+        _rf=$((_rf + _r))
+    done
+    CAMUNDA_REPLICATION_FACTOR="$_rf"
+    unset _r _rf
+fi
+export CAMUNDA_REPLICATION_FACTOR
 
 # Zone awareness is not in a released chart yet. The reference architecture
 # builds the exact reviewed merge of camunda/camunda-platform-helm#6949 until a
@@ -143,18 +178,46 @@ if [ "$CAMUNDA_ACTIVE_REGIONS" -gt "$CAMUNDA_REGION_SLOTS" ]; then
     return 1 2>/dev/null || exit 1
 fi
 
-# A majority of the slots has to be live, not "all but one". The two agree at
-# three and four slots and part company at two, where `slots - 1` would accept a
-# single active region and one replica of two is not a majority. Terraform is
-# saved from that by a separate `active_region_count >= 2` validation; this
-# script is the safety net when the procedures are run by hand, so it states the
-# invariant itself.
-if [ "$((2 * CAMUNDA_ACTIVE_REGIONS))" -le "$CAMUNDA_REGION_SLOTS" ]; then
-    echo "ERROR: CAMUNDA_ACTIVE_REGIONS ($CAMUNDA_ACTIVE_REGIONS) is not a majority of $CAMUNDA_REGION_SLOTS slots." >&2
-    echo "       With one replica per slot, every Zeebe partition would lose its majority" >&2
-    echo "       and the cluster could not form a quorum." >&2
+# The zone replica layout is the one place an asymmetric topology can go wrong
+# silently, so it is validated rather than trusted. The majority test is stated
+# in replicas rather than in zones: with an unbalanced layout the two are not
+# the same question, and only the replica count decides whether a partition can
+# form a quorum.
+# shellcheck disable=SC2086
+_zone_replica_count="$(_multiregion_count $CAMUNDA_ZONE_REPLICAS)"
+
+if [ "$_zone_replica_count" -ne "$CAMUNDA_REGION_SLOTS" ]; then
+    echo "ERROR: CAMUNDA_ZONE_REPLICAS ('$CAMUNDA_ZONE_REPLICAS') has $_zone_replica_count entries for $CAMUNDA_REGION_SLOTS slots." >&2
+    echo "       It must name every slot, including ones not deployed yet." >&2
     return 1 2>/dev/null || exit 1
 fi
+
+_slot=0
+_active_replicas=0
+for _replicas in $CAMUNDA_ZONE_REPLICAS; do
+    if ! [[ "$_replicas" =~ ^[0-9]+$ ]] || [ "$_replicas" -lt 1 ]; then
+        echo "ERROR: zone slot $_slot has numberOfReplicas '$_replicas'; every zone needs at least 1." >&2
+        return 1 2>/dev/null || exit 1
+    fi
+    if [ "$_replicas" -gt "$CAMUNDA_BROKERS_PER_REGION" ]; then
+        echo "ERROR: zone slot $_slot has $_replicas replicas but only $CAMUNDA_BROKERS_PER_REGION brokers." >&2
+        echo "       A zone cannot hold more replicas of a partition than it has brokers." >&2
+        return 1 2>/dev/null || exit 1
+    fi
+    if [ "$_slot" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
+        _active_replicas=$((_active_replicas + _replicas))
+    fi
+    _slot=$((_slot + 1))
+done
+
+if [ "$((2 * _active_replicas))" -le "$CAMUNDA_REPLICATION_FACTOR" ]; then
+    echo "ERROR: the deployed zones hold $_active_replicas of $CAMUNDA_REPLICATION_FACTOR replicas, which is not a majority." >&2
+    echo "       Layout '$CAMUNDA_ZONE_REPLICAS' with $CAMUNDA_ACTIVE_REGIONS of $CAMUNDA_REGION_SLOTS slots deployed." >&2
+    echo "       Every Zeebe partition would lose its quorum. Deploy more slots, or" >&2
+    echo "       move replicas onto the ones you do deploy." >&2
+    return 1 2>/dev/null || exit 1
+fi
+unset _slot _replicas _active_replicas _zone_replica_count
 
 # No clusterSize/slots divisibility check any more: in zoned mode the chart
 # derives the StatefulSet replica count from the zone's own numberOfBrokers, and

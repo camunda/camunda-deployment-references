@@ -75,11 +75,11 @@ orchestration:
     # clusterSize spans ALL region slots: brokersPerRegion * regionSlots.
     clusterSize: '${CAMUNDA_CLUSTER_SIZE}'
     partitionCount: '${CAMUNDA_PARTITION_COUNT}'
-    # replicationFactor == number of region slots places exactly one replica of
-    # every partition in each region through the zone specification above. With
-    # N >= 3 slots the cluster keeps its quorum when
-    # a whole region is lost, which is the property this architecture exists
-    # for.
+    # Sum of numberOfReplicas across the zones above. The default layout is 2 in
+    # each database zone and 1 in the tie-breaker, so three zones give 5. Any
+    # layout works as long as no single zone holds half the replicas: the
+    # cluster then keeps its quorum when a whole region is lost, which is the
+    # property this architecture exists for.
     replicationFactor: '${CAMUNDA_REPLICATION_FACTOR}'
 
     ###########################################################################

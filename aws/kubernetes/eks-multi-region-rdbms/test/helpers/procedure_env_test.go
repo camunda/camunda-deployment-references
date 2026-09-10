@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -164,4 +165,78 @@ camunda::target_slots "$1"`, "bash", slot)
 		t.Fatalf("camunda::target_slots failed: %v\n%s", err, output)
 	}
 	return strings.TrimSpace(string(output))
+}
+
+// The zone layout has two readers: the procedure a user sources, and this
+// harness. A copy is acceptable only while something fails when they diverge.
+func TestZoneReplicasDefaultMatchesTheProcedure(t *testing.T) {
+	for _, slots := range []int{2, 3, 4} {
+		want := runProcedureZoneReplicas(t, slots)
+		got := DefaultZoneReplicas(slots)
+
+		if len(got) != len(want) {
+			t.Fatalf("%d slots: harness returned %v, procedure returned %v", slots, got, want)
+		}
+		for i := range got {
+			if fmt.Sprint(got[i]) != want[i] {
+				t.Fatalf("%d slots: harness returned %v, procedure returned %v", slots, got, want)
+			}
+		}
+	}
+}
+
+func TestZoneReplicasDefaultsToTwoTwoOne(t *testing.T) {
+	t.Parallel()
+
+	vars := Env{RegionSlots: 3, ActiveRegions: 3, BrokersPerRegion: 2}.Vars()
+
+	assertVar(t, vars, "CAMUNDA_ZONE_REPLICAS", "2 2 1")
+	assertVar(t, vars, "CAMUNDA_REPLICATION_FACTOR", "5")
+}
+
+// An explicit layout has to win, and the replication factor has to follow it
+// rather than be restated: the two disagreeing is the failure this replaced.
+func TestZoneReplicasHonoursAnExplicitLayout(t *testing.T) {
+	t.Parallel()
+
+	vars := Env{RegionSlots: 3, ActiveRegions: 3, BrokersPerRegion: 3, ZoneReplicas: []int{3, 3, 3}}.Vars()
+
+	assertVar(t, vars, "CAMUNDA_ZONE_REPLICAS", "3 3 3")
+	assertVar(t, vars, "CAMUNDA_REPLICATION_FACTOR", "9")
+}
+
+func assertVar(t *testing.T, vars []string, key, want string) {
+	t.Helper()
+
+	for _, entry := range vars {
+		if k, v, found := strings.Cut(entry, "="); found && k == key {
+			if v != want {
+				t.Fatalf("%s: expected %q, got %q", key, want, v)
+			}
+			return
+		}
+	}
+	t.Fatalf("%s not present in the rendered environment", key)
+}
+
+func runProcedureZoneReplicas(t *testing.T, slots int) []string {
+	t.Helper()
+
+	dir := ProcedureDir(t)
+	cmd := exec.Command("bash", "-c", `
+set -euo pipefail
+export CAMUNDA_REGION_SLOTS="$1" CAMUNDA_ACTIVE_REGIONS="$1" CAMUNDA_BROKERS_PER_REGION=2
+export AWS_REGIONS="a b c d" CLUSTER_CONTEXTS="a b c d" SUBMARINER_CLUSTER_IDS="a b c d"
+export CAMUNDA_ZONE_NAMES="a b c d"
+. ./export_environment_prerequisites.sh >/dev/null
+printf '%s' "$CAMUNDA_ZONE_REPLICAS"
+`, "bash", fmt.Sprint(slots))
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "CAMUNDA_ZONE_REPLICAS=", "CAMUNDA_REPLICATION_FACTOR=")
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("reading the procedure default for %d slots failed: %v\n%s", slots, err, out)
+	}
+	return strings.Fields(string(out))
 }

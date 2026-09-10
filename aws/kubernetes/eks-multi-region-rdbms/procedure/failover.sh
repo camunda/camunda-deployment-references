@@ -7,11 +7,13 @@ set -euo pipefail
 #
 #   ./failover.sh <lost-region-slot> [--drain-brokers] [--dry-run]
 #
-# With `replicationFactor == regionSlots` and at least three slots, losing one
-# region leaves every partition with a majority of its replicas: Zeebe keeps
-# processing and NO Zeebe action is required. That is the entire point of this
-# topology, and the difference with the dual-region architecture, where a region
-# loss halts the cluster until brokers are force-removed.
+# With at least three zones and a layout where no single zone holds half the
+# replicas, losing one region leaves every partition with a majority of its
+# replicas: Zeebe keeps processing and NO Zeebe action is required. The default
+# 2-2-1 satisfies that -- losing a database zone leaves 3 of 5, losing the
+# tie-breaker leaves 4 of 5. That is the entire point of this topology, and the
+# difference with the dual-region architecture, where a region loss halts the
+# cluster until brokers are force-removed.
 #
 # What still needs attention is the database, because Aurora Global Database has
 # a single writer region:
@@ -80,20 +82,30 @@ echo "==============================================================="
 ###############################################################################
 
 surviving_regions=$((CAMUNDA_ACTIVE_REGIONS - 1))
+
+# Quorum is a majority of the REPLICAS, and a zone does not necessarily hold
+# one: the default layout puts 2 in each database zone and 1 in the tie-breaker.
+# Counting zones instead would misreport both ways -- losing the tie-breaker of
+# a 2-2-1 cluster leaves 4 replicas of 5 and is fine, losing a database zone
+# leaves 3 of 5 and is also fine, but a 4-1-1 layout losing its big zone leaves
+# 2 of 6 and is not. Only the replicas answer it, so they are what is summed.
+read -r -a _zone_replicas <<<"${CAMUNDA_ZONE_REPLICAS:?CAMUNDA_ZONE_REPLICAS must be set, source export_environment_prerequisites.sh}"
+surviving_replicas=0
+for ((_i = 0; _i < CAMUNDA_ACTIVE_REGIONS; _i++)); do
+    [ "$_i" -eq "$LOST_SLOT" ] && continue
+    surviving_replicas=$((surviving_replicas + _zone_replicas[_i]))
+done
+
 echo
 echo "--> Zeebe quorum check"
-echo "    replicationFactor    : ${CAMUNDA_REPLICATION_FACTOR:-$CAMUNDA_REGION_SLOTS}"
+echo "    zone replicas        : $CAMUNDA_ZONE_REPLICAS"
+echo "    replicationFactor    : $CAMUNDA_REPLICATION_FACTOR"
 echo "    surviving regions    : $surviving_regions of $CAMUNDA_ACTIVE_REGIONS"
+echo "    surviving replicas   : $surviving_replicas of $CAMUNDA_REPLICATION_FACTOR"
 
-# Quorum is a majority of the REPLICAS, and there is one replica per slot,
-# deployed or not. Comparing against the active count instead reads a four-slot
-# cluster running three regions as healthy after losing one: two survivors beat
-# half of three, but two replicas of four is not a majority, and the engine has
-# stopped. Telling an operator otherwise during an incident is the worst moment
-# to be optimistic.
-if [ "$((2 * surviving_regions))" -le "$CAMUNDA_REGION_SLOTS" ]; then
+if [ "$((2 * surviving_replicas))" -le "$CAMUNDA_REPLICATION_FACTOR" ]; then
     echo
-    echo "WARNING: with $surviving_regions regions left of $CAMUNDA_REGION_SLOTS replicas, partitions no longer" >&2
+    echo "WARNING: with $surviving_replicas replicas left of $CAMUNDA_REPLICATION_FACTOR, partitions no longer" >&2
     echo "         hold a majority and Zeebe has stopped processing. Recovery" >&2
     echo "         requires force-removing the lost brokers; re-run with --drain-brokers." >&2
 else

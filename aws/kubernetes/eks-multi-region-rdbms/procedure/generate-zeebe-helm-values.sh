@@ -40,10 +40,10 @@ set -euo pipefail
 
 INTERNAL_PORT="${CAMUNDA_CLUSTER_INTERNAL_PORT:-26502}"
 
-# Replicas of each partition placed in a single zone. One per zone means the
-# replication factor equals the zone count, so every zone holds exactly one
-# replica of every partition and losing a zone costs one replica out of N.
-ZONE_REPLICAS="${CAMUNDA_REPLICAS_PER_ZONE:-1}"
+# Replicas of each partition placed in each zone, one entry per slot. Zones are
+# deliberately allowed to differ: the default puts 2 in each database zone and 1
+# in the tie-breaker, so losing a database zone still leaves a majority.
+read -r -a zone_replicas <<<"${CAMUNDA_ZONE_REPLICAS:?CAMUNDA_ZONE_REPLICAS must be set, source export_environment_prerequisites.sh}"
 
 # Raft election priority of zone 0, decreasing by this step per zone. Leaders
 # are skewed to zone 0 because it hosts the Aurora writer: a leader co-located
@@ -115,8 +115,15 @@ for ((i = 0; i < CAMUNDA_REGION_SLOTS; i++)); do
         exit 1
     fi
 
+    replicas="${zone_replicas[$i]:-}"
+    if [ -z "$replicas" ]; then
+        echo "ERROR: CAMUNDA_ZONE_REPLICAS has no entry for zone slot $i." >&2
+        echo "       It must name every one of the $CAMUNDA_REGION_SLOTS slots, not only the active ones." >&2
+        exit 1
+    fi
+
     entry="$(printf '{"name":"%s","numberOfBrokers":%d,"numberOfReplicas":%d,"priority":%d}' \
-        "$zone_name" "$CAMUNDA_BROKERS_PER_REGION" "$ZONE_REPLICAS" \
+        "$zone_name" "$CAMUNDA_BROKERS_PER_REGION" "$replicas" \
         "$priority")"
 
     zones_json="${zones_json:+$zones_json,}${entry}"
