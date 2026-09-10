@@ -15,6 +15,7 @@ on:
             - aws/kubernetes/eks-single-region*/**
             - '!aws/kubernetes/eks-single-region/terraform/*/test/golden/**'
             - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
+            - '!aws/kubernetes/eks-single-region-rdbms/terraform/*/test/golden/**'
             - .github/actions/aws-kubernetes-eks-single-region-create/**
             - .github/actions/aws-cognito-create/**
             - aws/common/cognito/**
@@ -52,7 +53,8 @@ on:
                 description: |
                     Reference architecture to use, can only deploy one at a time.
                     Use a different trigger with unique names for each ref-arch.
-                    Valid values are `eks-single-region` and `eks-single-region-irsa`.
+                    Valid values are `eks-single-region`, `eks-single-region-irsa`
+                    and `eks-single-region-rdbms`.
                     Only for workflow_dispatch.
                 required: false
                 type: string
@@ -202,6 +204,11 @@ jobs:
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   s3-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  # The RDBMS variant ships no opensearch.tf, so there is no
+                  # locals.opensearch_domain_name for the action's override file to
+                  # target, and Terraform rejects an override for a local that does
+                  # not exist in the primary configuration.
+                  deploy-opensearch: ${{ matrix.scenario.secondary_storage != 'rdbms' }}
                   tf-modules-revision: ${{ github.ref }}
                   tf-modules-path: ${{ env.TF_MODULES_PATH }}
                   ref-arch: ${{ matrix.scenario.name }}
@@ -536,6 +543,11 @@ jobs:
 
             - name: 📁 Get a copy of the reference architecture
               timeout-minutes: 10
+              env:
+                  # Copy the revision under test rather than the published branch,
+                  # which does not carry a reference architecture that is still in
+                  # review. Scripts that pin their branch ignore this.
+                  REF_ARCH_BRANCH: ${{ github.head_ref || github.ref_name }}
               run: |
                   # run it as specified in the doc
                   set -euo pipefail
@@ -570,14 +582,16 @@ jobs:
                   # Requires db secrets to be created
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-db-secret.sh
 
-                  if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
-                      ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-os-secret.sh
-                  else
-                    # for non irsa, we don't need credentials but want to reuse the same job
-                    kubectl create secret generic setup-os-secret --namespace "$CAMUNDA_NAMESPACE" \
-                    --from-literal=OPENSEARCH_HOST="$OPENSEARCH_HOST" \
-                    --from-literal=OPENSEARCH_MASTER_USERNAME="" \
-                    --from-literal=OPENSEARCH_MASTER_PASSWORD=""
+                  if [[ "${{ matrix.scenario.secondary_storage }}" != "rdbms" ]]; then
+                      if [[ "${{ matrix.scenario.name }}" =~ "irsa" ]]; then
+                          ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/create-setup-os-secret.sh
+                      else
+                        # for non irsa, we don't need credentials but want to reuse the same job
+                        kubectl create secret generic setup-os-secret --namespace "$CAMUNDA_NAMESPACE" \
+                        --from-literal=OPENSEARCH_HOST="$OPENSEARCH_HOST" \
+                        --from-literal=OPENSEARCH_MASTER_USERNAME="" \
+                        --from-literal=OPENSEARCH_MASTER_PASSWORD=""
+                      fi
                   fi
 
                   # Reset PostgreSQL
@@ -600,6 +614,11 @@ jobs:
                   kubectl delete job reset-aurora-postgres --namespace "$CAMUNDA_NAMESPACE"
 
                   kubectl delete secret setup-db-secret --namespace "$CAMUNDA_NAMESPACE"
+
+                  if [[ "${{ matrix.scenario.secondary_storage }}" == "rdbms" ]]; then
+                      echo "RDBMS secondary storage: no OpenSearch domain to reset."
+                      exit 0
+                  fi
 
                   # Reset OpenSearch
                   kubectl apply -f ./aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/test/reset-opensearch.yml --namespace "$CAMUNDA_NAMESPACE"
@@ -726,6 +745,15 @@ jobs:
                     if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
                       yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/identity.yml\")" values.yml > values-result.yml
                       mv values-result.yml values.yml
+
+                      # Optimize is disabled in RDBMS mode, so Keycloak never gets an
+                      # optimize-api resource server and Identity aborts its startup
+                      # ("findResourceServerByAudience ... HTTP 404") while assigning
+                      # the permissions this file declares.
+                      if [[ "${{ matrix.scenario.secondary_storage }}" == "rdbms" ]]; then
+                        yq 'del(.identity.clients[].permissions[] | select(.resourceServerId == "optimize-api"))' values.yml > values-result.yml
+                        mv values-result.yml values.yml
+                      fi
                     fi
                   fi
 
@@ -805,7 +833,7 @@ jobs:
                   ./generic/kubernetes/single-region/procedure/create-oidc-secrets.sh
 
             - name: 🛠️ Configure OpenSearch fine grained access control
-              if: contains(matrix.scenario.name, 'irsa')
+              if: matrix.scenario.secondary_storage == 'opensearch' && contains(matrix.scenario.name, 'irsa')
               timeout-minutes: 10
               run: |
                   set -euo pipefail
@@ -1016,6 +1044,7 @@ jobs:
                       || format('http://{0}-keycloak:80/auth',
                       env.CAMUNDA_RELEASE_NAME) }}
                   elasticsearch-enabled: 'false'
+                  optimize-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   hub-enabled: ${{ env.HUB_ENABLED }}
                   # EKS domain values set connectors.contextPath: /connectors so the
                   # actuator endpoints live under that prefix. The no-domain values
@@ -1032,6 +1061,7 @@ jobs:
                   camunda-domain-grpc: ${{ env.CAMUNDA_DOMAIN_GRPC }}
                   hub-enabled: ${{ env.HUB_ENABLED }}
                   elasticsearch-enabled: 'false'
+                  optimize-enabled: ${{ matrix.scenario.secondary_storage != 'rdbms' && 'true' || 'false' }}
                   test-namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   test-cluster-type: ${{ env.TEST_CLUSTER_TYPE }}
                   test-release-name: ${{ env.CAMUNDA_RELEASE_NAME }}

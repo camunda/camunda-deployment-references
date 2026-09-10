@@ -28,7 +28,7 @@ The official Camunda docs for these references live at:
 
 | Folder    | Contents |
 |-----------|----------|
-| `aws/`    | EKS (single/dual region, IRSA variant), ROSA HCP (single/dual region), ECS Fargate, EC2. Modules: `eks-cluster`, `aurora`, `opensearch`, `rosa-hcp`, `ecs`, `vpn` |
+| `aws/`    | EKS (single/dual region, IRSA and RDBMS variants), ROSA HCP (single/dual region, RDBMS declination), ECS Fargate, EC2. Modules: `eks-cluster`, `aurora`, `opensearch`, `rosa-hcp`, `ecs`, `vpn` |
 | `azure/`  | AKS (single region, with RDBMS variant). Modules: `aks`, `network`, `kms`, `postgres-db` |
 | `generic/`| Cloud-agnostic Kubernetes (single/dual region), OpenShift, operator-based (CNPG, ECK, Keycloak), Debian bare metal |
 | `local/`  | Kind (Kubernetes in Docker) for local development |
@@ -55,7 +55,16 @@ Camunda 8 deployments consist of two logical clusters:
 - Elasticsearch / OpenSearch (search-heavy / analytics workloads)
 - RDBMS / PostgreSQL (relational preference; Optimize still requires Elasticsearch/OpenSearch)
 
-RDBMS secondary storage is available since 8.9 for the Orchestration Cluster (Operate, Tasklist, v2 REST API). For backend trade-offs and benchmarks, see [secondary storage architecture](https://docs.camunda.io/docs/self-managed/reference-architecture/reference-architecture/#secondary-storage-architecture) and [RDBMS benchmark results](https://docs.camunda.io/docs/self-managed/concepts/secondary-storage/rdbms-benchmark-results/) in the product documentation. Reference implementations with a dedicated RDBMS variant: `azure/kubernetes/aks-single-region-rdbms` (the `*-rdbms` declination of a ref-arch uses a relational database instead of a document store).
+RDBMS secondary storage is available since 8.9 for the Orchestration Cluster (Operate, Tasklist, v2 REST API). For backend trade-offs and benchmarks, see [secondary storage architecture](https://docs.camunda.io/docs/self-managed/reference-architecture/reference-architecture/#secondary-storage-architecture) and [RDBMS benchmark results](https://docs.camunda.io/docs/self-managed/concepts/secondary-storage/rdbms-benchmark-results/) in the product documentation. Reference implementations with a dedicated RDBMS variant (the `*-rdbms` declination of a ref-arch uses a relational database instead of a document store):
+
+| Reference architecture | RDBMS backend |
+|------------------------|---------------|
+| `azure/kubernetes/aks-single-region-rdbms` | Azure Database for PostgreSQL Flexible Server |
+| `aws/kubernetes/eks-single-region-rdbms` | Amazon Aurora PostgreSQL |
+| `aws/openshift/rosa-hcp-single-region` (`no-domain-rdbms` declination) | CloudNativePG in-cluster PostgreSQL |
+| `local/kubernetes/kind-single-region` (`SECONDARY_STORAGE=postgres`) | CloudNativePG in-cluster PostgreSQL |
+
+Dual-region deployments are Elasticsearch-only: RDBMS secondary storage is not supported there, because each region populates its own secondary storage through the Camunda exporter. See [dual-region limitations](https://docs.camunda.io/docs/self-managed/concepts/multi-region/dual-region/#limitations).
 
 **Production baseline:** Minimum 3 Zeebe brokers across 3 availability zones.
 
