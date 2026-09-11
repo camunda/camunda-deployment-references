@@ -1,4 +1,3 @@
-
 resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   name        = "${var.prefix}-allow-necessary-camunda-ports-within-vpc"
   description = "Allow necessary Camunda ports within the VPC"

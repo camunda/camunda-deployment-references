@@ -118,6 +118,7 @@
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
+        "policy": true,
         "tags_all": {}
       },
       "type": "aws_iam_policy",
@@ -146,6 +147,28 @@
         "delay_after_policy_creation_in_ms": null,
         "description": "Allow ECS tasks to connect to Aurora PostgreSQL as the IAM DB user 'camunda'",
         "name": "camunda-rds-db-connect-camunda",
+        "path": "/",
+        "tags": null
+      }
+    },
+    "aws_iam_policy.rds_db_connect_identity[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "rds_db_connect_identity",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_iam_policy",
+      "values": {
+        "delay_after_policy_creation_in_ms": null,
+        "description": "Allow ECS tasks to connect to Aurora PostgreSQL as the IAM DB user 'identity'",
+        "name": "camunda-rds-db-connect-identity",
         "path": "/",
         "tags": null
       }
@@ -1379,6 +1402,30 @@
             "security_groups": []
           },
           {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
             "cidr_blocks": [],
             "ipv6_cidr_blocks": [],
             "prefix_list_ids": [],
@@ -1386,6 +1433,30 @@
           }
         ],
         "ingress": [
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
+          {
+            "cidr_blocks": [
+              false
+            ],
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "security_groups": []
+          },
           {
             "cidr_blocks": [
               false
@@ -1543,6 +1614,19 @@
             "cidr_blocks": [
               "10.190.0.0/16"
             ],
+            "description": "Allow outbound traffic on port 8060",
+            "from_port": 8060,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8060
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
             "description": "Allow outbound traffic on port 8080",
             "from_port": 8080,
             "ipv6_cidr_blocks": [],
@@ -1551,6 +1635,19 @@
             "security_groups": [],
             "self": false,
             "to_port": 8080
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow outbound traffic on port 8081",
+            "from_port": 8081,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8081
           },
           {
             "cidr_blocks": [
@@ -1577,6 +1674,19 @@
             "security_groups": [],
             "self": false,
             "to_port": 8084
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow outbound traffic on port 8091",
+            "from_port": 8091,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8091
           },
           {
             "cidr_blocks": [
@@ -1685,6 +1795,19 @@
             "cidr_blocks": [
               "10.190.0.0/16"
             ],
+            "description": "Allow inbound traffic on port 8060",
+            "from_port": 8060,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8060
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
             "description": "Allow inbound traffic on port 8080",
             "from_port": 8080,
             "ipv6_cidr_blocks": [],
@@ -1693,6 +1816,19 @@
             "security_groups": [],
             "self": false,
             "to_port": 8080
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow inbound traffic on port 8081",
+            "from_port": 8081,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8081
           },
           {
             "cidr_blocks": [
@@ -1719,6 +1855,19 @@
             "security_groups": [],
             "self": false,
             "to_port": 8084
+          },
+          {
+            "cidr_blocks": [
+              "10.190.0.0/16"
+            ],
+            "description": "Allow inbound traffic on port 8091",
+            "from_port": 8091,
+            "ipv6_cidr_blocks": [],
+            "prefix_list_ids": [],
+            "protocol": "tcp",
+            "security_groups": [],
+            "self": false,
+            "to_port": 8091
           },
           {
             "cidr_blocks": [
@@ -3337,6 +3486,24 @@
           "values": {
             "role": "camunda-oc1-management-identity-task-role"
           }
+        },
+        "module.management_identity[0].aws_iam_role_policy_attachment.task_role_policy_attachment[0]": {
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
+          "index": 0,
+          "mode": "managed",
+          "name": "task_role_policy_attachment",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_iam_role_policy_attachment",
+          "values": {
+            "role": "camunda-oc1-management-identity-task-role"
+          }
         }
       }
     },
@@ -3433,6 +3600,15 @@
                 "access_log_configuration": [],
                 "log_configuration": [],
                 "service": [
+                  {
+                    "client_alias": [
+                      {
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "timeout": [],
+                    "tls": []
+                  },
                   {
                     "client_alias": [
                       {
@@ -3562,6 +3738,20 @@
                     "discovery_name": "orchestration-cluster-rest",
                     "ingress_port_override": null,
                     "port_name": "rest",
+                    "timeout": [],
+                    "tls": []
+                  },
+                  {
+                    "client_alias": [
+                      {
+                        "dns_name": "orchestration-cluster-management",
+                        "port": 9600,
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "discovery_name": "orchestration-cluster-management",
+                    "ingress_port_override": null,
+                    "port_name": "management",
                     "timeout": [],
                     "tls": []
                   }
@@ -4636,7 +4826,8 @@
             "source_region": null,
             "storage_encrypted": true,
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.postgresql.aws_rds_cluster_instance.aurora_instance[0]": {
@@ -4666,7 +4857,8 @@
             "promotion_tier": 0,
             "region": "eu-west-2",
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.postgresql.aws_security_group.this": {

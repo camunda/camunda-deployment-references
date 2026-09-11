@@ -34,9 +34,14 @@ locals {
   webmodeler_audience_internal = "web-modeler-api"
   webmodeler_audience_public   = "web-modeler-public-api"
 
-  # The principal that receives the roles below. Shared with the IDENTITY_INITIAL_CLAIM_*
-  # env vars in camunda.tf so the claim that bootstraps the first admin and the claim the
-  # mapping rule matches on cannot drift apart.
+  # The principal that receives the roles below. This is the same claim that
+  # IDENTITY_INITIAL_CLAIM_NAME / _VALUE would bootstrap the first admin from, and the two
+  # are mutually exclusive: Identity de-duplicates mapping rules on the (claim-name,
+  # claim-value, rule-type) triple rather than on the rule name, so whichever initializer
+  # runs first wins and the other is skipped without error. The auto-created rule only
+  # ever grants ManagementIdentity, so when this model is seeded camunda.tf drops the
+  # IDENTITY_INITIAL_CLAIM_* vars and the rule below bootstraps the admin instead —
+  # granting ManagementIdentity plus the Web Modeler roles.
   identity_admin_claim_name  = "preferred_username"
   identity_admin_claim_value = "admin"
 
@@ -119,6 +124,22 @@ locals {
     for _, preset in [local.identity_preset_identity, local.identity_preset_webmodeler] :
     [for role in preset.roles : role.name]
   ]))
+
+  # Bootstrap env for the first admin. Mutually exclusive with the declared mapping rule:
+  # Identity creates a "Default" ROLE rule from these two vars, and the initializer that
+  # reads `identity.mapping-rules` de-duplicates on the (claim-name, claim-value, rule-type)
+  # triple rather than on the rule name, so a declared rule matching the same claim is
+  # silently skipped and the roles it grants never apply. When the model below is seeded the
+  # declared rule bootstraps the admin instead, granting a superset of the auto-created one.
+  identity_bootstrap_env = local.webmodeler_authorization_enabled ? [] : [
+    { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
+    { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
+  ]
+
+  # Seeded authorization model, handed to the task as a single SPRING_APPLICATION_JSON.
+  identity_authorization_env = local.webmodeler_authorization_enabled ? [
+    { name = "SPRING_APPLICATION_JSON", value = local.identity_authorization_json },
+  ] : []
 
   # Nested maps and lists cannot be expressed as relaxed-binding environment variables,
   # so the whole block is handed to the task as a single SPRING_APPLICATION_JSON value.
