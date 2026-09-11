@@ -16,7 +16,7 @@ module "vpc_region_0" {
   count = var.byo_vpc ? 0 : 1
 
   source  = "terraform-aws-modules/vpc/aws"
-  version = "v6.6.1"
+  version = "v6.7.2"
 
   name = "${local.prefix_region_0}-vpc"
   cidr = var.region_0_cidr
@@ -43,7 +43,7 @@ module "vpc_region_1" {
   count = var.byo_vpc ? 0 : 1
 
   source  = "terraform-aws-modules/vpc/aws"
-  version = "v6.6.1"
+  version = "v6.7.2"
 
   providers = {
     aws = aws.accepter
