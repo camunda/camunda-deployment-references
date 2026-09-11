@@ -170,7 +170,7 @@ check_topology() {
     # Show broker distribution
     echo ""
     echo "  Broker distribution (Region ${label} view):"
-    echo "${topology}" | jq -r '.brokers[] | "    Broker \(.nodeId) — partitions: \([.partitions[].partitionId] | sort | join(","))"'
+    echo "${topology}" | jq -r '.brokers[] | "    Broker \(.brokerId) — partitions: \([.partitions[].partitionId] | sort | join(","))"'
 }
 
 check_topology "${ALB_ENDPOINT_0}" "0"
