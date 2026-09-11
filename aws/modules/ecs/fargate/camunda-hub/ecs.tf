@@ -106,11 +106,11 @@ resource "aws_ecs_service" "camunda_hub" {
   # which does not order the service after the rules).
   depends_on = [aws_lb_listener_rule.hub, aws_lb_listener_rule.hub_ws]
 
-  name                              = "${var.prefix}-camunda-hub"
-  cluster                           = var.ecs_cluster_id
-  task_definition                   = aws_ecs_task_definition.camunda_hub.arn
-  desired_count                     = var.task_desired_count
-  launch_type                       = "FARGATE"
+  name            = "${var.prefix}-camunda-hub"
+  cluster         = var.ecs_cluster_id
+  task_definition = aws_ecs_task_definition.camunda_hub.arn
+  desired_count   = var.task_desired_count
+  launch_type     = "FARGATE"
   # ECS rejects this argument on a service with no load balancer attached, so it has to
   # follow the same flag as the load_balancer blocks below.
   health_check_grace_period_seconds = var.enable_alb_http_webapp_listener_rule ? var.service_health_check_grace_period_seconds : null
