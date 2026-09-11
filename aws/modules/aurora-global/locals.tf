@@ -52,10 +52,20 @@ locals {
   jdbc_secondary_host_pattern = "?.${replace(aws_rds_cluster.secondary.endpoint, "${aws_rds_cluster.secondary.cluster_identifier}.cluster-", "")}"
   jdbc_instance_host_patterns = "${local.jdbc_primary_host_pattern},${local.jdbc_secondary_host_pattern}"
 
-  # iam plugin only when IAM auth is enabled; failover always (global cluster).
+  # failover always (global cluster); iam only when IAM auth is enabled, and
+  # then initialConnection with it. The wrapper's endpoint-compatibility matrix
+  # marks iam on an Aurora Global Database endpoint — which is what jdbc_url
+  # targets — as "requires initialConnection", because the plugin has to resolve
+  # the global endpoint to the instance it is really connecting to before it can
+  # sign a token for it. efm/efm2 carry the same requirement, which is why a
+  # caller adding efm2 through extra_wrapper_plugins must add initialConnection
+  # too unless IAM auth already brought it in.
+  #
   # var.extra_wrapper_plugins is appended after the built-ins; distinct() keeps
-  # the result stable if a caller repeats one of them.
-  jdbc_base_wrapper_plugins = var.iam_auth_enabled ? ["iam", "failover"] : ["failover"]
+  # the result stable if a caller repeats one of them. The position a plugin
+  # takes here is not its execution order: the wrapper re-sorts the pipeline by
+  # built-in weight unless autoSortWrapperPluginOrder is turned off.
+  jdbc_base_wrapper_plugins = var.iam_auth_enabled ? ["initialConnection", "iam", "failover"] : ["failover"]
   jdbc_wrapper_plugins      = join(",", distinct(concat(local.jdbc_base_wrapper_plugins, var.extra_wrapper_plugins)))
 
   # TLS is pinned explicitly rather than left to the driver default: pgjdbc
@@ -63,19 +73,36 @@ locals {
   # which permit a silent plaintext downgrade. With IAM authentication the
   # credential on the wire is a signed bearer token, so encryption should not
   # depend on a negotiated default.
-  jdbc_ssl_params = {
-    "aurora-postgresql" = "&sslmode=require"
-    "aurora-mysql"      = "&sslMode=REQUIRED"
+  jdbc_ssl_parameters = {
+    "aurora-postgresql" = { sslmode = "require" }
+    "aurora-mysql"      = { sslMode = "REQUIRED" }
   }
 
-  # Caller-supplied parameters come last. Validations on the variable keep them
-  # from shadowing the ones built above and reject keys/values that could append
-  # a parameter of their own, so this interpolation is safe. Plugin parameters
-  # (failoverTimeoutMs, failureDetectionTime, ...) travel through here rather
-  # than as typed inputs: the module builds the plugin list, not the plugins'
-  # configuration, and defaulting them would mean vendoring the driver's own
-  # defaults. Map iteration is key-sorted, so the URL is stable across plans.
-  jdbc_extra_url_parameters = join("", [for k, v in var.extra_url_parameters : "&${k}=${v}"])
+  # Every query parameter in one map, module-owned entries first and caller
+  # parameters merged over them. One map rather than a component per parameter
+  # so that no output owns a leading '&' and a consumer renders the whole set
+  # with a single loop; the alternative had callers knowing, per output, whether
+  # it carried its own separator.
+  #
+  # Validations on extra_url_parameters reject the module-owned keys (in any
+  # capitalisation) and any key or value containing '&' or '=', so merging last
+  # cannot shadow an entry above or smuggle in a parameter of its own. Plugin
+  # parameters (failoverTimeoutMs, failureDetectionTime, ...) travel through
+  # there rather than as typed inputs: the module builds the plugin list, not
+  # the plugins' configuration, and defaulting them would vendor the driver's
+  # own defaults.
+  jdbc_url_parameters = merge(
+    {
+      wrapperPlugins                    = local.jdbc_wrapper_plugins
+      globalClusterInstanceHostPatterns = local.jdbc_instance_host_patterns
+    },
+    local.jdbc_ssl_parameters[var.engine],
+    var.extra_url_parameters,
+  )
 
-  jdbc_url = "jdbc:aws-wrapper:${local.jdbc_subprotocol}://${aws_rds_global_cluster.this.endpoint}:${local.db_port}/${var.database_name}?wrapperPlugins=${local.jdbc_wrapper_plugins}&globalClusterInstanceHostPatterns=${local.jdbc_instance_host_patterns}${local.jdbc_ssl_params[var.engine]}${local.jdbc_extra_url_parameters}"
+  # Map iteration is key-sorted, so the query string is stable across plans.
+  # Parameter order carries no meaning to either driver.
+  jdbc_query_string = join("&", [for k, v in local.jdbc_url_parameters : "${k}=${v}"])
+
+  jdbc_url = "jdbc:aws-wrapper:${local.jdbc_subprotocol}://${aws_rds_global_cluster.this.endpoint}:${local.db_port}/${var.database_name}?${local.jdbc_query_string}"
 }

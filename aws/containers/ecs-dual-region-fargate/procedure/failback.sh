@@ -114,12 +114,10 @@ log "=== Step 2: Ensure region 0 is a Global DB member ==="
 if [ "${MEMBER_COUNT}" = "1" ]; then
     log "Global DB has only 1 member — re-adding region 0 as secondary..."
 
-    # Find region 0's cluster identifier from Terraform output
+    # TF_DIR is only used for the remediation hints below; the cluster ARN comes
+    # from the live lookup, not from Terraform state.
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     TF_DIR="${TF_DIR:-${SCRIPT_DIR}/../terraform/infra}"
-    REGION_0_CLUSTER_ARN=$(terraform -chdir="${TF_DIR}" output -json | \
-        jq -r '.aurora_primary_endpoint.value' | \
-        sed 's/\..*$//' || echo "")
 
     # Look up the actual cluster ARN in region 0
     REGION_0_DB_CLUSTERS=$(aws rds describe-db-clusters \

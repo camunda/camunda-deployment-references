@@ -91,6 +91,11 @@ variable "limit_access_to_cidrs" {
   description = "List of CIDR blocks to allow access to LoadBalancers"
 }
 
+# The Aurora port is deliberately not in this map. It follows db_engine
+# (5432 PostgreSQL / 3306 MySQL) through local.db_port and is opened by
+# dedicated rules in security.tf; a static entry here would drive both the
+# dynamic "ingress" and dynamic "egress" blocks and so open the PostgreSQL
+# port on a MySQL deployment.
 variable "ports" {
   type = map(number)
   default = {
@@ -111,6 +116,13 @@ variable "db_name" {
   type        = string
   description = "Database name used by Camunda components"
   default     = "camunda"
+
+  # Interpolated into SQL identifiers by the seed task on both engines, where
+  # the surrounding quoting is only correct for a well-formed identifier.
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.db_name)) && length(var.db_name) <= 63
+    error_message = "db_name must be a valid identifier: start with a letter or underscore, contain only letters, digits and underscores, and be at most 63 characters."
+  }
 }
 
 variable "db_admin_username" {
@@ -130,19 +142,29 @@ variable "db_admin_password" {
 variable "db_extra_wrapper_plugins" {
   type        = list(string)
   default     = []
-  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the generated JDBC URL. 'failover' (and 'iam' when db_iam_auth_enabled) are always set and this reference architecture always adds 'efm2', so list only the extras, e.g. ['readWriteSplitting']. Only applies when secondary_storage_type = 'rdbms'."
+  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the generated JDBC URL. The module always sets 'failover' (and 'iam' when db_iam_auth_enabled), so list only the extras, e.g. ['readWriteSplitting']. Note that EFM/EFM2 also need 'initialConnection' on the Aurora Global writer endpoint this deployment connects to, so adding 'efm2' alone will not attach it. Only applies when secondary_storage_type = 'rdbms'."
 }
 
 variable "db_extra_url_parameters" {
   type        = map(string)
   default     = {}
-  description = "Additional query parameters appended to the generated JDBC URL, e.g. the efm2 plugin's { failureDetectionTime = \"15000\" }. Entries here override the reference architecture's own (failoverTimeoutMs = 60000). The Aurora module rejects the parameters it builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, TLS mode) as well as keys or values containing '&' or '='. Only applies when secondary_storage_type = 'rdbms'."
+  description = "Additional query parameters appended to the generated JDBC URL, e.g. { connectTimeout = \"5000\" }. Entries here override the reference architecture's own (failoverTimeoutMs = 60000). The Aurora module rejects the parameters it builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, TLS mode) as well as keys or values containing '&' or '='. Only applies when secondary_storage_type = 'rdbms'."
 }
 
 variable "db_iam_auth_enabled" {
   type        = bool
-  description = "Enable IAM database authentication on the Aurora cluster"
+  description = "Enable IAM database authentication on the Aurora cluster. Must stay true for RDBMS secondary storage: this reference architecture wires no database password for the Camunda tasks, so IAM is the only way they authenticate."
   default     = true
+
+  # Turning this off produces a cluster the deployment cannot reach: the seed
+  # task creates the Camunda user with the IAM auth plugin and no password, the
+  # module correctly drops 'iam' from wrapperPlugins, and the ECS task
+  # definition carries a username but no CAMUNDA_..._RDBMS_PASSWORD. Rejecting
+  # it at plan time beats a connection refused at runtime.
+  validation {
+    condition     = var.secondary_storage_type != "rdbms" || var.db_iam_auth_enabled
+    error_message = "db_iam_auth_enabled must be true when secondary_storage_type = 'rdbms': this reference architecture authenticates the Camunda tasks to Aurora with IAM only and provisions no database password."
+  }
 }
 
 variable "db_seed_enabled" {
@@ -155,6 +177,16 @@ variable "db_seed_iam_usernames" {
   type        = list(string)
   description = "Database users to create and grant rds_iam + privileges for"
   default     = ["camunda"]
+
+  # Same reasoning as db_name: each entry lands inside quoted SQL on both
+  # engines, and the quoting only holds for well-formed identifiers.
+  validation {
+    condition = alltrue([
+      for u in var.db_seed_iam_usernames :
+      can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", u)) && length(u) <= 63
+    ])
+    error_message = "Each db_seed_iam_usernames entry must be a valid identifier: start with a letter or underscore, contain only letters, digits and underscores, and be at most 63 characters."
+  }
 }
 
 variable "db_seed_run_id" {

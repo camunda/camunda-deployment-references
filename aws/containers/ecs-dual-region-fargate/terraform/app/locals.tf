@@ -98,38 +98,48 @@ locals {
   # > the parameters and components the infra layer supplies. A full override is
   # taken verbatim, so the caller keeps complete control.
   #
-  # Every component is required, TLS included: defaulting the SSL parameter to ""
-  # would let a missing output silently drop the TLS pinning the module exists to
-  # enforce. Absent any one of these we compose no URL at all and the precondition
-  # in validations.tf reports it. tostring() keeps the emptiness check honest for
-  # aurora_db_port, which is a number.
+  # The URL splits into the parts before the '?' and the query parameters. Both
+  # are required, with no silent defaults: defaulting the database name to
+  # "camunda" would point Camunda at a *different* database on a cluster that
+  # happens to have one, which connects and behaves plausibly. Absent any part
+  # we compose no URL at all and the precondition in validations.tf says which.
+  # tostring() keeps the emptiness check honest for aurora_db_port, a number.
   rdbms_jdbc_required_components = [
     try(local.infra.aurora_jdbc_subprotocol, null),
     try(local.infra.aurora_global_writer_endpoint, null),
     try(local.infra.aurora_db_port, null),
-    try(local.infra.aurora_jdbc_wrapper_plugins, null),
-    try(local.infra.aurora_jdbc_instance_host_patterns, null),
-    try(local.infra.aurora_jdbc_ssl_param, null),
+    try(local.infra.db_name, null),
   ]
-
-  rdbms_jdbc_components_available = alltrue([
-    for v in local.rdbms_jdbc_required_components : v != null && tostring(v) != ""
-  ])
 
   # The app layer's parameters merge *over* the infra layer's rather than being
   # concatenated after them: two rendered fragments can carry the same key
-  # twice, and which occurrence a driver honours is driver-specific. try({})
-  # covers an infra state older than the map output — the URL then falls back to
-  # the driver's own defaults for these, a tuning loss rather than a correctness
-  # one, which is why they are not among the required components above.
+  # twice, and which occurrence a driver honours is driver-specific.
   rdbms_jdbc_url_parameters = merge(
     try(local.infra.aurora_jdbc_url_parameters, {}),
     var.rdbms_extra_jdbc_params,
   )
 
-  # Map iteration is key-sorted, so the fragment is stable across plans.
-  rdbms_jdbc_url_parameters_rendered = join("", [
-    for k, v in local.rdbms_jdbc_url_parameters : "&${k}=${v}"
+  # TLS, the plugin list and the host patterns travel inside that map now, so
+  # they are checked by key rather than as separate components. Checking them at
+  # all is the point: an infra state predating the map would otherwise compose a
+  # URL with no TLS pinning and no failover topology, both silently. Compared
+  # lower-cased because the TLS key is spelled sslmode by pgjdbc and sslMode by
+  # Connector/J.
+  rdbms_jdbc_required_parameters = ["wrapperplugins", "globalclusterinstancehostpatterns", "sslmode"]
+
+  rdbms_jdbc_parameters_present = alltrue([
+    for required in local.rdbms_jdbc_required_parameters :
+    anytrue([for k in keys(local.rdbms_jdbc_url_parameters) : lower(k) == required])
+  ])
+
+  rdbms_jdbc_components_available = alltrue([
+    for v in local.rdbms_jdbc_required_components : v != null && tostring(v) != ""
+  ]) && local.rdbms_jdbc_parameters_present
+
+  # Map iteration is key-sorted, so the query string is stable across plans.
+  # Parameter order carries no meaning to either driver.
+  rdbms_jdbc_query_string = join("&", [
+    for k, v in local.rdbms_jdbc_url_parameters : "${k}=${v}"
   ])
 
   rdbms_jdbc_url_composed = local.rdbms_jdbc_components_available ? join("", [
@@ -140,17 +150,9 @@ locals {
     ":",
     tostring(local.infra.aurora_db_port),
     "/",
-    try(local.infra.db_name, "camunda"),
-    "?wrapperPlugins=",
-    local.infra.aurora_jdbc_wrapper_plugins,
-    "&globalClusterInstanceHostPatterns=",
-    local.infra.aurora_jdbc_instance_host_patterns,
-    local.infra.aurora_jdbc_ssl_param,
-    # Query parameters come last, after the module-owned ones above. Both maps
-    # are validated the same way — no '&' or '=' in keys or values, and the
-    # parameters composed above are reserved — so no entry can append a
-    # parameter of its own or shadow one of them.
-    local.rdbms_jdbc_url_parameters_rendered,
+    local.infra.db_name,
+    "?",
+    local.rdbms_jdbc_query_string,
   ]) : null
 
   rdbms_jdbc_url = var.rdbms_jdbc_url != null ? var.rdbms_jdbc_url : local.rdbms_jdbc_url_composed

@@ -19,9 +19,11 @@ resource "terraform_data" "rdbms_jdbc_url_present" {
         Could not determine the RDBMS JDBC URL.
 
         secondary_storage_type is "rdbms", but the infra remote state does not
-        expose the aurora_jdbc_* component outputs used to build the URL
-        (aurora_jdbc_subprotocol, aurora_global_writer_endpoint, aurora_db_port,
-        aurora_jdbc_wrapper_plugins, aurora_jdbc_instance_host_patterns).
+        expose everything used to build the URL. All of these are required:
+        aurora_jdbc_subprotocol, aurora_global_writer_endpoint, aurora_db_port
+        and db_name, plus an aurora_jdbc_url_parameters map carrying at least
+        wrapperPlugins, globalClusterInstanceHostPatterns and the engine's TLS
+        key (sslmode for PostgreSQL, sslMode for MySQL).
 
         Apply terraform/infra/ first so it publishes them, or set
         var.rdbms_jdbc_url to supply a complete URL yourself.

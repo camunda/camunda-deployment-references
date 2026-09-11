@@ -74,15 +74,10 @@ output "jdbc_url" {
     compatibility, but building the URL here forces a change to any connection
     property — a timeout, a pool setting — through this module and a redeploy of
     the infrastructure layer. Consumers should instead read jdbc_subprotocol,
-    global_cluster_endpoint, db_port, database_name, jdbc_wrapper_plugins,
-    jdbc_instance_host_patterns and jdbc_ssl_param and assemble the URL where the
-    application is configured. This output will be removed in a future major.
+    global_cluster_endpoint, db_port, database_name and jdbc_url_parameters, and
+    assemble the URL where the application is configured. This output will be
+    removed in a future major.
   EOT
-}
-
-output "jdbc_instance_host_patterns" {
-  value       = local.jdbc_instance_host_patterns
-  description = "Comma-separated globalClusterInstanceHostPatterns for the AWS JDBC Wrapper failover plugin (primary,secondary)."
 }
 
 ################################################################
@@ -99,17 +94,7 @@ output "database_name" {
   description = "The database created on the cluster; the path segment of the JDBC URL."
 }
 
-output "jdbc_wrapper_plugins" {
-  value       = local.jdbc_wrapper_plugins
-  description = "Value for the AWS Advanced JDBC Wrapper 'wrapperPlugins' property: 'failover' plus 'iam' when iam_auth_enabled, plus any extra_wrapper_plugins."
-}
-
-output "jdbc_ssl_param" {
-  value       = local.jdbc_ssl_params[var.engine]
-  description = "Engine-specific TLS query parameter, already prefixed with '&' ('&sslmode=require' for PostgreSQL, '&sslMode=REQUIRED' for MySQL). Pins TLS instead of relying on the driver default, which permits a plaintext downgrade."
-}
-
-output "jdbc_extra_url_parameters" {
-  value       = local.jdbc_extra_url_parameters
-  description = "The extra_url_parameters rendered as a query-string fragment, already '&'-prefixed and key-sorted (e.g. '&failoverTimeoutMs=60000'). Append last when composing the URL, so caller parameters follow the module-owned ones."
+output "jdbc_url_parameters" {
+  value       = local.jdbc_url_parameters
+  description = "Every query parameter for the JDBC URL, as a map: wrapperPlugins ('failover', plus 'iam' and 'initialConnection' when iam_auth_enabled, plus any extra_wrapper_plugins), globalClusterInstanceHostPatterns, the engine's TLS key (sslmode=require for PostgreSQL, sslMode=REQUIRED for MySQL — pinned rather than left to the driver default, which permits a plaintext downgrade), and any extra_url_parameters. Render it as '?' plus '&'-joined 'key=value' pairs; no entry carries a separator of its own."
 }

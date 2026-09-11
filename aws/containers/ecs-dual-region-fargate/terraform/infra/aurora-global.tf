@@ -3,18 +3,15 @@
 ################################################################
 
 locals {
-  # The JDBC wrapper configuration this reference architecture commits to, kept
-  # here rather than as defaults on the pass-through variables so that extending
-  # either input cannot silently drop it (a db_extra_wrapper_plugins of
-  # ["readWriteSplitting"] would replace a ["efm2"] default, leaving the
-  # deployment back on TCP-timeout failure detection with nothing to warn about).
+  # This reference architecture adds no wrapper plugin on top of the module's
+  # built-ins (failover, plus iam when IAM auth is on). efm2 was considered and
+  # left out: the composed URL targets the Aurora Global *writer* endpoint, and
+  # on that endpoint type the AWS Advanced JDBC Wrapper needs the
+  # initialConnection plugin before EFM/EFM2 will attach. Adding efm2 by itself
+  # would advertise sub-second failure detection while the deployment stayed on
+  # TCP timeouts — worse than not claiming it. Reintroducing it means adding
+  # initialConnection at the same time and verifying both attach.
   #
-  # efm2 (Enhanced Failure Monitoring v2) detects an unresponsive instance from
-  # its own monitoring connection instead of waiting for the TCP timeout, so the
-  # failover plugin reacts within seconds of a writer going away. It must load
-  # after failover, which the module's append-after-builtins order guarantees.
-  db_wrapper_plugins = distinct(concat(["efm2"], var.db_extra_wrapper_plugins))
-
   # failoverTimeoutMs is the failover plugin's reconnect budget. The wrapper's
   # own default is 300000 (5 min), far longer than an Aurora Global failover
   # takes, so the orchestration cluster would keep retrying a dead writer for
@@ -48,7 +45,7 @@ module "aurora_global" {
   master_username       = var.db_admin_username
   master_password       = local.db_admin_password_effective
   iam_auth_enabled      = var.db_iam_auth_enabled
-  extra_wrapper_plugins = local.db_wrapper_plugins
+  extra_wrapper_plugins = var.db_extra_wrapper_plugins
   extra_url_parameters  = local.db_url_parameters
 
   # Primary cluster (region 0 — writer)

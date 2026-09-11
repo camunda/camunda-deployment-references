@@ -85,13 +85,16 @@ locals {
     aurora_secondary_cluster_endpoint   = "camunda-secondary.cluster-r11111111111.eu-west-3.rds.amazonaws.com"
     aurora_engine                       = "aurora-postgresql"
 
-    # JDBC URL components — the app layer assembles the URL from these.
-    aurora_db_port                     = 5432
-    aurora_jdbc_subprotocol            = "postgresql"
-    aurora_jdbc_wrapper_plugins        = "iam,failover,efm2"
-    aurora_jdbc_instance_host_patterns = "?.r00000000000.eu-west-2.rds.amazonaws.com,?.r11111111111.eu-west-3.rds.amazonaws.com"
-    aurora_jdbc_ssl_param              = "&sslmode=require"
-    aurora_jdbc_url_parameters         = { failoverTimeoutMs = "60000" }
+    # JDBC URL components — the app layer assembles the URL from these; every
+    # query parameter travels in one map, none carrying a separator of its own.
+    aurora_db_port          = 5432
+    aurora_jdbc_subprotocol = "postgresql"
+    aurora_jdbc_url_parameters = {
+      wrapperPlugins                    = "initialConnection,iam,failover"
+      globalClusterInstanceHostPatterns = "?.r00000000000.eu-west-2.rds.amazonaws.com,?.r11111111111.eu-west-3.rds.amazonaws.com"
+      sslmode                           = "require"
+      failoverTimeoutMs                 = "60000"
+    }
 
     # OpenSearch (null in rdbms mode)
     opensearch_region_0_endpoint = null

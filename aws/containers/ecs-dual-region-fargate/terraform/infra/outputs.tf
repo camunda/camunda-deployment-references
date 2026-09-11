@@ -260,24 +260,9 @@ output "aurora_jdbc_subprotocol" {
   description = "JDBC subprotocol for the selected engine ('postgresql' or 'mysql')."
 }
 
-output "aurora_jdbc_wrapper_plugins" {
-  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_wrapper_plugins : null
-  description = "Value for the AWS Advanced JDBC Wrapper 'wrapperPlugins' property (failover, plus iam when db_iam_auth_enabled, plus db_extra_wrapper_plugins)."
-}
-
-output "aurora_jdbc_instance_host_patterns" {
-  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_instance_host_patterns : null
-  description = "Value for the AWS Advanced JDBC Wrapper 'globalClusterInstanceHostPatterns' property (primary,secondary)."
-}
-
 output "aurora_jdbc_url_parameters" {
-  value       = var.secondary_storage_type == "rdbms" ? local.db_url_parameters : null
-  description = "JDBC query parameters this reference architecture sets (failoverTimeoutMs, plus any db_extra_url_parameters). A map rather than a rendered fragment so the app layer can merge its own rdbms_extra_jdbc_params over it by key: concatenating two rendered fragments can emit the same parameter twice, and which occurrence a driver honours is driver-specific."
-}
-
-output "aurora_jdbc_ssl_param" {
-  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_ssl_param : null
-  description = "Engine-specific TLS query parameter, already '&'-prefixed ('&sslmode=require' / '&sslMode=REQUIRED')."
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_url_parameters : null
+  description = "Every query parameter for the JDBC URL, as a map: wrapperPlugins, globalClusterInstanceHostPatterns, the engine's TLS key, and this architecture's failoverTimeoutMs plus any db_extra_url_parameters. A map rather than a rendered fragment for two reasons: the app layer merges its own rdbms_extra_jdbc_params over it by key, where concatenating fragments could emit a parameter twice and which occurrence a driver honours is driver-specific; and no entry then owns a leading '&', so a consumer renders the whole set with one loop."
 }
 
 output "aurora_db_port" {

@@ -71,7 +71,7 @@ variable "rdbms_jdbc_url" {
 variable "rdbms_extra_jdbc_params" {
   type        = map(string)
   default     = {}
-  description = "Extra query parameters for the RDBMS secondary-storage JDBC URL, e.g. { connectTimeout = \"5000\" } or the efm2 plugin's { failureDetectionTime = \"15000\" }. Merged over the parameters the infra layer supplies (aurora_jdbc_url_parameters), so retuning one of them — failoverTimeoutMs, say — needs neither a re-apply of the infrastructure state nor a hand-written replacement URL. Ignored when rdbms_jdbc_url is set, since that override is taken verbatim. Only used when secondary storage is 'rdbms'."
+  description = "Extra query parameters for the RDBMS secondary-storage JDBC URL, e.g. { connectTimeout = \"5000\" }. Merged over the parameters the infra layer supplies (aurora_jdbc_url_parameters), so retuning one of them — failoverTimeoutMs, say — needs neither a re-apply of the infrastructure state nor a hand-written replacement URL. Ignored when rdbms_jdbc_url is set, since that override is taken verbatim. Only used when secondary storage is 'rdbms'."
 
   # Mirrors the guards on the Aurora module's own extra_url_parameters, because
   # this map is interpolated into the same query string. Shape first: without
@@ -87,12 +87,15 @@ variable "rdbms_extra_jdbc_params" {
     error_message = "rdbms_extra_jdbc_params keys must be bare JDBC parameter names (letters and digits, starting with a letter) and values may contain only letters, digits and . _ : / , - — notably no '&' or '=', so that no entry can append a parameter of its own."
   }
 
+  # Compared lower-cased, mirroring the module: the reserved list is a closed set
+  # of exact strings, so a variant differing only in case would otherwise reach
+  # the query string, and whether a driver honours it is driver-specific.
   validation {
     condition = length(setintersection(
-      keys(var.rdbms_extra_jdbc_params),
-      ["wrapperPlugins", "globalClusterInstanceHostPatterns", "sslmode", "sslMode"],
+      [for k in keys(var.rdbms_extra_jdbc_params) : lower(k)],
+      ["wrapperplugins", "globalclusterinstancehostpatterns", "sslmode"],
     )) == 0
-    error_message = "rdbms_extra_jdbc_params must not contain the parameters composed from the infra layer's engine-derived outputs (wrapperPlugins, globalClusterInstanceHostPatterns, sslmode, sslMode). Extend the plugin list through the infra layer's db_extra_wrapper_plugins; the TLS mode and host patterns are not overridable. Use rdbms_jdbc_url to replace the URL outright."
+    error_message = "rdbms_extra_jdbc_params must not contain the parameters composed from the infra layer's engine-derived outputs (wrapperPlugins, globalClusterInstanceHostPatterns, sslmode/sslMode), in any capitalisation. Extend the plugin list through the infra layer's db_extra_wrapper_plugins; the TLS mode and host patterns are not overridable. Use rdbms_jdbc_url to replace the URL outright."
   }
 }
 

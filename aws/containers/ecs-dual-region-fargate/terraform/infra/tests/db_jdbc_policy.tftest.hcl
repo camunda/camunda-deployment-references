@@ -1,9 +1,10 @@
 # JDBC wrapper policy tests for terraform/infra/.
 #
-# The efm2 plugin and the 1 min failoverTimeoutMs are architectural choices of
-# this reference architecture, not defaults on db_extra_wrapper_plugins /
-# db_extra_url_parameters. These runs pin that: an operator extending either
-# input adds to the policy, and cannot drop it by omission.
+# The 1 min failoverTimeoutMs is an architectural choice of this reference
+# architecture, not a default on db_extra_url_parameters. These runs pin that:
+# an operator extending the input adds to the policy and cannot drop it by
+# omission. They also pin that IAM auth cannot be turned off, since nothing
+# supplies a database password in its place.
 #
 # Comparisons go through jsonencode: a map(string) local and an HCL object
 # literal are different types to `==`, and jsonencode sorts object keys, so
@@ -39,13 +40,8 @@ variables {
   terraform_backend_key_prefix = "aws/containers/ecs-dual-region-fargate/test-infra/"
 }
 
-run "efm2_and_failover_timeout_are_the_defaults" {
+run "failover_timeout_is_the_default" {
   command = plan
-
-  assert {
-    condition     = jsonencode(local.db_wrapper_plugins) == jsonencode(["efm2"])
-    error_message = "The reference architecture should load efm2 on top of the module's built-in plugins"
-  }
 
   assert {
     condition     = jsonencode(local.db_url_parameters) == jsonencode({ failoverTimeoutMs = "60000" })
@@ -53,17 +49,19 @@ run "efm2_and_failover_timeout_are_the_defaults" {
   }
 }
 
-run "extra_wrapper_plugins_extend_rather_than_replace_efm2" {
+run "iam_auth_cannot_be_disabled_for_rdbms" {
   command = plan
 
+  # The seed creates the Camunda user with the IAM auth plugin and no password,
+  # and the task definition wires no password secret, so a cluster built with
+  # this off cannot be connected to. Fail at plan time rather than at runtime.
   variables {
-    db_extra_wrapper_plugins = ["readWriteSplitting"]
+    db_iam_auth_enabled = false
   }
 
-  assert {
-    condition     = jsonencode(local.db_wrapper_plugins) == jsonencode(["efm2", "readWriteSplitting"])
-    error_message = "Adding a plugin should not drop efm2, which the architecture overview advertises"
-  }
+  expect_failures = [
+    var.db_iam_auth_enabled,
+  ]
 }
 
 run "extra_url_parameters_extend_rather_than_replace_the_timeout" {

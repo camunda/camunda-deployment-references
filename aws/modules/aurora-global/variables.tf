@@ -14,6 +14,22 @@ variable "engine" {
   }
 }
 
+# DEPRECATED. Removed as an input in favour of the per-engine pins below, which
+# each carry their own Renovate annotation. Kept only so that a consumer still
+# setting it gets an actionable message instead of Terraform's bare "An argument
+# named engine_version is not expected here". Safe to delete once consumers have
+# migrated.
+variable "engine_version" {
+  type        = string
+  default     = null
+  description = "DEPRECATED and non-functional. Use postgresql_engine_version or mysql_engine_version, whichever matches var.engine; the module selects between them."
+
+  validation {
+    condition     = var.engine_version == null
+    error_message = "engine_version has been removed. Set postgresql_engine_version (when engine = aurora-postgresql) or mysql_engine_version (when engine = aurora-mysql) instead — the module selects the right one for the engine in use."
+  }
+}
+
 variable "postgresql_engine_version" {
   type = string
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
@@ -66,7 +82,7 @@ variable "iam_auth_enabled" {
 variable "extra_wrapper_plugins" {
   type        = list(string)
   default     = []
-  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the jdbc_url. The module always sets 'failover' (and 'iam' when iam_auth_enabled), so list only the extras here, e.g. ['efm2', 'readWriteSplitting']. Order is preserved and duplicates of the built-in plugins are ignored."
+  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the jdbc_url. The module always sets 'failover' (and 'iam' when iam_auth_enabled), so list only the extras here, e.g. ['readWriteSplitting']. Duplicates of the built-in plugins are ignored. The position a plugin takes in the list is not the execution order: the wrapper re-sorts the pipeline by built-in weight unless autoSortWrapperPluginOrder is disabled, which extra_url_parameters must not do."
 
   validation {
     condition     = alltrue([for p in var.extra_wrapper_plugins : can(regex("^[A-Za-z][A-Za-z0-9]*$", p))])
@@ -93,12 +109,18 @@ variable "extra_url_parameters" {
     error_message = "extra_url_parameters keys must be bare JDBC parameter names (letters and digits, starting with a letter) and values may contain only letters, digits and . _ : / , - — notably no '&' or '=', so that no entry can append a parameter of its own."
   }
 
+  # Compared lower-cased: the reserved list is a closed set of exact strings, so
+  # a variant differing only in case (SSLMODE, wrapperplugins) would otherwise
+  # slip through and land in the query string, where whether a driver honours it
+  # is driver-specific — the same hazard as emitting a duplicate key. Folding
+  # case also collapses the sslmode/sslMode pair (pgjdbc/Connector/J) to one
+  # entry.
   validation {
     condition = length(setintersection(
-      keys(var.extra_url_parameters),
-      ["wrapperPlugins", "globalClusterInstanceHostPatterns", "sslmode", "sslMode"],
+      [for k in keys(var.extra_url_parameters) : lower(k)],
+      ["wrapperplugins", "globalclusterinstancehostpatterns", "sslmode"],
     )) == 0
-    error_message = "extra_url_parameters must not contain the parameters the module builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, sslmode, sslMode) — use extra_wrapper_plugins for the plugin list; the TLS mode and host patterns are not overridable."
+    error_message = "extra_url_parameters must not contain the parameters the module builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, sslmode/sslMode), in any capitalisation — use extra_wrapper_plugins for the plugin list; the TLS mode and host patterns are not overridable."
   }
 }
 
