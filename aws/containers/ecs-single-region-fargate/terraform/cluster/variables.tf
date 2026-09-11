@@ -55,6 +55,10 @@ variable "ports" {
     zeebe_gateway_cluster_port            = 26502
     zeebe_gateway_network_port            = 26500
     zeebe_broker_network_command_api_port = 26501
+    management_identity_app               = 8084
+    management_identity_management        = 8082
+    keycloak_http                         = 18080
+    keycloak_management                   = 9000
   }
   description = "The ports to open for the security groups within the VPC"
 }
@@ -67,6 +71,14 @@ variable "db_name" {
   type        = string
   description = "Database name used by Camunda components"
   default     = "camunda"
+
+  validation {
+    # Interpolated into the DB seed SQL (postgres_seed.tf) as a quoted identifier
+    # and in the `dbname=` conninfo string; restrict to a safe PostgreSQL
+    # identifier so quotes/whitespace cannot break SQL or inject.
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.db_name)) && length(var.db_name) <= 63
+    error_message = "db_name must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
 }
 
 variable "db_admin_username" {
@@ -101,6 +113,65 @@ variable "db_seed_iam_usernames" {
   default     = ["camunda"]
 }
 
+variable "identity_db_name" {
+  type        = string
+  description = "Dedicated database name for Management Identity on the shared Aurora cluster"
+  default     = "identity"
+
+  validation {
+    # Interpolated into the DB seed SQL (postgres_seed.tf); restrict to a safe
+    # PostgreSQL identifier so quotes/whitespace cannot break SQL or inject.
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.identity_db_name)) && length(var.identity_db_name) <= 63
+    error_message = "identity_db_name must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
+}
+
+variable "identity_db_username" {
+  type        = string
+  description = "Password-authenticated database role for Management Identity (Identity does not support IAM DB auth)"
+  default     = "identity"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.identity_db_username)) && length(var.identity_db_username) <= 63
+    error_message = "identity_db_username must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
+}
+
+variable "keycloak_db_name" {
+  type        = string
+  description = "Dedicated database name for Keycloak on the shared Aurora cluster"
+  default     = "keycloak"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.keycloak_db_name)) && length(var.keycloak_db_name) <= 63
+    error_message = "keycloak_db_name must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
+}
+
+variable "keycloak_db_username" {
+  type        = string
+  description = "Password-authenticated database role for Keycloak"
+  default     = "keycloak"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.keycloak_db_username)) && length(var.keycloak_db_username) <= 63
+    error_message = "keycloak_db_username must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
+}
+
+variable "keycloak_admin_username" {
+  type        = string
+  description = "Keycloak bootstrap admin username"
+  default     = "admin"
+
+  validation {
+    # Not interpolated into SQL, but kept consistent with the DB-role identifiers
+    # above so the bootstrap admin username stays a predictable, quote-free token.
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.keycloak_admin_username)) && length(var.keycloak_admin_username) <= 63
+    error_message = "keycloak_admin_username must be a valid identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
+}
+
 ################################################################
 #                         KMS Options                          #
 ################################################################
@@ -109,4 +180,20 @@ variable "secrets_kms_key_arn" {
   description = "Optional existing KMS key ARN to use for encrypting Secrets Manager secrets. If empty, this stack will create and manage a CMK."
   type        = string
   default     = ""
+}
+
+################################################################
+#                     ALB TLS (HTTPS) — opt-in                 #
+################################################################
+
+variable "alb_certificate_arn" {
+  type        = string
+  description = "ACM certificate ARN for the shared ALB. When set, an HTTPS :443 listener is created, all web-app/OIDC traffic is served over TLS (and HTTP :80 redirects to it), and Keycloak trusts the ALB's X-Forwarded-Proto so the realm needs no sslRequired relaxation. Empty (default) keeps this reference on plain HTTP :80 for the demo."
+  default     = ""
+}
+
+variable "alb_ssl_policy" {
+  type        = string
+  description = "SSL negotiation policy for the HTTPS ALB listener (used only when alb_certificate_arn is set)."
+  default     = "ELBSecurityPolicy-TLS13-1-2-2021-06"
 }
