@@ -32,6 +32,30 @@ inputs:
         description: Destruction order of modules, e.g. "vpn,cluster" or "cluster,vpn"
         required: true
 
+    tf-config-path:
+        description: |
+            Repository-relative path to the provider configuration to destroy the state
+            with, e.g. `aws/kubernetes/eks-multi-region-rdbms/terraform/cleanup/config-multi-region`.
+            Leave empty to let the script infer one from the module name, which only
+            distinguishes a single-region state from a dual-region one.
+
+            Set it for any architecture whose state references provider aliases the
+            inferred configuration does not declare: `terraform destroy` then fails with
+            "Provider configuration not present" and leaves the infrastructure behind.
+            The architecture owns that file, so this action stays free of per-architecture
+            provider schemas.
+        default: ''
+
+    cleanup-regions:
+        description: |
+            Space-separated regions to sweep for leftover VPCs when the first destroy pass
+            fails, for architectures spanning more than two regions.
+
+            Declared explicitly rather than inherited from the caller's environment: this
+            action destroys infrastructure, so every input that widens what it touches has
+            to be visible at the call site.
+        default: ''
+
     openshift:
         description: Whether to install OpenShift tooling (ROSA CLI + oc)
         default: 'false'
@@ -69,6 +93,10 @@ inputs:
             Nothing enforces it, and a step the runner kills takes the log upload down with it,
             which is how the 2026-08-29 EC2 and ECS cleanups ended with no artifact and no
             verdict. A caller on a shorter leash has to lower both, or it gets no protection.
+
+            A caller that raises the budgets has to raise its step and job envelopes to match.
+            Two 120-minute passes under a 125-minute step means the retry is killed a few minutes
+            in, which turns the recovery pass into a no-op exactly when it is needed.
         default: '30'
 
 outputs:
@@ -85,7 +113,7 @@ runs:
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
 
         - name: Install Cloud Nuke for retry
           shell: bash
@@ -94,11 +122,17 @@ runs:
               # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
               CLOUD_NUKE_VERSION: v0.52.0
           run: |
-              curl -LO \
+              curl -fLO \
                   --retry 5 \
                   --max-time 15 \
                   --retry-delay 30 \
                   https://github.com/gruntwork-io/cloud-nuke/releases/download/${{ env.CLOUD_NUKE_VERSION }}/cloud-nuke_linux_amd64
+              curl -fLO \
+                  --retry 5 \
+                  --max-time 15 \
+                  --retry-delay 30 \
+                  https://github.com/gruntwork-io/cloud-nuke/releases/download/${{ env.CLOUD_NUKE_VERSION }}/SHA256SUMS
+              grep ' cloud-nuke_linux_amd64$' SHA256SUMS | sha256sum --check --strict
               chmod +x cloud-nuke_linux_amd64
               mv cloud-nuke_linux_amd64 /usr/local/bin/cloud-nuke
 
@@ -138,6 +172,9 @@ runs:
               INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
               INPUTS_FAIL_ON_NOT_FOUND: ${{ inputs.fail-on-not-found }}
               INPUTS_DELETE_GHOST_ROSA_CLUSTERS: ${{ inputs.delete-ghost-rosa-clusters }}
+              # Read under these exact names by scripts/destroy-resources.sh, so they
+              # keep the bare name rather than the INPUTS_ prefix above.
+              TF_CONFIG_PATH: ${{ inputs.tf-config-path }}
               # Where cleanup-ghost-rosa-clusters.sh records when it first saw each
               # candidate. OCM exposes no deletion-start timestamp, so without a
               # store that outlives the run there is no way to tell a cluster Red Hat
@@ -148,6 +185,7 @@ runs:
               STUCK_STATE_KEY: ${{ inputs.tf-bucket-key-prefix }}ghost-rosa-cluster-deletion-state.json
               INPUTS_DESTROY_PASS_TIMEOUT_MINUTES: ${{ inputs.destroy-pass-timeout-minutes }}
               INPUTS_RETRY_DESTROY_PASS_TIMEOUT_MINUTES: ${{ inputs.retry-destroy-pass-timeout-minutes }}
+              CLEANUP_REGIONS: ${{ inputs.cleanup-regions }}
               ACTION_PATH: ${{ github.action_path }}
           run: |
               set -euo pipefail

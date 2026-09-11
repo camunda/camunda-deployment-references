@@ -11,6 +11,12 @@ repos:
       rev: v6.0.0
       hooks:
           - id: check-added-large-files
+            # Golden Terraform plans are machine-generated and grow with the
+            # number of regions an architecture spans: the three-region
+            # eks-multi-region-rdbms plan is around 520 KB, twice the
+            # dual-region ones. The guard is here to catch binaries and blobs
+            # committed by mistake, so it is raised rather than removed.
+            args: [--maxkb=1024]
           - id: end-of-file-fixer
           - id: trailing-whitespace
           - id: check-yaml
@@ -255,6 +261,9 @@ repos:
       hooks:
           - id: yamlfmt
             # yamlfmt removes quotes around YAML values like "OFF" or "false" which
-            # breaks ES config (boolean/string confusion).
+            # breaks ES config (boolean/string confusion). It also strips the quotes
+            # around '${VAR}' placeholders, which turns the Camunda chart's
+            # string-typed clusterSize/partitionCount/replicationFactor into
+            # integers and fails the chart JSON schema validation.
             # yamllint disable-line rule:line-length
-            exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.*\.yml|local/kubernetes/kind-single-region/configs/elasticsearch-cluster.yml)
+            exclude: (generic/kubernetes/operator-based/elasticsearch/elasticsearch-cluster.*\.yml|local/kubernetes/kind-single-region/configs/elasticsearch-cluster.yml|aws/kubernetes/eks-multi-region-rdbms/helm-values/camunda-values.yml)

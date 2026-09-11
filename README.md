@@ -39,6 +39,7 @@ Where:
 - `{feature}`: A specific feature or deployment model, particularly in relation to **Camunda 8**, such as:
   - `single-region` (deployment in a single region).
   - `dual-region` (high availability across two regions).
+  - `multi-region` (deployment spread over N regions; surviving a region loss without halting needs enough regions left to hold quorum).
 - `{declination}`: A variation of the solution, such as:
   - `spot-instances` (for EC2 cost optimization).
   - `on-demand` (for standard EC2 instances).

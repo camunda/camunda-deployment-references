@@ -90,6 +90,48 @@ gh run rerun <run-id> --failed # avoid on cloud workflows
 
 A full re-run reprovisions the clusters, so check the cloud quotas first when several runs are in flight.
 
+### A push can lose its run
+
+The long-running workflows, the integration suites and the daily cleanups, declare `concurrency.cancel-in-progress: false` so that a new run never cancels one that is still tearing infrastructure down. The cost is that a push landing while that group is busy can produce no run at all for that workflow: the ones that do cancel in progress, the golden-plan and lint workflows among them, appear on the new commit as usual, and the long-running one silently does not.
+
+Check before assuming the workflow is broken:
+
+```bash
+gh api "/repos/<owner>/<repo>/actions/runs?head_sha=<sha>" --jq '.workflow_runs[].name'
+```
+
+There is nothing to fix in the workflow. Push again once the group is free, or re-run the previous run if its commit is still the one you want to test.
+
+### Keeping a pull request to the tests it needs
+
+Every workflow whose `paths` match anything in the pull request runs on every push, and the filter reads the whole pull-request diff rather than the last push. A branch that touches a shared action therefore provisions clusters for architectures it has nothing to do with.
+
+`internal-triage-skip` is the way out. Label the pull request `skip_<workflow filename without extension>` and that workflow's triage job short-circuits the rest, so the run appears but no cluster is created:
+
+```bash
+gh pr edit <pr> --add-label skip_aws_openshift_rosa_hcp_dual_region_tests
+```
+
+Never create those labels by hand: `internal-triage-skip` creates them, with colour `#1D76DB`, and also posts a checklist comment offering the same choices as checkboxes.
+
+### Inspecting a live cluster before the teardown
+
+`aws_eks_multi_region_rdbms_tests.yml` stops on an SSH session after the tests and before the destroy step, on the runner that provisioned the clusters. Two switches turn it on, because a workflow has to be on the default branch before it can be dispatched:
+
+```bash
+# once the workflow is on the default branch
+gh workflow run aws_eks_multi_region_rdbms_tests.yml -f debug_tmate=true
+
+# until then, from the pull request
+gh pr edit <pr> --add-label debug_tmate
+```
+
+The label is read from the event payload, so it has to be on the pull request before the run starts. Adding it does not trigger a run by itself; push, or re-run after a push that already carried it.
+
+The connection string is printed in the step log and only the user who started the run can attach. The runner already holds a kubectl context per region, so `kubectl --context cluster-london get pods -n camunda` works without any setup. End the session with `touch /continue`, or leave it and the step expires after 30 minutes.
+
+The AWS credentials come from a role assumed at the start of the job. They expire on their own schedule, so `kubectl` can stop working while the session is still open.
+
 ## CI Status Reporting
 
 CI emits complementary operational signals:
