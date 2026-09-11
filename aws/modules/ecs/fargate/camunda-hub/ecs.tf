@@ -32,13 +32,9 @@ locals {
 
   # Base secrets injected by the module into the restapi container.
   restapi_base_secrets = concat(
-    # Empty ARNs are dropped rather than rendered as `valueFrom = ""`, which ECS rejects
-    # at RegisterTaskDefinition with an error that does not name the offending entry.
     [
-      for s in [
-        { name = "RESTAPI_PUSHER_KEY", valueFrom = var.pusher_app_key_secret_arn },
-        { name = "RESTAPI_PUSHER_SECRET", valueFrom = var.pusher_app_secret_secret_arn },
-      ] : s if s.valueFrom != ""
+      { name = "RESTAPI_PUSHER_KEY", valueFrom = var.pusher_app_key_secret_arn },
+      { name = "RESTAPI_PUSHER_SECRET", valueFrom = var.pusher_app_secret_secret_arn },
     ],
     local.license_secret_entry,
     var.secrets,
@@ -54,10 +50,8 @@ locals {
   # Websockets container secrets.
   websockets_secrets = concat(
     [
-      for s in [
-        { name = "PUSHER_APP_KEY", valueFrom = var.pusher_app_key_secret_arn },
-        { name = "PUSHER_APP_SECRET", valueFrom = var.pusher_app_secret_secret_arn },
-      ] : s if s.valueFrom != ""
+      { name = "PUSHER_APP_KEY", valueFrom = var.pusher_app_key_secret_arn },
+      { name = "PUSHER_APP_SECRET", valueFrom = var.pusher_app_secret_secret_arn },
     ],
     local.license_secret_entry,
   )
@@ -112,12 +106,13 @@ resource "aws_ecs_service" "camunda_hub" {
   # which does not order the service after the rules).
   depends_on = [aws_lb_listener_rule.hub, aws_lb_listener_rule.hub_ws]
 
-  name            = "${var.prefix}-camunda-hub"
-  cluster         = var.ecs_cluster_id
-  task_definition = aws_ecs_task_definition.camunda_hub.arn
-  desired_count   = var.task_desired_count
-  launch_type     = "FARGATE"
-  # ECS rejects this argument on a service with no load balancer attached.
+  name                              = "${var.prefix}-camunda-hub"
+  cluster                           = var.ecs_cluster_id
+  task_definition                   = aws_ecs_task_definition.camunda_hub.arn
+  desired_count                     = var.task_desired_count
+  launch_type                       = "FARGATE"
+  # ECS rejects this argument on a service with no load balancer attached, so it has to
+  # follow the same flag as the load_balancer blocks below.
   health_check_grace_period_seconds = var.enable_alb_http_webapp_listener_rule ? var.service_health_check_grace_period_seconds : null
 
   enable_execute_command = var.task_enable_execute_command
@@ -143,9 +138,10 @@ resource "aws_ecs_service" "camunda_hub" {
     namespace = var.s2s_cloudmap_namespace
   }
 
-  # Only attach the target groups when the listener rules exist. A target group with no
-  # listener rule is not associated with a load balancer, and ECS rejects CreateService
-  # for exactly that reason, so the "off" state of the flag was previously unappliable.
+  # Only attach the target groups when the listener rules exist: ECS CreateService
+  # rejects a load_balancer block whose target group is not associated with a load
+  # balancer, and the rules are what associate them (same gating as the sibling
+  # orchestration-cluster and management-identity modules).
   dynamic "load_balancer" {
     for_each = var.enable_alb_http_webapp_listener_rule ? {
       (aws_lb_target_group.restapi.arn)    = { name = "camunda-hub-restapi", port = 8081 }

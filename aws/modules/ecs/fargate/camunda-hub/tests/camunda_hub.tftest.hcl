@@ -9,6 +9,11 @@ variables {
   vpc_private_subnets         = ["subnet-aaa1aaaa", "subnet-aaa2aaaa", "subnet-aaa3aaaa"]
   prefix                      = "test-hub"
   ecs_task_execution_role_arn = "arn:aws:iam::000000000000:role/test-exec"
+
+  # Required inputs: the task definition always renders these into its secrets list,
+  # so the module refuses to plan without them.
+  pusher_app_key_secret_arn    = "arn:aws:secretsmanager:us-east-1:000000000000:secret:test-pusher-key"
+  pusher_app_secret_secret_arn = "arn:aws:secretsmanager:us-east-1:000000000000:secret:test-pusher-secret"
 }
 
 run "task_definition_has_two_containers" {
@@ -83,10 +88,11 @@ run "extra_task_role_attachments_count_matches_var" {
   }
 }
 
-# The Pusher secret ARNs default to empty. An empty string must never reach the task
-# definition `secrets` list: ECS rejects it at RegisterTaskDefinition with an error that
-# does not name the offending entry, which is expensive to diagnose at apply time.
-run "empty_pusher_secret_arns_are_not_rendered" {
+# No secret may ever reach the task definition with an empty `valueFrom`: ECS rejects it
+# at RegisterTaskDefinition with an error that does not name the offending entry. The
+# Pusher ARNs are required inputs, but the optional license and the caller-supplied
+# `secrets` passthrough both flow into the same list.
+run "no_secret_is_rendered_with_an_empty_value" {
   command = plan
 
   assert {

@@ -167,7 +167,7 @@ variable "websockets_image" {
 }
 
 variable "context_path" {
-  description = "The URL context path Camunda Hub is served under (used for ALB routing and app config). Note the restapi readiness endpoint is not served under it: the management port exposes /health/readiness unprefixed."
+  description = "The URL context path Camunda Hub is served under (used for ALB routing and app config). The restapi readiness probe is not affected: it is served unprefixed at /health/readiness."
   type        = string
   default     = "/hub"
 }
@@ -179,15 +179,13 @@ variable "pusher_app_id" {
 }
 
 variable "pusher_app_key_secret_arn" {
-  description = "Secrets Manager ARN holding the Pusher app key (shared between both containers). Leave empty to omit the secret entirely; an empty ARN is dropped rather than rendered into the task definition."
+  description = "Secrets Manager ARN holding the Pusher app key (shared between both containers)"
   type        = string
-  default     = ""
 }
 
 variable "pusher_app_secret_secret_arn" {
-  description = "Secrets Manager ARN holding the Pusher app secret (shared between both containers). Leave empty to omit the secret entirely; an empty ARN is dropped rather than rendered into the task definition."
+  description = "Secrets Manager ARN holding the Pusher app secret (shared between both containers)"
   type        = string
-  default     = ""
 }
 
 variable "license_secret_arn" {
