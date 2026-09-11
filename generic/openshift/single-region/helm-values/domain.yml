@@ -16,6 +16,9 @@ global:
     ingress:
         enabled: true
         className: openshift-default
+        # This deployment does not use ingress-nginx, so the chart's compatibility
+        # annotations are not needed. Removed in the next chart major.
+        nginxCompatAnnotations: false
         tls:
             enabled: true
             # explicitly '-' as secret name as we rely on the IngressOperator to handle the TLS secret

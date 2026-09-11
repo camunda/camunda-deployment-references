@@ -16,6 +16,9 @@ global:
     ingress:
         enabled: true
         className: contour
+        # This deployment does not use ingress-nginx, so the chart's compatibility
+        # annotations are not needed. Removed in the next chart major.
+        nginxCompatAnnotations: false
         tls:
             enabled: true
             secretName: camunda-c8-tls
