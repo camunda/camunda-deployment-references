@@ -57,10 +57,10 @@ if should_create_secrets "pg-keycloak"; then
     create_or_get_secret "pg-keycloak-secret" "keycloak" "KEYCLOAK_BOOT_PASS"
 fi
 
-# Webmodeler superuser (username=root) and bootstrap (username=webmodeler)
-if should_create_secrets "pg-webmodeler"; then
-    create_or_get_secret "pg-webmodeler-superuser-secret" "root" "WEBM_SUPER_PASS"
-    create_or_get_secret "pg-webmodeler-secret" "webmodeler" "WEBM_BOOT_PASS"
+# Camunda Hub superuser (username=root) and bootstrap (username=hub)
+if should_create_secrets "pg-hub"; then
+    create_or_get_secret "pg-hub-superuser-secret" "root" "HUB_SUPER_PASS"
+    create_or_get_secret "pg-hub-secret" "hub" "HUB_BOOT_PASS"
 fi
 
 # Camunda orchestration superuser (username=root) and bootstrap (username=camunda)

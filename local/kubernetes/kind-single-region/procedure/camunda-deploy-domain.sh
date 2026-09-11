@@ -46,7 +46,7 @@ if [[ "$SECONDARY_STORAGE" == "elasticsearch" ]]; then
         --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \
         --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
-        --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
+        --values "$OPERATOR_VALUES_DIR/postgresql/camunda-hub-values.yml" \
         --values helm-values/values-domain.yml \
         --values helm-values/values-mkcert.yml
 else
@@ -56,7 +56,7 @@ else
         --namespace "camunda" \
         --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
-        --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
+        --values "$OPERATOR_VALUES_DIR/postgresql/camunda-hub-values.yml" \
         --values helm-values/values-domain.yml \
         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml" \
         --values helm-values/values-mkcert.yml
@@ -84,7 +84,7 @@ fi
 #         --values "$OPERATOR_VALUES_DIR/elasticsearch/camunda-elastic-values.yml" \
 #         --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
 #         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
-#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
+#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-hub-values.yml" \
 #         --values helm-values/values-domain.yml \
 #         --values helm-values/values-mkcert.yml
 # else
@@ -94,7 +94,7 @@ fi
 #         --namespace "camunda" \
 #         --values <(envsubst < "$OPERATOR_VALUES_DIR/keycloak/camunda-keycloak-domain-values.yml") \
 #         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-identity-values.yml" \
-#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-webmodeler-values.yml" \
+#         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-hub-values.yml" \
 #         --values helm-values/values-domain.yml \
 #         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml" \
 #         --values helm-values/values-mkcert.yml

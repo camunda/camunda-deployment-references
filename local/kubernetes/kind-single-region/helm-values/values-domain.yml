@@ -15,7 +15,7 @@
 # - camunda-elastic-values.yml (Elasticsearch via ECK)
 # - camunda-keycloak-domain-values.yml (Keycloak via operator, domain mode)
 # - camunda-identity-values.yml (PostgreSQL for Identity via CloudNativePG)
-# - camunda-webmodeler-values.yml (PostgreSQL for Web Modeler via CloudNativePG)
+# - camunda-hub-values.yml (PostgreSQL for Camunda Hub via CloudNativePG)
 
 global:
     identity:
@@ -137,46 +137,41 @@ orchestration:
 
 camundaHub:
     enabled: true
+    contextPath: /modeler
 
-    # TODO(#2863 / camunda-platform-helm#6539): once the upstream hoist of
-    # `camundaHub.webModeler.*` to `camundaHub.*` ships, flatten these keys.
-    # Do not pre-empt: the nested namespace is valid in 15.0.0-alpha3 today.
-    webModeler:
-        contextPath: /modeler
-        # Chart 15.x defaults webModeler.image.tag to "8.10.0-alpha1-rc1",
-        # which is not published to Docker Hub. Use the rolling SNAPSHOT tag
-        # for camunda/hub and camunda/hub-websockets in CI until a tagged
-        # release is available.
-        image:
-            tag: SNAPSHOT
-        restapi:
-            resources:
-                requests:
-                    cpu: 100m
-                    memory: 256Mi
-                limits:
-                    cpu: 1000m
-                    memory: 1Gi
-        websockets:
-            resources:
-                requests:
-                    cpu: 50m
-                    memory: 128Mi
-                limits:
-                    cpu: 500m
-                    memory: 512Mi
+    # TODO: [release-duty] drop this SNAPSHOT pin once
+    # camunda/camunda-platform-helm#6567 is fixed. The chart's default Hub image
+    # rejects the `hub`/`admin` cluster app types introduced in chart 15.x; the
+    # rolling SNAPSHOT tag for camunda/hub and camunda/hub-websockets accepts
+    # them.
+    image:
+        tag: SNAPSHOT
 
-# Chart 15.x: Web Modeler Pusher secret/key must be configured at the
-# top-level `webModeler.*` path, not under `camundaHub.webModeler.*`.
-# Without this, the chart auto-generates a new random Pusher secret on
-# every `helm upgrade`, breaking WebSocket auth.
-webModeler:
     restapi:
+        # The Pusher secret and app key must come from an existing secret.
+        # Without this, the chart auto-generates a new random Pusher secret on
+        # every `helm upgrade`, breaking WebSocket auth.
         pusher:
             secret:
                 existingSecret: camunda-credentials
-                existingSecretKey: webmodeler-pusher-app-secret
+                existingSecretKey: hub-pusher-app-secret
             client:
                 secret:
                     existingSecret: camunda-credentials
-                    existingSecretKey: webmodeler-pusher-app-key
+                    existingSecretKey: hub-pusher-app-key
+        resources:
+            requests:
+                cpu: 100m
+                memory: 256Mi
+            limits:
+                cpu: 1000m
+                memory: 1Gi
+
+    websockets:
+        resources:
+            requests:
+                cpu: 50m
+                memory: 128Mi
+            limits:
+                cpu: 500m
+                memory: 512Mi

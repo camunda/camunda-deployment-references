@@ -535,9 +535,9 @@ jobs:
                   fi
 
                   if [ "$HUB_ENABLED" == "true" ]; then
-                    echo "Enabling WebModeler with CNPG PostgreSQL"
+                    echo "Enabling Camunda Hub with CNPG PostgreSQL"
                     OPERATOR_PG_PATH="generic/kubernetes/operator-based/postgresql"
-                    yq ". *+ load(\"${OPERATOR_PG_PATH}/camunda-webmodeler-values.yml\")" values.yml > values-merged.yml
+                    yq ". *+ load(\"${OPERATOR_PG_PATH}/camunda-hub-values.yml\")" values.yml > values-merged.yml
                     cat values-merged.yml && mv values-merged.yml values.yml
                   fi
 
@@ -551,14 +551,13 @@ jobs:
                   # true`. The legacy `webModeler.enabled` key is deprecated and
                   # emits warnings.
                   if [ "$HUB_ENABLED" == "true" ]; then
-                    echo "Enabling Camunda Hub (WebModeler)"
+                    echo "Enabling Camunda Hub"
                     yq -i '.camundaHub.enabled = true' values.yml
                     # TODO: [release-duty] drop this SNAPSHOT pin once
-                    # camunda/camunda-platform-helm#6567 is fixed. The released alpha3
-                    # chart pins camunda/hub:8.10.0-alpha3-rc1, which rejects the
-                    # `hub`/`admin` cluster app types; the rolling SNAPSHOT tag accepts
-                    # them (as kind already does).
-                    yq -i '.camundaHub.webModeler.image.tag = "SNAPSHOT"' values.yml
+                    # camunda/camunda-platform-helm#6567 is fixed. The chart's default
+                    # Hub image rejects the `hub`/`admin` cluster app types; the rolling
+                    # SNAPSHOT tag accepts them (as kind already does).
+                    yq -i '.camundaHub.image.tag = "SNAPSHOT"' values.yml
                   fi
 
                   # Add integration tests values
@@ -608,13 +607,13 @@ jobs:
                   keycloak-mode: ${{ matrix.declination.declination_mode == 'domain' && 'domain-openshift' || 'no-domain' }}
                   domain-name: ${{ env.CAMUNDA_DOMAIN }}
 
-            - name: 🐘 Deploy CNPG cluster pg-webmodeler
+            - name: 🐘 Deploy CNPG cluster pg-hub
               if: env.HUB_ENABLED == 'true'
               timeout-minutes: 10
               uses: ./.github/actions/kubernetes-cnpg-cluster
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  cluster-name: pg-webmodeler
+                  cluster-name: pg-hub
 
             - name: 🏁 Install Camunda 8 using the generic/openshift helm chart procedure
               timeout-minutes: 10
@@ -843,12 +842,12 @@ jobs:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   cluster-name: pg-identity
 
-            - name: 🧹 Cleanup CNPG cluster pg-webmodeler
+            - name: 🧹 Cleanup CNPG cluster pg-hub
               if: always() && env.CLEANUP_CLUSTERS == 'true' && env.HUB_ENABLED == 'true'
               uses: ./.github/actions/kubernetes-cnpg-cluster-cleanup
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  cluster-name: pg-webmodeler
+                  cluster-name: pg-hub
 
             - name: 🧹 Cleanup ECK Elasticsearch deployment
               if: always() && env.CLEANUP_CLUSTERS == 'true' && matrix.declination.secondary_storage != 'rdbms'
