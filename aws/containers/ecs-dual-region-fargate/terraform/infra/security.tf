@@ -49,13 +49,16 @@ resource "aws_security_group" "camunda_ports_region_0" {
     description = "Allow cross-region Zeebe cluster traffic to region 1"
   }
 
-  # Cross-region Aurora traffic (port 5432) for Aurora Global DB
+  # Aurora Global DB traffic (engine-derived port: 5432 PostgreSQL / 3306 MySQL).
+  # Covers both the local VPC (writer may run in this region; ECS app + one-time
+  # DB seed tasks connect within-region) and the peer VPC (cross-region access,
+  # e.g. after failover). The generic var.ports map no longer carries the DB port.
   egress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
-    cidr_blocks = [local.vpc.region_1_vpc_cidr]
-    description = "Allow Aurora traffic to region 1"
+    cidr_blocks = [local.vpc.region_0_vpc_cidr, local.vpc.region_1_vpc_cidr]
+    description = "Allow Aurora DB traffic within VPC and cross-region"
   }
 
   # EFS egress
@@ -226,13 +229,16 @@ resource "aws_security_group" "camunda_ports_region_1" {
     description = "Allow cross-region Zeebe cluster traffic to region 0"
   }
 
-  # Cross-region Aurora traffic
+  # Aurora Global DB traffic (engine-derived port: 5432 PostgreSQL / 3306 MySQL).
+  # Covers both the local VPC (writer may run in this region; ECS app + one-time
+  # DB seed tasks connect within-region) and the peer VPC (cross-region access,
+  # e.g. after failover). The generic var.ports map no longer carries the DB port.
   egress {
-    from_port   = 5432
-    to_port     = 5432
+    from_port   = local.db_port
+    to_port     = local.db_port
     protocol    = "TCP"
-    cidr_blocks = [local.vpc.region_0_vpc_cidr]
-    description = "Allow Aurora traffic to region 0 (Global DB writer)"
+    cidr_blocks = [local.vpc.region_0_vpc_cidr, local.vpc.region_1_vpc_cidr]
+    description = "Allow Aurora DB traffic within VPC and cross-region"
   }
 
   # EFS egress

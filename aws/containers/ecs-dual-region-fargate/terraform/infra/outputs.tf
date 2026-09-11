@@ -224,7 +224,7 @@ output "aurora_global_writer_endpoint" {
 
 output "aurora_primary_cluster_endpoint" {
   value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].primary_cluster_endpoint : null
-  description = "The regional writer endpoint of the primary Aurora cluster (region 0). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper."
+  description = "The regional writer endpoint of the primary Aurora cluster (region 0)."
 }
 
 output "aurora_primary_cluster_identifier" {
@@ -237,7 +237,37 @@ output "aurora_secondary_cluster_identifier" {
 
 output "aurora_secondary_cluster_endpoint" {
   value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].secondary_cluster_endpoint : null
-  description = "The regional endpoint of the secondary Aurora cluster (region 1). Used to derive globalClusterInstanceHostPatterns for the AWS JDBC wrapper."
+  description = "The regional endpoint of the secondary Aurora cluster (region 1)."
+}
+
+output "aurora_engine" {
+  value       = var.secondary_storage_type == "rdbms" ? local.aurora_engine : null
+  description = "The Aurora engine backing secondary storage ('aurora-postgresql' or 'aurora-mysql'). Exported by procedure/export_environment_prerequisites.sh so the failover/failback scripts re-create clusters with the right engine."
+}
+
+output "aurora_jdbc_url" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_url : null
+  description = "DEPRECATED — the app layer composes the URL from the aurora_jdbc_* component outputs below. A fully assembled AWS Advanced JDBC Wrapper URL, kept so existing consumers keep working; it will be removed in a future major."
+}
+
+################################################################
+#   JDBC URL components — the app layer assembles the URL so a  #
+#   connection property can change without redeploying infra.   #
+################################################################
+
+output "aurora_jdbc_subprotocol" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_subprotocol : null
+  description = "JDBC subprotocol for the selected engine ('postgresql' or 'mysql')."
+}
+
+output "aurora_jdbc_url_parameters" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_url_parameters : null
+  description = "Every query parameter for the JDBC URL, as a map: wrapperPlugins, globalClusterInstanceHostPatterns, the engine's TLS key, and this architecture's failoverTimeoutMs plus any db_extra_url_parameters. A map rather than a rendered fragment for two reasons: the app layer merges its own rdbms_extra_jdbc_params over it by key, where concatenating fragments could emit a parameter twice and which occurrence a driver honours is driver-specific; and no entry then owns a leading '&', so a consumer renders the whole set with one loop."
+}
+
+output "aurora_db_port" {
+  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].db_port : null
+  description = "The Aurora database port for the selected engine (5432 PostgreSQL, 3306 MySQL). Exported by procedure/export_environment_prerequisites.sh for manual psql/mysql sessions."
 }
 
 ################################################################

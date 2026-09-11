@@ -13,6 +13,7 @@
 
 | Name | Type |
 | ---- | ---- |
+| [terraform_data.rdbms_jdbc_url_present](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [aws_region.region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [aws_region.region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [terraform_remote_state.infra](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/data-sources/remote_state) | data source |
@@ -24,6 +25,8 @@
 | <a name="input_camunda_image"></a> [camunda\_image](#input\_camunda\_image) | Container image for the Camunda orchestration cluster tasks (Zeebe broker + gateway + webapps) | `string` | `"camunda/camunda:8.10-SNAPSHOT"` | no |
 | <a name="input_connectors_image"></a> [connectors\_image](#input\_connectors\_image) | Container image for the Camunda connectors-bundle tasks. Separate from camunda\_image because connectors ship as a distinct artifact from the orchestration cluster. | `string` | `"camunda/connectors-bundle:8.10-SNAPSHOT"` | no |
 | <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
+| <a name="input_rdbms_extra_jdbc_params"></a> [rdbms\_extra\_jdbc\_params](#input\_rdbms\_extra\_jdbc\_params) | Extra query parameters for the RDBMS secondary-storage JDBC URL, e.g. { connectTimeout = "5000" }. Merged over the parameters the infra layer supplies (aurora\_jdbc\_url\_parameters), so retuning one of them — failoverTimeoutMs, say — needs neither a re-apply of the infrastructure state nor a hand-written replacement URL. Ignored when rdbms\_jdbc\_url is set, since that override is taken verbatim. Only used when secondary storage is 'rdbms'. | `map(string)` | `{}` | no |
+| <a name="input_rdbms_jdbc_url"></a> [rdbms\_jdbc\_url](#input\_rdbms\_jdbc\_url) | Full override for the RDBMS secondary-storage JDBC URL. When null (default), the URL is composed from the infra layer's aurora\_jdbc\_* component outputs. Set it to point this app layer at a database provisioned outside this reference architecture, or at an infra state that predates those outputs. Taken verbatim: neither the infra-provided parameters nor rdbms\_extra\_jdbc\_params are appended to it. Only used when secondary storage is 'rdbms'. | `string` | `null` | no |
 | <a name="input_region_0"></a> [region\_0](#input\_region\_0) | AWS region for the primary (owner) cluster (must match infra/ and vpc/ configuration) | `string` | `"eu-west-2"` | no |
 | <a name="input_region_1"></a> [region\_1](#input\_region\_1) | AWS region for the secondary (accepter) cluster (must match infra/ and vpc/ configuration) | `string` | `"eu-west-3"` | no |
 | <a name="input_terraform_backend_bucket"></a> [terraform\_backend\_bucket](#input\_terraform\_backend\_bucket) | S3 bucket name storing Terraform state for all layers | `string` | n/a | yes |
