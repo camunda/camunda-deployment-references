@@ -1,6 +1,6 @@
 ---
 name: AWS Kubernetes Ingress Setup
-description: Install and configure an ingress controller (ingress-nginx or Contour), external-dns, and cert-manager for AWS EKS clusters
+description: Install and configure Project Contour, external-dns, and cert-manager for AWS EKS clusters
 
 inputs:
     cluster-name:
@@ -25,13 +25,6 @@ inputs:
         description: Reference architecture name (eks-single-region, eks-single-region-irsa)
         required: false
         default: eks-single-region
-    ingress-controller:
-        description: |
-            Which ingress controller to install. One of:
-              - 'nginx'   (default) — installs ingress-nginx via Helm
-              - 'contour' — installs Project Contour via the ref-arch's install-contour.sh
-        required: false
-        default: nginx
     use-wildcard-cert:
         description: |
             Use wildcard certificate from Vault instead of ACME/Let's Encrypt.
@@ -71,16 +64,9 @@ runs:
               namespace: external-dns
 
         - name: 🏗️ Clean contour operator namespace
-          if: ${{ inputs.ingress-controller == 'contour' }}
           uses: ./.github/actions/internal-clean-namespace
           with:
               namespace: projectcontour
-
-        - name: 🏗️ Clean ingress-nginx operator namespace
-          if: ${{ inputs.ingress-controller == 'nginx' }}
-          uses: ./.github/actions/internal-clean-namespace
-          with:
-              namespace: ingress-nginx
 
         - name: Setup ingress components for EKS cluster
           shell: bash
@@ -93,7 +79,6 @@ runs:
               echo "Mail: ${INPUTS_MAIL}"
               echo "TLD: ${INPUTS_TLD}"
               echo "Ref-arch: ${INPUTS_REF_ARCH}"
-              echo "Ingress controller: ${INPUTS_INGRESS_CONTROLLER}"
               echo "Use wildcard cert: ${INPUTS_USE_WILDCARD_CERT}"
 
               # Set required environment variables for ingress setup
@@ -121,27 +106,15 @@ runs:
               fi
               echo "✅ Found cert-manager IRSA ARN: $CERT_MANAGER_IRSA_ARN"
 
-              # Install the selected ingress controller
-              case "${INPUTS_INGRESS_CONTROLLER}" in
-                  nginx)
-                      install_script="./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-ingress-nginx.sh"
-                      ;;
-                  contour)
-                      install_script="./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-contour.sh"
-                      ;;
-                  *)
-                      echo "❌ ERROR: unsupported ingress-controller '${INPUTS_INGRESS_CONTROLLER}'. Supported: nginx, contour" >&2
-                      exit 1
-                      ;;
-              esac
+              install_script="./aws/kubernetes/${INPUTS_REF_ARCH}/procedure/install-contour.sh"
 
               if [[ ! -f "$install_script" ]]; then
-                  echo "❌ ERROR: ingress controller install script not found: $install_script" >&2
-                  echo "The '${INPUTS_INGRESS_CONTROLLER}' controller is not available for ref-arch '${INPUTS_REF_ARCH}'." >&2
+                  echo "❌ ERROR: Contour install script not found: $install_script" >&2
+                  echo "Contour is not available for ref-arch '${INPUTS_REF_ARCH}'." >&2
                   exit 1
               fi
 
-              echo "Installing ingress controller '${INPUTS_INGRESS_CONTROLLER}' via $install_script ..."
+              echo "Installing Project Contour via $install_script ..."
               "$install_script"
 
               # Tag the ingress controller load balancer for the AWS MAP program.
@@ -150,17 +123,20 @@ runs:
               # carry the map-migrated tag. The tag is applied here, in CI only, so the
               # reference procedures (which are rendered in the docs) stay free of
               # Camunda's MAP id; the cloud provider then propagates it onto the NLB.
-              map_lb_service=""
-              map_lb_namespace=""
-              case "${INPUTS_INGRESS_CONTROLLER}" in
-                  nginx)   map_lb_service="ingress-nginx-controller"; map_lb_namespace="ingress-nginx" ;;
-                  contour) map_lb_service="contour-envoy";            map_lb_namespace="projectcontour" ;;
-              esac
-              if [[ -n "$map_lb_service" ]]; then
-                  echo "Tagging ${map_lb_service} (${map_lb_namespace}) load balancer with map-migrated for AWS MAP ..."
-                  kubectl annotate service "$map_lb_service" --namespace "$map_lb_namespace" --overwrite \
-                      'service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags=map-migrated=migARUADZHVWZ'
+              map_lb_service="contour-envoy"
+              map_lb_namespace="projectcontour"
+              # install-contour.sh does not pass --wait, so the Service may not exist yet.
+              for _ in $(seq 1 30); do
+                  kubectl get service "$map_lb_service" --namespace "$map_lb_namespace" >/dev/null 2>&1 && break
+                  sleep 2
+              done
+              if ! kubectl get service "$map_lb_service" --namespace "$map_lb_namespace" >/dev/null 2>&1; then
+                  echo "❌ ERROR: service ${map_lb_service} did not appear in namespace ${map_lb_namespace} within 60s of installing Contour." >&2
+                  exit 1
               fi
+              echo "Tagging ${map_lb_service} (${map_lb_namespace}) load balancer with map-migrated for AWS MAP ..."
+              kubectl annotate service "$map_lb_service" --namespace "$map_lb_namespace" --overwrite \
+                  'service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags=map-migrated=migARUADZHVWZ'
 
               # Install external-dns
               echo "Installing external-dns..."
@@ -204,7 +180,6 @@ runs:
               INPUTS_MAIL: ${{ inputs.mail }}
               INPUTS_TLD: ${{ inputs.tld }}
               INPUTS_REF_ARCH: ${{ inputs.ref-arch }}
-              INPUTS_INGRESS_CONTROLLER: ${{ inputs.ingress-controller }}
               INPUTS_USE_WILDCARD_CERT: ${{ inputs.use-wildcard-cert }}
 
         - name: 🔐 Setup wildcard TLS certificate from Vault
