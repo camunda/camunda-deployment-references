@@ -1671,6 +1671,7 @@
                     "max_replicas": null,
                     "min_replicas": null,
                     "name": "cluster-region-1",
+                    "no_cni": false,
                     "pod_cidr": "10.0.64.0/18",
                     "private": false,
                     "properties": {
@@ -1681,10 +1682,10 @@
                     "replicas": 6,
                     "service_cidr": "10.0.128.0/18",
                     "shared_vpc": null,
+                    "spot_termination_queue_url": null,
                     "sts": {
                       "instance_iam_roles": {},
-                      "operator_role_prefix": "cluster-region-1-operator",
-                      "trust_policy_external_id": null
+                      "operator_role_prefix": "cluster-region-1-operator"
                     },
                     "tags": {
                       "owner": "ARN_REDACTED"
@@ -1704,6 +1705,7 @@
                   "sensitive_values": {},
                   "type": "rhcs_hcp_default_ingress",
                   "values": {
+                    "component_routes": null,
                     "listening_method": "external"
                   }
                 }
@@ -4149,6 +4151,7 @@
                     "max_replicas": null,
                     "min_replicas": null,
                     "name": "cluster-region-2",
+                    "no_cni": false,
                     "pod_cidr": "10.1.64.0/18",
                     "private": false,
                     "properties": {
@@ -4159,10 +4162,10 @@
                     "replicas": 6,
                     "service_cidr": "10.1.128.0/18",
                     "shared_vpc": null,
+                    "spot_termination_queue_url": null,
                     "sts": {
                       "instance_iam_roles": {},
-                      "operator_role_prefix": "cluster-region-2-operator",
-                      "trust_policy_external_id": null
+                      "operator_role_prefix": "cluster-region-2-operator"
                     },
                     "tags": {
                       "owner": "ARN_REDACTED"
@@ -4182,6 +4185,7 @@
                   "sensitive_values": {},
                   "type": "rhcs_hcp_default_ingress",
                   "values": {
+                    "component_routes": null,
                     "listening_method": "external"
                   }
                 }
