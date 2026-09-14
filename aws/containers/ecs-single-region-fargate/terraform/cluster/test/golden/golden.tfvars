@@ -13,3 +13,13 @@ authentication_mode = "oidc"
 # expression or a regressed precondition, not a change in the presets or mapping rule —
 # those are covered by the end-to-end test.
 enable_web_modeler_authorization = true
+
+# Plan Camunda Hub too. The flag gates roughly 1600 lines -- a module, its ALB rules and
+# target groups, the Keycloak client, the dedicated database and the IAM policy -- none of
+# which any tfvars turned on, so CI only ever planned the flag-off path. A plan is cheap
+# and catches the class of bug the module tests cannot: an ECS service that references a
+# target group no listener rule attaches, a precondition that regressed, or an expression
+# that only evaluates when the Hub exists.
+#
+# Requires enable_web_modeler_authorization above, which a precondition enforces.
+enable_camunda_hub = true
