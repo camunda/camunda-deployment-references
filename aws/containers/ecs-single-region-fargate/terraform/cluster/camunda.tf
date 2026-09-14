@@ -387,7 +387,13 @@ locals {
 }
 
 module "camunda_hub" {
-  count  = var.enable_camunda_hub ? 1 : 0
+  # Also gated on OIDC, not just the flag: this block reads
+  # module.management_identity[0], which has no instances in basic mode. Without the
+  # second condition Terraform fails on an invalid index while evaluating these inputs,
+  # before terraform_data.validate_authentication_mode can report the actual problem
+  # ("enable_camunda_hub requires authentication_mode = oidc"). The precondition still
+  # fires and still aborts the plan; this only decides which error the user reads.
+  count  = var.enable_camunda_hub && local.oidc_enabled ? 1 : 0
   source = "../../../../modules/ecs/fargate/camunda-hub"
 
   depends_on = [null_resource.run_db_seed_task, module.management_identity]
