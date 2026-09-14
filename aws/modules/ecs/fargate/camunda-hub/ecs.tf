@@ -143,12 +143,16 @@ resource "aws_ecs_service" "camunda_hub" {
   # balancer, and the rules are what associate them (same gating as the sibling
   # orchestration-cluster and management-identity modules).
   dynamic "load_balancer" {
+    # Keyed by a constant, never by the target group ARN: an ARN is unknown until apply,
+    # and for_each keys must be known at plan time, so ARN keys fail the first apply with
+    # "Invalid for_each argument". The ARN travels in the value instead, as in the
+    # sibling ECS modules.
     for_each = var.enable_alb_http_webapp_listener_rule ? {
-      (aws_lb_target_group.restapi.arn)    = { name = "camunda-hub-restapi", port = 8081 }
-      (aws_lb_target_group.websockets.arn) = { name = "camunda-hub-websockets", port = 8060 }
+      restapi    = { target_group_arn = aws_lb_target_group.restapi.arn, name = "camunda-hub-restapi", port = 8081 }
+      websockets = { target_group_arn = aws_lb_target_group.websockets.arn, name = "camunda-hub-websockets", port = 8060 }
     } : {}
     content {
-      target_group_arn = load_balancer.key
+      target_group_arn = load_balancer.value.target_group_arn
       container_name   = load_balancer.value.name
       container_port   = load_balancer.value.port
     }
