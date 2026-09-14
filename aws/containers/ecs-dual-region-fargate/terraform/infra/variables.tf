@@ -179,13 +179,16 @@ variable "db_seed_iam_usernames" {
   default     = ["camunda"]
 
   # Same reasoning as db_name: each entry lands inside quoted SQL on both
-  # engines, and the quoting only holds for well-formed identifiers.
+  # engines, and the quoting only holds for well-formed identifiers. The length
+  # ceiling is engine-specific — MySQL stores account names in a char(32), while
+  # a PostgreSQL role name is an identifier and gets 63 — so a 33-character name
+  # that plans fine against PostgreSQL must not reach CREATE USER on MySQL.
   validation {
     condition = alltrue([
       for u in var.db_seed_iam_usernames :
-      can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", u)) && length(u) <= 63
+      can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", u)) && length(u) <= (var.db_engine == "mysql" ? 32 : 63)
     ])
-    error_message = "Each db_seed_iam_usernames entry must be a valid identifier: start with a letter or underscore, contain only letters, digits and underscores, and be at most 63 characters."
+    error_message = "Each db_seed_iam_usernames entry must be a valid identifier: start with a letter or underscore, contain only letters, digits and underscores, and be at most 32 characters for db_engine = 'mysql' (63 for 'postgresql')."
   }
 }
 

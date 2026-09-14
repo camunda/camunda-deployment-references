@@ -45,3 +45,35 @@ run "secondary_storage_type_rejects_invalid" {
     var.secondary_storage_type,
   ]
 }
+
+run "mysql_rejects_a_username_longer_than_32_characters" {
+  command = plan
+
+  # MySQL stores account names in a char(32); this one plans fine against
+  # PostgreSQL and would fail at CREATE USER during the seed task.
+  variables {
+    db_engine             = "mysql"
+    db_seed_iam_usernames = ["camunda_user_with_a_very_long_name_x"]
+  }
+
+  expect_failures = [
+    var.db_seed_iam_usernames,
+  ]
+}
+
+run "postgresql_accepts_the_same_username" {
+  command = plan
+
+  # The same value is a valid PostgreSQL role name (63-character ceiling), so
+  # the ceiling has to follow the engine rather than being fixed at the lower
+  # of the two.
+  variables {
+    db_engine             = "postgresql"
+    db_seed_iam_usernames = ["camunda_user_with_a_very_long_name_x"]
+  }
+
+  assert {
+    condition     = length(var.db_seed_iam_usernames[0]) == 36
+    error_message = "The fixture should be longer than MySQL's 32-character limit and within PostgreSQL's 63"
+  }
+}

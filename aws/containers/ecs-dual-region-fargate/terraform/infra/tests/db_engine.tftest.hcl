@@ -209,3 +209,31 @@ run "mysql_db_port_output" {
     error_message = "aurora_db_port output should be 3306 for MySQL"
   }
 }
+
+run "opensearch_gets_no_aurora_egress_whatever_the_engine" {
+  command = plan
+
+  # db_engine is documented as inert outside rdbms. Setting it to mysql here
+  # makes the run fail if the rule is ever ungated again: an OpenSearch
+  # deployment would otherwise open 3306 to both VPCs with nothing behind it.
+  variables {
+    secondary_storage_type = "opensearch"
+    db_engine              = "mysql"
+  }
+
+  assert {
+    condition = length([
+      for r in aws_security_group.camunda_ports_region_0.egress : r
+      if r.description == "Allow Aurora DB traffic within VPC and cross-region"
+    ]) == 0
+    error_message = "Region 0 should have no Aurora egress rule when secondary storage is OpenSearch"
+  }
+
+  assert {
+    condition = length([
+      for r in aws_security_group.camunda_ports_region_1.egress : r
+      if r.description == "Allow Aurora DB traffic within VPC and cross-region"
+    ]) == 0
+    error_message = "Region 1 should have no Aurora egress rule when secondary storage is OpenSearch"
+  }
+}

@@ -556,3 +556,45 @@ run "failover_timeout_passes_through_extra_url_parameters" {
     error_message = "failoverTimeoutMs should be rendered into the jdbc_url when passed through extra_url_parameters"
   }
 }
+
+run "blank_postgresql_engine_version_is_rejected" {
+  command = plan
+
+  # The pin reaches the RDS resources unchanged, so a blank one would otherwise
+  # surface as an AWS API error mid-apply.
+  variables {
+    postgresql_engine_version = "  "
+  }
+
+  expect_failures = [
+    var.postgresql_engine_version,
+  ]
+}
+
+run "blank_mysql_engine_version_is_rejected" {
+  command = plan
+
+  variables {
+    engine               = "aurora-mysql"
+    mysql_engine_version = ""
+  }
+
+  expect_failures = [
+    var.mysql_engine_version,
+  ]
+}
+
+run "null_engine_version_falls_back_to_the_pinned_default" {
+  command = plan
+
+  # nullable = false turns an explicit null into the default rather than an
+  # error, so a caller passing null still gets a valid, Renovate-tracked pin.
+  variables {
+    postgresql_engine_version = null
+  }
+
+  assert {
+    condition     = aws_rds_global_cluster.this.engine_version == "18.4"
+    error_message = "A null postgresql_engine_version should fall back to the module default"
+  }
+}

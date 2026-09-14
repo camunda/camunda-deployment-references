@@ -35,6 +35,16 @@ variable "postgresql_engine_version" {
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
   default     = "18.4"
   description = "Aurora PostgreSQL engine version, used when engine = aurora-postgresql. Set this to pin a specific version for the PostgreSQL path."
+
+  # This value reaches aws_rds_global_cluster and aws_rds_cluster unchanged, so
+  # a blank one surfaces as an AWS API error mid-apply rather than at plan time.
+  # nullable = false makes an explicit null fall back to the default above.
+  nullable = false
+
+  validation {
+    condition     = trimspace(var.postgresql_engine_version) != ""
+    error_message = "postgresql_engine_version must not be blank — it is the version pin passed to the RDS resources when engine = aurora-postgresql."
+  }
 }
 
 variable "mysql_engine_version" {
@@ -47,6 +57,16 @@ variable "mysql_engine_version" {
   # renovate: datasource=custom.aurora-mysql-camunda depName=aurora-mysql
   default     = "8.4.mysql_aurora.8.4.7"
   description = "Aurora MySQL engine version, used when engine = aurora-mysql. Set this to pin a specific version for the MySQL path."
+
+  # As above: a blank pin would only fail once AWS rejected it. Note the value
+  # is compound (8.4.mysql_aurora.8.4.7); a bare 8.4.7 is not a valid Aurora
+  # MySQL version and is rejected by AWS, not here.
+  nullable = false
+
+  validation {
+    condition     = trimspace(var.mysql_engine_version) != ""
+    error_message = "mysql_engine_version must not be blank — it is the version pin passed to the RDS resources when engine = aurora-mysql."
+  }
 }
 
 variable "auto_minor_version_upgrade" {

@@ -53,12 +53,20 @@ resource "aws_security_group" "camunda_ports_region_0" {
   # Covers both the local VPC (writer may run in this region; ECS app + one-time
   # DB seed tasks connect within-region) and the peer VPC (cross-region access,
   # e.g. after failover). The generic var.ports map no longer carries the DB port.
-  egress {
-    from_port   = local.db_port
-    to_port     = local.db_port
-    protocol    = "TCP"
-    cidr_blocks = [local.vpc.region_0_vpc_cidr, local.vpc.region_1_vpc_cidr]
-    description = "Allow Aurora DB traffic within VPC and cross-region"
+  #
+  # Only when Aurora is the secondary storage: an OpenSearch deployment has no
+  # cluster to reach, and db_engine is documented as inert there, so an engine
+  # switch should not alter its rules.
+  dynamic "egress" {
+    for_each = var.secondary_storage_type == "rdbms" ? [1] : []
+
+    content {
+      from_port   = local.db_port
+      to_port     = local.db_port
+      protocol    = "TCP"
+      cidr_blocks = [local.vpc.region_0_vpc_cidr, local.vpc.region_1_vpc_cidr]
+      description = "Allow Aurora DB traffic within VPC and cross-region"
+    }
   }
 
   # EFS egress
@@ -233,12 +241,20 @@ resource "aws_security_group" "camunda_ports_region_1" {
   # Covers both the local VPC (writer may run in this region; ECS app + one-time
   # DB seed tasks connect within-region) and the peer VPC (cross-region access,
   # e.g. after failover). The generic var.ports map no longer carries the DB port.
-  egress {
-    from_port   = local.db_port
-    to_port     = local.db_port
-    protocol    = "TCP"
-    cidr_blocks = [local.vpc.region_0_vpc_cidr, local.vpc.region_1_vpc_cidr]
-    description = "Allow Aurora DB traffic within VPC and cross-region"
+  #
+  # Only when Aurora is the secondary storage: an OpenSearch deployment has no
+  # cluster to reach, and db_engine is documented as inert there, so an engine
+  # switch should not alter its rules.
+  dynamic "egress" {
+    for_each = var.secondary_storage_type == "rdbms" ? [1] : []
+
+    content {
+      from_port   = local.db_port
+      to_port     = local.db_port
+      protocol    = "TCP"
+      cidr_blocks = [local.vpc.region_0_vpc_cidr, local.vpc.region_1_vpc_cidr]
+      description = "Allow Aurora DB traffic within VPC and cross-region"
+    }
   }
 
   # EFS egress
