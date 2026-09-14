@@ -114,6 +114,19 @@ variable "db_seed_iam_usernames" {
   type        = list(string)
   description = "Database users to create and grant rds_iam + privileges for (used for IAM DB auth)"
   default     = ["camunda"]
+
+  validation {
+    # Each element is interpolated into the seed SQL (postgres_seed.tf) both as a
+    # single-quoted literal in the rolname predicate and as a quoted identifier, and is
+    # iterated over by a shell loop in the same task. Restrict to a safe PostgreSQL
+    # identifier so a quote or whitespace cannot break the SQL or the loop. Same guard
+    # as db_name, identity_db_* and keycloak_db_* below.
+    condition = alltrue([
+      for user in var.db_seed_iam_usernames :
+      can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", user)) && length(user) <= 63
+    ])
+    error_message = "Every db_seed_iam_usernames entry must be a valid PostgreSQL identifier: start with a letter or underscore, contain only letters/digits/underscores, and be at most 63 characters."
+  }
 }
 
 variable "identity_db_name" {

@@ -34,16 +34,21 @@ locals {
   webmodeler_audience_internal = "web-modeler-api"
   webmodeler_audience_public   = "web-modeler-public-api"
 
-  # The principal that receives the roles below. This is the same claim that
-  # IDENTITY_INITIAL_CLAIM_NAME / _VALUE would bootstrap the first admin from, and the two
-  # are mutually exclusive: Identity de-duplicates mapping rules on the (claim-name,
-  # claim-value, rule-type) triple rather than on the rule name, so whichever initializer
-  # runs first wins and the other is skipped without error. The auto-created rule only
-  # ever grants ManagementIdentity, so when this model is seeded camunda.tf drops the
-  # IDENTITY_INITIAL_CLAIM_* vars and the rule below bootstraps the admin instead —
-  # granting ManagementIdentity plus the Web Modeler roles.
-  identity_admin_claim_name  = "preferred_username"
-  identity_admin_claim_value = "admin"
+  # The principal that receives the roles below. Both values are shared: the claim name
+  # is the one the Orchestration Cluster reads (local.oidc.username_claim), and the value
+  # is the single admin input also used for the orchestration admin role. That keeps the
+  # claim that bootstraps the first admin, the claim the mapping rule matches on, and the
+  # orchestration admin principal from drifting apart, and makes all three work against
+  # an external provider whose claim is not `preferred_username`.
+  #
+  # This is also the claim IDENTITY_INITIAL_CLAIM_NAME / _VALUE would bootstrap from, and
+  # the two are mutually exclusive: Identity de-duplicates mapping rules on the
+  # (claim-name, claim-value, rule-type) triple rather than on the rule name, so whichever
+  # initializer runs first wins and the other is skipped without error. The auto-created
+  # rule only ever grants ManagementIdentity, so when this model is seeded camunda.tf drops
+  # the IDENTITY_INITIAL_CLAIM_* vars and the rule below bootstraps the admin instead.
+  identity_admin_claim_name  = local.oidc.username_claim
+  identity_admin_claim_value = var.admin_claim_value
 
   # Management Identity's own resource server. Required even when only Web Modeler is in
   # play: both Web Modeler roles carry a `read:users` permission on this audience, so it
@@ -73,8 +78,14 @@ locals {
   }
 
   # Web Modeler / Camunda Hub. `applications` entries are intentionally omitted: in the
-  # generic OIDC profile the IdP owns the clients (the bundled realm import creates the
-  # `web-modeler` client), and Identity is only a resource server here.
+  # generic OIDC profile the IdP owns the clients and Identity is only a resource server
+  # here, declaring the APIs and roles that Web Modeler asks it about.
+  #
+  # Note this flag does not make Web Modeler self-contained. The bundled realm import
+  # provisions exactly three clients — `orchestration`, `connectors` and
+  # `camunda-identity` — so a client able to obtain a token for the audiences below has
+  # to be provisioned out of band (the Camunda Hub deployment does this for its own
+  # client).
   identity_preset_webmodeler = {
     apis = [
       {

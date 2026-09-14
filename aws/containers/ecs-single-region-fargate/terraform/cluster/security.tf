@@ -1,12 +1,24 @@
 locals {
-  # var.ports is expanded into VPC-wide ingress and egress rules on the shared security
-  # group below, so every entry widens the internal network surface whether or not the
-  # component behind it exists. Camunda Hub is opt-in, so its ports are dropped when the
-  # flag is off, keeping "Hub disabled" a true zero-delta against the rest of the stack.
-  camunda_hub_port_names = ["camunda_hub_restapi", "camunda_hub_management", "camunda_hub_websockets"]
+  # var.ports is expanded into VPC-wide ingress and egress rules on the security group
+  # shared by every service, so each entry widens the internal network surface whether or
+  # not the component behind it exists. Management Identity is only deployed in oidc
+  # mode, and Keycloak only when it is also the bundled provider, so their ports are
+  # dropped otherwise -- in basic mode, and for Keycloak also under an external provider.
+  # Camunda Hub is opt-in the same way, so its three ports follow its flag; that keeps
+  # "Hub disabled" a true zero-delta against the rest of the stack.
+  conditional_port_names = {
+    management_identity_app        = local.oidc_enabled
+    management_identity_management = local.oidc_enabled
+    keycloak_http                  = local.deploy_bundled_keycloak
+    keycloak_management            = local.deploy_bundled_keycloak
+    camunda_hub_restapi            = var.enable_camunda_hub
+    camunda_hub_management         = var.enable_camunda_hub
+    camunda_hub_websockets         = var.enable_camunda_hub
+  }
 
-  effective_ports = var.enable_camunda_hub ? var.ports : {
-    for name, port in var.ports : name => port if !contains(local.camunda_hub_port_names, name)
+  effective_ports = {
+    for name, port in var.ports : name => port
+    if lookup(local.conditional_port_names, name, true)
   }
 }
 
