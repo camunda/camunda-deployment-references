@@ -186,11 +186,19 @@ region goes away:
 ```bash
 ./load-generator.sh start        # defaults to the last active slot
 ./load-generator.sh status       # job, pod, and the last throughput lines
-
-# In another shell, watch the rate while the region goes
-kubectl --context "$CTX" -n "$CAMUNDA_NAMESPACE" logs -f job/camunda-load-generator
-
 ./load-generator.sh stop
+```
+
+`start` prints the exact `kubectl logs -f` command for the context it picked, so
+to watch the rate live while a region goes away, paste that into a second shell.
+That shell needs the environment too, since nothing is inherited across
+terminals:
+
+```bash
+cd procedure
+. ./export-terraform-outputs.sh
+. ./export_environment_prerequisites.sh
+./load-generator.sh status       # or the logs command `start` printed
 ```
 
 Point it at a slot other than the one you are about to lose. Slot 0 hosts the

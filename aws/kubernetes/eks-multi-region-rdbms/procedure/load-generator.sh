@@ -80,10 +80,13 @@ load::start() {
         --from-file="$PROCESS_RESOURCE" \
         --dry-run=client -o yaml | kubectl --context "$CONTEXT" apply -f -
 
-    kubectl --context "$CONTEXT" create secret generic "$SECRET_NAME" \
+    # The password goes in over stdin, not as an argument: `kubectl` argv is
+    # world-readable through `ps` while the command runs. create-rdbms-secret.sh
+    # does the same. The username is not a credential and stays inline.
+    printf '%s' "$CAMUNDA_BASIC_AUTH_PASSWORD" | kubectl --context "$CONTEXT" create secret generic "$SECRET_NAME" \
         --namespace "$CAMUNDA_NAMESPACE" \
         --from-literal=username="$CAMUNDA_BASIC_AUTH_USER" \
-        --from-literal=password="$CAMUNDA_BASIC_AUTH_PASSWORD" \
+        --from-file=password=/dev/stdin \
         --dry-run=client -o yaml | kubectl --context "$CONTEXT" apply -f -
 
     # A Job's pod template is immutable, so a re-run replaces rather than
