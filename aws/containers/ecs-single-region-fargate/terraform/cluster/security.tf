@@ -1,11 +1,30 @@
 
+locals {
+  # var.ports is expanded into VPC-wide ingress and egress rules on the security group
+  # shared by every service, so each entry widens the internal network surface whether or
+  # not the component behind it exists. Management Identity is only deployed in oidc
+  # mode, and Keycloak only when it is also the bundled provider, so their ports are
+  # dropped otherwise -- in basic mode, and for Keycloak also under an external provider.
+  conditional_port_names = {
+    management_identity_app        = local.oidc_enabled
+    management_identity_management = local.oidc_enabled
+    keycloak_http                  = local.deploy_bundled_keycloak
+    keycloak_management            = local.deploy_bundled_keycloak
+  }
+
+  effective_ports = {
+    for name, port in var.ports : name => port
+    if lookup(local.conditional_port_names, name, true)
+  }
+}
+
 resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   name        = "${var.prefix}-allow-necessary-camunda-ports-within-vpc"
   description = "Allow necessary Camunda ports within the VPC"
   vpc_id      = module.vpc.vpc_id
 
   dynamic "ingress" {
-    for_each = var.ports
+    for_each = local.effective_ports
     content {
       from_port   = ingress.value
       to_port     = ingress.value
@@ -16,7 +35,7 @@ resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   }
 
   dynamic "egress" {
-    for_each = var.ports
+    for_each = local.effective_ports
     content {
       from_port   = egress.value
       to_port     = egress.value
