@@ -59,7 +59,7 @@ variable "external_oidc" {
     connectors_token_scope = optional(string, "")
   })
   default     = null
-  description = "External OIDC provider config. Optional and only honored when authentication_mode = \"oidc\": when set, that provider is used and the bundled Keycloak is skipped; when null (default), a bundled Keycloak is deployed as the OIDC provider. One client per component (identity, orchestration, connectors) and one audience per resource server (orchestration, identity); client secrets are existing Secrets Manager ARNs (created out-of-band), never raw values. The client secrets must be encrypted with the AWS-managed Secrets Manager key, or their CMK must be added to var.secrets_kms_key_arn, otherwise the task role can read the secret but not decrypt it."
+  description = "External OIDC provider config. Optional and only honored when authentication_mode = \"oidc\": when set, that provider is used and the bundled Keycloak is skipped; when null (default), a bundled Keycloak is deployed as the OIDC provider. One client per component (identity, orchestration, connectors) and one audience per resource server (orchestration, identity); client secrets are existing Secrets Manager ARNs (created out-of-band), never raw values. The client secrets must be decryptable by the ECS task role, whose kms:Decrypt statement is scoped to a single key: encrypt them either with the AWS-managed Secrets Manager key, or with the same customer-managed key this stack uses (var.secrets_kms_key_arn, which replaces the CMK the stack would otherwise create). A secret under any other CMK is readable but not decryptable and fails at task start with ResourceInitializationError."
 }
 
 variable "alb_public_hostname" {
