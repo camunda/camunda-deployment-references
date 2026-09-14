@@ -34,11 +34,14 @@ locals {
   webmodeler_audience_internal = "web-modeler-api"
   webmodeler_audience_public   = "web-modeler-public-api"
 
-  # The principal that receives the roles below. Shared with the IDENTITY_INITIAL_CLAIM_*
-  # env vars in camunda.tf so the claim that bootstraps the first admin and the claim the
-  # mapping rule matches on cannot drift apart.
-  identity_admin_claim_name  = "preferred_username"
-  identity_admin_claim_value = "admin"
+  # The principal that receives the roles below. Both values are shared: the claim name
+  # is the one the Orchestration Cluster reads (local.oidc.username_claim), and the value
+  # is the single admin input also used for the orchestration admin role. That keeps the
+  # claim that bootstraps the first admin, the claim the mapping rule matches on, and the
+  # orchestration admin principal from drifting apart, and makes all three work against
+  # an external provider whose claim is not `preferred_username`.
+  identity_admin_claim_name  = local.oidc.username_claim
+  identity_admin_claim_value = var.admin_claim_value
 
   # Management Identity's own resource server. Required even when only Web Modeler is in
   # play: both Web Modeler roles carry a `read:users` permission on this audience, so it
@@ -68,8 +71,14 @@ locals {
   }
 
   # Web Modeler / Camunda Hub. `applications` entries are intentionally omitted: in the
-  # generic OIDC profile the IdP owns the clients (the bundled realm import creates the
-  # `web-modeler` client), and Identity is only a resource server here.
+  # generic OIDC profile the IdP owns the clients and Identity is only a resource server
+  # here, declaring the APIs and roles that Web Modeler asks it about.
+  #
+  # Note this flag does not make Web Modeler self-contained. The bundled realm import
+  # provisions exactly three clients — `orchestration`, `connectors` and
+  # `camunda-identity` — so a client able to obtain a token for the audiences below has
+  # to be provisioned out of band (the Camunda Hub deployment does this for its own
+  # client).
   identity_preset_webmodeler = {
     apis = [
       {

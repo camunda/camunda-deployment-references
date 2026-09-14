@@ -79,16 +79,18 @@ module "orchestration_cluster" {
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_ISSUERURI", value = local.oidc.issuer_uri },
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_CLIENTID", value = local.oidc.orchestration.client_id },
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_REDIRECTURI", value = local.oidc.redirect_uri },
-      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_USERNAMECLAIM", value = "preferred_username" },
-      # Detect m2m (client-credentials) callers by the client_id claim; without this,
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_USERNAMECLAIM", value = local.oidc.username_claim },
+      # Detect m2m (client-credentials) callers by the client-id claim; without this,
       # a service-account token is treated as a user (preferred_username =
       # service-account-<client>) and never matches the admin/connectors client
-      # mappings below, so deployments are rejected 403. The realm emits client_id.
-      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_CLIENTIDCLAIM", value = "client_id" },
+      # mappings below, so deployments are rejected 403. The bundled realm emits
+      # client_id; other providers name it differently, hence the resolved value.
+      { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_CLIENTIDCLAIM", value = local.oidc.client_id_claim },
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_AUDIENCE", value = local.oidc.audience },
-      # Admin user identifier from the username claim (the bundled realm's 'admin';
-      # for external OIDC set this to your admin's preferred_username).
-      { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_USERS_0", value = "admin" },
+      # Admin identifier, read from the username claim above. Shared with the Management
+      # Identity mapping rule (identity_authorization.tf) so the principal that gets the
+      # orchestration admin role and the one that gets the Identity roles cannot drift.
+      { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_ADMIN_USERS_0", value = var.admin_claim_value },
       # The orchestration client is also an admin m2m client (matches Camunda's
       # reference admin.clients), so automation/CI can deploy and operate over
       # client-credentials; the least-privilege connectors client cannot.
@@ -194,7 +196,15 @@ module "connectors" {
       ] : [
       { name = "CAMUNDA_CLIENT_AUTH_METHOD", value = "basic" },
       { name = "CAMUNDA_CLIENT_AUTH_USERNAME", value = "connectors" },
-  ])
+    ],
+    # Scope on the client-credentials request, only when the provider needs one. The
+    # bundled realm issues the token without a scope; Entra ID v2 rejects the request
+    # unless it asks for `<resource>/.default`. AUTH_METHOD is deliberately left unset
+    # on the OIDC branch: the client auto-detects it, which matches the reference chart.
+    local.oidc_enabled && local.oidc.connectors.token_scope != "" ? [
+      { name = "CAMUNDA_CLIENT_AUTH_SCOPE", value = local.oidc.connectors.token_scope },
+    ] : [],
+  )
 
   # Prefer ECS task secrets for sensitive values (container definition 'secrets')
   secrets = local.oidc_enabled ? [

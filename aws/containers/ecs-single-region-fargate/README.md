@@ -16,7 +16,14 @@ Either way every component consumes a single provider-agnostic OIDC interface an
 
 ### TLS
 
-The shared ALB is plain HTTP by default (no domain, no certificate), so the bundled realm is imported with `sslRequired = none` to keep the browser login flow working. Setting `var.alb_certificate_arn` to an ACM certificate adds the HTTPS `:443` listener, redirects HTTP → HTTPS, sets `KC_PROXY_HEADERS=xforwarded` on Keycloak, and switches the realm to `sslRequired = external`. HTTP-only is a demo posture and must not be used for anything reachable outside the VPC.
+The shared ALB is plain HTTP by default (no domain, no certificate), so the bundled realm is imported with `sslRequired = none` to keep the browser login flow working. HTTP-only is a demo posture and must not be used for anything reachable outside the VPC.
+
+Serving TLS requires two inputs together:
+
+- `alb_certificate_arn` — an ACM certificate. Adds the HTTPS `:443` listener, redirects HTTP → HTTPS, sets `KC_PROXY_HEADERS=xforwarded` on Keycloak so it derives its frontend URL from the ALB, and switches the realm to `sslRequired = external`.
+- `alb_public_hostname` — the DNS name clients actually use, covered by that certificate (an alias record pointing at the ALB). Every OIDC URL is built from this name and the listener's scheme: the issuer, the redirect URI, and the Management Identity base URL. That is what keeps the `iss` the browser is redirected to identical to the one the Orchestration Cluster and Connectors validate.
+
+Neither works alone, and a precondition fails the plan if the certificate is set without the hostname. ACM does not issue certificates for the ALB's own `*.elb.amazonaws.com` name, so TLS on the raw ALB name fails hostname verification — for the browser and equally for the backends that fetch the discovery document and the token.
 
 ## Authorization
 
