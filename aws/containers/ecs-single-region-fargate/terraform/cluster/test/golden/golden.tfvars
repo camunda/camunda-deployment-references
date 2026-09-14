@@ -14,12 +14,16 @@ authentication_mode = "oidc"
 # those are covered by the end-to-end test.
 enable_web_modeler_authorization = true
 
-# Plan Camunda Hub too. The flag gates roughly 1600 lines -- a module, its ALB rules and
-# target groups, the Keycloak client, the dedicated database and the IAM policy -- none of
-# which any tfvars turned on, so CI only ever planned the flag-off path. A plan is cheap
-# and catches the class of bug the module tests cannot: an ECS service that references a
-# target group no listener rule attaches, a precondition that regressed, or an expression
-# that only evaluates when the Hub exists.
+# Camunda Hub is deliberately left off here.
 #
-# Requires enable_web_modeler_authorization above, which a precondition enforces.
-enable_camunda_hub = true
+# Turning it on would plan the ~1600 lines the flag gates, which is the better coverage,
+# but this fixture is the only one the golden job compares: enabling the Hub means the
+# flag-off plan is no longer verified, and "Hub disabled changes nothing" is the property
+# the conditional port list and the count gating exist to guarantee.
+#
+# Covering both needs a second fixture, which the tooling cannot express today: the
+# regeneration recipe hardcodes -var-file=test/golden/golden.tfvars, and the shared
+# comparison action hardcodes the golden and compare directories plus the artifact name.
+# Tracked in camunda/team-infrastructure-experience#1259, along with the alternative of
+# giving Camunda Hub its own root module. Until then the Hub path is covered by the
+# module tests and the end-to-end run recorded on the pull request.
