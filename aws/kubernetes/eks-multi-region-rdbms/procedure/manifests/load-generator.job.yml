@@ -87,6 +87,11 @@ spec:
                         value: 'true'
                       - name: BENCHMARK_JOBTYPE
                         value: multi-region-load
+                      # Must equal the number of service tasks in
+                      # resources/load-generator.bpmn: the benchmark derives the
+                      # job types by suffixing BENCHMARK_JOBTYPE with 1..N, and
+                      # a task whose type nothing subscribes to leaves every
+                      # instance stuck on it.
                       - name: BENCHMARK_MULTIPLEJOBTYPES
                         value: '3'
                       - name: BENCHMARK_TASK_COMPLETION_DELAY
