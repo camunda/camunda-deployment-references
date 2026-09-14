@@ -247,10 +247,13 @@ module "management_identity" {
   ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
   registry_credentials_arn    = join("", aws_secretsmanager_secret.registry_credentials[*].arn)
 
-  # ALB exposure is opt-in. Flip to true (and confirm the context path) once
-  # Identity should be reachable through the shared ALB.
+  # Exposed on the shared ALB under local.identity_context_path. The rule sits at
+  # priority 30, below the orchestration catch-all (`/*` at 100) which ALB would
+  # otherwise match first, and the task is told the same prefix below so it answers the
+  # path the rule forwards unchanged.
   alb_listener_http_webapp_arn         = local.webapp_listener_arn
-  enable_alb_http_webapp_listener_rule = false
+  enable_alb_http_webapp_listener_rule = true
+  context_path                         = local.identity_context_path
 
   service_security_group_ids = [
     aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
@@ -304,6 +307,11 @@ module "management_identity" {
     #     identity_authorization.tf and var.enable_web_modeler_authorization.
     { name = "SPRING_PROFILES_ACTIVE", value = "oidc" },
     { name = "CAMUNDA_IDENTITY_TYPE", value = "GENERIC" },
+    # Serve under the same prefix the ALB rule forwards: ALB's forward action does not
+    # rewrite the path, so without this Identity would receive /identity/... and answer
+    # 404. Only the app port is affected; the management port keeps its bare
+    # /actuator/... paths, which is what both health checks probe.
+    { name = "SERVER_SERVLET_CONTEXT_PATH", value = local.identity_context_path },
     { name = "CAMUNDA_IDENTITY_BASE_URL", value = local.identity_public_base },
     { name = "CAMUNDA_IDENTITY_ISSUER", value = local.oidc.issuer_uri },
     { name = "CAMUNDA_IDENTITY_ISSUER_BACKEND_URL", value = local.oidc.issuer_uri },
