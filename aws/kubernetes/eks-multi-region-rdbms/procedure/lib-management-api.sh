@@ -89,6 +89,29 @@ camunda::target_slots() {
     done
 }
 
+# camunda::target_slots_array [slot]
+#
+# Same selection as camunda::target_slots, delivered as an array in the global
+# CAMUNDA_TARGET_SLOTS.
+#
+# macOS still ships bash 3.2 as /bin/bash, which has neither `mapfile` nor
+# namerefs, so the result lands in a fixed global rather than a caller-named
+# one. Collecting it here keeps that workaround in one place instead of in every
+# caller. `scripts/run-terraform-test-touched.sh` documents the same constraint.
+#
+# Unlike `mapfile < <(camunda::target_slots ...)`, this propagates a rejected
+# slot argument instead of turning it into an empty list and a silent no-op.
+camunda::target_slots_array() {
+    local _slots _slot
+    _slots="$(camunda::target_slots "$@")" || return 1
+
+    CAMUNDA_TARGET_SLOTS=()
+    while IFS= read -r _slot; do
+        [ -n "$_slot" ] || continue
+        CAMUNDA_TARGET_SLOTS+=("$_slot")
+    done <<<"$_slots"
+}
+
 # camunda::use_surviving_region <excluded-slot>
 #
 # Points the AWS CLI at a region that is still up, when nothing else has.
