@@ -1,10 +1,22 @@
+locals {
+  # var.ports is expanded into VPC-wide ingress and egress rules on the shared security
+  # group below, so every entry widens the internal network surface whether or not the
+  # component behind it exists. Camunda Hub is opt-in, so its ports are dropped when the
+  # flag is off, keeping "Hub disabled" a true zero-delta against the rest of the stack.
+  camunda_hub_port_names = ["camunda_hub_restapi", "camunda_hub_management", "camunda_hub_websockets"]
+
+  effective_ports = var.enable_camunda_hub ? var.ports : {
+    for name, port in var.ports : name => port if !contains(local.camunda_hub_port_names, name)
+  }
+}
+
 resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   name        = "${var.prefix}-allow-necessary-camunda-ports-within-vpc"
   description = "Allow necessary Camunda ports within the VPC"
   vpc_id      = module.vpc.vpc_id
 
   dynamic "ingress" {
-    for_each = var.ports
+    for_each = local.effective_ports
     content {
       from_port   = ingress.value
       to_port     = ingress.value
@@ -15,7 +27,7 @@ resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   }
 
   dynamic "egress" {
-    for_each = var.ports
+    for_each = local.effective_ports
     content {
       from_port   = egress.value
       to_port     = egress.value
