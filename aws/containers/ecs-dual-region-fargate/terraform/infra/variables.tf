@@ -105,7 +105,20 @@ variable "ports" {
     zeebe_gateway_network_port            = 26500
     zeebe_broker_network_command_api_port = 26501
   }
-  description = "The ports to open for the security groups within the VPC. The Aurora port is deliberately absent: it follows db_engine (5432 PostgreSQL / 3306 MySQL) and is opened by dedicated rules in security.tf, so it cannot fall out of sync with the engine."
+  description = "The ports to open for the security groups within the VPC. The Aurora port is deliberately absent: it follows db_engine (5432 PostgreSQL / 3306 MySQL) and is opened by dedicated rules in security.tf, so it cannot fall out of sync with the engine. A database port entry here is rejected."
+
+  # Dropping the key from the default does not stop a caller re-supplying it.
+  # An override carried over from before that change would still open 5432 on a
+  # MySQL deployment — the exact contradiction the dedicated rule exists to
+  # avoid, and invisible once applied. Reject it so the migration surfaces as a
+  # plan-time message instead of a stale rule nobody looks at.
+  validation {
+    condition = length(setintersection(
+      [for k in keys(var.ports) : lower(k)],
+      ["postgresql", "postgres", "mysql", "aurora"],
+    )) == 0
+    error_message = "var.ports must not carry a database port entry (postgresql, postgres, mysql or aurora). The Aurora port follows db_engine — 5432 for PostgreSQL, 3306 for MySQL — and is opened by dedicated rules in security.tf; remove the entry from your ports override."
+  }
 }
 
 ################################################################
@@ -183,12 +196,17 @@ variable "db_seed_iam_usernames" {
   # ceiling is engine-specific — MySQL stores account names in a char(32), while
   # a PostgreSQL role name is an identifier and gets 63 — so a 33-character name
   # that plans fine against PostgreSQL must not reach CREATE USER on MySQL.
+  #
+  # It applies only where the seed task exists. With OpenSearch there is none,
+  # and db_engine is inert, so imposing MySQL's ceiling there would reject a
+  # username on the strength of a setting that does nothing.
   validation {
     condition = alltrue([
       for u in var.db_seed_iam_usernames :
-      can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", u)) && length(u) <= (var.db_engine == "mysql" ? 32 : 63)
+      can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", u)) &&
+      length(u) <= (var.secondary_storage_type == "rdbms" && var.db_engine == "mysql" ? 32 : 63)
     ])
-    error_message = "Each db_seed_iam_usernames entry must be a valid identifier: start with a letter or underscore, contain only letters, digits and underscores, and be at most 32 characters for db_engine = 'mysql' (63 for 'postgresql')."
+    error_message = "Each db_seed_iam_usernames entry must be a valid identifier: start with a letter or underscore, contain only letters, digits and underscores, and be at most 32 characters when the seed runs against MySQL (63 otherwise)."
   }
 }
 

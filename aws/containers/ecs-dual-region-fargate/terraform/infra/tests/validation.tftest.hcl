@@ -77,3 +77,38 @@ run "postgresql_accepts_the_same_username" {
     error_message = "The fixture should be longer than MySQL's 32-character limit and within PostgreSQL's 63"
   }
 }
+
+run "ports_rejects_a_retired_database_port_entry" {
+  command = plan
+
+  # The shape a pre-existing override would have: the old default, carried
+  # forward. Without this the entry still drives dynamic ingress and egress, so
+  # a MySQL deployment would open 5432 alongside 3306.
+  variables {
+    ports = {
+      camunda_web_ui = 8080
+      postgresql     = 5432
+    }
+  }
+
+  expect_failures = [
+    var.ports,
+  ]
+}
+
+run "opensearch_does_not_apply_the_mysql_username_ceiling" {
+  command = plan
+
+  # No seed task exists here and db_engine is inert, so a 36-character name —
+  # rejected when the seed really does run against MySQL — must be accepted.
+  variables {
+    secondary_storage_type = "opensearch"
+    db_engine              = "mysql"
+    db_seed_iam_usernames  = ["camunda_user_with_a_very_long_name_x"]
+  }
+
+  assert {
+    condition     = length(var.db_seed_iam_usernames[0]) > 32
+    error_message = "The fixture must exceed MySQL's ceiling for this run to prove anything"
+  }
+}
