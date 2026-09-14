@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Shared helpers for the Orchestration Cluster management API (port 9600).
 #
 # Source this file; it defines functions rather than running anything:

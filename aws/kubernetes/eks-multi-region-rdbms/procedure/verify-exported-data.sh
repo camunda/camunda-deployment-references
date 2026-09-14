@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Asserts that a database writer failover loses no exported data.
 #
 #   ./verify-exported-data.sh record <state-file>

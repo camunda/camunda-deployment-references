@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # shellcheck disable=SC2155
 # The file is meant to be SOURCED, so it ends with `return`; when it is executed
 # directly `return` fails and `exit` takes over. shellcheck only sees the first

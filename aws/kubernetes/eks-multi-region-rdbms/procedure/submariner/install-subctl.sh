@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Installs the subctl CLI. Must be sourced so that the PATH change survives:

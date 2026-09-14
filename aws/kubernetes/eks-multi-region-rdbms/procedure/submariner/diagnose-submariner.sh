@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Best-effort Submariner diagnostics. Never fails, so diagnostics do not replace
 # the original command failure.
 set +e

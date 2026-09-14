@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Prints the Zeebe cluster topology and asserts the expected multi-region shape:

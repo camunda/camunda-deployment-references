@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Exports the Terraform outputs of terraform/clusters into the shell variables
