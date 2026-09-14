@@ -53,7 +53,7 @@ resource "aws_lb_listener_rule" "http_webapp" {
 
   condition {
     path_pattern {
-      values = ["/identity*"]
+      values = ["${var.context_path}*"]
     }
   }
 }

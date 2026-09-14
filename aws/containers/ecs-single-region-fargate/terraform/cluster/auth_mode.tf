@@ -164,7 +164,13 @@ locals {
   # Management Identity's own base URL on the shared ALB (used both for its
   # CAMUNDA_IDENTITY_BASE_URL and for the camunda-identity client redirect in the
   # bundled realm import).
-  identity_public_base = "${local.alb_base_url}/identity"
+  # Context path Management Identity is served under. Single source of truth: the ALB
+  # listener rule matches "<path>*", the task serves the same prefix through
+  # SERVER_SERVLET_CONTEXT_PATH, and the public base URL below is built from it, so the
+  # three cannot drift apart. Identity's health endpoints live on the management port and
+  # do not carry the context path, which is why the probes are unaffected.
+  identity_context_path = "/identity"
+  identity_public_base  = "${local.alb_base_url}${local.identity_context_path}"
 
   # Service Connect DNS name for the bundled Keycloak. Owned here and passed into the
   # module (keycloak.tf) so it stays a plain constant: taking it from the module output

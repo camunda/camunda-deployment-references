@@ -104,6 +104,17 @@ variable "alb_listener_http_webapp_arn" {
   default     = ""
 }
 
+variable "context_path" {
+  type        = string
+  description = "URL context path Management Identity is served under on the shared ALB. The listener rule matches \"<context_path>*\" and the task must serve the same prefix via SERVER_SERVLET_CONTEXT_PATH, otherwise the ALB forwards a path the app does not answer. Health checks are unaffected: they probe the management port, which does not carry the context path."
+  default     = "/identity"
+
+  validation {
+    condition     = can(regex("^/[A-Za-z0-9._~-]+$", var.context_path))
+    error_message = "context_path must start with / and contain a single non-empty URL-safe segment, e.g. /identity."
+  }
+}
+
 variable "enable_alb_http_webapp_listener_rule" {
   description = "Whether to create the ALB target group + listener rule for Management Identity (opt-in; requires a decided context path). Must be a known boolean at plan time."
   type        = bool
