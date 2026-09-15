@@ -3017,7 +3017,8 @@
             "source_region": null,
             "storage_encrypted": true,
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.aurora_global[0].aws_rds_cluster.secondary": {
@@ -3085,7 +3086,8 @@
             "source_region": null,
             "storage_encrypted": true,
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.aurora_global[0].aws_rds_cluster_instance.primary[0]": {
@@ -3114,7 +3116,8 @@
             "promotion_tier": 0,
             "region": "eu-west-2",
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.aurora_global[0].aws_rds_cluster_instance.secondary[0]": {
@@ -3143,7 +3146,8 @@
             "promotion_tier": 0,
             "region": "eu-west-3",
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.aurora_global[0].aws_rds_global_cluster.this": {
