@@ -99,6 +99,45 @@ run "rdbms_env_vars_local_populated_when_rdbms" {
   }
 }
 
+run "async_replication_settings_are_pinned" {
+  command = plan
+
+  # These four decide what async replication monitoring actually guarantees, and
+  # three of them override an engine default. A silent revert to the defaults
+  # would still deploy and still pass every other assertion here.
+  assert {
+    condition = length([
+      for e in local.partitioning_env_vars : e
+      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED" && e.value == "true"
+    ]) == 1
+    error_message = "async replication monitoring must be enabled"
+  }
+
+  assert {
+    condition = length([
+      for e in local.partitioning_env_vars : e
+      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE" && e.value == "LOG_SEQ"
+    ]) == 1
+    error_message = "the replication monitoring strategy must be pinned to LOG_SEQ"
+  }
+
+  assert {
+    condition = length([
+      for e in local.partitioning_env_vars : e
+      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG" && e.value == "PT1H"
+    ]) == 1
+    error_message = "the replication lag budget must be pinned"
+  }
+
+  assert {
+    condition = length([
+      for e in local.partitioning_env_vars : e
+      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED" && e.value == "true"
+    ]) == 1
+    error_message = "the exporter must pause once the lag budget is exceeded, rather than keep writing to a lagging database"
+  }
+}
+
 run "opensearch_env_vars_local_populated_when_opensearch" {
   command = plan
 
