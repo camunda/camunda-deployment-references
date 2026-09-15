@@ -159,16 +159,29 @@ orchestration:
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE
           value: LOG_SEQ
 
-        # The lag threshold controls when the exporter pauses. It does not cap
-        # retained log growth: Zeebe continues processing while export is
-        # paused, so size the disk for the longest replication outage you plan
-        # to tolerate. `min-sync-replicas` is left at its default of 1
-        # because `database_region_slots` defaults to [0, 1]: there is exactly
-        # one Aurora secondary to wait for. Raise it only alongside the slot
-        # list, never on its own, or the exporter waits for a quorum of
-        # replicas that does not exist.
+        # The age the oldest unconfirmed exporter position may reach before the
+        # exporter pauses. Under LOG_SEQ this is not a database-reported lag
+        # figure, and it is not an acknowledgement delay either: confirmed
+        # positions are acknowledged as soon as the database reports them. It
+        # is the longest replication interruption to ride out. A cross-region
+        # writer promotion under load runs past the engine default of PT15M,
+        # which would pause the exporter during the very event this
+        # architecture treats as routine, so the budget is an hour. Raising it
+        # does not blind you to a lost secondary either, though the timing
+        # depends on what is in flight: computePauseLag() reports worst-case
+        # lag only while the queue is empty, which pauses at the next poll past
+        # any budget. With positions already queued the queue-head age governs,
+        # so that case waits out max-lag like any other.
+        #
+        # It does not cap retained log growth either: Zeebe continues
+        # processing while export is paused, so size the disk for the longest
+        # replication outage you plan to tolerate. `min-sync-replicas` is left
+        # at its default of 1 because `database_region_slots` defaults to
+        # [0, 1]: there is exactly one Aurora secondary to wait for. Raise it
+        # only alongside the slot list, never on its own, or the exporter waits
+        # for a quorum of replicas that does not exist.
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG
-          value: PT15M
+          value: PT1H
 
         # Not an RPO control, and not a disk control either. Acknowledgement
         # is gated on confirmed replication either way, so no data is lost
@@ -267,7 +280,7 @@ orchestration:
                 echo "Cross-region DNS gate complete; starting broker."
 
     # The volume must hold normal retention plus all records produced while the
-    # exporter cannot acknowledge replication. The 15-minute max-lag above is
+    # exporter cannot acknowledge replication. The one-hour max-lag above is
     # only the pause threshold; it does not cap disk growth after exporting
     # pauses. Re-derive this value from your write rate and longest tolerated
     # replication outage, and alert on broker disk usage.
