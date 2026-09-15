@@ -295,18 +295,22 @@ terraform init -reconfigure \
 terraform apply -var cluster_name=<new-name>
 ```
 
-Two things to keep in mind when you do:
+**Leave the old state object where it is.** It is not litter, it is the
+cleanup's index: `destroy-resources.sh` discovers what to destroy by listing
+`tfstate-<group>/` objects under the bucket prefix, then runs `terraform
+destroy` per group once the state is old enough. Delete it and the sweep has
+nothing to find, so the IAM roles, log groups and KMS aliases it would have
+removed leak until someone deletes them by hand. Keeping it is what lets the
+automation finish the job the next night.
 
-- Until the next cleanup, the old cluster's surviving resources and the new
-  deployment bill in parallel. That is usually cheaper than the time spent
-  untangling the state, but it is not free.
-- Delete the stale state object once the new deployment is up. Keep it until
-  then: it is the only record of the old resource names if you need to sweep
-  them by hand.
+The cost of this route is that the old resources bill alongside the new
+deployment until then. That is usually cheaper than the time spent untangling
+the state, but it is not free.
 
-To reuse the old name instead, sweep it first: IAM roles, IAM policies,
-CloudWatch log groups and KMS aliases matching the prefix, detaching policies
-before deleting the roles that hold them, then delete the state object.
+Reusing the old name is the expensive path and is rarely worth it: you have to
+sweep IAM roles, IAM policies, CloudWatch log groups and KMS aliases matching
+the prefix yourself, detaching policies before deleting the roles that hold
+them, because the leftovers block the apply before Terraform reaches them.
 
 ## Golden files
 
