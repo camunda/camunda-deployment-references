@@ -13,3 +13,17 @@ authentication_mode = "oidc"
 # expression or a regressed precondition, not a change in the presets or mapping rule —
 # those are covered by the end-to-end test.
 enable_web_modeler_authorization = true
+
+# Camunda Hub is deliberately left off here.
+#
+# Turning it on would plan the ~1600 lines the flag gates, which is the better coverage,
+# but this fixture is the only one the golden job compares: enabling the Hub means the
+# flag-off plan is no longer verified, and "Hub disabled changes nothing" is the property
+# the conditional port list and the count gating exist to guarantee.
+#
+# Covering both needs a second fixture, which the tooling cannot express today: the
+# regeneration recipe hardcodes -var-file=test/golden/golden.tfvars, and the shared
+# comparison action hardcodes the golden and compare directories plus the artifact name.
+# Tracked in camunda/team-infrastructure-experience#1259, along with the alternative of
+# giving Camunda Hub its own root module. Until then the Hub path is covered by the
+# module tests and the end-to-end run recorded on the pull request.

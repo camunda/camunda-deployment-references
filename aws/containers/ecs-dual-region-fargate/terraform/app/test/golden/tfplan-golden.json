@@ -1050,6 +1050,15 @@
                     ],
                     "timeout": [],
                     "tls": []
+                  },
+                  {
+                    "client_alias": [
+                      {
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "timeout": [],
+                    "tls": []
                   }
                 ]
               }
@@ -1170,6 +1179,20 @@
                     "discovery_name": "orchestration-cluster-rest",
                     "ingress_port_override": null,
                     "port_name": "rest",
+                    "timeout": [],
+                    "tls": []
+                  },
+                  {
+                    "client_alias": [
+                      {
+                        "dns_name": "orchestration-cluster-management",
+                        "port": 9600,
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "discovery_name": "orchestration-cluster-management",
+                    "ingress_port_override": null,
+                    "port_name": "management",
                     "timeout": [],
                     "tls": []
                   }
@@ -2364,6 +2387,15 @@
                     ],
                     "timeout": [],
                     "tls": []
+                  },
+                  {
+                    "client_alias": [
+                      {
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "timeout": [],
+                    "tls": []
                   }
                 ]
               }
@@ -2484,6 +2516,20 @@
                     "discovery_name": "orchestration-cluster-rest",
                     "ingress_port_override": null,
                     "port_name": "rest",
+                    "timeout": [],
+                    "tls": []
+                  },
+                  {
+                    "client_alias": [
+                      {
+                        "dns_name": "orchestration-cluster-management",
+                        "port": 9600,
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "discovery_name": "orchestration-cluster-management",
+                    "ingress_port_override": null,
+                    "port_name": "management",
                     "timeout": [],
                     "tls": []
                   }
