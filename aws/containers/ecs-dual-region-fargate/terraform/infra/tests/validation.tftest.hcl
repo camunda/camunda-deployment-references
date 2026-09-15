@@ -45,3 +45,112 @@ run "secondary_storage_type_rejects_invalid" {
     var.secondary_storage_type,
   ]
 }
+
+run "mysql_rejects_a_username_longer_than_32_characters" {
+  command = plan
+
+  # MySQL stores account names in a char(32); this one plans fine against
+  # PostgreSQL and would fail at CREATE USER during the seed task.
+  variables {
+    db_engine             = "mysql"
+    db_seed_iam_usernames = ["camunda_user_with_a_very_long_name_x"]
+  }
+
+  expect_failures = [
+    var.db_seed_iam_usernames,
+  ]
+}
+
+run "postgresql_accepts_the_same_username" {
+  command = plan
+
+  # The same value is a valid PostgreSQL role name (63-character ceiling), so
+  # the ceiling has to follow the engine rather than being fixed at the lower
+  # of the two.
+  variables {
+    db_engine             = "postgresql"
+    db_seed_iam_usernames = ["camunda_user_with_a_very_long_name_x"]
+  }
+
+  assert {
+    condition     = length(var.db_seed_iam_usernames[0]) == 36
+    error_message = "The fixture should be longer than MySQL's 32-character limit and within PostgreSQL's 63"
+  }
+}
+
+run "ports_rejects_a_retired_database_port_entry" {
+  command = plan
+
+  # The shape a pre-existing override would have: the old default, carried
+  # forward. Without this the entry still drives dynamic ingress and egress, so
+  # a MySQL deployment would open 5432 alongside 3306.
+  variables {
+    ports = {
+      camunda_web_ui = 8080
+      postgresql     = 5432
+    }
+  }
+
+  expect_failures = [
+    var.ports,
+  ]
+}
+
+run "opensearch_does_not_apply_the_mysql_username_ceiling" {
+  command = plan
+
+  # No seed task exists here and db_engine is inert, so a 36-character name —
+  # rejected when the seed really does run against MySQL — must be accepted.
+  variables {
+    secondary_storage_type = "opensearch"
+    db_engine              = "mysql"
+    db_seed_iam_usernames  = ["camunda_user_with_a_very_long_name_x"]
+  }
+
+  assert {
+    condition     = length(var.db_seed_iam_usernames[0]) > 32
+    error_message = "The fixture must exceed MySQL's ceiling for this run to prove anything"
+  }
+}
+
+run "mysql_rejects_an_admin_username_longer_than_16_characters" {
+  command = plan
+
+  # RDS caps an Aurora MySQL master username at 16 characters. Without this the
+  # value plans clean and AWS rejects the cluster mid-apply.
+  variables {
+    db_engine         = "mysql"
+    db_admin_username = "camunda_admin_user"
+  }
+
+  expect_failures = [
+    var.db_admin_username,
+  ]
+}
+
+run "postgresql_accepts_the_same_admin_username" {
+  command = plan
+
+  variables {
+    db_engine         = "postgresql"
+    db_admin_username = "camunda_admin_user"
+  }
+
+  assert {
+    condition     = length(var.db_admin_username) > 16
+    error_message = "The fixture must exceed MySQL's master-username limit for this run to prove anything"
+  }
+}
+
+run "admin_username_rejects_whitespace" {
+  command = plan
+
+  # It is interpolated unquoted into the psql conninfo the seed task builds.
+  variables {
+    db_admin_username = "camunda admin"
+  }
+
+  expect_failures = [
+    var.db_admin_username,
+  ]
+}
