@@ -6315,6 +6315,19 @@
         "output": null,
         "triggers_replace": null
       }
+    },
+    "terraform_data.validate_database_prerequisites": {
+      "mode": "managed",
+      "name": "validate_database_prerequisites",
+      "provider_name": "terraform.io/builtin/terraform",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "terraform_data",
+      "values": {
+        "input": null,
+        "output": null,
+        "triggers_replace": null
+      }
     }
   }
 }

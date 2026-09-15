@@ -100,13 +100,13 @@ variable "db_admin_password" {
 
 variable "db_iam_auth_enabled" {
   type        = bool
-  description = "Enable IAM database authentication on the Aurora cluster"
+  description = "Enable IAM database authentication on the Aurora cluster. Required: every component's datasource uses the AWS JDBC wrapper with wrapperPlugins=iam, so a precondition rejects false (see postgres_seed.tf)."
   default     = true
 }
 
 variable "db_seed_enabled" {
   type        = bool
-  description = "Run a one-time ECS task to create/grant IAM DB users (uses db_admin_username/password)"
+  description = "Run the one-time ECS task that provisions every component's database role and dedicated database and grants them rds_iam (connecting as db_admin_username). This task is the only thing that creates them, so on a cluster that has never been seeded, turning it off leaves the orchestration cluster, Management Identity and Camunda Hub unable to connect at startup. Safe to turn off only when those roles, databases and grants already exist, which Terraform cannot verify -- hence no precondition on it."
   default     = true
 }
 

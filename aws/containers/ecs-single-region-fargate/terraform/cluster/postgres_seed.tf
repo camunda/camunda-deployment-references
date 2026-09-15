@@ -1,5 +1,25 @@
 data "aws_caller_identity" "current" {}
 
+# Fail at plan time when IAM database authentication is switched off.
+#
+# Every datasource in this reference is pinned to the AWS JDBC wrapper with
+# wrapperPlugins=iam -- the orchestration cluster, Management Identity and Camunda Hub
+# alike -- so a cluster without IAM auth cannot be connected to by any of them. Nothing
+# rejects the combination today: the plan succeeds, and each task then fails at startup
+# with a driver-level authentication error that names neither this flag nor the cluster.
+# The seed only notes it in its own task log, which is read after the fact if at all.
+#
+# Password authentication is a legitimate variant, but it is a code change rather than a
+# flag: the datasource URLs and credentials have to change with it.
+resource "terraform_data" "validate_database_prerequisites" {
+  lifecycle {
+    precondition {
+      condition     = var.db_iam_auth_enabled
+      error_message = "var.db_iam_auth_enabled must be true: every component connects through jdbc:aws-wrapper with wrapperPlugins=iam, which requires IAM database authentication on the Aurora cluster. To use password authentication instead, change the datasource URLs and credentials as well as this flag."
+    }
+  }
+}
+
 resource "aws_cloudwatch_log_group" "db_seed" {
   count             = var.db_seed_enabled ? 1 : 0
   name              = "/ecs/${var.prefix}-db-seed"
