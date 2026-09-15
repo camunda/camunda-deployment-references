@@ -74,7 +74,6 @@ override_data {
       aurora_secondary_cluster_endpoint         = "aurora-secondary.example.com"
       aurora_primary_cluster_identifier         = "test-app-r0-aurora"
       aurora_secondary_cluster_identifier       = "test-app-r1-aurora"
-      aurora_jdbc_url                           = "jdbc:aws-wrapper:postgresql://aurora-global.example.com:5432/camunda?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=?.p.example.com,?.s.example.com"
       aurora_jdbc_subprotocol                   = "postgresql"
       aurora_db_port                            = 5432
       aurora_jdbc_url_parameters = {
@@ -143,7 +142,7 @@ run "rdbms_jdbc_url_variable_overrides_infra_output" {
       e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL" &&
       e.value == "jdbc:aws-wrapper:mysql://byo-db.example.com:3306/camunda?wrapperPlugins=failover&sslMode=REQUIRED"
     ])
-    error_message = "var.rdbms_jdbc_url should override the infra-provided aurora_jdbc_url"
+    error_message = "var.rdbms_jdbc_url should replace the URL composed from the infra components"
   }
 }
 
@@ -316,7 +315,6 @@ run "mysql_components_compose_a_mysql_url" {
         aurora_secondary_cluster_endpoint         = "aurora-secondary.example.com"
         aurora_primary_cluster_identifier         = "test-app-r0-aurora"
         aurora_secondary_cluster_identifier       = "test-app-r1-aurora"
-        aurora_jdbc_url                           = "jdbc:aws-wrapper:postgresql://aurora-global.example.com:5432/camunda?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=?.p.example.com,?.s.example.com"
         aurora_jdbc_subprotocol                   = "mysql"
         aurora_db_port                            = 3306
         aurora_jdbc_url_parameters = {
@@ -402,7 +400,6 @@ run "missing_component_fails_the_precondition" {
         aurora_secondary_cluster_endpoint         = "aurora-secondary.example.com"
         aurora_primary_cluster_identifier         = "test-app-r0-aurora"
         aurora_secondary_cluster_identifier       = "test-app-r1-aurora"
-        aurora_jdbc_url                           = "jdbc:aws-wrapper:postgresql://aurora-global.example.com:5432/camunda?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=?.p.example.com,?.s.example.com"
         aurora_jdbc_subprotocol                   = "postgresql"
         aurora_db_port                            = 5432
         aurora_jdbc_url_parameters = {
@@ -482,7 +479,6 @@ run "missing_component_is_survivable_with_a_url_override" {
         aurora_secondary_cluster_endpoint         = "aurora-secondary.example.com"
         aurora_primary_cluster_identifier         = "test-app-r0-aurora"
         aurora_secondary_cluster_identifier       = "test-app-r1-aurora"
-        aurora_jdbc_url                           = "jdbc:aws-wrapper:postgresql://aurora-global.example.com:5432/camunda?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=?.p.example.com,?.s.example.com"
         aurora_jdbc_subprotocol                   = "postgresql"
         aurora_db_port                            = 5432
         aurora_jdbc_url_parameters = {
@@ -568,7 +564,6 @@ run "opensearch_env_vars_local_populated_when_opensearch" {
         aurora_secondary_cluster_endpoint         = ""
         aurora_primary_cluster_identifier         = ""
         aurora_secondary_cluster_identifier       = ""
-        aurora_jdbc_url                           = null
         aurora_jdbc_subprotocol                   = null
         aurora_db_port                            = null
         aurora_jdbc_url_parameters                = null
@@ -673,4 +668,38 @@ run "cluster_zone_env_per_region" {
     ])
     error_message = "Old REGION_AWARE awareness value should not appear — was renamed to ZONE_AWARE"
   }
+}
+
+run "app_may_raise_tls_without_reapplying_infra" {
+  command = plan
+
+  variables {
+    rdbms_extra_jdbc_params = {
+      sslmode = "verify-full"
+    }
+  }
+
+  assert {
+    condition = anytrue([
+      for e in local.rdbms_env_vars :
+      e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL" &&
+      strcontains(e.value, "sslmode=verify-full") &&
+      !strcontains(e.value, "sslmode=require")
+    ])
+    error_message = "The app layer should be able to harden TLS, replacing the infra-supplied value exactly once"
+  }
+}
+
+run "app_may_not_lower_tls" {
+  command = plan
+
+  variables {
+    rdbms_extra_jdbc_params = {
+      sslmode = "disable"
+    }
+  }
+
+  expect_failures = [
+    var.rdbms_extra_jdbc_params,
+  ]
 }

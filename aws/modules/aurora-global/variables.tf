@@ -102,7 +102,7 @@ variable "iam_auth_enabled" {
 variable "extra_wrapper_plugins" {
   type        = list(string)
   default     = []
-  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the jdbc_url. The module always sets 'failover' (and 'iam' when iam_auth_enabled), so list only the extras here, e.g. ['readWriteSplitting']. Duplicates of the built-in plugins are ignored. The position a plugin takes in the list is not the execution order: the wrapper re-sorts the pipeline by built-in weight unless autoSortWrapperPluginOrder is disabled, which extra_url_parameters must not do."
+  description = "Additional AWS Advanced JDBC Wrapper plugins, appended to the wrapperPlugins entry of jdbc_url_parameters. The module always sets 'failover' and 'initialConnection' (plus 'iam' when iam_auth_enabled), so list only the extras here, e.g. ['readWriteSplitting']. Duplicates of the built-ins are ignored. The position a plugin takes in the list is not the execution order: the wrapper re-sorts the pipeline by built-in weight unless autoSortWrapperPluginOrder is disabled, which extra_url_parameters must not do."
 
   validation {
     condition     = alltrue([for p in var.extra_wrapper_plugins : can(regex("^[A-Za-z][A-Za-z0-9]*$", p))])
@@ -113,7 +113,7 @@ variable "extra_wrapper_plugins" {
 variable "extra_url_parameters" {
   type        = map(string)
   default     = {}
-  description = "Additional query parameters appended to the jdbc_url, e.g. the failover plugin's { failoverTimeoutMs = \"60000\" } or the efm2 plugin's { failureDetectionTime = \"15000\" }. The parameters the module builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, TLS mode) are reserved."
+  description = "Additional query parameters merged into jdbc_url_parameters, e.g. the failover plugin's { failoverTimeoutMs = \"60000\" } or the efm2 plugin's { failureDetectionTime = \"15000\" }. The parameters the module derives from the engine (wrapperPlugins, globalClusterInstanceHostPatterns, wrapperDialect) are reserved; the TLS mode may be raised but not lowered."
 
   # Two guards, both required. The shape check keeps '&' and '=' out of keys and
   # values, without which a single entry could append arbitrary extra parameters
@@ -130,17 +130,38 @@ variable "extra_url_parameters" {
   }
 
   # Compared lower-cased: the reserved list is a closed set of exact strings, so
-  # a variant differing only in case (SSLMODE, wrapperplugins) would otherwise
-  # slip through and land in the query string, where whether a driver honours it
-  # is driver-specific — the same hazard as emitting a duplicate key. Folding
-  # case also collapses the sslmode/sslMode pair (pgjdbc/Connector/J) to one
-  # entry.
+  # a variant differing only in case (WRAPPERPLUGINS) would otherwise slip
+  # through and land in the query string, where whether a driver honours it is
+  # driver-specific — the same hazard as emitting a duplicate key.
+  #
+  # wrapperDialect is reserved for the same reason as the host patterns: it is
+  # derived from the engine, and a value belonging to the other engine breaks
+  # topology discovery silently rather than failing to connect.
+  #
+  # The TLS key is deliberately *not* on this list. Reserving it would have
+  # blocked hardening as well as weakening, which matters because require only
+  # encrypts — it does not verify the server certificate. The value check below
+  # allows the stronger modes and rejects the weaker ones instead.
   validation {
     condition = length(setintersection(
       [for k in keys(var.extra_url_parameters) : lower(k)],
-      ["wrapperplugins", "globalclusterinstancehostpatterns", "sslmode"],
+      ["wrapperplugins", "globalclusterinstancehostpatterns", "wrapperdialect"],
     )) == 0
-    error_message = "extra_url_parameters must not contain the parameters the module builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, sslmode/sslMode), in any capitalisation — use extra_wrapper_plugins for the plugin list; the TLS mode and host patterns are not overridable."
+    error_message = "extra_url_parameters must not contain the parameters the module derives from the engine (wrapperPlugins, globalClusterInstanceHostPatterns, wrapperDialect), in any capitalisation — use extra_wrapper_plugins for the plugin list; the host patterns and dialect follow the engine."
+  }
+
+  # TLS may be raised, never lowered. The driver defaults (prefer / PREFERRED)
+  # permit a silent plaintext downgrade, and with IAM authentication the
+  # credential on the wire is a bearer token — so 'disable', 'allow' and
+  # 'prefer' are rejected while verify-ca / verify-full / VERIFY_IDENTITY are
+  # accepted for a deployment that ships a CA bundle.
+  validation {
+    condition = alltrue([
+      for k, v in var.extra_url_parameters :
+      contains(["require", "verify-ca", "verify-full", "REQUIRED", "VERIFY_CA", "VERIFY_IDENTITY"], v)
+      if lower(k) == "sslmode"
+    ])
+    error_message = "A TLS parameter in extra_url_parameters may only strengthen the default: use require, verify-ca or verify-full for PostgreSQL, or REQUIRED, VERIFY_CA or VERIFY_IDENTITY for MySQL. The weaker modes (disable, allow, prefer, DISABLED, PREFERRED) permit a plaintext downgrade."
   }
 }
 

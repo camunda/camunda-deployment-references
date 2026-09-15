@@ -112,3 +112,45 @@ run "opensearch_does_not_apply_the_mysql_username_ceiling" {
     error_message = "The fixture must exceed MySQL's ceiling for this run to prove anything"
   }
 }
+
+run "mysql_rejects_an_admin_username_longer_than_16_characters" {
+  command = plan
+
+  # RDS caps an Aurora MySQL master username at 16 characters. Without this the
+  # value plans clean and AWS rejects the cluster mid-apply.
+  variables {
+    db_engine         = "mysql"
+    db_admin_username = "camunda_admin_user"
+  }
+
+  expect_failures = [
+    var.db_admin_username,
+  ]
+}
+
+run "postgresql_accepts_the_same_admin_username" {
+  command = plan
+
+  variables {
+    db_engine         = "postgresql"
+    db_admin_username = "camunda_admin_user"
+  }
+
+  assert {
+    condition     = length(var.db_admin_username) > 16
+    error_message = "The fixture must exceed MySQL's master-username limit for this run to prove anything"
+  }
+}
+
+run "admin_username_rejects_whitespace" {
+  command = plan
+
+  # It is interpolated unquoted into the psql conninfo the seed task builds.
+  variables {
+    db_admin_username = "camunda admin"
+  }
+
+  expect_failures = [
+    var.db_admin_username,
+  ]
+}

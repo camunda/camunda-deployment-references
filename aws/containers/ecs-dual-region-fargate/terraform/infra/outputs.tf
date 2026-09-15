@@ -242,12 +242,7 @@ output "aurora_secondary_cluster_endpoint" {
 
 output "aurora_engine" {
   value       = var.secondary_storage_type == "rdbms" ? local.aurora_engine : null
-  description = "The Aurora engine backing secondary storage ('aurora-postgresql' or 'aurora-mysql'). Exported by procedure/export_environment_prerequisites.sh so the failover/failback scripts re-create clusters with the right engine."
-}
-
-output "aurora_jdbc_url" {
-  value       = var.secondary_storage_type == "rdbms" ? module.aurora_global[0].jdbc_url : null
-  description = "DEPRECATED — the app layer composes the URL from the aurora_jdbc_* component outputs below. A fully assembled AWS Advanced JDBC Wrapper URL, kept so existing consumers keep working; it will be removed in a future major."
+  description = "The Aurora engine backing secondary storage ('aurora-postgresql' or 'aurora-mysql'). Exported by procedure/export_environment_prerequisites.sh as AURORA_ENGINE, which procedure/failback.sh passes to 'aws rds create-db-cluster' when it re-adds region 0 to the global cluster."
 }
 
 ################################################################

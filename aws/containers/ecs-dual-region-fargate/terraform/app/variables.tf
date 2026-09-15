@@ -93,9 +93,22 @@ variable "rdbms_extra_jdbc_params" {
   validation {
     condition = length(setintersection(
       [for k in keys(var.rdbms_extra_jdbc_params) : lower(k)],
-      ["wrapperplugins", "globalclusterinstancehostpatterns", "sslmode"],
+      ["wrapperplugins", "globalclusterinstancehostpatterns", "wrapperdialect"],
     )) == 0
-    error_message = "rdbms_extra_jdbc_params must not contain the parameters composed from the infra layer's engine-derived outputs (wrapperPlugins, globalClusterInstanceHostPatterns, sslmode/sslMode), in any capitalisation. Extend the plugin list through the infra layer's db_extra_wrapper_plugins; the TLS mode and host patterns are not overridable. Use rdbms_jdbc_url to replace the URL outright."
+    error_message = "rdbms_extra_jdbc_params must not contain the parameters the infra layer derives from the engine (wrapperPlugins, globalClusterInstanceHostPatterns, wrapperDialect), in any capitalisation. Extend the plugin list through the infra layer's db_extra_wrapper_plugins. Use rdbms_jdbc_url to replace the URL outright."
+  }
+
+  # TLS may be raised, never lowered — mirroring the module. The infra layer
+  # supplies require/REQUIRED, which encrypts but does not verify the server
+  # certificate; a deployment that ships a CA bundle can harden it from here
+  # without re-applying infra, and the weaker modes stay rejected.
+  validation {
+    condition = alltrue([
+      for k, v in var.rdbms_extra_jdbc_params :
+      contains(["require", "verify-ca", "verify-full", "REQUIRED", "VERIFY_CA", "VERIFY_IDENTITY"], v)
+      if lower(k) == "sslmode"
+    ])
+    error_message = "A TLS parameter in rdbms_extra_jdbc_params may only strengthen the infra-supplied default: use require, verify-ca or verify-full for PostgreSQL, or REQUIRED, VERIFY_CA or VERIFY_IDENTITY for MySQL. The weaker modes (disable, allow, prefer, DISABLED, PREFERRED) permit a plaintext downgrade."
   }
 }
 

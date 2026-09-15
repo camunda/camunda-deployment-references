@@ -27,7 +27,7 @@ variables {
 }
 
 # Override the computed regional/global endpoints with deterministic, RDS-shaped
-# values so jdbc_url is known at plan time and stable between runs. Values are
+# values so the derived parameters are known at plan time and stable. Values are
 # chosen to not contain the substring "iam". File-level overrides apply to every
 # run; `override_during = plan` is what makes them take effect for the
 # `command = plan` runs, which is all of them.
@@ -259,22 +259,17 @@ run "mysql_security_group_uses_3306" {
   }
 }
 
-run "postgresql_jdbc_url_uses_postgresql_subprotocol_and_port" {
+run "postgresql_components_use_postgresql_subprotocol_and_port" {
   command = plan
 
   assert {
-    condition     = strcontains(output.jdbc_url, "jdbc:aws-wrapper:postgresql://")
-    error_message = "PostgreSQL jdbc_url should use the aws-wrapper:postgresql:// subprotocol"
+    condition     = output.jdbc_subprotocol == "postgresql"
+    error_message = "PostgreSQL should expose the postgresql subprotocol"
   }
 
   assert {
-    condition     = strcontains(output.jdbc_url, "sslmode=require")
-    error_message = "PostgreSQL jdbc_url should pin sslmode=require rather than relying on the pgjdbc default"
-  }
-
-  assert {
-    condition     = strcontains(output.jdbc_url, ":5432/")
-    error_message = "PostgreSQL jdbc_url should use port 5432"
+    condition     = output.jdbc_url_parameters["sslmode"] == "require"
+    error_message = "PostgreSQL should set sslmode=require rather than relying on the pgjdbc default"
   }
 
   assert {
@@ -293,7 +288,7 @@ run "postgresql_jdbc_url_uses_postgresql_subprotocol_and_port" {
   }
 }
 
-run "mysql_jdbc_url_uses_mysql_subprotocol_and_port" {
+run "mysql_components_use_mysql_subprotocol_and_port" {
   command = plan
 
   variables {
@@ -301,18 +296,18 @@ run "mysql_jdbc_url_uses_mysql_subprotocol_and_port" {
   }
 
   assert {
-    condition     = strcontains(output.jdbc_url, "jdbc:aws-wrapper:mysql://")
-    error_message = "MySQL jdbc_url should use the aws-wrapper:mysql:// subprotocol"
+    condition     = output.jdbc_subprotocol == "mysql"
+    error_message = "MySQL should expose the mysql subprotocol"
   }
 
   assert {
-    condition     = strcontains(output.jdbc_url, "sslMode=REQUIRED")
-    error_message = "MySQL jdbc_url should pin sslMode=REQUIRED rather than relying on the Connector/J default"
+    condition     = output.jdbc_url_parameters["sslMode"] == "REQUIRED"
+    error_message = "MySQL should set sslMode=REQUIRED rather than relying on the Connector/J default"
   }
 
   assert {
-    condition     = strcontains(output.jdbc_url, ":3306/")
-    error_message = "MySQL jdbc_url should use port 3306"
+    condition     = !contains(keys(output.jdbc_url_parameters), "sslmode")
+    error_message = "The MySQL parameter map should not carry the pgjdbc spelling of the TLS key"
   }
 
   assert {
@@ -321,13 +316,8 @@ run "mysql_jdbc_url_uses_mysql_subprotocol_and_port" {
   }
 }
 
-run "jdbc_url_includes_iam_plugin_by_default" {
+run "wrapper_plugins_include_iam_by_default" {
   command = plan
-
-  assert {
-    condition     = strcontains(output.jdbc_url, "wrapperPlugins=initialConnection,iam,failover")
-    error_message = "jdbc_url should include the iam plugin when iam_auth_enabled is true (default)"
-  }
 
   # The wrapper's endpoint-compatibility matrix marks iam on an Aurora Global
   # Database endpoint as requiring initialConnection; without it the plugin
@@ -346,8 +336,8 @@ run "extra_wrapper_plugins_are_appended" {
   }
 
   assert {
-    condition     = strcontains(output.jdbc_url, "wrapperPlugins=initialConnection,iam,failover,efm2,readWriteSplitting")
-    error_message = "extra_wrapper_plugins should be appended after the built-in iam,failover plugins, in order"
+    condition     = output.jdbc_url_parameters["wrapperPlugins"] == "initialConnection,iam,failover,efm2,readWriteSplitting"
+    error_message = "extra_wrapper_plugins should be appended after the built-ins, in order"
   }
 }
 
@@ -359,31 +349,35 @@ run "extra_wrapper_plugins_do_not_duplicate_builtins" {
   }
 
   assert {
-    condition     = strcontains(output.jdbc_url, "wrapperPlugins=initialConnection,iam,failover,efm2")
+    condition     = output.jdbc_url_parameters["wrapperPlugins"] == "initialConnection,iam,failover,efm2"
     error_message = "A plugin already provided by the module should not be repeated in wrapperPlugins"
   }
 }
 
-run "jdbc_component_outputs_compose_the_same_url" {
+run "component_outputs_carry_everything_the_url_needs" {
   command = plan
 
-  # Assembling the components must reproduce the deprecated jdbc_url exactly, so
-  # a consumer can migrate off it without changing the resulting connection.
-  # Note the single rendering loop: no output carries a separator of its own.
+  # There is no module-built URL to compare against by design: the consumer
+  # assembles it. So assert the components are sufficient — every part of
+  # "jdbc:aws-wrapper:<subprotocol>://<endpoint>:<port>/<db>?<params>" is
+  # exposed, and the parameter map renders with one loop because no entry owns
+  # a separator.
   assert {
-    condition = output.jdbc_url == join("", [
-      "jdbc:aws-wrapper:",
-      output.jdbc_subprotocol,
-      "://",
-      output.global_cluster_endpoint,
-      ":",
-      tostring(output.db_port),
-      "/",
-      output.database_name,
-      "?",
-      join("&", [for k, v in output.jdbc_url_parameters : "${k}=${v}"]),
+    condition = alltrue([
+      output.jdbc_subprotocol != "",
+      output.database_name != "",
+      output.db_port > 0,
+      length(output.jdbc_url_parameters) >= 3,
     ])
-    error_message = "The component outputs must compose to exactly the deprecated jdbc_url"
+    error_message = "The component outputs must be sufficient to assemble the JDBC URL"
+  }
+
+  assert {
+    condition = alltrue([
+      for k, v in output.jdbc_url_parameters :
+      !strcontains(k, "&") && !strcontains(v, "&") && !strcontains(k, "=")
+    ])
+    error_message = "No parameter may carry its own separator; the consumer joins them"
   }
 
   assert {
@@ -448,13 +442,13 @@ run "jdbc_url_omits_iam_plugin_when_iam_disabled" {
   }
 
   assert {
-    condition     = strcontains(output.jdbc_url, "wrapperPlugins=failover")
-    error_message = "jdbc_url should omit the iam plugin when iam_auth_enabled = false"
+    condition     = output.jdbc_url_parameters["wrapperPlugins"] == "initialConnection,failover"
+    error_message = "Disabling IAM auth should drop iam but keep initialConnection and failover"
   }
 
   assert {
-    condition     = !strcontains(output.jdbc_url, "iam")
-    error_message = "jdbc_url should not include the iam plugin when iam_auth_enabled = false"
+    condition     = !strcontains(output.jdbc_url_parameters["wrapperPlugins"], "iam")
+    error_message = "wrapperPlugins should not include the iam plugin when iam_auth_enabled = false"
   }
 }
 
@@ -469,8 +463,11 @@ run "extra_url_parameters_are_appended" {
   }
 
   assert {
-    condition     = strcontains(output.jdbc_url, "?connectTimeout=5000&failureDetectionTime=15000&")
-    error_message = "extra_url_parameters should be rendered into the jdbc_url, key-sorted with the rest"
+    condition = alltrue([
+      output.jdbc_url_parameters["connectTimeout"] == "5000",
+      output.jdbc_url_parameters["failureDetectionTime"] == "15000",
+    ])
+    error_message = "extra_url_parameters should be merged into jdbc_url_parameters"
   }
 
   # Merged into the one map rather than concatenated after it, so each parameter
@@ -517,13 +514,13 @@ run "extra_url_parameters_accept_comma_separated_values" {
 
   variables {
     extra_url_parameters = {
-      wrapperDialect = "aurora-pg"
+      connectTimeout = "5000"
       someList       = "a,b,c"
     }
   }
 
   assert {
-    condition     = strcontains(output.jdbc_url, "someList=a,b,c")
+    condition     = output.jdbc_url_parameters["someList"] == "a,b,c"
     error_message = "A comma-separated value should be accepted and rendered verbatim"
   }
 }
@@ -552,8 +549,8 @@ run "failover_timeout_passes_through_extra_url_parameters" {
   }
 
   assert {
-    condition     = strcontains(output.jdbc_url, "failoverTimeoutMs=60000")
-    error_message = "failoverTimeoutMs should be rendered into the jdbc_url when passed through extra_url_parameters"
+    condition     = output.jdbc_url_parameters["failoverTimeoutMs"] == "60000"
+    error_message = "failoverTimeoutMs should reach jdbc_url_parameters when passed through extra_url_parameters"
   }
 }
 
@@ -597,4 +594,54 @@ run "null_engine_version_falls_back_to_the_pinned_default" {
     condition     = aws_rds_global_cluster.this.engine_version == "18.4"
     error_message = "A null postgresql_engine_version should fall back to the module default"
   }
+}
+
+run "tls_parameter_may_be_raised" {
+  command = plan
+
+  # require encrypts but does not verify the server certificate, so a
+  # deployment with a CA bundle must be able to harden it. Reserving the key
+  # would have blocked that as well as blocking a downgrade.
+  variables {
+    extra_url_parameters = {
+      sslmode = "verify-full"
+    }
+  }
+
+  assert {
+    condition     = output.jdbc_url_parameters["sslmode"] == "verify-full"
+    error_message = "A stronger TLS mode should override the module default"
+  }
+}
+
+run "tls_parameter_may_not_be_lowered" {
+  command = plan
+
+  # The driver defaults (prefer / PREFERRED) permit a silent plaintext
+  # downgrade, and with IAM auth the credential on the wire is a bearer token.
+  variables {
+    extra_url_parameters = {
+      sslmode = "prefer"
+    }
+  }
+
+  expect_failures = [
+    var.extra_url_parameters,
+  ]
+}
+
+run "wrapper_dialect_is_reserved" {
+  command = plan
+
+  # As engine-derived as the host patterns: a dialect belonging to the other
+  # engine breaks topology discovery silently rather than failing to connect.
+  variables {
+    extra_url_parameters = {
+      wrapperDialect = "aurora-pg"
+    }
+  }
+
+  expect_failures = [
+    var.extra_url_parameters,
+  ]
 }

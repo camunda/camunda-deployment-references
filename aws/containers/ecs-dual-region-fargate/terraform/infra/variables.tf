@@ -52,7 +52,7 @@ variable "secondary_storage_type" {
 variable "db_engine" {
   type        = string
   default     = "postgresql"
-  description = "Aurora RDBMS engine for secondary storage: 'postgresql' or 'mysql'. Only applies when secondary_storage_type = 'rdbms' (inert otherwise). Running Camunda against 'mysql' requires a custom Camunda image carrying the MySQL JDBC driver, which the published image does not include: https://docs.camunda.io/docs/self-managed/deployment/manual/rdbms/configuration/#user-supplied-drivers-oracle-mysql"
+  description = "Aurora RDBMS engine for secondary storage: 'postgresql' or 'mysql'. Only applies when secondary_storage_type = 'rdbms' (inert otherwise). TREAT AS CREATE-TIME: changing it on an existing deployment replaces the global cluster and both regional clusters, and the module skips the final snapshot, so the data does not survive — migrate by standing up a new deployment. Running Camunda against 'mysql' also requires a custom Camunda image carrying the MySQL JDBC driver, which the published image does not include: https://docs.camunda.io/docs/self-managed/deployment/manual/rdbms/configuration/#user-supplied-drivers-oracle-mysql"
 
   validation {
     condition     = contains(["postgresql", "mysql"], var.db_engine)
@@ -140,9 +140,22 @@ variable "db_name" {
 
 variable "db_admin_username" {
   type        = string
-  description = "Admin username for the Aurora cluster"
+  description = "Admin username for the Aurora cluster. At most 16 characters when the engine is MySQL, which is RDS's limit for a master username."
   default     = "camunda_admin"
   sensitive   = true
+
+  # This lands in the cluster's master_username and, unquoted, in the psql
+  # conninfo the seed task builds — so whitespace breaks the connection string
+  # and a quote breaks the SQL. The ceiling is engine-specific and far lower
+  # than the seeded users': RDS caps an Aurora MySQL master username at 16
+  # characters, against 63 for a PostgreSQL role. Without this a 17-character
+  # value plans clean and fails when AWS rejects the cluster.
+  validation {
+    condition = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.db_admin_username)) && length(var.db_admin_username) <= (
+      var.secondary_storage_type == "rdbms" && var.db_engine == "mysql" ? 16 : 63
+    )
+    error_message = "db_admin_username must be a valid identifier: start with a letter or underscore, contain only letters, digits and underscores, and be at most 16 characters when the cluster is MySQL (63 otherwise)."
+  }
 }
 
 variable "db_admin_password" {
@@ -155,13 +168,13 @@ variable "db_admin_password" {
 variable "db_extra_wrapper_plugins" {
   type        = list(string)
   default     = []
-  description = "Additional AWS Advanced JDBC Wrapper plugins to append to the generated JDBC URL. The module always sets 'failover' (and 'iam' when db_iam_auth_enabled), so list only the extras, e.g. ['readWriteSplitting']. Note that EFM/EFM2 also need 'initialConnection' on the Aurora Global writer endpoint this deployment connects to, so adding 'efm2' alone will not attach it. Only applies when secondary_storage_type = 'rdbms'."
+  description = "Additional AWS Advanced JDBC Wrapper plugins appended to the generated JDBC URL. The module always sets 'failover', 'initialConnection' and 'iam' — IAM auth is required here — so list only the extras, e.g. ['readWriteSplitting']. 'initialConnection' is unconditional precisely so that adding 'efm2' works: EFM/EFM2 need it on the Aurora Global writer endpoint this deployment connects to. Only applies when secondary_storage_type = 'rdbms'."
 }
 
 variable "db_extra_url_parameters" {
   type        = map(string)
   default     = {}
-  description = "Additional query parameters appended to the generated JDBC URL, e.g. { connectTimeout = \"5000\" }. Entries here override the reference architecture's own (failoverTimeoutMs = 60000). The Aurora module rejects the parameters it builds itself (wrapperPlugins, globalClusterInstanceHostPatterns, TLS mode) as well as keys or values containing '&' or '='. Only applies when secondary_storage_type = 'rdbms'."
+  description = "Additional query parameters merged into the generated JDBC URL, e.g. { connectTimeout = \"5000\" }. Entries here override the reference architecture's own (failoverTimeoutMs = 60000). The Aurora module rejects the parameters it derives from the engine (wrapperPlugins, globalClusterInstanceHostPatterns, wrapperDialect) as well as keys or values containing '&' or '='; the TLS mode may be raised to verify-ca/verify-full (VERIFY_CA/VERIFY_IDENTITY) but not lowered. Only applies when secondary_storage_type = 'rdbms'."
 }
 
 variable "db_iam_auth_enabled" {
