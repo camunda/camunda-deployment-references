@@ -159,19 +159,19 @@ orchestration:
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE
           value: LOG_SEQ
 
-        # How long the exporter waits for a confirmation before it gives up.
-        # Under LOG_SEQ this is not a database-reported lag figure: the engine
-        # compares it against the age of the oldest exporter position still
-        # waiting for its LSN to be confirmed, so it is really the longest
-        # replication interruption to ride out. A cross-region writer promotion
-        # under load runs past the engine default of PT15M, which would pause
-        # the exporter during the very event this architecture treats as
-        # routine, so the budget is an hour. Raising it does not blind you to a
-        # lost secondary either, though the timing depends on what is in
-        # flight: computePauseLag() reports worst-case lag only while the queue
-        # is empty, which pauses at the next poll past any budget. With
-        # positions already queued the queue-head age governs, so that case
-        # waits out max-lag like any other.
+        # The age the oldest unconfirmed exporter position may reach before the
+        # exporter pauses. Under LOG_SEQ this is not a database-reported lag
+        # figure, and it is not an acknowledgement delay either: confirmed
+        # positions are acknowledged as soon as the database reports them. It
+        # is the longest replication interruption to ride out. A cross-region
+        # writer promotion under load runs past the engine default of PT15M,
+        # which would pause the exporter during the very event this
+        # architecture treats as routine, so the budget is an hour. Raising it
+        # does not blind you to a lost secondary either, though the timing
+        # depends on what is in flight: computePauseLag() reports worst-case
+        # lag only while the queue is empty, which pauses at the next poll past
+        # any budget. With positions already queued the queue-head age governs,
+        # so that case waits out max-lag like any other.
         #
         # It does not cap retained log growth either: Zeebe continues
         # processing while export is paused, so size the disk for the longest
