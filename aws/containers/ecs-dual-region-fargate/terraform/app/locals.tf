@@ -81,13 +81,14 @@ locals {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE"
       value = "LOG_SEQ"
     },
-    # How long the exporter waits for a confirmation before it gives up. Under
-    # LOG_SEQ this is not an Aurora-reported lag figure: the engine compares it
-    # against the age of the oldest exporter position still waiting for its LSN
-    # to be confirmed, so it is really the longest replication interruption to
-    # ride out. A cross-region writer promotion under load runs past the engine
-    # default of PT15M, which would pause the exporter during the very event
-    # this architecture treats as routine, so the budget is an hour.
+    # The age the oldest unconfirmed exporter position may reach before the
+    # exporter pauses. Under LOG_SEQ this is not an Aurora-reported lag figure,
+    # and it is not an acknowledgement delay either: confirmed positions are
+    # acknowledged as soon as Aurora reports them. It is the longest
+    # replication interruption to ride out. A cross-region writer promotion
+    # under load runs past the engine default of PT15M, which would pause the
+    # exporter during the very event this architecture treats as routine, so
+    # the budget is an hour.
     #
     # It is not a storage control: the exporter position cannot advance while
     # Aurora is behind, so log segments accumulate on the EFS data volume for
