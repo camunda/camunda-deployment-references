@@ -89,13 +89,21 @@ locals {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG"
       value = "PT15M"
     },
-    # Safety valve, not an RPO control. Acknowledgement is gated on confirmed
-    # replication either way, so leaving this off loses no data; what it decides
-    # is the failure mode once the lag budget is blown. EFS grows on demand
-    # rather than filling up like a fixed volume, so here the unbounded case
-    # costs storage and burns EFS throughput instead of stopping the broker.
-    # Pausing makes the degradation visible and bounded: exporting stops, Zeebe
-    # keeps processing, and the APIs serve stale data until Aurora catches up.
+    # Not an RPO control, and not a disk control either. Acknowledgement is
+    # gated on confirmed replication either way, so no data is lost either way,
+    # and the Zeebe log grows either way: the exporter position cannot advance
+    # past records the standby has not confirmed, so compaction stays blocked
+    # for as long as Aurora is behind, paused or not.
+    #
+    # What it decides is whether the exporter keeps pushing writes at a database
+    # that is already lagging, or stops and says so. Paused, export() raises an
+    # ExporterException, which surfaces in the exporter metrics and the broker
+    # log instead of degrading quietly, and it stops adding load to the thing
+    # that needs to catch up. Zeebe keeps processing throughout, and the APIs
+    # serve stale data until Aurora recovers.
+    #
+    # Size the EFS volume and alert on replication lag regardless of this
+    # setting. It buys observability and back-pressure, not headroom.
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED"
       value = "true"
