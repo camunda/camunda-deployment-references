@@ -60,8 +60,8 @@ orchestration:
                     users:
                         - admin
 
-webModeler:
-    enabled: false # by default, webModeler is not enabled
+camundaHub:
+    enabled: false # by default, Camunda Hub is not enabled
 
     restapi:
         externalDatabase:

@@ -4,7 +4,7 @@
 #
 # Environment variables:
 #   CAMUNDA_NAMESPACE  - Target namespace (default: camunda)
-#   CLUSTER_FILTER     - Optional: deploy only specific clusters, comma-separated (e.g., "pg-keycloak" or "pg-identity,pg-webmodeler")
+#   CLUSTER_FILTER     - Optional: deploy only specific clusters, comma-separated (e.g., "pg-keycloak" or "pg-identity,pg-hub")
 #
 # Arguments:
 #   $1 - CNPG operator namespace (default: cnpg-system)

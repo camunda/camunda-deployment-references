@@ -448,7 +448,10 @@ jobs:
               uses: ./.github/actions/internal-debug-failed-pods
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  context: ${{ env.CLUSTER_NAME }}
+                  # kind registers its kubectl context as `kind-<cluster name>`, so the
+                  # bare CLUSTER_NAME makes every kubectl call here fail with
+                  # `context "..." does not exist` and the run loses its diagnostics.
+                  context: kind-${{ env.CLUSTER_NAME }}
                   artifact-suffix: ${{ env.CLUSTER_NAME }}
 
             - name: Cleanup

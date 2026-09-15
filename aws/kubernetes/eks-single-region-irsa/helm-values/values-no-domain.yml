@@ -100,8 +100,8 @@ orchestration:
                         - admin
 
 
-webModeler:
-    enabled: false # by default, webModeler is not enabled
+camundaHub:
+    enabled: false # by default, Camunda Hub is not enabled
 
     serviceAccount:
         name: ${CAMUNDA_WEBMODELER_SERVICE_ACCOUNT_NAME}

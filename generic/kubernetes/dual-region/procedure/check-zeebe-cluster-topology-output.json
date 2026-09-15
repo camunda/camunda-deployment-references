@@ -2,97 +2,265 @@
   "brokers": [
     {
       "nodeId": 6,
+      "brokerId": "6",
       "host": "camunda-zeebe-3.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
-        { "partitionId": 4, "role": "follower", "health": "healthy" },
-        { "partitionId": 5, "role": "follower", "health": "healthy" },
-        { "partitionId": 6, "role": "follower", "health": "healthy" },
-        { "partitionId": 7, "role": "leader", "health": "healthy" }
+        {
+          "partitionId": 4,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 5,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 6,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 7,
+          "role": "leader",
+          "state": "active",
+          "health": "healthy"
+        }
       ],
       "version": "8.10.z"
     },
     {
       "nodeId": 3,
+      "brokerId": "3",
       "host": "camunda-zeebe-1.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [
-        { "partitionId": 4, "role": "leader", "health": "healthy" },
-        { "partitionId": 3, "role": "follower", "health": "healthy" },
-        { "partitionId": 1, "role": "follower", "health": "healthy" },
-        { "partitionId": 2, "role": "follower", "health": "healthy" }
+        {
+          "partitionId": 4,
+          "role": "leader",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 3,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 1,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 2,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        }
       ],
       "version": "8.10.z"
     },
     {
       "nodeId": 2,
+      "brokerId": "2",
       "host": "camunda-zeebe-1.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
-        { "partitionId": 3, "role": "leader", "health": "healthy" },
-        { "partitionId": 1, "role": "follower", "health": "healthy" },
-        { "partitionId": 2, "role": "leader", "health": "healthy" },
-        { "partitionId": 8, "role": "follower", "health": "healthy" }
+        {
+          "partitionId": 3,
+          "role": "leader",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 1,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 2,
+          "role": "leader",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 8,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        }
       ],
       "version": "8.10.z"
     },
     {
       "nodeId": 4,
+      "brokerId": "4",
       "host": "camunda-zeebe-2.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
-        { "partitionId": 4, "role": "follower", "health": "healthy" },
-        { "partitionId": 5, "role": "leader", "health": "healthy" },
-        { "partitionId": 3, "role": "follower", "health": "healthy" },
-        { "partitionId": 2, "role": "follower", "health": "healthy" }
+        {
+          "partitionId": 4,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 5,
+          "role": "leader",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 3,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 2,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        }
       ],
       "version": "8.10.z"
     },
     {
       "nodeId": 1,
+      "brokerId": "1",
       "host": "camunda-zeebe-0.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [
-        { "partitionId": 7, "role": "follower", "health": "healthy" },
-        { "partitionId": 1, "role": "follower", "health": "healthy" },
-        { "partitionId": 2, "role": "follower", "health": "healthy" },
-        { "partitionId": 8, "role": "follower", "health": "healthy" }
+        {
+          "partitionId": 7,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 1,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 2,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 8,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        }
       ],
       "version": "8.10.z"
     },
     {
       "nodeId": 0,
+      "brokerId": "0",
       "host": "camunda-zeebe-0.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
-        { "partitionId": 6, "role": "follower", "health": "healthy" },
-        { "partitionId": 7, "role": "follower", "health": "healthy" },
-        { "partitionId": 1, "role": "leader", "health": "healthy" },
-        { "partitionId": 8, "role": "follower", "health": "healthy" }
+        {
+          "partitionId": 6,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 7,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 1,
+          "role": "leader",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 8,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        }
       ],
       "version": "8.10.z"
     },
     {
       "nodeId": 5,
+      "brokerId": "5",
       "host": "camunda-zeebe-2.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [
-        { "partitionId": 4, "role": "follower", "health": "healthy" },
-        { "partitionId": 5, "role": "follower", "health": "healthy" },
-        { "partitionId": 3, "role": "follower", "health": "healthy" },
-        { "partitionId": 6, "role": "leader", "health": "healthy" }
+        {
+          "partitionId": 4,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 5,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 3,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 6,
+          "role": "leader",
+          "state": "active",
+          "health": "healthy"
+        }
       ],
       "version": "8.10.z"
     },
     {
       "nodeId": 7,
+      "brokerId": "7",
       "host": "camunda-zeebe-3.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [
-        { "partitionId": 5, "role": "follower", "health": "healthy" },
-        { "partitionId": 6, "role": "follower", "health": "healthy" },
-        { "partitionId": 7, "role": "follower", "health": "healthy" },
-        { "partitionId": 8, "role": "leader", "health": "healthy" }
+        {
+          "partitionId": 5,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 6,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 7,
+          "role": "follower",
+          "state": "active",
+          "health": "healthy"
+        },
+        {
+          "partitionId": 8,
+          "role": "leader",
+          "state": "active",
+          "health": "healthy"
+        }
       ],
       "version": "8.10.z"
     }

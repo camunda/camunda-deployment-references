@@ -36,9 +36,14 @@ import sys
 #   the sibling `defaultRoles.connectors.clients` *is* declared, so `clients`
 #   works for every role. Only the `admin` branch is missing from the schema.
 #   Declared upstream by camunda/camunda-platform-helm#6560, merged one day after
-#   15.0.0-alpha4 was cut, so no published 8.10 chart carries it yet.
-#   TODO: [release-duty] drop this entry once the chart pin reaches an 8.10 chart
-#   that declares the key (15.0.0-alpha5 or later).
+#   the 15.0.0-alpha4 version bump but *before* the camunda-platform-8.10-15.0.0-alpha5
+#   tag was cut — mind the offset, a tag ships the previous version number, so the
+#   chart that declares the key reports itself as 15.0.0-alpha4.
+#   The pin is now at that tag, so this entry is already dead code: the key
+#   validates against the schema and can no longer be reported as unknown.
+#   TODO: [release-duty] delete this entry. It is only still here because
+#   test_validate_unknown_keys.py drives the filter through the first element of
+#   SCHEMA_GAPS in a subprocess, so emptying the set needs those two tests reworked.
 SCHEMA_GAPS = frozenset(
     {
         "orchestration.security.initialization.defaultRoles.admin.clients",
