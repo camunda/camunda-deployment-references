@@ -91,9 +91,12 @@ locals {
     #
     # It is not a storage control: the exporter position cannot advance while
     # Aurora is behind, so log segments accumulate on the EFS data volume for
-    # the length of the outage whatever this value is. Raising it does not hide
-    # a lost replica either: a missing secondary is reported as worst-case lag,
-    # which trips the pause immediately past any finite budget.
+    # the length of the outage whatever this value is. Raising it does not
+    # blind you to a lost secondary either, though the timing depends on what
+    # is in flight: computePauseLag() reports worst-case lag only while the
+    # queue is empty, which pauses at the next poll past any budget. With
+    # positions already queued the queue-head age governs, so that case waits
+    # out max-lag like any other.
     #
     # min-sync-replicas stays at its default of 1: the global cluster has
     # exactly one secondary to wait for.
@@ -114,8 +117,11 @@ locals {
     # that needs to catch up. Zeebe keeps processing throughout, and the APIs
     # serve stale data until Aurora recovers.
     #
-    # Size the EFS volume and alert on replication lag regardless of this
-    # setting. It buys observability and back-pressure, not headroom.
+    # EFS is elastic, so a prolonged outage does not hit a capacity wall the
+    # way a fixed volume would: it grows storage and burns throughput for as
+    # long as it lasts. Monitor EFS storage growth and throughput and alert on
+    # replication lag regardless of this setting. It buys observability and
+    # back-pressure, not headroom.
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED"
       value = "true"
