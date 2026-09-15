@@ -258,18 +258,19 @@ LoadBalancer services and Submariner gateway resources first.
 
 ### After the nightly sweep took your cluster
 
-`eu-west-2`, `eu-west-3` and `eu-central-2` are swept nightly at 5AM, so a
-cluster left running overnight is gone in the morning — but **its Terraform
-state is not**. Reusing the same state key the next day puts you in the worst
-position: Terraform believes in resources that no longer exist.
+`aws_eks_multi_region_rdbms_daily_cleanup.yml` runs at **04:00 UTC** over every
+region the architecture can use, `eu-west-2`, `eu-west-3`, `eu-central-2` and
+`eu-south-1`, so a cluster left running overnight is gone in the morning — but
+**its Terraform state is not**. Reusing that state the next day puts you in the
+worst position: Terraform believes in resources that no longer exist.
 
 Do not try to reconcile it. `terraform apply -refresh-only` fails outright on
 the half-emptied state, because the EKS module reads attributes off a cluster
 that has gone.
 
-The sweep also does not remove everything. It clears VPCs, EKS clusters, Aurora
-and Transit Gateways, but these survive it and are exactly what a fresh apply
-collides with:
+The cleanup also does not remove everything. It clears VPCs, EKS clusters,
+Aurora and Transit Gateways, but these survive and are exactly what a fresh
+apply collides with:
 
 | Leftover | Symptom on the next apply |
 | --- | --- |
@@ -278,17 +279,34 @@ collides with:
 | KMS aliases (`alias/eks/<cluster_name>-*`) | `AlreadyExistsException` |
 
 So do not delete the state and re-apply under the same `cluster_name`, which is
-the tempting move: you will hit those three in sequence, one apply at a time,
-and a crashed apply can leave EKS clusters outside state to clean up by hand.
+the tempting move: you hit those three in sequence, one apply at a time, and a
+crashed apply can leave EKS clusters outside state to clean up by hand.
 
-**Use a new `cluster_name` instead.** It is a fresh namespace with no orphans,
-and it costs nothing — the sweep collects the old resources tonight. Delete the
-stale state object only once the new deployment is up, so nothing references it
-while you still might need the resource names it records.
+**Start again under a new `cluster_name`, and give it a new state key.** The
+name alone is not enough: `terraform init` here is manual, so reusing the old
+`-backend-config=key=...` loads the same broken state and fails before creating
+anything. Change both together.
 
-If you do need the old name back, sweep it first: IAM roles, IAM policies,
-CloudWatch log groups and KMS aliases matching the prefix, in that order,
-detaching policies before deleting the roles that hold them.
+```bash
+terraform init -reconfigure \
+  -backend-config="bucket=<bucket>" \
+  -backend-config="key=aws/kubernetes/eks-multi-region-rdbms/<new-name>/clusters.tfstate" \
+  -backend-config="region=<state-region>"
+terraform apply -var cluster_name=<new-name>
+```
+
+Two things to keep in mind when you do:
+
+- Until the next cleanup, the old cluster's surviving resources and the new
+  deployment bill in parallel. That is usually cheaper than the time spent
+  untangling the state, but it is not free.
+- Delete the stale state object once the new deployment is up. Keep it until
+  then: it is the only record of the old resource names if you need to sweep
+  them by hand.
+
+To reuse the old name instead, sweep it first: IAM roles, IAM policies,
+CloudWatch log groups and KMS aliases matching the prefix, detaching policies
+before deleting the roles that hold them, then delete the state object.
 
 ## Golden files
 
