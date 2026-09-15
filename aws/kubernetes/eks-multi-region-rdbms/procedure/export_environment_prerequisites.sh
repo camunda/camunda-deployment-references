@@ -103,7 +103,7 @@ export CAMUNDA_REPLICATION_FACTOR
 
 # Zone awareness is not in a released chart yet. The reference architecture
 # builds the exact reviewed merge of camunda/camunda-platform-helm#6949 until a
-# release includes `orchestration.multiregion.mode: zoned`.
+# release includes `orchestration.clusterTopology.mode: zoned`.
 #
 # The alternative was hand-assembling CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_*
 # environment variables against the released chart. That does not work: the
