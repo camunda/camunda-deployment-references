@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Emits the region-dependent Camunda settings that cannot be hardcoded in the

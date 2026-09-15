@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Resolve sourced files relative to this script, not the caller working directory.
 # shellcheck source-path=SCRIPTDIR
 set -euo pipefail
@@ -20,9 +20,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 
-mapfile -t slots < <(camunda::target_slots "$@")
+camunda::target_slots_array "$@"
 
-for i in "${slots[@]}"; do
+for i in "${CAMUNDA_TARGET_SLOTS[@]}"; do
     context="${contexts[$i]}"
     echo "Creating secret camunda-rdbms-secret in $context/$CAMUNDA_NAMESPACE"
     printf '%s' "$CAMUNDA_RDBMS_PASSWORD" | kubectl --context "$context" create secret generic camunda-rdbms-secret \

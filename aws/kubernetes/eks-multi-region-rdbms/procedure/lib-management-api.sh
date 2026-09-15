@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Shared helpers for the Orchestration Cluster management API (port 9600).
 #
 # Source this file; it defines functions rather than running anything:
@@ -87,6 +87,29 @@ camunda::target_slots() {
     for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
         echo "$i"
     done
+}
+
+# camunda::target_slots_array [slot]
+#
+# Same selection as camunda::target_slots, delivered as an array in the global
+# CAMUNDA_TARGET_SLOTS.
+#
+# macOS still ships bash 3.2 as /bin/bash, which has neither `mapfile` nor
+# namerefs, so the result lands in a fixed global rather than a caller-named
+# one. Collecting it here keeps that workaround in one place instead of in every
+# caller. `scripts/run-terraform-test-touched.sh` documents the same constraint.
+#
+# Unlike `mapfile < <(camunda::target_slots ...)`, this propagates a rejected
+# slot argument instead of turning it into an empty list and a silent no-op.
+camunda::target_slots_array() {
+    local _slots _slot
+    _slots="$(camunda::target_slots "$@")" || return 1
+
+    CAMUNDA_TARGET_SLOTS=()
+    while IFS= read -r _slot; do
+        [ -n "$_slot" ] || continue
+        CAMUNDA_TARGET_SLOTS+=("$_slot")
+    done <<<"$_slots"
 }
 
 # camunda::use_surviving_region <excluded-slot>

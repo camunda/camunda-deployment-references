@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Resolve sourced files relative to this script, not the caller working directory.
 # shellcheck source-path=SCRIPTDIR
 set -euo pipefail

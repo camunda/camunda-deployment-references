@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Asserts that a database writer failover loses no exported data.
 #
 #   ./verify-exported-data.sh record <state-file>
@@ -153,8 +153,11 @@ probe::verify() {
         exit 1
     fi
 
-    local expected=()
-    mapfile -t expected <"$STATE_FILE"
+    local expected=() _key
+    while IFS= read -r _key || [ -n "$_key" ]; do
+        [ -n "$_key" ] || continue
+        expected+=("$_key")
+    done <"$STATE_FILE"
 
     local context
     context="$(camunda::survivor_context "$lost_slot")"

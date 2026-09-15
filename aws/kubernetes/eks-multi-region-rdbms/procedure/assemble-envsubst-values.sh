@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Renders one values file per active region from helm-values/camunda-values.yml.

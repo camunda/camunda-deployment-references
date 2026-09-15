@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Registers a kubectl context per deployed region, aliased `cluster-<short name>`

@@ -150,6 +150,55 @@ camunda::target_slots 9`)
 	}
 }
 
+// The array wrapper is the path four procedures take, and it carries the bash
+// 3.2 workaround: no mapfile, no namerefs. A regression would only surface as a
+// loop over nothing, so assert the contents rather than the exit status alone.
+func TestTargetSlotsArrayFillsTheGlobal(t *testing.T) {
+	t.Parallel()
+
+	if got := runTargetSlotsArray(t, ""); got != "0 1 2" {
+		t.Fatalf("expected every active slot, got %q", got)
+	}
+	if got := runTargetSlotsArray(t, "1"); got != "1" {
+		t.Fatalf("expected only slot 1, got %q", got)
+	}
+}
+
+// mapfile reading a process substitution discarded the status, so a rejected
+// slot became an empty list and a successful no-op. The wrapper must fail.
+func TestTargetSlotsArrayPropagatesARejectedSlot(t *testing.T) {
+	t.Parallel()
+
+	dir := ProcedureDir(t)
+	cmd := exec.Command("bash", "-c",
+		`source ./lib-management-api.sh
+camunda::target_slots_array 9`)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "CAMUNDA_ACTIVE_REGIONS=3")
+
+	if output, err := cmd.CombinedOutput(); err == nil {
+		t.Fatalf("expected slot 9 to be rejected, got %q", output)
+	}
+}
+
+func runTargetSlotsArray(t *testing.T, slot string) string {
+	t.Helper()
+
+	dir := ProcedureDir(t)
+	cmd := exec.Command("bash", "-c",
+		`source ./lib-management-api.sh
+camunda::target_slots_array "$1"
+echo "${CAMUNDA_TARGET_SLOTS[@]}"`, "bash", slot)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "CAMUNDA_ACTIVE_REGIONS=3")
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("camunda::target_slots_array failed: %v\n%s", err, output)
+	}
+	return strings.TrimSpace(string(output))
+}
+
 func runTargetSlots(t *testing.T, slot string) string {
 	t.Helper()
 

@@ -1,0 +1,7 @@
+# Artifacts the procedures write next to themselves as they run.
+#
+# broker-info.subm carries the Submariner broker join token, so this is a
+# credential leak guard as much as a tidiness one.
+generated-values-region-*.yml
+broker-info.subm
+zeebe-topology.json

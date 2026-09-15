@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # TODO: [release-duty] pin to the released branch (stable/8.10) at release time.
