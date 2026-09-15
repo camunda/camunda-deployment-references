@@ -9,7 +9,7 @@
 # that must survive envsubst and reach the container at runtime.
 #
 # Every region installs the same release from this file. Only two values differ
-# per region: `orchestration.multiregion.zone` and the advertised host, both injected
+# per region: `orchestration.clusterTopology.zone` and the advertised host, both injected
 # from the environment. The zone LIST is identical everywhere, which is what
 # makes the topology a single description rather than N of them.
 
@@ -43,9 +43,10 @@ connectors:
     enabled: true
 
 orchestration:
-    # Multiregion options for the Orchestration Cluster. This architecture is a
-    # reference, not a production configuration.
-    multiregion:
+    # Topology of the Orchestration Cluster: how its brokers are grouped into
+    # failure domains. This architecture is a reference, not a production
+    # configuration.
+    clusterTopology:
         # Zone awareness, rather than the mode that numbers the brokers.
         #
         # That mode infers a broker's region from the parity of its node ID,
