@@ -180,9 +180,10 @@ orchestration:
         # database that is already lagging, or stops and says so. Paused, the
         # ExporterException reaches the exporter metrics and the broker log
         # instead of the condition degrading quietly, and the database gets
-        # room to catch up. Zeebe keeps processing throughout; the APIs and web
-        # applications that read secondary storage serve stale data until it
-        # recovers.
+        # room to catch up. Zeebe keeps processing while it has disk: the log
+        # still grows, so a long enough outage reaches the disk watermark and
+        # back-pressures processing anyway. The APIs and web applications that
+        # read secondary storage serve stale data until the database recovers.
         #
         # Size `pvcSize` below and alert on replication lag regardless of this
         # setting. It buys back-pressure and observability, not headroom.
