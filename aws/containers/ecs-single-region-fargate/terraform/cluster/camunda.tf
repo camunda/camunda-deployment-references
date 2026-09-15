@@ -317,9 +317,20 @@ module "management_identity" {
     { name = "CAMUNDA_IDENTITY_ISSUER_BACKEND_URL", value = local.oidc.issuer_uri },
     { name = "CAMUNDA_IDENTITY_CLIENT_ID", value = local.oidc.identity.client_id },
     { name = "CAMUNDA_IDENTITY_AUDIENCE", value = local.oidc.identity.audience },
-    # First admin is granted by matching this claim/value (write-once at first boot).
-    { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
-    { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
+    ],
+    # Bootstrap the first admin by claim -- but only when the authorization seed is not
+    # already doing it. These variables make Identity auto-create a `Default` mapping
+    # rule, and it carries exactly the (claim-name, claim-value, rule-type) triple the
+    # seeded `Camunda Admin` rule uses. Identity de-duplicates on that triple, so with
+    # both present the seeded rule is skipped: only ManagementIdentity is granted and
+    # Web Modeler stays unauthorized, silently and with a healthy task.
+    #
+    # Nothing is lost by omitting them, because the seeded rule grants a superset --
+    # every role from both presets, ManagementIdentity included. The reference Helm
+    # chart does not set these at all; it grants through mapping rules alone.
+    local.webmodeler_authorization_enabled ? [] : [
+      { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
+      { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
     ],
     # Identity's own authorization model (roles + claim-based grants). Opt-in, because
     # it only matters once a component that resolves permissions through Identity is
