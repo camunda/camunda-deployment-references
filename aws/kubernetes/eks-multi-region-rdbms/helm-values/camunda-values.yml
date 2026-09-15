@@ -170,15 +170,22 @@ orchestration:
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG
           value: PT15M
 
-        # Safety valve, not an RPO control. Acknowledgement is gated on
-        # confirmed replication either way, so leaving this off loses no data;
-        # what it decides is the failure mode once the lag budget is blown.
-        # Off, the exporter keeps going and the log keeps growing until the
-        # volume fills and the broker stops writing. On, exporting pauses,
-        # Zeebe keeps processing, and the APIs and web applications that read
-        # secondary storage serve stale data until the database catches up.
-        # For an architecture whose whole claim is that processing survives a
-        # region loss, stale reads beat a full disk.
+        # Not an RPO control, and not a disk control either. Acknowledgement
+        # is gated on confirmed replication either way, so no data is lost
+        # either way, and the log grows either way: a paused exporter throws
+        # from export(), so its position stops advancing and compaction stays
+        # blocked for exactly as long as the database is behind.
+        #
+        # What it decides is whether the exporter keeps pushing writes at a
+        # database that is already lagging, or stops and says so. Paused, the
+        # ExporterException reaches the exporter metrics and the broker log
+        # instead of the condition degrading quietly, and the database gets
+        # room to catch up. Zeebe keeps processing throughout; the APIs and web
+        # applications that read secondary storage serve stale data until it
+        # recovers.
+        #
+        # Size `pvcSize` below and alert on replication lag regardless of this
+        # setting. It buys back-pressure and observability, not headroom.
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED
           value: 'true'
 
