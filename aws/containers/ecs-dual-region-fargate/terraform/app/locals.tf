@@ -81,13 +81,25 @@ locals {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE"
       value = "LOG_SEQ"
     },
-    # The lag budget. Deferred acknowledgement keeps log segments on the EFS
-    # data volume for as long as Aurora is behind, so this value drives storage
-    # growth. min-sync-replicas stays at its default of 1: the global cluster
-    # has exactly one secondary to wait for.
+    # How long the exporter waits for a confirmation before it gives up. Under
+    # LOG_SEQ this is not an Aurora-reported lag figure: the engine compares it
+    # against the age of the oldest exporter position still waiting for its LSN
+    # to be confirmed, so it is really the longest replication interruption to
+    # ride out. A cross-region writer promotion under load runs past the engine
+    # default of PT15M, which would pause the exporter during the very event
+    # this architecture treats as routine, so the budget is an hour.
+    #
+    # It is not a storage control: the exporter position cannot advance while
+    # Aurora is behind, so log segments accumulate on the EFS data volume for
+    # the length of the outage whatever this value is. Raising it does not hide
+    # a lost replica either: a missing secondary is reported as worst-case lag,
+    # which trips the pause immediately past any finite budget.
+    #
+    # min-sync-replicas stays at its default of 1: the global cluster has
+    # exactly one secondary to wait for.
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG"
-      value = "PT15M"
+      value = "PT1H"
     },
     # Not an RPO control, and not a disk control either. Acknowledgement is
     # gated on confirmed replication either way, so no data is lost either way,

@@ -124,7 +124,7 @@ run "async_replication_settings_are_pinned" {
   assert {
     condition = length([
       for e in local.partitioning_env_vars : e
-      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG" && e.value == "PT15M"
+      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG" && e.value == "PT1H"
     ]) == 1
     error_message = "the replication lag budget must be pinned"
   }
