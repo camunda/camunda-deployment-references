@@ -166,9 +166,12 @@ orchestration:
         # replication interruption to ride out. A cross-region writer promotion
         # under load runs past the engine default of PT15M, which would pause
         # the exporter during the very event this architecture treats as
-        # routine, so the budget is an hour. Raising it does not hide a lost
-        # replica: a missing secondary is reported as worst-case lag, which
-        # trips the pause immediately past any finite budget.
+        # routine, so the budget is an hour. Raising it does not blind you to a
+        # lost secondary either, though the timing depends on what is in
+        # flight: computePauseLag() reports worst-case lag only while the queue
+        # is empty, which pauses at the next poll past any budget. With
+        # positions already queued the queue-head age governs, so that case
+        # waits out max-lag like any other.
         #
         # It does not cap retained log growth either: Zeebe continues
         # processing while export is paused, so size the disk for the longest
