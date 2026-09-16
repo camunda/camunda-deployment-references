@@ -58,9 +58,24 @@ realm; the same HTTP/TLS caveat as above applies to the Web Modeler browser logi
 > Either deploy the flag from the start, or register the client out of band (for example a
 > one-shot `kcadm` task) before enabling it.
 
+> **The authorization seed only applies to an Identity that has not been initialized.**
+> Management Identity persists its mapping rules, and it de-duplicates them on the
+> `(claim-name, claim-value, rule-type)` triple rather than on the rule name. An Identity
+> that already created its own `Default` rule from `IDENTITY_INITIAL_CLAIM_*` therefore
+> keeps it, the declared rule is skipped, and the admin is left with `ManagementIdentity`
+> only — so Web Modeler authenticates and every project call is denied. Enabling
+> `enable_web_modeler_authorization` on an Identity that has already run needs the
+> existing rule removed first; Terraform cannot do it, because the rules live in
+> Identity's database rather than in any AWS resource.
+
 A Camunda license is **optional** — leave `camunda_license_key` empty to run
 Camunda Hub in its trial mode (fine for tests); set it to store the key in
 Secrets Manager and inject it as `CAMUNDA_LICENSE_KEY`.
+
+Changing `camunda_license_key` later updates the Secrets Manager value but does not
+restart the Hub: ECS resolves `valueFrom` when a task starts, and the task definition
+references the secret by a stable ARN, so the running tasks keep the previous key until
+the service is redeployed for some other reason. Force a new deployment to pick it up.
 
 The default images (`camunda/hub`, `camunda/hub-websockets`) pull from public
 Docker Hub without credentials. To use the private enterprise images, point

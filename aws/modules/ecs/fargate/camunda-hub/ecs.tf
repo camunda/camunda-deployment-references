@@ -71,17 +71,21 @@ resource "aws_ecs_task_definition" "camunda_hub" {
   }
 
   container_definitions = templatefile("${path.module}/templates/camunda-hub.json.tpl", {
-    restapi_image            = var.restapi_image
-    websockets_image         = var.websockets_image
-    restapi_cpu              = local.restapi_cpu
-    restapi_memory           = local.restapi_memory
-    websockets_cpu           = local.websockets_cpu
-    websockets_memory        = local.websockets_memory
-    aws_region               = var.aws_region
-    log_group_name           = var.log_group_name
-    registry_credentials_arn = var.registry_credentials_arn
-    context_path             = var.context_path
-    restapi_health_path      = local.restapi_health_path
+    restapi_image     = var.restapi_image
+    websockets_image  = var.websockets_image
+    restapi_cpu       = local.restapi_cpu
+    restapi_memory    = local.restapi_memory
+    websockets_cpu    = local.websockets_cpu
+    websockets_memory = local.websockets_memory
+    aws_region        = var.aws_region
+    log_group_name    = var.log_group_name
+    # One credential per container: the two images can legitimately come from different
+    # registries (private restapi, public websockets), and handing Camunda registry
+    # credentials to a Docker Hub pull makes ECS fail that pull.
+    restapi_registry_credentials_arn    = var.restapi_registry_credentials_arn
+    websockets_registry_credentials_arn = var.websockets_registry_credentials_arn
+    context_path                        = var.context_path
+    restapi_health_path                 = local.restapi_health_path
 
     restapi_env_json     = jsonencode(local.restapi_base_env)
     restapi_has_secrets  = length(local.restapi_base_secrets) > 0

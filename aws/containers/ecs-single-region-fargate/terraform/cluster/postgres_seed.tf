@@ -71,9 +71,12 @@ resource "aws_ecs_task_definition" "db_seed" {
             # Create/refresh the role and enable IAM auth on it. The Management Identity
             # image ships the AWS Advanced JDBC wrapper (BOOT-INF/lib/aws-advanced-jdbc-
             # wrapper-*.jar), so it authenticates with a short-lived IAM token like the
-            # orchestration cluster and Camunda Hub do. The password is still set: it is
-            # what bootstraps the role here, and it keeps a fallback available if the
-            # datasource is switched back to plain PostgreSQL.
+            # orchestration cluster and Camunda Hub do.
+            #
+            # The password is bootstrap-only: it is what CREATE ROLE needs here, and it is
+            # not a usable fallback. Granting rds_iam makes IAM authentication take
+            # precedence for this role, so pointing the datasource back at plain
+            # PostgreSQL would keep failing until that grant is revoked.
             psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
               -v ON_ERROR_STOP=1 \
               -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${IDENTITY_DB_USERNAME}') THEN CREATE ROLE \"$${IDENTITY_DB_USERNAME}\" WITH LOGIN PASSWORD '$${IDENTITY_DB_PASSWORD}'; END IF; END \$\$;" \

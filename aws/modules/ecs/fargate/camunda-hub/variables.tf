@@ -62,8 +62,14 @@ variable "log_group_name" {
   default     = ""
 }
 
-variable "registry_credentials_arn" {
-  description = "The ARN of the Secrets Manager secret containing registry credentials"
+variable "restapi_registry_credentials_arn" {
+  description = "Secrets Manager ARN holding registry credentials for the restapi image. Empty for a public image: ECS fails the pull if it is handed credentials for a registry the image does not come from."
+  type        = string
+  default     = ""
+}
+
+variable "websockets_registry_credentials_arn" {
+  description = "Secrets Manager ARN holding registry credentials for the websockets image. Set independently of the restapi one, since the two images can come from different registries."
   type        = string
   default     = ""
 }

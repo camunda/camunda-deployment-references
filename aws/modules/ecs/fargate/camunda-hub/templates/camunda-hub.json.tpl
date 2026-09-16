@@ -16,9 +16,9 @@
       "startPeriod": 180
     },
     "stopTimeout": 30,
-    %{ if registry_credentials_arn != "" ~}
+    %{ if restapi_registry_credentials_arn != "" ~}
     "repositoryCredentials": {
-      "credentialsParameter": "${registry_credentials_arn}"
+      "credentialsParameter": "${restapi_registry_credentials_arn}"
     },
     %{ endif ~}
     "logConfiguration": {
@@ -53,9 +53,9 @@
     "memory": ${websockets_memory},
     "essential": true,
     "stopTimeout": 30,
-    %{ if registry_credentials_arn != "" ~}
+    %{ if websockets_registry_credentials_arn != "" ~}
     "repositoryCredentials": {
-      "credentialsParameter": "${registry_credentials_arn}"
+      "credentialsParameter": "${websockets_registry_credentials_arn}"
     },
     %{ endif ~}
     "logConfiguration": {

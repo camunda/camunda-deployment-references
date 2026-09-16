@@ -136,3 +136,34 @@ run "service_has_no_load_balancer_when_listener_rules_disabled" {
     error_message = "The service must not attach target groups when the listener rules are disabled"
   }
 }
+
+# Registry credentials are per container, not per task. The Camunda Hub images can come
+# from different registries -- the private Camunda one and public Docker Hub -- and ECS
+# fails a public pull that is handed credentials for a registry the image is not from.
+# Setting only the restapi ARN must therefore leave the websockets container untouched.
+run "registry_credentials_apply_only_to_their_own_container" {
+  command = plan
+
+  variables {
+    restapi_registry_credentials_arn    = "arn:aws:secretsmanager:us-east-1:000000000000:secret:private-registry"
+    websockets_registry_credentials_arn = ""
+  }
+
+  assert {
+    condition = alltrue([
+      for c in jsondecode(aws_ecs_task_definition.camunda_hub.container_definitions) :
+      lookup(c, "repositoryCredentials", null) == null
+      if c.name == "camunda-hub-websockets"
+    ])
+    error_message = "The websockets container must not inherit the restapi container's registry credentials"
+  }
+
+  assert {
+    condition = alltrue([
+      for c in jsondecode(aws_ecs_task_definition.camunda_hub.container_definitions) :
+      try(c.repositoryCredentials.credentialsParameter, "") == "arn:aws:secretsmanager:us-east-1:000000000000:secret:private-registry"
+      if c.name == "camunda-hub-restapi"
+    ])
+    error_message = "The restapi container must receive the registry credentials given for its own image"
+  }
+}

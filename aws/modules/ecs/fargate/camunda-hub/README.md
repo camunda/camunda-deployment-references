@@ -38,8 +38,8 @@ No modules.
 | <a name="input_pusher_app_id"></a> [pusher\_app\_id](#input\_pusher\_app\_id) | The Pusher app id shared between the restapi and websockets containers | `string` | `"camunda-hub"` | no |
 | <a name="input_pusher_app_key_secret_arn"></a> [pusher\_app\_key\_secret\_arn](#input\_pusher\_app\_key\_secret\_arn) | Secrets Manager ARN holding the Pusher app key (shared between both containers) | `string` | n/a | yes |
 | <a name="input_pusher_app_secret_secret_arn"></a> [pusher\_app\_secret\_secret\_arn](#input\_pusher\_app\_secret\_secret\_arn) | Secrets Manager ARN holding the Pusher app secret (shared between both containers) | `string` | n/a | yes |
-| <a name="input_registry_credentials_arn"></a> [registry\_credentials\_arn](#input\_registry\_credentials\_arn) | The ARN of the Secrets Manager secret containing registry credentials | `string` | `""` | no |
 | <a name="input_restapi_image"></a> [restapi\_image](#input\_restapi\_image) | The container image for the Camunda Hub REST API + web UI (formerly Web Modeler restapi/webapp) | `string` | `"camunda/hub:8.10.0-alpha3"` | no |
+| <a name="input_restapi_registry_credentials_arn"></a> [restapi\_registry\_credentials\_arn](#input\_restapi\_registry\_credentials\_arn) | Secrets Manager ARN holding registry credentials for the restapi image. Empty for a public image: ECS fails the pull if it is handed credentials for a registry the image does not come from. | `string` | `""` | no |
 | <a name="input_s2s_cloudmap_namespace"></a> [s2s\_cloudmap\_namespace](#input\_s2s\_cloudmap\_namespace) | The ARN of the Service Connect namespace for service-to-service communication | `string` | `""` | no |
 | <a name="input_secrets"></a> [secrets](#input\_secrets) | Additional ECS task secrets for the restapi container (rendered as container definition 'secrets'). Each item must be { name = string, valueFrom = string }. | <pre>list(object({<br/>    name      = string<br/>    valueFrom = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_service_force_new_deployment"></a> [service\_force\_new\_deployment](#input\_service\_force\_new\_deployment) | Whether to force a new deployment of the ECS service | `bool` | `false` | no |
@@ -56,6 +56,7 @@ No modules.
 | <a name="input_vpc_private_subnets"></a> [vpc\_private\_subnets](#input\_vpc\_private\_subnets) | List of private subnet IDs within the VPC | `list(string)` | n/a | yes |
 | <a name="input_wait_for_steady_state"></a> [wait\_for\_steady\_state](#input\_wait\_for\_steady\_state) | Whether to wait for the ECS service to reach a steady state after deployment | `bool` | `true` | no |
 | <a name="input_websockets_image"></a> [websockets\_image](#input\_websockets\_image) | The container image for the Camunda Hub websockets (Pusher relay) | `string` | `"camunda/hub-websockets:8.10.0-alpha3"` | no |
+| <a name="input_websockets_registry_credentials_arn"></a> [websockets\_registry\_credentials\_arn](#input\_websockets\_registry\_credentials\_arn) | Secrets Manager ARN holding registry credentials for the websockets image. Set independently of the restapi one, since the two images can come from different registries. | `string` | `""` | no |
 ## Outputs
 
 | Name | Description |
