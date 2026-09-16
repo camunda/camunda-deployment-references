@@ -5,7 +5,7 @@
 #   * The Orchestration Cluster (Zeebe / Operate / Tasklist / v2 API) owns its own
 #     authorization and is seeded Camunda-side via CAMUNDA_SECURITY_INITIALIZATION_*
 #     (see camunda.tf).
-#   * Web Modeler / Camunda Hub, Console and Optimize resolve permissions through
+#   * Camunda Hub (Web Modeler + Console) and Optimize resolve permissions through
 #     Management Identity's RBAC model instead: a role is a named set of
 #     (audience, definition) permissions, and a principal is granted roles.
 #
@@ -20,14 +20,14 @@
 # (camunda-platform-helm, charts/camunda-platform-8.10/templates/identity/configmap.yaml)
 # so this reference architecture stays in lockstep with it.
 
-variable "enable_web_modeler_authorization" {
+variable "enable_camunda_hub_authorization" {
   type        = bool
   default     = false
-  description = "Seed Management Identity with the Web Modeler authorization model: the component presets declaring the Web Modeler resource servers, permissions and roles, plus a mapping rule granting them to the admin principal. Requires authentication_mode = \"oidc\". Enable this when a Web Modeler / Camunda Hub deployment consumes this Identity, otherwise Web Modeler authenticates but every authorization check is denied."
+  description = "Seed Management Identity with the authorization model Camunda Hub needs: component presets declaring the resource servers, permissions and roles, plus a mapping rule granting them to the admin principal. The declared audiences (web-modeler-api, web-modeler-public-api) and role names (Web Modeler, Web Modeler Admin) keep the product's own identifiers. Requires authentication_mode = \"oidc\". Enable it when a Camunda Hub deployment consumes this Identity; without it Hub authenticates but every authorization check is denied, because the roles it asks about are not declared."
 }
 
 locals {
-  webmodeler_authorization_enabled = local.oidc_enabled && var.enable_web_modeler_authorization
+  camunda_hub_authorization_enabled = local.oidc_enabled && var.enable_camunda_hub_authorization
 
   # Web Modeler resource-server audiences. App-contract identifiers (the Helm chart's
   # webModeler.clientApiAudience / publicApiAudience defaults), so they are fixed here.
@@ -77,7 +77,7 @@ locals {
     ]
   }
 
-  # Web Modeler / Camunda Hub. `applications` entries are intentionally omitted: in the
+  # Camunda Hub. `applications` entries are intentionally omitted: in the
   # generic OIDC profile the IdP owns the clients and Identity is only a resource server
   # here, declaring the APIs and roles that Web Modeler asks it about.
   #
@@ -142,13 +142,13 @@ locals {
   # triple rather than on the rule name, so a declared rule matching the same claim is
   # silently skipped and the roles it grants never apply. When the model below is seeded the
   # declared rule bootstraps the admin instead, granting a superset of the auto-created one.
-  identity_bootstrap_env = local.webmodeler_authorization_enabled ? [] : [
+  identity_bootstrap_env = local.camunda_hub_authorization_enabled ? [] : [
     { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
     { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
   ]
 
   # Seeded authorization model, handed to the task as a single SPRING_APPLICATION_JSON.
-  identity_authorization_env = local.webmodeler_authorization_enabled ? [
+  identity_authorization_env = local.camunda_hub_authorization_enabled ? [
     { name = "SPRING_APPLICATION_JSON", value = local.identity_authorization_json },
   ] : []
 

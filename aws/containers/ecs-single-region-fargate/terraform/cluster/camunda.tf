@@ -309,7 +309,7 @@ module "management_identity" {
     #     Cluster is seeded Camunda-side (CAMUNDA_SECURITY_INITIALIZATION_* above),
     #     while the components that resolve permissions through Identity (Web Modeler /
     #     Camunda Hub) need Identity's own roles declared and granted by claim; see
-    #     identity_authorization.tf and var.enable_web_modeler_authorization.
+    #     identity_authorization.tf and var.enable_camunda_hub_authorization.
     { name = "SPRING_PROFILES_ACTIVE", value = "oidc" },
     { name = "CAMUNDA_IDENTITY_TYPE", value = "GENERIC" },
     # Serve under the same prefix the ALB rule forwards: ALB's forward action does not

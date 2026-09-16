@@ -30,9 +30,9 @@ Neither works alone, and a precondition fails the plan if the certificate is set
 Authorization is split across two components, and each is seeded independently:
 
 - **Orchestration Cluster** (Zeebe / Operate / Tasklist / v2 API) owns its own authorization. It is seeded Camunda-side via `CAMUNDA_SECURITY_INITIALIZATION_*`, which grants the admin user and the Connectors client their default roles. This is always on.
-- **Web Modeler / Camunda Hub** resolves permissions through Management Identity's RBAC model instead. Identity ships no roles out of the box, so `var.enable_web_modeler_authorization` (default `false`) seeds them: the component presets declaring the `web-modeler-api` and `web-modeler-public-api` resource servers with their permissions and the `Web Modeler` / `Web Modeler Admin` roles, plus a mapping rule granting those roles to the admin principal by token claim.
+- **Camunda Hub** (Web Modeler + Console) resolves permissions through Management Identity's RBAC model instead. Identity ships no roles out of the box, so `var.enable_camunda_hub_authorization` (default `false`) seeds them: the component presets declaring the `web-modeler-api` and `web-modeler-public-api` resource servers with their permissions and the `Web Modeler` / `Web Modeler Admin` roles, plus a mapping rule granting those roles to the admin principal by token claim.
 
-  Enable it when a Web Modeler / Camunda Hub deployment consumes this Identity. Without it Web Modeler authenticates and reaches Identity successfully, but every authorization check is denied (`403` on the management API, `404` on org-scoped projects) because the roles it asks about do not exist. The flag requires `authentication_mode = "oidc"`.
+  Enable it when a Camunda Hub deployment consumes this Identity. Without it Hub authenticates and reaches Identity successfully, but every authorization check is denied (`403` on the management API, `404` on org-scoped projects) because the roles it asks about do not exist. The flag requires `authentication_mode = "oidc"`.
 
   In the generic OIDC profile Identity cannot read role assignments out of the identity provider, so a claim-based mapping rule is the only way to bind a role to a user. See `terraform/cluster/identity_authorization.tf`.
 
@@ -64,7 +64,7 @@ realm; the same HTTP/TLS caveat as above applies to the Web Modeler browser logi
 > that already created its own `Default` rule from `IDENTITY_INITIAL_CLAIM_*` therefore
 > keeps it, the declared rule is skipped, and the admin is left with `ManagementIdentity`
 > only — so Web Modeler authenticates and every project call is denied. Enabling
-> `enable_web_modeler_authorization` on an Identity that has already run needs the
+> `enable_camunda_hub_authorization` on an Identity that has already run needs the
 > existing rule removed first; Terraform cannot do it, because the rules live in
 > Identity's database rather than in any AWS resource.
 

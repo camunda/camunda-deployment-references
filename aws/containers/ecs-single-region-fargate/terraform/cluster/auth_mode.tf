@@ -70,7 +70,7 @@ variable "alb_public_hostname" {
 
 variable "admin_claim_value" {
   type        = string
-  description = "Value of the username claim that identifies the platform administrator. Grants the Orchestration Cluster admin role and, when var.enable_web_modeler_authorization is set, the Management Identity roles. Defaults to \"admin\", which is the user the bundled Keycloak realm creates; with an external provider set this to a principal that exists in your directory, otherwise nobody is granted admin."
+  description = "Value of the username claim that identifies the platform administrator. Grants the Orchestration Cluster admin role and, when var.enable_camunda_hub_authorization is set, the Management Identity roles. Defaults to \"admin\", which is the user the bundled Keycloak realm creates; with an external provider set this to a principal that exists in your directory, otherwise nobody is granted admin."
   default     = "admin"
 
   validation {
@@ -116,8 +116,8 @@ resource "terraform_data" "validate_authentication_mode" {
     # The authorization seed lands on the Management Identity task, which only exists in
     # oidc mode. Silently ignoring the flag in basic mode would look like a broken seed.
     precondition {
-      condition     = !var.enable_web_modeler_authorization || var.authentication_mode == "oidc"
-      error_message = "var.enable_web_modeler_authorization requires authentication_mode = \"oidc\" (Management Identity is not deployed in basic mode)."
+      condition     = !var.enable_camunda_hub_authorization || var.authentication_mode == "oidc"
+      error_message = "var.enable_camunda_hub_authorization requires authentication_mode = \"oidc\" (Management Identity is not deployed in basic mode)."
     }
     # Camunda Hub (Web Modeler) authenticates via OIDC and cannot use basic auth.
     precondition {
@@ -129,8 +129,8 @@ resource "terraform_data" "validate_authentication_mode" {
     # authenticates, so the deployment looks healthy while every project call is denied
     # (403 on the management API, 404 on org-scoped resources). Fail at plan time instead.
     precondition {
-      condition     = !var.enable_camunda_hub || var.enable_web_modeler_authorization
-      error_message = "enable_camunda_hub requires enable_web_modeler_authorization = true, otherwise Management Identity declares no Web Modeler roles and every Hub authorization check is denied."
+      condition     = !var.enable_camunda_hub || var.enable_camunda_hub_authorization
+      error_message = "enable_camunda_hub requires enable_camunda_hub_authorization = true, otherwise Management Identity declares no Web Modeler roles and every Hub authorization check is denied."
     }
   }
 }

@@ -12,7 +12,7 @@ authentication_mode = "oidc"
 # definition's env vars are redacted out of the golden. What CI catches here is a broken
 # expression or a regressed precondition, not a change in the presets or mapping rule —
 # those are covered by the end-to-end test.
-enable_web_modeler_authorization = true
+enable_camunda_hub_authorization = true
 
 # Camunda Hub is deliberately left off here.
 #
