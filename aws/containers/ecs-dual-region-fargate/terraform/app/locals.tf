@@ -65,9 +65,17 @@ locals {
       name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_1_PRIORITY"
       value = "500"
     },
-    # Async replication monitoring. The exporter acknowledges a record to the
-    # broker only once Aurora reports it replicated, which holds back Zeebe log
-    # compaction so an unplanned writer promotion can be replayed from the log.
+    # Async replication monitoring. Exporting and acknowledging are separate
+    # steps: the exporter writes a record to the Aurora writer, then tells the
+    # broker it is safe only once the required replicas report it. Zeebe frees
+    # disk on the acknowledgement, not on the write, so a record already in the
+    # writer but not yet in every replica still occupies the Zeebe log.
+    #
+    # That retention is insurance against losing the writer, not against a slow
+    # replica. A replica that falls behind catches up from the writer. If the
+    # writer itself is lost, the promoted one resumes from its own position and
+    # Zeebe replays the gap.
+    #
     # reference: https://docs.camunda.io/docs/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED"
@@ -85,23 +93,15 @@ locals {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE"
       value = "LOG_SEQ"
     },
-    # The age the oldest unconfirmed exporter position may reach before the
-    # exporter pauses. Under LOG_SEQ this is not an Aurora-reported lag figure,
-    # and it is not an acknowledgement delay either: confirmed positions are
-    # acknowledged as soon as Aurora reports them. It is the longest
-    # replication interruption to ride out. A cross-region writer promotion
-    # under load runs past the engine default of PT15M, which would pause the
-    # exporter during the very event this architecture treats as routine, so
-    # the budget is an hour.
+    # The age the oldest unacknowledged position may reach before exporting
+    # pauses. It does nothing while pause-on-max-lag-exceeded stays false
+    # below, because that flag is the only thing the engine compares it
+    # against. It is pinned anyway so the budget is already sized if someone
+    # turns pausing on, which is then a one-line change.
     #
-    # It is not a storage control: the exporter position cannot advance while
-    # Aurora is behind, so log segments accumulate on the EFS data volume for
-    # the length of the outage whatever this value is. Raising it does not
-    # blind you to a lost secondary either, though the timing depends on what
-    # is in flight: computePauseLag() reports worst-case lag only while the
-    # queue is empty, which pauses at the next poll past any budget. With
-    # positions already queued the queue-head age governs, so that case waits
-    # out max-lag like any other.
+    # Sized at an hour rather than the PT15M engine default because a
+    # cross-region writer promotion under load runs past fifteen minutes, and
+    # this architecture treats such a promotion as routine.
     #
     # min-sync-replicas stays at its default of 1: the global cluster has
     # exactly one secondary to wait for.
@@ -109,27 +109,27 @@ locals {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG"
       value = "PT1H"
     },
-    # Not an RPO control, and not a disk control either. Acknowledgement is
-    # gated on confirmed replication either way, so no data is lost either way,
-    # and the Zeebe log grows either way: the exporter position cannot advance
-    # past records the standby has not confirmed, so compaction stays blocked
-    # for as long as Aurora is behind, paused or not.
+    # Left at the engine default. Turning it on stops the exporter writing to
+    # Aurora while the replicas are behind; it does not protect data and does
+    # not bound disk. Acknowledgement already waits for confirmed replication
+    # either way, so nothing is lost either way, and the Zeebe log is held by
+    # the unacknowledged position either way.
     #
-    # What it decides is whether the exporter keeps pushing writes at a database
-    # that is already lagging, or stops and says so. Paused, export() raises an
-    # ExporterException, which surfaces in the exporter metrics and the broker
-    # log instead of degrading quietly, and it stops adding load to the thing
-    # that needs to catch up. Zeebe keeps processing throughout, and the APIs
-    # serve stale data until Aurora recovers.
+    # What it buys is back-pressure and a loud failure: export() raises an
+    # ExporterException that reaches the exporter metrics and the broker log
+    # rather than the condition passing unnoticed. What it costs is that
+    # secondary storage stops moving on its own, so the APIs and web
+    # applications reading it fall behind the engine until replication
+    # recovers. Zeebe keeps processing throughout.
     #
-    # EFS is elastic, so a prolonged outage does not hit a capacity wall the
-    # way a fixed volume would: it grows storage and burns throughput for as
-    # long as it lasts. Monitor EFS storage growth and throughput and alert on
-    # replication lag regardless of this setting. It buys observability and
-    # back-pressure, not headroom.
+    # That is a decision to make knowingly rather than inherit from a
+    # reference architecture, so this pins the default instead of the
+    # behaviour. Turn it on once you have sized the EFS volume for the longest
+    # replication outage you intend to tolerate and you have alerting on
+    # replication lag.
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED"
-      value = "true"
+      value = "false"
     },
   ]
 

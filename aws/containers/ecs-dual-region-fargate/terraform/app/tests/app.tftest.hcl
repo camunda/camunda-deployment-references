@@ -540,9 +540,9 @@ run "async_replication_settings_are_pinned" {
   assert {
     condition = length([
       for e in local.partitioning_env_vars : e
-      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED" && e.value == "true"
+      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED" && e.value == "false"
     ]) == 1
-    error_message = "the exporter must pause once the lag budget is exceeded, rather than keep writing to a lagging database"
+    error_message = "pausing must stay opt-in: enabling it halts exporting without protecting data or bounding disk"
   }
 }
 
