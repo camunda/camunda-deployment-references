@@ -99,6 +99,11 @@ locals {
     # against. It is pinned anyway so the budget is already sized if someone
     # turns pausing on, which is then a one-line change.
     #
+    # Once pausing is on, the budget governs the normal case: the age of the
+    # oldest position still waiting for confirmation. Losing the required
+    # replica quorum while nothing is queued is reported as worst-case lag
+    # instead, which pauses at the next poll past any budget.
+    #
     # Sized at an hour rather than the PT15M engine default because a
     # cross-region writer promotion under load runs past fifteen minutes, and
     # this architecture treats such a promotion as routine.
@@ -110,7 +115,9 @@ locals {
       value = "PT1H"
     },
     # Left at the engine default. Turning it on stops the exporter writing to
-    # Aurora while the replicas are behind; it does not protect data and does
+    # Aurora once the max-lag budget above is exceeded, or immediately if the
+    # required quorum is unavailable while nothing is queued. Ordinary lag
+    # below the budget changes nothing. It does not protect data and does
     # not bound disk. Acknowledgement already waits for confirmed replication
     # either way, so nothing is lost either way, and the Zeebe log is held by
     # the unacknowledged position either way.
