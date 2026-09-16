@@ -194,12 +194,17 @@ orchestration:
         # confirmed replication either way, so nothing is lost either way, and
         # the Zeebe log is held by the unacknowledged position either way.
         #
-        # What it buys is back-pressure and a loud failure: export() raises an
-        # ExporterException that reaches the exporter metrics and the broker
-        # log rather than the condition passing unnoticed. What it costs is
-        # that secondary storage stops moving on its own, so the APIs and web
-        # applications reading it fall behind the engine until replication
-        # recovers. Zeebe keeps processing throughout.
+        # Note what it does not change: a replication stall holds the
+        # acknowledged position back whether or not you pause, so the export
+        # backlog grows either way, and a large enough backlog triggers flow
+        # control, lowering the write rate and eventually rejecting client
+        # commands. Pausing neither causes that nor prevents it.
+        #
+        # What it buys is a visible failure: the controller records the paused
+        # state in the replication metrics and logs a warning, and every later
+        # export() raises an ExporterException. What it costs is that writes
+        # to the database stop on their own, so secondary storage falls
+        # further behind than the stall alone would leave it.
         #
         # That is a decision to make knowingly rather than inherit from a
         # reference architecture, so this pins the default instead of the
