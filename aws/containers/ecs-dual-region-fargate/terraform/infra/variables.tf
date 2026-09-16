@@ -49,6 +49,17 @@ variable "secondary_storage_type" {
   }
 }
 
+variable "db_engine" {
+  type        = string
+  default     = "postgresql"
+  description = "Aurora RDBMS engine for secondary storage: 'postgresql' or 'mysql'. Only applies when secondary_storage_type = 'rdbms' (inert otherwise). TREAT AS CREATE-TIME: changing it on an existing deployment replaces the global cluster and both regional clusters, and the module skips the final snapshot, so the data does not survive — migrate by standing up a new deployment. Running Camunda against 'mysql' also requires a custom Camunda image carrying the MySQL JDBC driver, which the published image does not include: https://docs.camunda.io/docs/self-managed/deployment/manual/rdbms/configuration/#user-supplied-drivers-oracle-mysql"
+
+  validation {
+    condition     = contains(["postgresql", "mysql"], var.db_engine)
+    error_message = "db_engine must be either 'postgresql' or 'mysql'."
+  }
+}
+
 ################################
 # Variables                    #
 ################################
@@ -80,17 +91,34 @@ variable "limit_access_to_cidrs" {
   description = "List of CIDR blocks to allow access to LoadBalancers"
 }
 
+# The Aurora port is deliberately not in this map. It follows db_engine
+# (5432 PostgreSQL / 3306 MySQL) through local.db_port and is opened by
+# dedicated rules in security.tf; a static entry here would drive both the
+# dynamic "ingress" and dynamic "egress" blocks and so open the PostgreSQL
+# port on a MySQL deployment.
 variable "ports" {
   type = map(number)
   default = {
-    postgresql                            = 5432
     camunda_web_ui                        = 8080
     camunda_metrics_endpoint              = 9600
     zeebe_gateway_cluster_port            = 26502
     zeebe_gateway_network_port            = 26500
     zeebe_broker_network_command_api_port = 26501
   }
-  description = "The ports to open for the security groups within the VPC"
+  description = "The ports to open for the security groups within the VPC. The Aurora port is deliberately absent: it follows db_engine (5432 PostgreSQL / 3306 MySQL) and is opened by dedicated rules in security.tf, so it cannot fall out of sync with the engine. A database port entry here is rejected."
+
+  # Dropping the key from the default does not stop a caller re-supplying it.
+  # An override carried over from before that change would still open 5432 on a
+  # MySQL deployment — the exact contradiction the dedicated rule exists to
+  # avoid, and invisible once applied. Reject it so the migration surfaces as a
+  # plan-time message instead of a stale rule nobody looks at.
+  validation {
+    condition = length(setintersection(
+      [for k in keys(var.ports) : lower(k)],
+      ["postgresql", "postgres", "mysql", "aurora"],
+    )) == 0
+    error_message = "var.ports must not carry a database port entry (postgresql, postgres, mysql or aurora). The Aurora port follows db_engine — 5432 for PostgreSQL, 3306 for MySQL — and is opened by dedicated rules in security.tf; remove the entry from your ports override."
+  }
 }
 
 ################################################################
@@ -101,26 +129,68 @@ variable "db_name" {
   type        = string
   description = "Database name used by Camunda components"
   default     = "camunda"
+
+  # Interpolated into SQL identifiers by the seed task on both engines, where
+  # the surrounding quoting is only correct for a well-formed identifier.
+  validation {
+    condition     = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.db_name)) && length(var.db_name) <= 63
+    error_message = "db_name must be a valid identifier: start with a letter or underscore, contain only letters, digits and underscores, and be at most 63 characters."
+  }
 }
 
 variable "db_admin_username" {
   type        = string
-  description = "Admin username for the Aurora PostgreSQL cluster"
+  description = "Admin username for the Aurora cluster. At most 16 characters when the engine is MySQL, which is RDS's limit for a master username."
   default     = "camunda_admin"
   sensitive   = true
+
+  # This lands in the cluster's master_username and, unquoted, in the psql
+  # conninfo the seed task builds — so whitespace breaks the connection string
+  # and a quote breaks the SQL. The ceiling is engine-specific and far lower
+  # than the seeded users': RDS caps an Aurora MySQL master username at 16
+  # characters, against 63 for a PostgreSQL role. Without this a 17-character
+  # value plans clean and fails when AWS rejects the cluster.
+  validation {
+    condition = can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", var.db_admin_username)) && length(var.db_admin_username) <= (
+      var.secondary_storage_type == "rdbms" && var.db_engine == "mysql" ? 16 : 63
+    )
+    error_message = "db_admin_username must be a valid identifier: start with a letter or underscore, contain only letters, digits and underscores, and be at most 16 characters when the cluster is MySQL (63 otherwise)."
+  }
 }
 
 variable "db_admin_password" {
   type        = string
-  description = "Optional override for the Aurora PostgreSQL admin password. If empty, a random password is generated."
+  description = "Optional override for the Aurora admin password. If empty, a random password is generated."
   default     = ""
   sensitive   = true
 }
 
+variable "db_extra_wrapper_plugins" {
+  type        = list(string)
+  default     = []
+  description = "Additional AWS Advanced JDBC Wrapper plugins appended to the generated JDBC URL. The module always sets 'failover', 'initialConnection' and 'iam' — IAM auth is required here — so list only the extras, e.g. ['readWriteSplitting']. 'initialConnection' is unconditional precisely so that adding 'efm2' works: EFM/EFM2 need it on the Aurora Global writer endpoint this deployment connects to. Only applies when secondary_storage_type = 'rdbms'."
+}
+
+variable "db_extra_url_parameters" {
+  type        = map(string)
+  default     = {}
+  description = "Additional query parameters merged into the generated JDBC URL, e.g. { connectTimeout = \"5000\" }. Entries here override the reference architecture's own (failoverTimeoutMs = 60000). The Aurora module rejects the parameters it derives from the engine (wrapperPlugins, globalClusterInstanceHostPatterns, wrapperDialect) as well as keys or values containing '&' or '='; the TLS mode may be raised to verify-ca/verify-full (VERIFY_CA/VERIFY_IDENTITY) but not lowered. Only applies when secondary_storage_type = 'rdbms'."
+}
+
 variable "db_iam_auth_enabled" {
   type        = bool
-  description = "Enable IAM database authentication on the Aurora cluster"
+  description = "Enable IAM database authentication on the Aurora cluster. Must stay true for RDBMS secondary storage: this reference architecture wires no database password for the Camunda tasks, so IAM is the only way they authenticate."
   default     = true
+
+  # Turning this off produces a cluster the deployment cannot reach: the seed
+  # task creates the Camunda user with the IAM auth plugin and no password, the
+  # module correctly drops 'iam' from wrapperPlugins, and the ECS task
+  # definition carries a username but no CAMUNDA_..._RDBMS_PASSWORD. Rejecting
+  # it at plan time beats a connection refused at runtime.
+  validation {
+    condition     = var.secondary_storage_type != "rdbms" || var.db_iam_auth_enabled
+    error_message = "db_iam_auth_enabled must be true when secondary_storage_type = 'rdbms': this reference architecture authenticates the Camunda tasks to Aurora with IAM only and provisions no database password."
+  }
 }
 
 variable "db_seed_enabled" {
@@ -133,6 +203,24 @@ variable "db_seed_iam_usernames" {
   type        = list(string)
   description = "Database users to create and grant rds_iam + privileges for"
   default     = ["camunda"]
+
+  # Same reasoning as db_name: each entry lands inside quoted SQL on both
+  # engines, and the quoting only holds for well-formed identifiers. The length
+  # ceiling is engine-specific — MySQL stores account names in a char(32), while
+  # a PostgreSQL role name is an identifier and gets 63 — so a 33-character name
+  # that plans fine against PostgreSQL must not reach CREATE USER on MySQL.
+  #
+  # It applies only where the seed task exists. With OpenSearch there is none,
+  # and db_engine is inert, so imposing MySQL's ceiling there would reject a
+  # username on the strength of a setting that does nothing.
+  validation {
+    condition = alltrue([
+      for u in var.db_seed_iam_usernames :
+      can(regex("^[a-zA-Z_][a-zA-Z0-9_]*$", u)) &&
+      length(u) <= (var.secondary_storage_type == "rdbms" && var.db_engine == "mysql" ? 32 : 63)
+    ])
+    error_message = "Each db_seed_iam_usernames entry must be a valid identifier: start with a letter or underscore, contain only letters, digits and underscores, and be at most 32 characters when the seed runs against MySQL (63 otherwise)."
+  }
 }
 
 variable "db_seed_run_id" {
