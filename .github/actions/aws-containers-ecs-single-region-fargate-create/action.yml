@@ -149,6 +149,19 @@ runs:
               prefix              = "${PREFIX}"
               authentication_mode = "${INPUTS_AUTHENTICATION_MODE}"
               EOF
+
+              # The oidc lane also deploys Camunda Hub, which is the only way the
+              # Management Identity authorization seed gets executed: the golden cannot
+              # cover it, because the AWS provider marks container_definitions sensitive
+              # and redacts the task environment out of the plan. Hub is coupled to the
+              # seed by a precondition, so enabling it turns the seed on as well.
+              # Both stay off in the basic lane, where no identity provider is deployed.
+              if [ "${INPUTS_AUTHENTICATION_MODE}" = "oidc" ]; then
+                cat >> terraform.tfvars <<EOF
+              enable_camunda_hub               = true
+              enable_camunda_hub_authorization = true
+              EOF
+              fi
           env:
               INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
               INPUTS_AUTHENTICATION_MODE: ${{ inputs.authentication-mode }}
