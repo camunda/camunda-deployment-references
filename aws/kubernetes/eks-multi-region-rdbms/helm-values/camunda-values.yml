@@ -9,7 +9,7 @@
 # that must survive envsubst and reach the container at runtime.
 #
 # Every region installs the same release from this file. Only two values differ
-# per region: `orchestration.partitionDistribution.zone` and the advertised host, both injected
+# per region: `orchestration.partitioning.zone` and the advertised host, both injected
 # from the environment. The zone LIST is identical everywhere, which is what
 # makes the topology a single description rather than N of them.
 
@@ -44,12 +44,13 @@ connectors:
 
 orchestration:
     # How partition replicas are distributed across brokers, and how brokers are
-    # grouped into failure domains. Named after the management API object
-    # `partitionDistribution` (`PUT /actuator/cluster/partition-distribution`); the
-    # fields mirror the engine configuration `camunda.cluster.partitioning`, with
-    # `scheme` being `io.camunda.configuration.Partitioning.Scheme` lower-cased and
-    # hyphenated. This architecture is a reference, not a production configuration.
-    partitionDistribution:
+    # grouped into failure domains. Mirrors the engine configuration
+    # `camunda.cluster.partitioning`, with `scheme` being
+    # `io.camunda.configuration.Partitioning.Scheme` lower-cased and hyphenated.
+    # This does NOT set the number of partitions -- that is
+    # `orchestration.partitionCount` -- it sets how their replicas are placed.
+    # This architecture is a reference, not a production configuration.
+    partitioning:
         # Zone awareness, rather than the round-robin scheme that leaves brokers
         # on plain numeric node IDs.
         #

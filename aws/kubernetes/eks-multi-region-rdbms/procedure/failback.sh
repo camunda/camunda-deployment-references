@@ -87,8 +87,14 @@ echo "--> 3/4 Checking whether zone $recovered_zone is still in the partition di
 
 cluster="$(camunda::management "$survivor_context" GET /actuator/cluster)"
 
+# Read both spellings of the field. The cluster API is renaming
+# `/cluster/partition-distribution` to `/cluster/partitioning` so it agrees with
+# the `camunda.cluster.partitioning` configuration property, and the response
+# field follows. `jq`'s `?` swallows a missing field, so a single spelling would
+# silently report the zone as absent and send this script down the re-add branch
+# for a zone that was never removed.
 if echo "$cluster" | jq -e --arg zone "$recovered_zone" \
-    '[.partitionDistribution.zones[]? | select(.name == $zone)] | length > 0' >/dev/null; then
+    '[(.partitionDistribution // .partitioning).zones[]? | select(.name == $zone)] | length > 0' >/dev/null; then
     echo "    Zone $recovered_zone was never removed; its brokers rejoin and catch up"
     echo "    from the Raft log without any membership change."
 else
