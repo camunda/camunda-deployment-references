@@ -510,15 +510,10 @@ run "missing_component_is_survivable_with_a_url_override" {
 run "async_replication_settings_are_pinned" {
   command = plan
 
-  # These four decide what async replication monitoring actually guarantees.
-  # Two of them override an engine default (ENABLED and MAXLAG); the other two
-  # deliberately pin a default, so an engine that changes its mind later does
-  # not change this deployment. A silent drift on any of them would still
-  # deploy and still pass every other assertion here.
-  # Each assertion below filters on name AND value, so a duplicate entry
-  # carrying the same name with a different value would leave every one of them
-  # passing while the rendered container definition stayed ambiguous. Pin the
-  # names first, independently of their values.
+  # Drift on any of these four would still deploy and still pass every other
+  # assertion here, including the two that pin an engine default.
+  # Name-only check first: the value assertions below would all pass with a
+  # duplicate entry carrying the same name and a different value.
   assert {
     condition = alltrue([
       for name in [

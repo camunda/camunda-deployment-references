@@ -65,82 +65,29 @@ locals {
       name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_1_PRIORITY"
       value = "500"
     },
-    # Async replication monitoring. Exporting and acknowledging are separate
-    # steps: the exporter writes a record to the Aurora writer, then tells the
-    # broker it is safe only once the required replicas report it. Zeebe frees
-    # disk on the acknowledgement, not on the write, so a record already in the
-    # writer but not yet in every replica still occupies the Zeebe log.
-    #
-    # That retention is insurance against losing the writer, not against a slow
-    # replica. A replica that falls behind catches up from the writer. If the
-    # writer itself is lost, the promoted one resumes from its own position and
-    # Zeebe replays the gap.
-    #
-    # reference: https://docs.camunda.io/docs/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
+    # Async replication monitoring: the exporter acknowledges a record to the
+    # broker only once Aurora confirms it replicated, so the Zeebe log is held
+    # until then. Mechanism, trade-offs and sizing:
+    # https://docs.camunda.io/docs/self-managed/deployment/containers/cloud-providers/amazon/aws-ecs-dual-region/#secondary-storage-replication-lag
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED"
       value = "true"
     },
-    # LOG_SEQ reads Aurora's own replication position and is the engine default,
-    # pinned here because it is not universally supported: Aurora Global
-    # Database for PostgreSQL and MySQL, MSSQL and PostgreSQL only. Nothing
-    # downgrades silently. ReplicationLsnProviderFactory.create() throws at
-    # startup on anything else, naming the reason, so pointing rdbms_jdbc_url at
-    # plain MySQL or a non-global Aurora fails the deployment instead of
-    # quietly dropping the replication signal. Moving to a backend that does
-    # not support LOG_SEQ means choosing DELAY here and giving it its own
-    # delay value; plain PostgreSQL and MSSQL keep LOG_SEQ.
+    # Engine default, pinned because support is vendor-specific: an unsupported
+    # backend fails the exporter at startup rather than degrading quietly.
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE"
       value = "LOG_SEQ"
     },
-    # The age the oldest unacknowledged position may reach before exporting
-    # pauses. It does nothing while pause-on-max-lag-exceeded stays false
-    # below, because that flag is the only thing the engine compares it
-    # against. It is pinned anyway so the budget is already sized if someone
-    # turns pausing on, which is then a one-line change.
-    #
-    # Once pausing is on, the budget governs the normal case: the age of the
-    # oldest position still waiting for confirmation. Losing the required
-    # replica quorum while nothing is queued is reported as worst-case lag
-    # instead, which pauses at the next poll past any budget.
-    #
-    # Sized at an hour rather than the PT15M engine default because a
-    # cross-region writer promotion under load runs past fifteen minutes, and
-    # this architecture treats such a promotion as routine.
-    #
-    # min-sync-replicas stays at its default of 1: the global cluster has
-    # exactly one secondary to wait for.
+    # Pause threshold, inert while the flag below stays false. An hour rather
+    # than the PT15M default: a cross-region promotion under load exceeds it.
+    # min-sync-replicas stays at 1, the global cluster's only secondary.
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG"
       value = "PT1H"
     },
-    # Left at the engine default. Turning it on stops the exporter writing to
-    # Aurora once the max-lag budget above is exceeded, or immediately if the
-    # required quorum is unavailable while nothing is queued. Ordinary lag
-    # below the budget changes nothing. It does not protect data and does
-    # not bound disk. Acknowledgement already waits for confirmed replication
-    # either way, so nothing is lost either way, and the Zeebe log is held by
-    # the unacknowledged position either way.
-    #
-    # Note what it does not change: a replication stall holds the
-    # acknowledged position back whether or not you pause, so the export
-    # backlog grows either way, and a large enough backlog triggers flow
-    # control, lowering the write rate and eventually rejecting client
-    # commands. Pausing neither causes that nor prevents it.
-    #
-    # What it buys is a visible failure: the controller records the paused
-    # state in the replication metrics and logs a warning, and every later
-    # export() raises an ExporterException. What it costs is that writes to
-    # Aurora stop, so secondary storage receives nothing new and stays stale
-    # until replication recovers.
-    #
-    # That is a decision to make knowingly rather than inherit from a
-    # reference architecture, so this pins the default instead of the
-    # behaviour. Turn it on once you have alerting on replication lag and on
-    # EFS storage growth. There is no volume to size here: the module creates
-    # EFS in elastic mode, so a long outage shows up as stored bytes and
-    # throughput cost rather than a full disk.
+    # Engine default, kept deliberately. Enabling it halts exporting without
+    # protecting data or bounding disk, so it is an operator decision.
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED"
       value = "false"
