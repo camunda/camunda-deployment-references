@@ -11,6 +11,9 @@ module "keycloak" {
 
   count = local.deploy_bundled_keycloak ? 1 : 0
 
+  # Owned by the root module so backend URLs can be built from a constant; see auth_mode.tf.
+  service_connect_dns_name = local.keycloak_service_connect_name
+
   depends_on = [null_resource.run_db_seed_task]
 
   prefix                      = "${var.prefix}-oc1"

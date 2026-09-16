@@ -118,6 +118,7 @@
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "schema_version": 0,
       "sensitive_values": {
+        "policy": true,
         "tags_all": {}
       },
       "type": "aws_iam_policy",
@@ -146,6 +147,28 @@
         "delay_after_policy_creation_in_ms": null,
         "description": "Allow ECS tasks to connect to Aurora PostgreSQL as the IAM DB user 'camunda'",
         "name": "camunda-rds-db-connect-camunda",
+        "path": "/",
+        "tags": null
+      }
+    },
+    "aws_iam_policy.rds_db_connect_identity[0]": {
+      "identity": {
+        "arn": null
+      },
+      "identity_schema_version": 0,
+      "index": 0,
+      "mode": "managed",
+      "name": "rds_db_connect_identity",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "schema_version": 0,
+      "sensitive_values": {
+        "tags_all": {}
+      },
+      "type": "aws_iam_policy",
+      "values": {
+        "delay_after_policy_creation_in_ms": null,
+        "description": "Allow ECS tasks to connect to Aurora PostgreSQL as the IAM DB user 'identity'",
+        "name": "camunda-rds-db-connect-identity",
         "path": "/",
         "tags": null
       }
@@ -3349,6 +3372,24 @@
             "role": "camunda-oc1-management-identity-task-role"
           }
         },
+        "module.management_identity[0].aws_iam_role_policy_attachment.task_role_policy_attachment[0]": {
+          "identity": {
+            "account_id": null,
+            "policy_arn": null,
+            "role": null
+          },
+          "identity_schema_version": 0,
+          "index": 0,
+          "mode": "managed",
+          "name": "task_role_policy_attachment",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "aws_iam_role_policy_attachment",
+          "values": {
+            "role": "camunda-oc1-management-identity-task-role"
+          }
+        },
         "module.management_identity[0].aws_lb_listener_rule.http_webapp[0]": {
           "identity": {
             "arn": null
@@ -3605,6 +3646,15 @@
                     ],
                     "timeout": [],
                     "tls": []
+                  },
+                  {
+                    "client_alias": [
+                      {
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "timeout": [],
+                    "tls": []
                   }
                 ]
               }
@@ -3708,6 +3758,20 @@
                     "discovery_name": "orchestration-cluster-rest",
                     "ingress_port_override": null,
                     "port_name": "rest",
+                    "timeout": [],
+                    "tls": []
+                  },
+                  {
+                    "client_alias": [
+                      {
+                        "dns_name": "orchestration-cluster-management",
+                        "port": 9600,
+                        "test_traffic_rules": []
+                      }
+                    ],
+                    "discovery_name": "orchestration-cluster-management",
+                    "ingress_port_override": null,
+                    "port_name": "management",
                     "timeout": [],
                     "tls": []
                   }
@@ -6242,6 +6306,19 @@
     "terraform_data.validate_authentication_mode": {
       "mode": "managed",
       "name": "validate_authentication_mode",
+      "provider_name": "terraform.io/builtin/terraform",
+      "schema_version": 0,
+      "sensitive_values": {},
+      "type": "terraform_data",
+      "values": {
+        "input": null,
+        "output": null,
+        "triggers_replace": null
+      }
+    },
+    "terraform_data.validate_database_prerequisites": {
+      "mode": "managed",
+      "name": "validate_database_prerequisites",
       "provider_name": "terraform.io/builtin/terraform",
       "schema_version": 0,
       "sensitive_values": {},

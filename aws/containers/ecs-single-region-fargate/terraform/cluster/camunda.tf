@@ -261,22 +261,27 @@ module "management_identity" {
   ]
 
   environment_variables = concat([
-    # --- Database (password auth to a dedicated Aurora database) ---
+    # --- Database (dedicated Aurora database, IAM auth via the AWS JDBC wrapper) ---
+    #
+    # The image ships the AWS Advanced JDBC wrapper (BOOT-INF/lib/aws-advanced-jdbc-
+    # wrapper-*.jar), and the datasource is built by Spring Boot from the standard
+    # spring.datasource.* properties, so pointing them at the wrapper switches the
+    # component to short-lived IAM tokens — the same mechanism the orchestration cluster
+    # and Camunda Hub use. Environment variables outrank the image's bundled
+    # application.yaml, whose defaults (IDENTITY_DATABASE_* + org.postgresql.Driver) are
+    # plain password auth; those defaults are what make it look like the wrapper is
+    # unavailable. No static database password is handed to the task.
     {
-      name  = "IDENTITY_DATABASE_HOST"
-      value = module.postgresql.aurora_endpoint
+      name  = "SPRING_DATASOURCE_URL"
+      value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.identity_db_name}?wrapperPlugins=iam"
     },
     {
-      name  = "IDENTITY_DATABASE_PORT"
-      value = "5432"
-    },
-    {
-      name  = "IDENTITY_DATABASE_NAME"
-      value = var.identity_db_name
-    },
-    {
-      name  = "IDENTITY_DATABASE_USERNAME"
+      name  = "SPRING_DATASOURCE_USERNAME"
       value = var.identity_db_username
+    },
+    {
+      name  = "SPRING_DATASOURCE_DRIVER_CLASS_NAME"
+      value = "software.amazon.jdbc.Driver"
     },
     # --- Server / management ports ---
     {
@@ -314,39 +319,223 @@ module "management_identity" {
     { name = "SERVER_SERVLET_CONTEXT_PATH", value = local.identity_context_path },
     { name = "CAMUNDA_IDENTITY_BASE_URL", value = local.identity_public_base },
     { name = "CAMUNDA_IDENTITY_ISSUER", value = local.oidc.issuer_uri },
-    { name = "CAMUNDA_IDENTITY_ISSUER_BACKEND_URL", value = local.oidc.issuer_uri },
+    # Backend metadata/JWKS fetches use the in-VPC address; see local.oidc.issuer_backend_uri.
+    { name = "CAMUNDA_IDENTITY_ISSUER_BACKEND_URL", value = local.oidc.issuer_backend_uri },
     { name = "CAMUNDA_IDENTITY_CLIENT_ID", value = local.oidc.identity.client_id },
     { name = "CAMUNDA_IDENTITY_AUDIENCE", value = local.oidc.identity.audience },
+    # Bootstrap pair for the first admin, gated so it cannot shadow the seeded mapping
+    # rule; the gate and the reasoning live with local.identity_bootstrap_env, appended
+    # just below, in identity_authorization.tf.
     ],
-    # Bootstrap the first admin by claim -- but only when the authorization seed is not
-    # already doing it. These variables make Identity auto-create a `Default` mapping
-    # rule, and it carries exactly the (claim-name, claim-value, rule-type) triple the
-    # seeded `Camunda Admin` rule uses. Identity de-duplicates on that triple, so with
-    # both present the seeded rule is skipped: only ManagementIdentity is granted and
-    # Web Modeler stays unauthorized, silently and with a healthy task.
-    #
-    # Nothing is lost by omitting them, because the seeded rule grants a superset --
-    # every role from both presets, ManagementIdentity included. The reference Helm
-    # chart does not set these at all; it grants through mapping rules alone.
-    local.webmodeler_authorization_enabled ? [] : [
-      { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
-      { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
-    ],
-    # Identity's own authorization model (roles + claim-based grants). Opt-in, because
-    # it only matters once a component that resolves permissions through Identity is
-    # deployed; see identity_authorization.tf.
-    local.webmodeler_authorization_enabled ? [
-      { name = "SPRING_APPLICATION_JSON", value = local.identity_authorization_json },
-    ] : [],
+    local.identity_bootstrap_env,
+    local.identity_authorization_env,
   )
 
+  # No IDENTITY_DATABASE_PASSWORD: the task authenticates to Aurora with an IAM token.
+  # The password still exists in Secrets Manager because the DB seed uses it to bootstrap
+  # the role (see postgres_seed.tf).
   secrets = [
-    { name = "IDENTITY_DATABASE_PASSWORD", valueFrom = aws_secretsmanager_secret.identity_db_password[0].arn },
     { name = "CAMUNDA_IDENTITY_CLIENT_SECRET", valueFrom = local.oidc.identity.client_secret_arn },
   ]
 
   task_desired_count          = 1
-  extra_task_role_attachments = []
+  extra_task_role_attachments = [aws_iam_policy.rds_db_connect_identity[0].arn]
 
   wait_for_steady_state = true
+}
+
+################################################################
+#              Camunda Hub (Web Modeler) - optional            #
+################################################################
+# Camunda Hub bundles Web Modeler (+ Console). It authenticates via OIDC against
+# the same provider-agnostic local.oidc interface as every other component, so it
+# is only valid when authentication_mode = "oidc" (guarded in auth_mode.tf).
+# Enabling it also registers the web-modeler client in the bundled Keycloak realm
+# (keycloak_realm.tf).
+
+locals {
+  # Single source of truth for the Hub URL context path: passed to the module and
+  # reused for the OIDC redirect (keycloak_realm.tf), server URL and websocket path.
+  camunda_hub_context_path = "/hub"
+
+  # Cluster generation reported to Camunda Hub. Values >= 8.8 select the REST/gRPC
+  # cluster API (and drop the legacy url.zeebe requirement); a blank value makes the
+  # app fail to start on `camunda.modeler.clusters[0].version`.
+  # TODO: [release-duty] keep in sync with the orchestration cluster image tag.
+  camunda_hub_cluster_version = "8.10.0"
+
+  # Orchestration cluster registration for Camunda Hub, in the `components[]` schema
+  # introduced by 8.10 (camundaPlatform.defaultWebModelerCluster in the reference chart).
+  #
+  # The pre-8.10 flat form (clusters[0].url.{rest,grpc}) still boots, but it carries no
+  # readiness URL, so Console cannot resolve cluster health and renders the cluster as
+  # "Unhealthy" with status UNKNOWN even while it is fully operational. Health is probed
+  # on the *management* port: the API port serves no actuator (8080/actuator/health is a
+  # 404) and the v2 API needs a bearer token that a background probe does not hold.
+  #
+  # Nested lists cannot be expressed as relaxed-binding environment variables, so the
+  # whole block is handed to the task as a single SPRING_APPLICATION_JSON value (same
+  # approach as identity_authorization.tf). Defined here in full rather than alongside
+  # flat CAMUNDA_MODELER_CLUSTERS_0_* vars: SPRING_APPLICATION_JSON outranks OS env vars
+  # in Spring's property order, and list properties are not merged across sources.
+  camunda_hub_clusters_json = jsonencode({
+    camunda = {
+      modeler = {
+        clusters = [
+          {
+            id             = "default-cluster"
+            name           = "default-cluster"
+            version        = local.camunda_hub_cluster_version
+            authentication = "BEARER_TOKEN"
+            authorizations = { enabled = local.oidc_enabled }
+            components = [
+              {
+                name    = "Orchestration Cluster"
+                type    = "orchestration"
+                version = local.camunda_hub_cluster_version
+                urls = {
+                  grpc      = "grpc://${module.orchestration_cluster.grpc_service_connect}:26500"
+                  rest      = "http://${module.orchestration_cluster.rest_service_connect}:8080"
+                  readiness = "http://${module.orchestration_cluster.management_service_connect}:9600/actuator/health/readiness"
+                }
+              },
+            ]
+          },
+        ]
+      }
+    }
+  })
+
+  # Pin Spring's resource server to Keycloak's in-VPC key set, but only for the bundled
+  # Keycloak. The path below is Keycloak's own, so it is only correct for that provider:
+  # an external issuer is the customer's, and it publishes its key set wherever its
+  # discovery document says, which is usually not /protocol/openid-connect/certs. For
+  # those, leaving jwk-set-uri unset is the only correct answer -- Spring then reads the
+  # location out of the discovery document.
+  #
+  # For the bundled Keycloak the override still earns its place: it keeps both the
+  # metadata and the key-set fetch off the public ALB, which is what makes a cold-started
+  # task authorize requests. `iss` is validated against the public issuer-uri either way,
+  # and the keys themselves are host-independent.
+  camunda_hub_jwks_env = local.deploy_bundled_keycloak ? [
+    { name = "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWKSETURI", value = "${local.oidc.issuer_backend_uri}/protocol/openid-connect/certs" },
+  ] : []
+}
+
+module "camunda_hub" {
+  # Also gated on OIDC, not just the flag: this block reads
+  # module.management_identity[0], which has no instances in basic mode. Without the
+  # second condition Terraform fails on an invalid index while evaluating these inputs,
+  # before terraform_data.validate_authentication_mode can report the actual problem
+  # ("enable_camunda_hub requires authentication_mode = oidc"). The precondition still
+  # fires and still aborts the plan; this only decides which error the user reads.
+  count  = var.enable_camunda_hub && local.oidc_enabled ? 1 : 0
+  source = "../../../../modules/ecs/fargate/camunda-hub"
+
+  depends_on = [null_resource.run_db_seed_task, module.management_identity]
+
+  prefix                               = "${var.prefix}-oc1"
+  ecs_cluster_id                       = aws_ecs_cluster.ecs.id
+  vpc_id                               = module.vpc.vpc_id
+  vpc_private_subnets                  = module.vpc.private_subnets
+  aws_region                           = data.aws_region.current.region
+  s2s_cloudmap_namespace               = module.orchestration_cluster.s2s_cloudmap_namespace
+  alb_listener_http_webapp_arn         = local.webapp_listener_arn
+  enable_alb_http_webapp_listener_rule = true
+  log_group_name                       = module.orchestration_cluster.log_group_name
+
+  ecs_task_execution_role_arn = aws_iam_role.ecs_task_execution.arn
+
+  restapi_image    = var.camunda_hub_restapi_image
+  websockets_image = var.camunda_hub_websockets_image
+  context_path     = local.camunda_hub_context_path
+
+  # Registry credentials are decided per image, not for the pair. The defaults are public
+  # Docker Hub images; only an image that actually points at the private Camunda registry
+  # gets the credentials, because ECS fails a public pull that is handed credentials for a
+  # registry the image does not come from. Mirrors the ecs-dual-region wiring, which omits
+  # them for the public connectors image for the same reason.
+  restapi_registry_credentials_arn = (
+    startswith(var.camunda_hub_restapi_image, "registry.camunda.cloud/")
+    ? join("", aws_secretsmanager_secret.registry_credentials[*].arn) : ""
+  )
+  websockets_registry_credentials_arn = (
+    startswith(var.camunda_hub_websockets_image, "registry.camunda.cloud/")
+    ? join("", aws_secretsmanager_secret.registry_credentials[*].arn) : ""
+  )
+
+  service_security_group_ids = [
+    aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
+    aws_security_group.allow_package_80_443.id,
+  ]
+
+  # Shared Pusher secret + optional license (root-owned in Secrets Manager).
+  pusher_app_key_secret_arn    = aws_secretsmanager_secret.pusher_app_key[0].arn
+  pusher_app_secret_secret_arn = aws_secretsmanager_secret.pusher_app_secret[0].arn
+  license_secret_arn           = join("", aws_secretsmanager_secret.camunda_license_key[*].arn)
+
+  environment_variables = concat(
+    [
+      # --- Database (dedicated camunda-hub database, IAM auth via AWS JDBC wrapper) ---
+      { name = "SPRING_DATASOURCE_URL", value = "jdbc:aws-wrapper:postgresql://${module.postgresql.aurora_endpoint}:5432/${var.camunda_hub_db_name}?wrapperPlugins=iam" },
+      { name = "SPRING_DATASOURCE_USERNAME", value = var.camunda_hub_db_username },
+      { name = "SPRING_DATASOURCE_DRIVER_CLASS_NAME", value = "software.amazon.jdbc.Driver" },
+
+      # --- Console feature (Camunda Hub consolidation) ---
+      { name = "CAMUNDA_MODELER_FEATURE_CONSOLE_ENABLED", value = "true" },
+
+      # --- Mail (from-address is required by the app; SMTP host left unset => invites won't send) ---
+      { name = "CAMUNDA_MODELER_MAIL_FROMADDRESS", value = "changeme@example.com" },
+
+      # --- OIDC / Management Identity (provider-agnostic local.oidc interface) ---
+      # Always GENERIC, including for the bundled Keycloak: that Keycloak is wired as a
+      # plain OIDC provider (the realm import carries no roles or groups), so the Identity
+      # SDK must resolve permissions through Management Identity's RBAC model instead of
+      # from realm roles. Declaring KEYCLOAK makes the SDK look for realm roles that do not
+      # exist, which yields an empty permission set and a blanket
+      # `hasAccessToOrganization` denial — Web Modeler authenticates but every project
+      # call fails (403 on the management API, 404 on org-scoped resources).
+      { name = "CAMUNDA_IDENTITY_TYPE", value = "GENERIC" },
+      # Backend call to Management Identity (org/roles): use the internal Service
+      # Connect address, not the public ALB URL — Identity's ALB rule is opt-in and
+      # off by default, so the public /identity path is not reachable.
+      { name = "CAMUNDA_IDENTITY_BASEURL", value = "http://${module.management_identity[0].identity_service_connect}:8084" },
+      { name = "CAMUNDA_IDENTITY_ISSUER", value = local.oidc.issuer_uri },
+      # Backend metadata/JWKS fetches use the in-VPC address, which is what makes
+      # authorization work on a freshly started task; see local.oidc.issuer_backend_uri.
+      { name = "CAMUNDA_IDENTITY_ISSUERBACKENDURL", value = local.oidc.issuer_backend_uri },
+      # Spring's resource server keeps the public issuer: it validates the token's `iss`.
+      { name = "SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI", value = local.oidc.issuer_uri },
+      # ...but the key set is fetched server-side, so it uses the in-VPC address for the
+      # same reason as the Identity SDK above -- see local.camunda_hub_jwks_env, appended
+      # below, for why that override is limited to the bundled Keycloak.
+      { name = "CAMUNDA_MODELER_OAUTH2_CLIENT_ID", value = local.oidc.webmodeler.client_id },
+      { name = "CAMUNDA_MODELER_SECURITY_JWT_AUDIENCE_INTERNAL_API", value = local.oidc.webmodeler.audience_internal },
+      { name = "CAMUNDA_MODELER_SECURITY_JWT_AUDIENCE_PUBLIC_API", value = local.oidc.webmodeler.audience_public },
+      # Public root URL for OAuth redirects (matches the web-modeler client's ALB redirect-uri).
+      { name = "CAMUNDA_MODELER_SERVER_URL", value = "${local.alb_base_url}${local.camunda_hub_context_path}" },
+      # Match the rest of the stack's HTTP-only demo posture: without an ALB cert the
+      # app must not force an HTTP->HTTPS redirect (there is no HTTPS listener yet).
+      { name = "CAMUNDA_MODELER_SERVER_HTTPSONLY", value = local.alb_https_enabled ? "true" : "false" },
+
+      # --- Browser-side Pusher (public ALB host + <context>-ws route) ---
+      # Browser-facing, so it must be the same host the certificate covers and the rest of
+      # the OIDC URLs use. The raw ALB name would fail TLS hostname verification once
+      # var.alb_public_hostname is set, and the websocket would never connect.
+      { name = "CAMUNDA_MODELER_PUSHER_CLIENT_HOST", value = local.alb_hostname },
+      { name = "CAMUNDA_MODELER_PUSHER_CLIENT_PORT", value = local.alb_https_enabled ? "443" : "80" },
+      { name = "CAMUNDA_MODELER_PUSHER_CLIENT_PATH", value = "${local.camunda_hub_context_path}-ws" },
+      { name = "CAMUNDA_MODELER_PUSHER_CLIENT_FORCETLS", value = local.alb_https_enabled ? "true" : "false" },
+
+      # --- Orchestration cluster wiring (internal Service Connect; user bearer token) ---
+      # Whole cluster definition including the Console health (readiness) URL; see the
+      # local above for why this is JSON rather than flat CAMUNDA_MODELER_CLUSTERS_0_* vars.
+      { name = "SPRING_APPLICATION_JSON", value = local.camunda_hub_clusters_json },
+    ],
+    local.camunda_hub_jwks_env,
+  )
+
+  extra_task_role_attachments = [
+    aws_iam_policy.rds_db_connect_camunda_hub[0].arn,
+  ]
 }

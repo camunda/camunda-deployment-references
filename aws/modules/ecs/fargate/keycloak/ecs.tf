@@ -58,10 +58,10 @@ resource "aws_ecs_service" "keycloak" {
 
     service {
       port_name      = "http"
-      discovery_name = "keycloak"
+      discovery_name = var.service_connect_dns_name
       client_alias {
         port     = 18080
-        dns_name = "keycloak"
+        dns_name = var.service_connect_dns_name
       }
     }
   }

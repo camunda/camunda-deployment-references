@@ -40,6 +40,13 @@ locals {
   # claim that bootstraps the first admin, the claim the mapping rule matches on, and the
   # orchestration admin principal from drifting apart, and makes all three work against
   # an external provider whose claim is not `preferred_username`.
+  #
+  # This is also the claim IDENTITY_INITIAL_CLAIM_NAME / _VALUE would bootstrap from, and
+  # the two are mutually exclusive: Identity de-duplicates mapping rules on the
+  # (claim-name, claim-value, rule-type) triple rather than on the rule name, so whichever
+  # initializer runs first wins and the other is skipped without error. The auto-created
+  # rule only ever grants ManagementIdentity, so when this model is seeded camunda.tf drops
+  # the IDENTITY_INITIAL_CLAIM_* vars and the rule below bootstraps the admin instead.
   identity_admin_claim_name  = local.oidc.username_claim
   identity_admin_claim_value = var.admin_claim_value
 
@@ -128,6 +135,22 @@ locals {
     for _, preset in [local.identity_preset_identity, local.identity_preset_webmodeler] :
     [for role in preset.roles : role.name]
   ]))
+
+  # Bootstrap env for the first admin. Mutually exclusive with the declared mapping rule:
+  # Identity creates a "Default" ROLE rule from these two vars, and the initializer that
+  # reads `identity.mapping-rules` de-duplicates on the (claim-name, claim-value, rule-type)
+  # triple rather than on the rule name, so a declared rule matching the same claim is
+  # silently skipped and the roles it grants never apply. When the model below is seeded the
+  # declared rule bootstraps the admin instead, granting a superset of the auto-created one.
+  identity_bootstrap_env = local.webmodeler_authorization_enabled ? [] : [
+    { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
+    { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
+  ]
+
+  # Seeded authorization model, handed to the task as a single SPRING_APPLICATION_JSON.
+  identity_authorization_env = local.webmodeler_authorization_enabled ? [
+    { name = "SPRING_APPLICATION_JSON", value = local.identity_authorization_json },
+  ] : []
 
   # Nested maps and lists cannot be expressed as relaxed-binding environment variables,
   # so the whole block is handed to the task as a single SPRING_APPLICATION_JSON value.
