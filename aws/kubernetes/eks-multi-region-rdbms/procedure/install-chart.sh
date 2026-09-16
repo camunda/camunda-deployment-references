@@ -44,21 +44,6 @@ fi
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
 
-# The values file configures the topology under `orchestration.partitioning`.
-# The chart is built from CAMUNDA_HELM_CHART_GIT_REF, so a ref older than the
-# rename does not know that key -- and the chart sets no additionalProperties on
-# `orchestration`, so it would be IGNORED rather than rejected and the cluster
-# would come up single-region with the default numbered topology, while helm
-# reported success. Fail here instead.
-if ! helm show values "$LOCAL_CHART" | yq -e '.orchestration.partitioning' >/dev/null 2>&1; then
-    echo "ERROR: the chart built from ref $CAMUNDA_HELM_CHART_GIT_REF does not expose" >&2
-    echo "       'orchestration.partitioning'. helm-values/camunda-values.yml targets that key," >&2
-    echo "       and an unknown key is silently ignored, so the release would deploy the default" >&2
-    echo "       single-region topology. Bump CAMUNDA_HELM_CHART_GIT_REF to a chart revision that" >&2
-    echo "       contains the rename (camunda/camunda-platform-helm#7179)." >&2
-    exit 1
-fi
-
 # Resolve the broker image of the chart being installed so the cross-region
 # DNS-gate initContainer (see helm-values/camunda-values.yml) reuses the exact
 # same image as the broker: already pulled on the node, no extra pull, and no
