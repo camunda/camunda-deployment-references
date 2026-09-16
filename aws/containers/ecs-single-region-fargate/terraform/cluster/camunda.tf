@@ -323,6 +323,9 @@ module "management_identity" {
     { name = "CAMUNDA_IDENTITY_ISSUER_BACKEND_URL", value = local.oidc.issuer_backend_uri },
     { name = "CAMUNDA_IDENTITY_CLIENT_ID", value = local.oidc.identity.client_id },
     { name = "CAMUNDA_IDENTITY_AUDIENCE", value = local.oidc.identity.audience },
+    # Bootstrap pair for the first admin, gated so it cannot shadow the seeded mapping
+    # rule; the gate and the reasoning live with local.identity_bootstrap_env, appended
+    # just below, in identity_authorization.tf.
     ],
     local.identity_bootstrap_env,
     local.identity_authorization_env,
