@@ -256,6 +256,40 @@ Destroy order matters: Kubernetes-managed load balancers and ENIs keep the VPC
 alive. If `terraform destroy` stalls on a VPC or subnet, look for leftover
 LoadBalancer services and Submariner gateway resources first.
 
+### After the nightly sweep took your cluster
+
+`eu-west-2`, `eu-west-3` and `eu-central-2` are swept nightly at 5AM, so a
+cluster left running overnight is gone in the morning — but **its Terraform
+state is not**. Reusing the same state key the next day puts you in the worst
+position: Terraform believes in resources that no longer exist.
+
+Do not try to reconcile it. `terraform apply -refresh-only` fails outright on
+the half-emptied state, because the EKS module reads attributes off a cluster
+that has gone.
+
+The sweep also does not remove everything. It clears VPCs, EKS clusters, Aurora
+and Transit Gateways, but these survive it and are exactly what a fresh apply
+collides with:
+
+| Leftover | Symptom on the next apply |
+| --- | --- |
+| IAM roles and policies (`<cluster_name>-*`) | `EntityAlreadyExists` |
+| CloudWatch log groups (`/aws/eks/<cluster_name>-*/cluster`) | `ResourceAlreadyExistsException` |
+| KMS aliases (`alias/eks/<cluster_name>-*`) | `AlreadyExistsException` |
+
+So do not delete the state and re-apply under the same `cluster_name`, which is
+the tempting move: you will hit those three in sequence, one apply at a time,
+and a crashed apply can leave EKS clusters outside state to clean up by hand.
+
+**Use a new `cluster_name` instead.** It is a fresh namespace with no orphans,
+and it costs nothing — the sweep collects the old resources tonight. Delete the
+stale state object only once the new deployment is up, so nothing references it
+while you still might need the resource names it records.
+
+If you do need the old name back, sweep it first: IAM roles, IAM policies,
+CloudWatch log groups and KMS aliases matching the prefix, in that order,
+detaching policies before deleting the roles that hold them.
+
 ## Golden files
 
 ```bash

@@ -72,7 +72,7 @@ resource "aws_iam_policy" "rds_db_connect_region_0" {
   count = var.secondary_storage_type == "rdbms" ? 1 : 0
 
   name        = "${local.prefix_region_0}-rds-db-connect-camunda"
-  description = "Allow ECS tasks to connect to Aurora PostgreSQL as IAM DB user 'camunda'"
+  description = "Allow ECS tasks to connect to Aurora as IAM DB user 'camunda'"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -172,7 +172,7 @@ resource "aws_iam_policy" "rds_db_connect_region_1" {
   provider = aws.accepter
 
   name        = "${local.prefix_region_1}-rds-db-connect-camunda"
-  description = "Allow ECS tasks to connect to Aurora PostgreSQL as IAM DB user 'camunda'"
+  description = "Allow ECS tasks to connect to Aurora as IAM DB user 'camunda'"
 
   policy = jsonencode({
     Version = "2012-10-17"
