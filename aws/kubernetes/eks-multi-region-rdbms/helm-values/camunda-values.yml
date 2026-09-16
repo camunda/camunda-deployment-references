@@ -211,8 +211,8 @@ orchestration:
         # What it buys is a visible failure: the controller records the paused
         # state in the replication metrics and logs a warning, and every later
         # export() raises an ExporterException. What it costs is that writes
-        # to the database stop on their own, so secondary storage falls
-        # further behind than the stall alone would leave it.
+        # to the database stop, so secondary storage receives nothing new and
+        # stays stale until replication recovers.
         #
         # That is a decision to make knowingly rather than inherit from a
         # reference architecture, so this pins the default instead of the
