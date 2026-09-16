@@ -87,8 +87,9 @@ locals {
     # downgrades silently. ReplicationLsnProviderFactory.create() throws at
     # startup on anything else, naming the reason, so pointing rdbms_jdbc_url at
     # plain MySQL or a non-global Aurora fails the deployment instead of
-    # quietly dropping the replication signal. Moving off Aurora means choosing
-    # DELAY here and giving it its own delay value.
+    # quietly dropping the replication signal. Moving to a backend that does
+    # not support LOG_SEQ means choosing DELAY here and giving it its own
+    # delay value; plain PostgreSQL and MSSQL keep LOG_SEQ.
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE"
       value = "LOG_SEQ"
@@ -131,8 +132,8 @@ locals {
     # What it buys is a visible failure: the controller records the paused
     # state in the replication metrics and logs a warning, and every later
     # export() raises an ExporterException. What it costs is that writes to
-    # Aurora stop on their own, so secondary storage falls further behind
-    # than the stall alone would leave it.
+    # Aurora stop, so secondary storage receives nothing new and stays stale
+    # until replication recovers.
     #
     # That is a decision to make knowingly rather than inherit from a
     # reference architecture, so this pins the default instead of the

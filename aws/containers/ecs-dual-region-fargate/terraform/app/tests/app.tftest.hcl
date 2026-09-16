@@ -510,9 +510,11 @@ run "missing_component_is_survivable_with_a_url_override" {
 run "async_replication_settings_are_pinned" {
   command = plan
 
-  # These four decide what async replication monitoring actually guarantees, and
-  # three of them override an engine default. A silent revert to the defaults
-  # would still deploy and still pass every other assertion here.
+  # These four decide what async replication monitoring actually guarantees.
+  # Two of them override an engine default (ENABLED and MAXLAG); the other two
+  # deliberately pin a default, so an engine that changes its mind later does
+  # not change this deployment. A silent drift on any of them would still
+  # deploy and still pass every other assertion here.
   assert {
     condition = length([
       for e in local.partitioning_env_vars : e
