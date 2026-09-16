@@ -136,13 +136,20 @@ orchestration:
         - name: CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST
           value: ${DOLLAR}(K8S_NAME).$ZEEBE_SERVICE_NAME
 
-        # Async replication monitoring. The exporter acknowledges a record to
-        # the broker only once the database reports it replicated, which holds
-        # back Zeebe log compaction so an unplanned writer promotion can be
-        # replayed from the log. Without it the exporter acknowledges records
-        # the standby has not received and a promotion loses them. This
-        # architecture delegates replication entirely to the database and
-        # treats a writer failover as routine, so it is not optional here.
+        # Async replication monitoring. Exporting and acknowledging are
+        # separate steps: the exporter writes a record to the database writer,
+        # then tells the broker it is safe only once the required replicas
+        # report it. Zeebe frees disk on the acknowledgement, not on the write,
+        # so a record already in the writer but not yet in every replica still
+        # occupies the Zeebe log. Without it the exporter acknowledges records
+        # the standby has not received and a promotion loses them.
+        #
+        # That retention is insurance against losing the writer, not against a
+        # slow replica. A replica that falls behind catches up from the writer.
+        # If the writer itself is lost, the promoted one resumes from its own
+        # position and Zeebe replays the gap. This architecture delegates
+        # replication entirely to the database and treats a writer failover as
+        # routine, so it is not optional here.
         # The four settings below are set as env vars rather than chart
         # keys so they apply regardless of whether the chart exposes them.
         # https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
@@ -162,48 +169,58 @@ orchestration:
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE
           value: LOG_SEQ
 
-        # The age the oldest unconfirmed exporter position may reach before the
-        # exporter pauses. Under LOG_SEQ this is not a database-reported lag
-        # figure, and it is not an acknowledgement delay either: confirmed
-        # positions are acknowledged as soon as the database reports them. It
-        # is the longest replication interruption to ride out. A cross-region
-        # writer promotion under load runs past the engine default of PT15M,
-        # which would pause the exporter during the very event this
-        # architecture treats as routine, so the budget is an hour. Raising it
-        # does not blind you to a lost secondary either, though the timing
-        # depends on what is in flight: computePauseLag() reports worst-case
-        # lag only while the queue is empty, which pauses at the next poll past
-        # any budget. With positions already queued the queue-head age governs,
-        # so that case waits out max-lag like any other.
+        # The age the oldest unacknowledged position may reach before
+        # exporting pauses. It does nothing while
+        # `pause-on-max-lag-exceeded` stays false below, because that flag is
+        # the only thing the engine compares it against. It is pinned anyway
+        # so the budget is already sized if someone turns pausing on, which is
+        # then a one-line change.
         #
-        # It does not cap retained log growth either: Zeebe continues
-        # processing while export is paused, so size the disk for the longest
-        # replication outage you plan to tolerate. `min-sync-replicas` is left
-        # at its default of 1 because `database_region_slots` defaults to
-        # [0, 1]: there is exactly one Aurora secondary to wait for. Raise it
-        # only alongside the slot list, never on its own, or the exporter waits
-        # for a quorum of replicas that does not exist.
+        # Once pausing is on, the budget governs the normal case: the age of
+        # the oldest position still waiting for confirmation. Losing the
+        # required replica quorum while nothing is queued is reported as
+        # worst-case lag instead, which pauses at the next poll past any
+        # budget.
+        #
+        # Sized at an hour rather than the PT15M engine default because a
+        # cross-region writer promotion under load runs past fifteen minutes,
+        # and this architecture treats such a promotion as routine.
+        #
+        # `min-sync-replicas` is left at its default of 1 because
+        # `database_region_slots` defaults to [0, 1]: there is exactly one
+        # Aurora secondary to wait for. Raise it only alongside the slot list,
+        # never on its own, or the exporter waits for a quorum of replicas
+        # that does not exist.
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG
           value: PT1H
 
-        # Not an RPO control, and not a disk control either. Acknowledgement
-        # is gated on confirmed replication either way, so no data is lost
-        # either way, and the log grows either way: a paused exporter throws
-        # from export(), so its position stops advancing and compaction stays
-        # blocked for exactly as long as the database is behind.
+        # Left at the engine default. Turning it on stops the exporter writing
+        # to the database once the max-lag budget above is exceeded, or
+        # immediately if the required quorum is unavailable while nothing is
+        # queued. Ordinary lag below the budget changes nothing. It does not
+        # protect data and does not bound disk. Acknowledgement already waits for
+        # confirmed replication either way, so nothing is lost either way, and
+        # the Zeebe log is held by the unacknowledged position either way.
         #
-        # What it decides is whether the exporter keeps pushing writes at a
-        # database that is already lagging, or stops and says so. Paused, the
-        # ExporterException reaches the exporter metrics and the broker log
-        # instead of the condition degrading quietly, and the database gets
-        # room to catch up. Zeebe keeps processing throughout; the APIs and web
-        # applications that read secondary storage serve stale data until it
-        # recovers.
+        # Note what it does not change: a replication stall holds the
+        # acknowledged position back whether or not you pause, so the export
+        # backlog grows either way, and a large enough backlog triggers flow
+        # control, lowering the write rate and eventually rejecting client
+        # commands. Pausing neither causes that nor prevents it.
         #
-        # Size `pvcSize` below and alert on replication lag regardless of this
-        # setting. It buys back-pressure and observability, not headroom.
+        # What it buys is a visible failure: the controller records the paused
+        # state in the replication metrics and logs a warning, and every later
+        # export() raises an ExporterException. What it costs is that writes
+        # to the database stop, so secondary storage receives nothing new and
+        # stays stale until replication recovers.
+        #
+        # That is a decision to make knowingly rather than inherit from a
+        # reference architecture, so this pins the default instead of the
+        # behaviour. Turn it on once `pvcSize` below is sized for the longest
+        # replication outage you intend to tolerate and you have alerting on
+        # replication lag.
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED
-          value: 'true'
+          value: 'false'
 
         - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
           value: 'true'
@@ -283,10 +300,10 @@ orchestration:
                 echo "Cross-region DNS gate complete; starting broker."
 
     # The volume must hold normal retention plus all records produced while the
-    # exporter cannot acknowledge replication. The one-hour max-lag above is
-    # only the pause threshold; it does not cap disk growth after exporting
-    # pauses. Re-derive this value from your write rate and longest tolerated
-    # replication outage, and alert on broker disk usage.
+    # exporter cannot acknowledge replication. Nothing above caps that: the
+    # max-lag budget is inert while pausing stays off, and enabling pausing
+    # would not cap it either. Re-derive this value from your write rate and
+    # longest tolerated replication outage, and alert on broker disk usage.
     pvcSize: 32Gi
     logLevel: ERROR
 
