@@ -152,10 +152,13 @@ orchestration:
         # Strategy. LOG_SEQ reads the database's own replication position and
         # is the engine default, but it is pinned here because it is not
         # universally supported: Aurora Global Database for PostgreSQL and
-        # MySQL, MSSQL and PostgreSQL only. Any other backend behind
-        # `deploy_database = false` has to fall back to DELAY, a static timer
-        # with no replication signal that needs its own `delay` value and
-        # external lag monitoring. Swapping the database means revisiting this.
+        # MySQL, MSSQL and PostgreSQL only. Nothing downgrades silently.
+        # ReplicationLsnProviderFactory.create() throws at startup on anything
+        # else, naming the reason, so a database behind `deploy_database =
+        # false` that does not qualify fails the deployment rather than quietly
+        # dropping the replication signal. Swapping the database means choosing
+        # DELAY here, a static timer that needs its own `delay` value and
+        # external lag monitoring.
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE
           value: LOG_SEQ
 
