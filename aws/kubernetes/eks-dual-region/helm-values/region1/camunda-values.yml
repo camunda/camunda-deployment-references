@@ -1,5 +1,11 @@
 ---
-global:
-    multiregion:
+orchestration:
+    # Broker numbering across regions. `global.multiregion.*` is deprecated since
+    # chart v15 (Camunda 8.10) and removed in v16; the same fields now live here.
+    # Both blocks cannot be set at once -- the chart fails the render rather than
+    # picking one -- so `regions` moves here with `regionId`.
+    partitioning:
+        # number of regions that this Camunda Platform instance is stretched across
+        regions: 2
         # unique id of the region. MUST be an integer starting at 0 for computation. With 2 regions, you would have region ids 0 and 1.
         regionId: 1
