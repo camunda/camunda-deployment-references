@@ -124,7 +124,7 @@ fail() {
 bare_ids="$(jq -r '[.brokers[] | select(.brokerId | test("_[0-9]+$") | not) | .brokerId] | join(", ")' \
     "$OUTPUT_FILE")"
 if [ -n "$bare_ids" ]; then
-    fail "brokers [$bare_ids] report a plain node ID, so this cluster is not zone-aware; this architecture deploys orchestration.partitioning.scheme=zoned"
+    fail "brokers [$bare_ids] report a plain node ID, so this cluster is not zone-aware; this architecture deploys orchestration.partitioning.scheme=zone-aware"
     echo
     echo "$failures topology check(s) failed." >&2
     exit 1
