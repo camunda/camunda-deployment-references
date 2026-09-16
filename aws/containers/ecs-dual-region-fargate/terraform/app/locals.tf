@@ -75,8 +75,12 @@ locals {
     },
     # LOG_SEQ reads Aurora's own replication position and is the engine default,
     # pinned here because it is not universally supported: Aurora Global
-    # Database for PostgreSQL and MySQL, MSSQL and PostgreSQL only. Any other
-    # backend falls back to DELAY, a static timer with no replication signal.
+    # Database for PostgreSQL and MySQL, MSSQL and PostgreSQL only. Nothing
+    # downgrades silently. ReplicationLsnProviderFactory.create() throws at
+    # startup on anything else, naming the reason, so pointing rdbms_jdbc_url at
+    # plain MySQL or a non-global Aurora fails the deployment instead of
+    # quietly dropping the replication signal. Moving off Aurora means choosing
+    # DELAY here and giving it its own delay value.
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE"
       value = "LOG_SEQ"
