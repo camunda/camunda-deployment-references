@@ -137,9 +137,10 @@ locals {
     #
     # That is a decision to make knowingly rather than inherit from a
     # reference architecture, so this pins the default instead of the
-    # behaviour. Turn it on once you have sized the EFS volume for the longest
-    # replication outage you intend to tolerate and you have alerting on
-    # replication lag.
+    # behaviour. Turn it on once you have alerting on replication lag and on
+    # EFS storage growth. There is no volume to size here: the module creates
+    # EFS in elastic mode, so a long outage shows up as stored bytes and
+    # throughput cost rather than a full disk.
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED"
       value = "false"

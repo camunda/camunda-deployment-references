@@ -515,6 +515,22 @@ run "async_replication_settings_are_pinned" {
   # deliberately pin a default, so an engine that changes its mind later does
   # not change this deployment. A silent drift on any of them would still
   # deploy and still pass every other assertion here.
+  # Each assertion below filters on name AND value, so a duplicate entry
+  # carrying the same name with a different value would leave every one of them
+  # passing while the rendered container definition stayed ambiguous. Pin the
+  # names first, independently of their values.
+  assert {
+    condition = alltrue([
+      for name in [
+        "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED",
+        "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE",
+        "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG",
+        "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED",
+      ] : length([for e in local.partitioning_env_vars : e if e.name == name]) == 1
+    ])
+    error_message = "each async replication setting must appear exactly once"
+  }
+
   assert {
     condition = length([
       for e in local.partitioning_env_vars : e
