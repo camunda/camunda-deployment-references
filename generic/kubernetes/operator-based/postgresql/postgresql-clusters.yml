@@ -54,22 +54,22 @@ spec:
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-    name: pg-webmodeler
+    name: pg-hub
 spec:
     instances: 1
-    description: PostgreSQL cluster for Webmodeler
+    description: PostgreSQL cluster for Camunda Hub
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
     imageName: ghcr.io/cloudnative-pg/postgresql:18.4
     superuserSecret:
-        name: pg-webmodeler-superuser-secret
+        name: pg-hub-superuser-secret
     # OpenShift Security Context - let SCC manage the security context
     seccompProfile:
         type: RuntimeDefault
     bootstrap:
         initdb:
-            database: webmodeler
-            owner: webmodeler
+            database: hub
+            owner: hub
             secret:
-                name: pg-webmodeler-secret
+                name: pg-hub-secret
     storage:
         size: 15Gi
