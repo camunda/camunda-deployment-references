@@ -156,7 +156,7 @@ runs:
           shell: bash
           env:
               # renovate: datasource=github-tags depName=cli/cli
-              GH_CLI_VERSION: v2.97.0
+              GH_CLI_VERSION: v2.100.0
           run: |
               set -euo pipefail
 
