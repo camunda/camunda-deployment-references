@@ -1,6 +1,6 @@
 ---
 name: review-loop
-description: 'Drive one or more pull requests to a review-ready state by pausing CI, self-reviewing the diff for maintainability, requesting a GitHub Copilot review, fixing every finding, re-requesting until the review is clean, then re-running the tests and appending the exact ` [ready]` tag (leading space) to the end of the PR title. USE WHEN: the user invokes "/review-loop", or says "pause the CI and get a Copilot review", "run the review loop", "fix what Copilot says and re-review", "drive this PR to ready", "mets le PR en ready". INVOKES: the ci-feedback-loop CLI (`review` subcommands + test triage), the code-quality-review skill for the pre-review self-check. DO NOT USE FOR: merging PRs, or one-off log fetching (use ci-feedback-loop directly).'
+description: 'Drive one or more pull requests to a review-ready state by pausing CI, self-reviewing the diff for maintainability and infrastructure safety, requesting a GitHub Copilot review, fixing every finding, re-requesting until the review is clean, then re-running the tests and appending the exact ` [ready]` tag (leading space) to the end of the PR title. USE WHEN: the user invokes "/review-loop", or says "pause the CI and get a Copilot review", "run the review loop", "fix what Copilot says and re-review", "drive this PR to ready", "mets le PR en ready". INVOKES: the ci-feedback-loop CLI (`review` subcommands + test triage), the code-quality-review and iac-review skills for the pre-review self-check. DO NOT USE FOR: merging PRs, or one-off log fetching (use ci-feedback-loop directly).'
 argument-hint: '[pr-number|pr-url ...] (defaults to the current branch PR + its backport PRs)'
 ---
 
@@ -82,6 +82,13 @@ cancels the PR's in-progress runs to free the runners.
 
 Read and follow the **code-quality-review** skill
 (`.github/skills/code-quality-review/SKILL.md`) on the current branch's diff.
+
+When the diff touches `*.tf`, `*.tfvars`, `*.hcl`, `.github/workflows/**` or
+`.github/actions/**`, also run the **iac-review** skill
+(`.github/skills/iac-review/SKILL.md`). The two are complementary and neither
+subsumes the other: `code-quality-review` asks whether the change is well
+built, `iac-review` asks whether it is safe and correct on the surfaces that
+carry this repository's risk.
 
 Do this **before** step 3, not after. Copilot reviews the lines that exist when
 it is asked; if a structural fix is still coming, its findings land on code that
@@ -202,4 +209,5 @@ un-paused PR is a precondition rather than a thing you remember to verify.
 
 - [ci-feedback-loop](../ci-feedback-loop/SKILL.md) — the CLI: CI status/logs/artifacts and the `review` subcommands.
 - [code-quality-review](../code-quality-review/SKILL.md) — the strict self-review run at step 2.
+- [iac-review](../iac-review/SKILL.md) — the infrastructure security/correctness self-review, also at step 2.
 - `AGENTS.md` → "PR review rules", "CI cost and skip labels", "Agent collaboration rules".
