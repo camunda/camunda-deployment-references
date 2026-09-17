@@ -65,11 +65,32 @@ locals {
       name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_1_PRIORITY"
       value = "500"
     },
-    # enable async replication in zeebe to avoid data loss on failover.
-    # reference: https://docs.camunda.io/docs/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
+    # Async replication monitoring: the exporter acknowledges a record to the
+    # broker only once Aurora confirms it replicated, so the Zeebe log is held
+    # until then. Mechanism, trade-offs and sizing:
+    # https://docs.camunda.io/docs/self-managed/deployment/containers/cloud-providers/amazon/aws-ecs-dual-region/#secondary-storage-replication-lag
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED"
       value = "true"
+    },
+    # Engine default, pinned because support is vendor-specific: an unsupported
+    # backend fails the exporter at startup rather than degrading quietly.
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE"
+      value = "LOG_SEQ"
+    },
+    # Pause threshold, inert while the flag below stays false. An hour rather
+    # than the PT15M default: a cross-region promotion under load exceeds it.
+    # min-sync-replicas stays at 1, the global cluster's only secondary.
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG"
+      value = "PT1H"
+    },
+    # Engine default, kept deliberately. Enabling it halts exporting without
+    # protecting data or bounding disk, so it is an operator decision.
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED"
+      value = "false"
     },
   ]
 

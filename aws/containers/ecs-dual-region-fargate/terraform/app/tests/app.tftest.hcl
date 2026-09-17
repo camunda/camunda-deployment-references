@@ -507,6 +507,58 @@ run "missing_component_is_survivable_with_a_url_override" {
   }
 }
 
+run "async_replication_settings_are_pinned" {
+  command = plan
+
+  # Drift on any of these four would still deploy and still pass every other
+  # assertion here, including the two that pin an engine default.
+  # Name-only check first: the value assertions below would all pass with a
+  # duplicate entry carrying the same name and a different value.
+  assert {
+    condition = alltrue([
+      for name in [
+        "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED",
+        "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE",
+        "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG",
+        "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED",
+      ] : length([for e in local.partitioning_env_vars : e if e.name == name]) == 1
+    ])
+    error_message = "each async replication setting must appear exactly once"
+  }
+
+  assert {
+    condition = length([
+      for e in local.partitioning_env_vars : e
+      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED" && e.value == "true"
+    ]) == 1
+    error_message = "async replication monitoring must be enabled"
+  }
+
+  assert {
+    condition = length([
+      for e in local.partitioning_env_vars : e
+      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE" && e.value == "LOG_SEQ"
+    ]) == 1
+    error_message = "the replication monitoring strategy must be pinned to LOG_SEQ"
+  }
+
+  assert {
+    condition = length([
+      for e in local.partitioning_env_vars : e
+      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG" && e.value == "PT1H"
+    ]) == 1
+    error_message = "the replication lag budget must be pinned"
+  }
+
+  assert {
+    condition = length([
+      for e in local.partitioning_env_vars : e
+      if e.name == "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED" && e.value == "false"
+    ]) == 1
+    error_message = "pausing must stay opt-in: enabling it halts exporting without protecting data or bounding disk"
+  }
+}
+
 run "opensearch_env_vars_local_populated_when_opensearch" {
   command = plan
 
