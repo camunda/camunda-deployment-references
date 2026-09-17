@@ -169,6 +169,10 @@
     {
       "version": "26.7.3-debian-12-r1",
       "newDigest": "sha256:79572c20090ba8b8e65e740be170d5ab528c9e2726c1870563283e1ad46416de"
+    },
+    {
+      "version": "26.7.4-debian-12-r0",
+      "newDigest": "sha256:3961e0175f10bce1a268a4b97b0edc4dd5d8d5a769c3bbd4aae4c4463baeb0e6"
     }
   ]
 }
