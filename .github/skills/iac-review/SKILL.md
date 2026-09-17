@@ -9,10 +9,10 @@ argument-hint: '[base-ref] (defaults to the merge base with the target branch)'
 A security-and-correctness pass over an infrastructure diff, run **before**
 asking for a machine review.
 
-This repository is 204 `*.tf`, 196 `*.yml` and 51 workflows. Those two surfaces
-carry nearly all of its risk, and they are reviewed generically today. This
-skill applies rules written specifically for them — but only for the residual
-that the deterministic gates provably leave open.
+Terraform and CI configuration carry most of this repository's risk, and they
+are reviewed generically today. This skill applies rules written specifically
+for them — but only for the residual that the deterministic gates provably
+leave open.
 
 Adapted from the review rule documents in
 [alibaba/open-code-review](https://github.com/alibaba/open-code-review)
@@ -34,7 +34,7 @@ restating it, so the two cannot drift apart.
 
 | Path | Checks |
 |---|---|
-| `**/*.{tf,tfvars,hcl}`, `**/*.tfstate{,.backup}` | [Terraform](#1-terraform--hcl) |
+| `**/*.{tf,tfvars,hcl}`, `**/*.{tf,tfvars}.json`, `**/*.tfstate{,.backup}` | [Terraform](#1-terraform--hcl) |
 | `.github/workflows/**/*.{yml,yaml}`, `.github/actions/**/*.{yml,yaml}` | [Workflows](#2-github-actions) |
 | `.github/{zizmor.yml,actionlint.yaml,labeler.yml}` | [Tool config](#3-github-tool-configuration) |
 | any other `*.{yml,yaml}` | [YAML](#4-yaml) |
@@ -52,7 +52,7 @@ the report.
 | `actionlint` | workflow schema, expression syntax, embedded shell — **`.github/workflows/` only** |
 | `shellcheck` | correctness of **standalone `*.sh` files** (`--exclude=SC2155`). It does not see shell embedded in YAML |
 | `terraform fmt`, `terraform-docs` | HCL formatting, module READMEs |
-| `tflint` (`.lint/tflint/.tflint.hcl`) | naming convention |
+| `tflint` (`.lint/tflint/.tflint.hcl`) | naming convention, and **`terraform_module_pinned_source`** — git module sources must be pinned; the repository carries `tflint-ignore` comments for it, so it demonstrably fires |
 | `trivy config` | Terraform misconfiguration — **only** in directories holding a `README.md`, at least one `*.tf`, and no `.trivy_ignore`, skipping `.terraform`, `.test`, `test`, `fixtures` |
 | `detect-private-key`, `check-added-large-files` | committed keys, stray blobs |
 | `yamllint`, `yamlfmt` | YAML style |
@@ -70,8 +70,8 @@ configuration choice in this repository, not an oversight:
   directory holding a `README.md` and a top-level `*.tf`, then scans that
   directory recursively, so a README-less subdirectory *below* a selected one
   is still covered. The gap is a Terraform tree whose **top** has no
-  `README.md`, one carrying a `.trivy_ignore`, and anything under `test/` or
-  `fixtures/`, which are skipped outright.
+  `README.md`, one carrying a `.trivy_ignore`, and anything under
+  `.terraform/`, `.test/`, `test/` or `fixtures/`, all of which are pruned.
 - **`zizmor` is capped at `high`.** The hook comment in
   `.pre-commit-config.yaml` records that the repository knowingly carries
   medium and low findings (`artipacked`, `${{ steps.*.outputs }}`
@@ -151,17 +151,20 @@ it where trivy does not reach:
 **Reproducibility** — `tflint`'s `required_version` and `required_providers`
 rules are disabled here, so this is unguarded:
 
-- A `terraform` block with no `required_version`, a `provider` configured with
-  no matching `required_providers` entry, or a `required_providers` entry with
-  no `source` or no version constraint, where sibling modules set one.
+- A module with no `required_version` anywhere in it. Terraform merges
+  `terraform` blocks across every file in a module, so check the module, not
+  the block — a backend-only `terraform` block is normal and is not a finding.
+- A `provider` configured with no matching `required_providers` entry, or an
+  entry with no `source`.
 - A **registry** module `source` — any `<namespace>/<name>/<provider>` address,
   not just `terraform-aws-modules/*`; this repository also uses
-  `terraform-redhat/rosa-hcp/rhcs` — with no `version` argument where sibling
-  entries in the same file pin one.
-- A **git-backed** module `source` pinned to anything mutable: a branch, a tag,
-  or no `?ref=` at all. Tags can be moved, so only a full commit SHA in
-  `?ref=` actually pins the source. Git sources never take a `version`
-  argument, so do not ask for one there.
+  `terraform-redhat/rosa-hcp/rhcs` — with no `version`, **or with a version
+  that is unbounded in disguise** such as `>= 0.0.0`. A deliberately wide but
+  documented range (`~>`, an explicit bounded range) is fine.
+- Git-backed module sources are **not** reviewed here: `tflint`'s
+  `terraform_module_pinned_source` is enabled and owns them.
+- Local relative sources (`../../../../modules/vpn`) take no version of any
+  kind — never flag them; this repository uses them throughout by design.
 - Local relative sources (`../../../../modules/vpn`) take no version of any
   kind — never flag them; this repository uses them throughout by design.
 - A deliberately wide but documented constraint (`~>`, an explicit range) is
@@ -170,8 +173,11 @@ rules are disabled here, so this is unguarded:
 **Declarations** — `terraform_unused_declarations` and
 `terraform_typed_variables` are disabled here:
 
-- A `variable`, `local`, `data` source, or provider alias declared in the
-  diff's module and read by nothing in it.
+- A `local`, `data` source, or provider alias declared in the diff's module and
+  read by nothing in it. **Unused `variable`s belong to
+  [code-quality-review](../code-quality-review/SKILL.md)** ("a Terraform
+  variable no module reads") — leave them to it rather than reporting the same
+  defect twice.
 - A `variable` with no `type`. Untyped input accepts anything and shifts the
   failure to apply time.
 - A referenced variable never declared in the diff's scope.
@@ -195,10 +201,11 @@ Assume `zizmor` and `actionlint` already passed. Report only:
     script that is not in the repository.
   - **Inline `run:` shell.** `shellcheck` only receives standalone `*.sh`
     files, and `actionlint`'s embedded-shell check stops at
-    `.github/workflows/`, so the 235 `run:` steps in this tree are linted by
+    `.github/workflows/`, so every `run:` step in this tree is linted by
     nothing. Review them as shell.
-  - A misspelled `with:` input on a nested `uses:` step — unknown inputs are
-    **silently ignored**, so a typo fails open.
+  - A misspelled `with:` input on a nested `uses:` step. GitHub warns about
+    an unexpected input but does not reject it, so the typo still fails open
+    and the intended value never reaches the action.
 - A masked exit status: `local x=$(cmd)`, `export x=$(cmd)` or
   `declare x=$(cmd)`, where the assignment's status hides a failure of `cmd`.
   This is SC2155, and it is excluded from **both** gates
@@ -209,9 +216,12 @@ Assume `zizmor` and `actionlint` already passed. Report only:
   `${{ steps.*.outputs.* }}` interpolated straight into `run:`. Report as
   SHOULD-FIX, never BLOCKING: the threshold is a deliberate choice.
 - An action reference that zizmor's offline run cannot resolve: a pinned SHA
-  that does not exist in the named repository, or a repository that has been
-  renamed so the pin now resolves through a redirect to something other than
-  the action intended. A full-length SHA is immutable, so a moved *tag* is
+  that does not exist in the named repository, or a repository renamed so the
+  pin now resolves through a redirect to something other than the action
+  intended. This covers only the *resolvable* subset of what offline zizmor
+  skips — `known-vulnerable-actions`, `impostor-commit` and `stale-action-refs`
+  need a vulnerability database and remote history, so they stay genuinely
+  unguarded and this lens does not claim them. A full-length SHA is immutable, so a moved *tag* is
   never the problem — do not flag a pin merely because the repository is
   archived or the tag drifted.
 - A secret reaching a step that does not need it, or interpolated into a place
@@ -272,8 +282,10 @@ From `AGENTS.md` → "Critical Rules". No linter checks these:
 
 - **Golden-file redaction** — an ARN, IP, account id, or access key reaching a
   committed golden plan. Always verify redaction.
-- **`kubectl create`** used without the documented dry-run + apply pattern, so
-  the step is not idempotent.
+- **`kubectl create`** for an operation meant to be **idempotent** (re-run on
+  every CI pass) written without the documented dry-run + apply pattern.
+  `AGENTS.md` scopes the rule to idempotent creates, so a deliberately
+  one-shot create is not a finding.
 - **Skip labels created by hand** — they are auto-created by
   `internal-triage-skip` with colour `#1D76DB`.
 - **`.target-branch`** left stale when branching strategy changes.
@@ -316,8 +328,8 @@ Report findings. Do **not** apply them unless the caller asked for fixes.
 
 ## If these rules earn their keep
 
-The rules above are a snapshot, hand-carried. Upstream maintains 51 rulesets
-and refreshes them; this file will drift.
+The rules above are a snapshot, hand-carried. Upstream maintains a far larger
+ruleset corpus and refreshes it; this file will drift.
 
 If the lens proves its worth, the next step is the `ocr` CLI in **delegation
 mode** — `ocr delegate preview` and `ocr delegate rule` resolve the maintained

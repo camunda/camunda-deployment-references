@@ -83,16 +83,16 @@ cancels the PR's in-progress runs to free the runners.
 Read and follow the **code-quality-review** skill
 (`.github/skills/code-quality-review/SKILL.md`) on the current branch's diff.
 
-When the diff touches any path in that skill's **Scope** table — Terraform and
-state files, workflows and composite actions, the `.github/` gate
-configuration, other YAML, and the golden plans, shell procedures,
-`.target-branch` and `justfile` its repository-rules section covers — also run
-the **iac-review** skill (`.github/skills/iac-review/SKILL.md`). Defer to that
-table rather than to a copy of it here, so the trigger and the scope cannot
-drift apart. The two skills are complementary and neither subsumes the other:
-`code-quality-review` asks whether the change is well built, `iac-review` asks
-whether it is safe and correct on the surfaces that carry this repository's
-risk.
+When the diff touches any path in the **Scope** table of
+`.github/skills/iac-review/SKILL.md` — Terraform and state files, workflows and
+composite actions, the `.github/` gate configuration, other YAML, and the
+golden plans, shell procedures, `.target-branch` and `justfile` its
+repository-rules section covers — also run the **iac-review** skill. Defer to
+that table rather than to a copy of it here, so the trigger and the scope
+cannot drift apart. The two skills are complementary and neither subsumes the
+other: `code-quality-review` asks whether the change is well built,
+`iac-review` asks whether it is safe and correct on the surfaces that carry
+this repository's risk.
 
 Do this **before** step 3, not after. Copilot reviews the lines that exist when
 it is asked; if a structural fix is still coming, its findings land on code that
@@ -105,8 +105,14 @@ lines.
 - An empty report is a normal outcome. Do not manufacture a refactor to justify
   the step.
 
-Skip this step only for a diff that cannot have structure: a lockfile bump, a
-`renovate` update, a one-line constant change.
+Skip the **code-quality-review** half only for a diff that cannot have
+structure: a lockfile bump, a `renovate` update, a one-line constant change.
+
+That exception does **not** extend to `iac-review`. A one-line change to a
+file in its scope can flip an IAM action to `*`, widen a CIDR to `0.0.0.0/0`,
+retarget an action input, or move an image tag — size is no guide to blast
+radius on these surfaces. If the diff touches the scope, run the IaC pass
+however small it is.
 
 ### 3. Request a Copilot review
 
