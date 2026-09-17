@@ -499,7 +499,13 @@ module "camunda_hub" {
       # Backend call to Management Identity (org/roles): use the internal Service
       # Connect address, not the public ALB URL — Identity's ALB rule is opt-in and
       # off by default, so the public /identity path is not reachable.
-      { name = "CAMUNDA_IDENTITY_BASEURL", value = "http://${module.management_identity[0].identity_service_connect}:8084" },
+      # In-VPC address, and it must carry the same context path the Identity task is
+      # served under. Exposing Identity on the ALB gave it
+      # SERVER_SERVLET_CONTEXT_PATH = local.identity_context_path, so an unprefixed
+      # service-to-service URL reaches the app but misses every route: Hub then gets 404
+      # from the Identity API and denies every authorization check, while both tasks stay
+      # healthy because their probes use the management port.
+      { name = "CAMUNDA_IDENTITY_BASEURL", value = "http://${module.management_identity[0].identity_service_connect}:8084${local.identity_context_path}" },
       { name = "CAMUNDA_IDENTITY_ISSUER", value = local.oidc.issuer_uri },
       # Backend metadata/JWKS fetches use the in-VPC address, which is what makes
       # authorization work on a freshly started task; see local.oidc.issuer_backend_uri.

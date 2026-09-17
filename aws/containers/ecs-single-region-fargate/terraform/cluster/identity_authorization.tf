@@ -45,8 +45,8 @@ locals {
   # the two are mutually exclusive: Identity de-duplicates mapping rules on the
   # (claim-name, claim-value, rule-type) triple rather than on the rule name, so whichever
   # initializer runs first wins and the other is skipped without error. The auto-created
-  # rule only ever grants ManagementIdentity, so when this model is seeded camunda.tf drops
-  # the IDENTITY_INITIAL_CLAIM_* vars and the rule below bootstraps the admin instead.
+  # rule only ever grants ManagementIdentity, so when this model is seeded the
+  # IDENTITY_INITIAL_CLAIM_* vars are dropped and the rule below bootstraps the admin.
   identity_admin_claim_name  = local.oidc.username_claim
   identity_admin_claim_value = var.admin_claim_value
 
@@ -136,12 +136,18 @@ locals {
     [for role in preset.roles : role.name]
   ]))
 
-  # Bootstrap env for the first admin. Mutually exclusive with the declared mapping rule:
-  # Identity creates a "Default" ROLE rule from these two vars, and the initializer that
-  # reads `identity.mapping-rules` de-duplicates on the (claim-name, claim-value, rule-type)
-  # triple rather than on the rule name, so a declared rule matching the same claim is
-  # silently skipped and the roles it grants never apply. When the model below is seeded the
-  # declared rule bootstraps the admin instead, granting a superset of the auto-created one.
+  # Bootstrap env for the first admin. Mutually exclusive with the declared mapping rule,
+  # and this is confirmed by Identity's own log rather than inferred:
+  #
+  #   MappingRuleInitializerService : Mapping rule exists for claim name
+  #   preferred_username, claim value admin, and rule type ROLE... skipping
+  #
+  # Identity de-duplicates mapping rules on the (claim-name, claim-value, rule-type)
+  # triple, not on the rule name. These two vars make it auto-create a "Default" ROLE
+  # rule with that triple, after which the declared `Camunda Admin` rule is skipped and
+  # the roles it grants never apply. Setting both is therefore strictly worse than
+  # setting either alone, so the bootstrap pair is dropped when the model is seeded and
+  # the declared rule bootstraps the admin instead.
   identity_bootstrap_env = local.camunda_hub_authorization_enabled ? [] : [
     { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
     { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
