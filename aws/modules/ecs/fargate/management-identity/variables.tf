@@ -31,13 +31,13 @@ variable "service_security_group_ids" {
 variable "task_cpu" {
   description = "The amount of cpu to allocate to the ECS task"
   type        = number
-  default     = 2048
+  default     = 1024
 }
 
 variable "task_memory" {
   description = "The amount of memory to allocate to the ECS task"
   type        = number
-  default     = 4096
+  default     = 2048
 }
 
 variable "task_enable_execute_command" {
@@ -61,12 +61,6 @@ variable "task_cpu_architecture" {
 variable "prefix" {
   description = "The prefix to use for naming resources"
   type        = string
-}
-
-variable "alb_arn" {
-  description = "The ARN of the Application Load Balancer to use"
-  type        = string
-  default     = ""
 }
 
 variable "registry_credentials_arn" {
@@ -110,10 +104,21 @@ variable "alb_listener_http_webapp_arn" {
   default     = ""
 }
 
+variable "context_path" {
+  type        = string
+  description = "URL context path Management Identity is served under on the shared ALB. The listener rule matches \"<context_path>*\" and the task must serve the same prefix via SERVER_SERVLET_CONTEXT_PATH, otherwise the ALB forwards a path the app does not answer. Health checks are unaffected: they probe the management port, which does not carry the context path."
+  default     = "/identity"
+
+  validation {
+    condition     = can(regex("^/[A-Za-z0-9._~-]+$", var.context_path))
+    error_message = "context_path must start with / and contain a single non-empty URL-safe segment, e.g. /identity."
+  }
+}
+
 variable "enable_alb_http_webapp_listener_rule" {
-  description = "Whether to create the ALB listener rule for the WebApp (must be a known boolean at plan time)"
+  description = "Whether to create the ALB target group + listener rule for Management Identity (opt-in; requires a decided context path). Must be a known boolean at plan time."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "log_group_name" {
@@ -147,13 +152,13 @@ variable "service_timeouts" {
 ################################################################
 
 variable "image" {
-  description = "The container image to use for the Camunda Connectors"
+  description = "The container image to use for Camunda Management Identity"
   type        = string
   # TODO: [release-duty] before the release, update the below versions to the stable release!
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
-  # renovate: datasource=docker depName=camunda/connectors-bundle versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
-  default = "camunda/connectors-bundle:8.10.0-alpha5"
+  # renovate: datasource=docker depName=camunda/identity versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
+  default = "camunda/identity:8.10.0-alpha5"
 }
 
 variable "environment_variables" {
@@ -174,50 +179,8 @@ variable "secrets" {
   default = []
 }
 
-variable "init_container_enabled" {
-  description = "Whether to add an init container that must complete successfully before the main container starts."
-  type        = bool
-  default     = false
-}
-
-variable "init_container_name" {
-  description = "Name of the init container (referenced by dependsOn)."
-  type        = string
-  default     = "init"
-}
-
-variable "init_container_image" {
-  description = "Container image for the init container."
-  type        = string
-  default     = ""
-}
-
-variable "init_container_command" {
-  description = "Command for the init container (Docker CMD). If empty, uses the image default."
-  type        = list(string)
-  default     = []
-}
-
-variable "init_container_environment_variables" {
-  description = "Environment variables for the init container."
-  type = list(object({
-    name  = string
-    value = string
-  }))
-  default = []
-}
-
-variable "init_container_secrets" {
-  description = "ECS task secrets for the init container (rendered as container definition 'secrets')."
-  type = list(object({
-    name      = string
-    valueFrom = string
-  }))
-  default = []
-}
-
 variable "task_desired_count" {
-  description = "The desired count of ECS tasks to run in the ECS service - directly impacts the Zeebe cluster size"
+  description = "The desired count of ECS tasks to run in the ECS service"
   type        = number
   default     = 1
 }

@@ -1,0 +1,183 @@
+# Management Identity authorization model (component presets + mapping rules).
+#
+# Authorization in Camunda 8 is split across two components:
+#
+#   * The Orchestration Cluster (Zeebe / Operate / Tasklist / v2 API) owns its own
+#     authorization and is seeded Camunda-side via CAMUNDA_SECURITY_INITIALIZATION_*
+#     (see camunda.tf).
+#   * Camunda Hub (Web Modeler + Console) and Optimize resolve permissions through
+#     Management Identity's RBAC model instead: a role is a named set of
+#     (audience, definition) permissions, and a principal is granted roles.
+#
+# Management Identity ships no roles out of the box — they are declared by
+# `identity.component-presets`. In the generic OIDC profile Identity does not manage
+# the IdP, so the Keycloak-only path for granting them (`keycloak.users[].roles`) is
+# unavailable; roles are granted by matching a token claim through
+# `identity.mapping-rules`. Both keys are honored in the `oidc` profile — the upstream
+# Helm chart renders them outside its `authIssuerType == "KEYCLOAK"` guard.
+#
+# The preset and role definitions below are copied from the reference Helm chart
+# (camunda-platform-helm, charts/camunda-platform-8.10/templates/identity/configmap.yaml)
+# so this reference architecture stays in lockstep with it.
+
+variable "enable_camunda_hub_authorization" {
+  type        = bool
+  default     = false
+  description = "Seed Management Identity with the authorization model Camunda Hub needs: component presets declaring the resource servers, permissions and roles, plus a mapping rule granting them to the admin principal. The declared audiences (web-modeler-api, web-modeler-public-api) and role names (Web Modeler, Web Modeler Admin) keep the product's own identifiers. Requires authentication_mode = \"oidc\". Enable it when a Camunda Hub deployment consumes this Identity; without it Hub authenticates but every authorization check is denied, because the roles it asks about are not declared."
+}
+
+locals {
+  camunda_hub_authorization_enabled = local.oidc_enabled && var.enable_camunda_hub_authorization
+
+  # Web Modeler resource-server audiences. App-contract identifiers (the Helm chart's
+  # webModeler.clientApiAudience / publicApiAudience defaults), so they are fixed here.
+  webmodeler_audience_internal = "web-modeler-api"
+  webmodeler_audience_public   = "web-modeler-public-api"
+
+  # The principal that receives the roles below. Both values are shared: the claim name
+  # is the one the Orchestration Cluster reads (local.oidc.username_claim), and the value
+  # is the single admin input also used for the orchestration admin role. That keeps the
+  # claim that bootstraps the first admin, the claim the mapping rule matches on, and the
+  # orchestration admin principal from drifting apart, and makes all three work against
+  # an external provider whose claim is not `preferred_username`.
+  #
+  # This is also the claim IDENTITY_INITIAL_CLAIM_NAME / _VALUE would bootstrap from, and
+  # the two are mutually exclusive: Identity de-duplicates mapping rules on the
+  # (claim-name, claim-value, rule-type) triple rather than on the rule name, so whichever
+  # initializer runs first wins and the other is skipped without error. The auto-created
+  # rule only ever grants ManagementIdentity, so when this model is seeded the
+  # IDENTITY_INITIAL_CLAIM_* vars are dropped and the rule below bootstraps the admin.
+  identity_admin_claim_name  = local.oidc.username_claim
+  identity_admin_claim_value = var.admin_claim_value
+
+  # Management Identity's own resource server. Required even when only Web Modeler is in
+  # play: both Web Modeler roles carry a `read:users` permission on this audience, so it
+  # must be declared for those roles to resolve.
+  identity_preset_identity = {
+    apis = [
+      {
+        name     = "Camunda Identity Resource Server"
+        audience = local.oidc.identity.audience
+        permissions = [
+          { definition = "read", description = "Read permission" },
+          { definition = "read:users", description = "Read users permission" },
+          { definition = "write", description = "Write permission" },
+        ]
+      },
+    ]
+    roles = [
+      {
+        name        = "ManagementIdentity"
+        description = "Provides full access to Management Identity"
+        permissions = [
+          { audience = local.oidc.identity.audience, definition = "read" },
+          { audience = local.oidc.identity.audience, definition = "write" },
+        ]
+      },
+    ]
+  }
+
+  # Camunda Hub. `applications` entries are intentionally omitted: in the
+  # generic OIDC profile the IdP owns the clients and Identity is only a resource server
+  # here, declaring the APIs and roles that Web Modeler asks it about.
+  #
+  # Note this flag does not make Web Modeler self-contained. The bundled realm import
+  # provisions exactly three clients — `orchestration`, `connectors` and
+  # `camunda-identity` — so a client able to obtain a token for the audiences below has
+  # to be provisioned out of band (the Camunda Hub deployment does this for its own
+  # client).
+  identity_preset_webmodeler = {
+    apis = [
+      {
+        name     = "Web Modeler Internal API"
+        audience = local.webmodeler_audience_internal
+        permissions = [
+          { definition = "write:*", description = "Write permission" },
+          { definition = "admin:*", description = "Admin permission" },
+        ]
+      },
+      {
+        name     = "Web Modeler API"
+        audience = local.webmodeler_audience_public
+        permissions = [
+          { definition = "create:*", description = "Allows create access for all resources" },
+          { definition = "read:*", description = "Allows read access to all resources" },
+          { definition = "update:*", description = "Allows update access to all resources" },
+          { definition = "delete:*", description = "Allows delete access for all resources" },
+        ]
+      },
+    ]
+    roles = [
+      {
+        name        = "Web Modeler"
+        description = "Grants full access to Web Modeler"
+        permissions = [
+          { audience = local.webmodeler_audience_internal, definition = "write:*" },
+          { audience = local.oidc.identity.audience, definition = "read:users" },
+        ]
+      },
+      {
+        name        = "Web Modeler Admin"
+        description = "Grants elevated access to Web Modeler"
+        permissions = [
+          { audience = local.oidc.identity.audience, definition = "read:users" },
+          { audience = local.webmodeler_audience_internal, definition = "write:*" },
+          { audience = local.webmodeler_audience_internal, definition = "admin:*" },
+        ]
+      },
+    ]
+  }
+
+  # Grant every role declared above to the admin principal. In the generic OIDC profile
+  # this is the only way to bind a role to a user: Identity cannot read role assignments
+  # out of the IdP, so it matches an incoming token claim instead.
+  identity_admin_role_names = distinct(flatten([
+    for _, preset in [local.identity_preset_identity, local.identity_preset_webmodeler] :
+    [for role in preset.roles : role.name]
+  ]))
+
+  # Bootstrap env for the first admin. Mutually exclusive with the declared mapping rule,
+  # and this is confirmed by Identity's own log rather than inferred:
+  #
+  #   MappingRuleInitializerService : Mapping rule exists for claim name
+  #   preferred_username, claim value admin, and rule type ROLE... skipping
+  #
+  # Identity de-duplicates mapping rules on the (claim-name, claim-value, rule-type)
+  # triple, not on the rule name. These two vars make it auto-create a "Default" ROLE
+  # rule with that triple, after which the declared `Camunda Admin` rule is skipped and
+  # the roles it grants never apply. Setting both is therefore strictly worse than
+  # setting either alone, so the bootstrap pair is dropped when the model is seeded and
+  # the declared rule bootstraps the admin instead.
+  identity_bootstrap_env = local.camunda_hub_authorization_enabled ? [] : [
+    { name = "IDENTITY_INITIAL_CLAIM_NAME", value = local.identity_admin_claim_name },
+    { name = "IDENTITY_INITIAL_CLAIM_VALUE", value = local.identity_admin_claim_value },
+  ]
+
+  # Seeded authorization model, handed to the task as a single SPRING_APPLICATION_JSON.
+  identity_authorization_env = local.camunda_hub_authorization_enabled ? [
+    { name = "SPRING_APPLICATION_JSON", value = local.identity_authorization_json },
+  ] : []
+
+  # Nested maps and lists cannot be expressed as relaxed-binding environment variables,
+  # so the whole block is handed to the task as a single SPRING_APPLICATION_JSON value.
+  # It sets only identity.component-presets and identity.mapping-rules; the scalar
+  # IDENTITY_* and CAMUNDA_IDENTITY_* env vars bind independently.
+  identity_authorization_json = jsonencode({
+    identity = {
+      "component-presets" = {
+        identity   = local.identity_preset_identity
+        webmodeler = local.identity_preset_webmodeler
+      }
+      "mapping-rules" = [
+        {
+          name                 = "Camunda Admin"
+          "claim-name"         = local.identity_admin_claim_name
+          "claim-value"        = local.identity_admin_claim_value
+          operator             = "EQUALS"
+          "rule-type"          = "ROLE"
+          "applied-role-names" = local.identity_admin_role_names
+        },
+      ]
+    }
+  })
+}

@@ -31,13 +31,13 @@ variable "service_security_group_ids" {
 variable "task_cpu" {
   description = "The amount of cpu to allocate to the ECS task"
   type        = number
-  default     = 2048
+  default     = 1024
 }
 
 variable "task_memory" {
   description = "The amount of memory to allocate to the ECS task"
   type        = number
-  default     = 4096
+  default     = 2048
 }
 
 variable "task_enable_execute_command" {
@@ -61,12 +61,6 @@ variable "task_cpu_architecture" {
 variable "prefix" {
   description = "The prefix to use for naming resources"
   type        = string
-}
-
-variable "alb_arn" {
-  description = "The ARN of the Application Load Balancer to use"
-  type        = string
-  default     = ""
 }
 
 variable "registry_credentials_arn" {
@@ -111,9 +105,9 @@ variable "alb_listener_http_webapp_arn" {
 }
 
 variable "enable_alb_http_webapp_listener_rule" {
-  description = "Whether to create the ALB listener rule for the WebApp (must be a known boolean at plan time)"
+  description = "Whether to create the ALB target group + listener rule for Keycloak (opt-in; requires a decided context path). Must be a known boolean at plan time."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "log_group_name" {
@@ -147,13 +141,10 @@ variable "service_timeouts" {
 ################################################################
 
 variable "image" {
-  description = "The container image to use for the Camunda Connectors"
+  description = "The container image to use for Keycloak"
   type        = string
-  # TODO: [release-duty] before the release, update the below versions to the stable release!
-  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
-  # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
-  # renovate: datasource=docker depName=camunda/connectors-bundle versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
-  default = "camunda/connectors-bundle:8.10.0-alpha5"
+  # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+  default = "camunda/keycloak:quay-26.6.4"
 }
 
 variable "environment_variables" {
@@ -174,50 +165,27 @@ variable "secrets" {
   default = []
 }
 
-variable "init_container_enabled" {
-  description = "Whether to add an init container that must complete successfully before the main container starts."
-  type        = bool
-  default     = false
-}
-
-variable "init_container_name" {
-  description = "Name of the init container (referenced by dependsOn)."
-  type        = string
-  default     = "init"
-}
-
-variable "init_container_image" {
-  description = "Container image for the init container."
-  type        = string
-  default     = ""
-}
-
-variable "init_container_command" {
-  description = "Command for the init container (Docker CMD). If empty, uses the image default."
-  type        = list(string)
-  default     = []
-}
-
-variable "init_container_environment_variables" {
-  description = "Environment variables for the init container."
-  type = list(object({
-    name  = string
-    value = string
-  }))
-  default = []
-}
-
-variable "init_container_secrets" {
-  description = "ECS task secrets for the init container (rendered as container definition 'secrets')."
-  type = list(object({
-    name      = string
-    valueFrom = string
-  }))
-  default = []
-}
-
 variable "task_desired_count" {
-  description = "The desired count of ECS tasks to run in the ECS service - directly impacts the Zeebe cluster size"
+  description = "The desired count of ECS tasks to run in the ECS service"
   type        = number
   default     = 1
+}
+
+variable "enable_realm_import" {
+  description = "When true, Keycloak imports a realm on startup: the container writes the JSON provided via the KEYCLOAK_REALM_IMPORT_JSON environment variable (typically injected from a Secrets Manager secret) to the import directory and starts with `--import-realm`. Import is skipped for realms that already exist. Requires a secret named KEYCLOAK_REALM_IMPORT_JSON in var.secrets."
+  type        = bool
+  default     = false
+
+  validation {
+    # The import entrypoint reads $KEYCLOAK_REALM_IMPORT_JSON under `set -u`, so the
+    # secret must be provided or the task fails at runtime with an unbound variable.
+    condition     = !var.enable_realm_import || contains([for s in var.secrets : s.name], "KEYCLOAK_REALM_IMPORT_JSON")
+    error_message = "enable_realm_import = true requires a secret named \"KEYCLOAK_REALM_IMPORT_JSON\" in var.secrets."
+  }
+}
+
+variable "service_connect_dns_name" {
+  description = "Service Connect discovery/DNS name registered for Keycloak, reachable in-cluster at http://<this>:18080/auth. Exposed as an input so callers can build backend URLs from a constant instead of routing this name through the resource graph."
+  type        = string
+  default     = "keycloak"
 }
