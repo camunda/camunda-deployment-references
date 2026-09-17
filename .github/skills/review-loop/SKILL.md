@@ -83,15 +83,16 @@ cancels the PR's in-progress runs to free the runners.
 Read and follow the **code-quality-review** skill
 (`.github/skills/code-quality-review/SKILL.md`) on the current branch's diff.
 
-When the diff touches Terraform (`*.tf`, `*.tfvars`, `*.hcl`, `*.tfstate`),
-any workflow or composite action (`.github/workflows/**`,
-`.github/actions/**`), the gate configuration (`.github/*.{yml,yaml}`), or any
-other `*.{yml,yaml}`, also run the **iac-review** skill
-(`.github/skills/iac-review/SKILL.md`) — that is its full advertised scope, so
-the trigger matches it exactly. The two are complementary and neither subsumes
-the other: `code-quality-review` asks whether the change is well built,
-`iac-review` asks whether it is safe and correct on the surfaces that carry
-this repository's risk.
+When the diff touches any path in that skill's **Scope** table — Terraform and
+state files, workflows and composite actions, the `.github/` gate
+configuration, other YAML, and the golden plans, shell procedures,
+`.target-branch` and `justfile` its repository-rules section covers — also run
+the **iac-review** skill (`.github/skills/iac-review/SKILL.md`). Defer to that
+table rather than to a copy of it here, so the trigger and the scope cannot
+drift apart. The two skills are complementary and neither subsumes the other:
+`code-quality-review` asks whether the change is well built, `iac-review` asks
+whether it is safe and correct on the surfaces that carry this repository's
+risk.
 
 Do this **before** step 3, not after. Copilot reviews the lines that exist when
 it is asked; if a structural fix is still coming, its findings land on code that

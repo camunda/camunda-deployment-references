@@ -1,6 +1,6 @@
 ---
 name: iac-review
-description: 'Review an infrastructure diff for security and correctness defects that this repository''s deterministic gates do not catch: Terraform/HCL and state files, GitHub Actions workflows and composite actions, the `.github/` gate configuration, and any other YAML. USE WHEN: the user invokes "/iac-review", says "IaC review", "terraform review", "workflow security review", or the review-loop skill reaches its self-review step on a diff touching `*.tf`, `*.tfvars`, `*.hcl`, `*.tfstate`, `.github/workflows/**`, `.github/actions/**`, `.github/*.{yml,yaml}`, or any other `*.{yml,yaml}`. INVOKES: git diff, ripgrep. DO NOT USE FOR: maintainability review (code-quality-review owns that), re-reporting what pre-commit already blocks, or approving/merging PRs.'
+description: 'Review an infrastructure diff for security and correctness defects that this repository''s deterministic gates do not catch: Terraform/HCL and state files, GitHub Actions workflows and composite actions, the `.github/` gate configuration, other YAML, and the golden plans, shell procedures and repository files that only AGENTS.md governs. USE WHEN: the user invokes "/iac-review", says "IaC review", "terraform review", "workflow security review", or the review-loop skill reaches its self-review step on a diff touching `*.tf`, `*.tfvars`, `*.hcl`, `*.tfstate`, `*.tfstate.backup`, `.github/workflows/**`, `.github/actions/**`, `.github/*.{yml,yaml}`, any other `*.{yml,yaml}`, `**/golden/**`, `**/procedure/**/*.sh`, `.target-branch` or `justfile` — the Scope table in the skill is authoritative. INVOKES: git diff, ripgrep. DO NOT USE FOR: maintainability review (code-quality-review owns that), re-reporting what pre-commit already blocks, or approving/merging PRs.'
 argument-hint: '[base-ref] (defaults to the merge base with the target branch)'
 ---
 
@@ -29,12 +29,16 @@ Apache License 2.0. The full license text and the list of changes are in
 
 ## Scope
 
+This table is authoritative. The review-loop trigger points at it rather than
+restating it, so the two cannot drift apart.
+
 | Path | Checks |
 |---|---|
 | `**/*.{tf,tfvars,hcl}`, `**/*.tfstate{,.backup}` | [Terraform](#1-terraform--hcl) |
 | `.github/workflows/**/*.{yml,yaml}`, `.github/actions/**/*.{yml,yaml}` | [Workflows](#2-github-actions) |
 | `.github/{zizmor.yml,actionlint.yaml,labeler.yml}` | [Tool config](#3-github-tool-configuration) |
 | any other `*.{yml,yaml}` | [YAML](#4-yaml) |
+| `**/golden/**` (including `*.json` plans), `**/procedure/**/*.sh`, `.target-branch`, `justfile` | [Repository rules](#5-repository-rules-nothing-enforces) |
 
 ## What the gates already own
 
@@ -150,11 +154,14 @@ rules are disabled here, so this is unguarded:
 - A `terraform` block with no `required_version`, a `provider` configured with
   no matching `required_providers` entry, or a `required_providers` entry with
   no `source` or no version constraint, where sibling modules set one.
-- A **registry** module `source` (`terraform-aws-modules/...`) with no
-  `version` argument where sibling entries in the same file pin one.
-- A **git-backed** module `source` pinned to a mutable revision — a branch, or
-  no `?ref=` at all. Git sources take their revision in the URL (`?ref=<sha>`
-  or a tag), never a `version` argument, so do not ask for one there.
+- A **registry** module `source` — any `<namespace>/<name>/<provider>` address,
+  not just `terraform-aws-modules/*`; this repository also uses
+  `terraform-redhat/rosa-hcp/rhcs` — with no `version` argument where sibling
+  entries in the same file pin one.
+- A **git-backed** module `source` pinned to anything mutable: a branch, a tag,
+  or no `?ref=` at all. Tags can be moved, so only a full commit SHA in
+  `?ref=` actually pins the source. Git sources never take a `version`
+  argument, so do not ask for one there.
 - Local relative sources (`../../../../modules/vpn`) take no version of any
   kind — never flag them; this repository uses them throughout by design.
 - A deliberately wide but documented constraint (`~>`, an explicit range) is
@@ -181,10 +188,11 @@ Assume `zizmor` and `actionlint` already passed. Report only:
 
 - A composite action under `.github/actions/**`, which `actionlint` never
   reads. Three classes survive there:
-  - `inputs`/`outputs` referenced as `${{ inputs.x }}` without a matching
-    declaration in the action's own `inputs:`/`outputs:` block, or a
-    `uses:`/`run:` step pointing at a local action or script that is not in
-    the repository.
+  - `${{ inputs.x }}` referenced with no matching declaration in the action's
+    own `inputs:` block; an `outputs.<name>.value` mapping whose
+    `${{ steps.<id>.outputs.<name> }}` names a step id or output the action
+    does not produce; or a `uses:`/`run:` step pointing at a local action or
+    script that is not in the repository.
   - **Inline `run:` shell.** `shellcheck` only receives standalone `*.sh`
     files, and `actionlint`'s embedded-shell check stops at
     `.github/workflows/`, so the 235 `run:` steps in this tree are linted by
