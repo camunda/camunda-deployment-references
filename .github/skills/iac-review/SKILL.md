@@ -1,6 +1,6 @@
 ---
 name: iac-review
-description: 'Review an infrastructure diff for security and correctness defects that this repository''s deterministic gates do not catch: Terraform/HCL, GitHub Actions workflows and composite actions, and `.github/` configuration YAML. USE WHEN: the user invokes "/iac-review", says "IaC review", "terraform review", "workflow security review", or the review-loop skill reaches its self-review step on a diff touching `*.tf`, `*.tfvars`, `*.hcl`, `.github/workflows/**`, `.github/actions/**`. INVOKES: git diff, ripgrep. DO NOT USE FOR: maintainability review (code-quality-review owns that), re-reporting what pre-commit already blocks, or approving/merging PRs.'
+description: 'Review an infrastructure diff for security and correctness defects that this repository''s deterministic gates do not catch: Terraform/HCL and state files, GitHub Actions workflows and composite actions, the `.github/` gate configuration, and any other YAML. USE WHEN: the user invokes "/iac-review", says "IaC review", "terraform review", "workflow security review", or the review-loop skill reaches its self-review step on a diff touching `*.tf`, `*.tfvars`, `*.hcl`, `*.tfstate`, `.github/workflows/**`, `.github/actions/**`, `.github/*.{yml,yaml}`, or any other `*.{yml,yaml}`. INVOKES: git diff, ripgrep. DO NOT USE FOR: maintainability review (code-quality-review owns that), re-reporting what pre-commit already blocks, or approving/merging PRs.'
 argument-hint: '[base-ref] (defaults to the merge base with the target branch)'
 ---
 
@@ -31,7 +31,7 @@ Apache License 2.0. The full license text and the list of changes are in
 
 | Path | Checks |
 |---|---|
-| `**/*.{tf,tfvars,hcl}` | [Terraform](#1-terraform--hcl) |
+| `**/*.{tf,tfvars,hcl}`, `**/*.tfstate{,.backup}` | [Terraform](#1-terraform--hcl) |
 | `.github/workflows/**/*.{yml,yaml}`, `.github/actions/**/*.{yml,yaml}` | [Workflows](#2-github-actions) |
 | `.github/{zizmor.yml,actionlint.yaml,labeler.yml}` | [Tool config](#3-github-tool-configuration) |
 | any other `*.{yml,yaml}` | [YAML](#4-yaml) |
@@ -46,7 +46,7 @@ the report.
 |---|---|
 | `zizmor` (`--min-severity=high`, `.github/zizmor.yml`) | template injection, excessive permissions, credential persistence, dangerous triggers, unpinned action refs (policy `'*': hash-pin`) |
 | `actionlint` | workflow schema, expression syntax, embedded shell — **`.github/workflows/` only** |
-| `shellcheck` | shell correctness (`--exclude=SC2155`) |
+| `shellcheck` | correctness of **standalone `*.sh` files** (`--exclude=SC2155`). It does not see shell embedded in YAML |
 | `terraform fmt`, `terraform-docs` | HCL formatting, module READMEs |
 | `tflint` (`.lint/tflint/.tflint.hcl`) | naming convention |
 | `trivy config` | Terraform misconfiguration — **only** in directories holding a `README.md`, at least one `*.tf`, and no `.trivy_ignore`, skipping `.terraform`, `.test`, `test`, `fixtures` |
@@ -147,14 +147,16 @@ it where trivy does not reach:
 **Reproducibility** — `tflint`'s `required_version` and `required_providers`
 rules are disabled here, so this is unguarded:
 
-- A `terraform` block with no `required_version`, or a `required_providers`
-  entry with no `source` or no version constraint, where sibling modules set
-  one.
-- A **registry or remote** module `source` (`terraform-aws-modules/...`, a
-  git URL) with no `version` argument where sibling entries in the same file
-  pin one. Local relative sources (`../../../../modules/vpn`) take no
-  `version` argument at all — never flag them; this repository uses them
-  throughout by design.
+- A `terraform` block with no `required_version`, a `provider` configured with
+  no matching `required_providers` entry, or a `required_providers` entry with
+  no `source` or no version constraint, where sibling modules set one.
+- A **registry** module `source` (`terraform-aws-modules/...`) with no
+  `version` argument where sibling entries in the same file pin one.
+- A **git-backed** module `source` pinned to a mutable revision — a branch, or
+  no `?ref=` at all. Git sources take their revision in the URL (`?ref=<sha>`
+  or a tag), never a `version` argument, so do not ask for one there.
+- Local relative sources (`../../../../modules/vpn`) take no version of any
+  kind — never flag them; this repository uses them throughout by design.
 - A deliberately wide but documented constraint (`~>`, an explicit range) is
   fine.
 
@@ -177,12 +179,23 @@ Assume `zizmor` and `actionlint` already passed. Report only:
 
 **Security below the gate**
 
-- A composite action under `.github/actions/**` whose **workflow semantics**
-  go unchecked: `actionlint` never reads that tree, so `inputs`/`outputs`
-  wired to names the action does not declare, a `using:` step referencing a
-  missing script, or an `if:` on a composite step survive there. Shell
-  correctness and YAML style in that tree are already owned by `shellcheck`,
-  `yamllint` and `yamlfmt` — do not re-report those.
+- A composite action under `.github/actions/**`, which `actionlint` never
+  reads. Three classes survive there:
+  - `inputs`/`outputs` referenced as `${{ inputs.x }}` without a matching
+    declaration in the action's own `inputs:`/`outputs:` block, or a
+    `uses:`/`run:` step pointing at a local action or script that is not in
+    the repository.
+  - **Inline `run:` shell.** `shellcheck` only receives standalone `*.sh`
+    files, and `actionlint`'s embedded-shell check stops at
+    `.github/workflows/`, so the 235 `run:` steps in this tree are linted by
+    nothing. Review them as shell.
+  - A misspelled `with:` input on a nested `uses:` step — unknown inputs are
+    **silently ignored**, so a typo fails open.
+- A masked exit status: `local x=$(cmd)`, `export x=$(cmd)` or
+  `declare x=$(cmd)`, where the assignment's status hides a failure of `cmd`.
+  This is SC2155, and it is excluded from **both** gates
+  (`.pre-commit-config.yaml`: `-ignore=SC2155` for actionlint,
+  `--exclude=SC2155` for shellcheck), so nothing reports it anywhere.
 - A medium/low-severity pattern that `zizmor` carries by policy but that this
   diff *introduces* rather than inherits — a new `artipacked` checkout, a new
   `${{ steps.*.outputs.* }}` interpolated straight into `run:`. Report as
@@ -202,9 +215,6 @@ Assume `zizmor` and `actionlint` already passed. Report only:
   (tags, merge-base, changelog).
 - An `if:` whose boolean logic does not say what the surrounding comment or
   job name claims — especially `github.event_name` comparisons.
-- A misspelled action input: unknown inputs are **silently ignored**, so
-  `fetch-detph` fails open and nothing complains.
-- A `needs:` naming a job id that does not exist in the same workflow.
 
 **Reliability**
 
