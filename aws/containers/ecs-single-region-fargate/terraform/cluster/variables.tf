@@ -110,3 +110,31 @@ variable "secrets_kms_key_arn" {
   type        = string
   default     = ""
 }
+
+################################################################
+#                      Load test Options                       #
+################################################################
+
+variable "enable_load_tests" {
+  description = "Deploy the load test overlay: a long-lived Prometheus that discovers this cluster through Cloud Map, and a load generator driving process instances at it. Off by default; the plan is unchanged while it is false."
+  type        = bool
+  default     = false
+}
+
+variable "load_tests_prometheus_port" {
+  description = "Port the load test Prometheus listens on. Deliberately outside var.ports so enabling the overlay does not widen the cluster's own security group."
+  type        = number
+  default     = 9090
+}
+
+variable "load_tests_retention_time" {
+  description = "How long the load test Prometheus keeps samples, as a Prometheus duration."
+  type        = string
+  default     = "168h"
+}
+
+variable "load_tests_start_rate" {
+  description = "Process instances started per second by the load generator."
+  type        = number
+  default     = 10
+}

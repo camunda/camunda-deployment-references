@@ -1,0 +1,96 @@
+# Tests for the optional load-test overlay.
+#
+# The overlay is the part of camunda/camunda-load-tests-ecs that survived the
+# fold: a long-lived Prometheus plus a load generator, attached to the cluster
+# this reference already builds. It is opt-in because a reference architecture
+# should not ship a benchmark to everyone who copies it, so the case that
+# matters most is the one where the flag is off and the plan is unchanged.
+
+mock_provider "aws" {}
+mock_provider "random" {}
+mock_provider "null" {}
+
+# The mocked provider returns an empty AZ list, which slice() in vpc.tf rejects
+# before any of the assertions below are reached.
+override_data {
+  target = data.aws_availability_zones.available
+  values = {
+    names = ["us-east-1a", "us-east-1b", "us-east-1c"]
+  }
+}
+
+override_data {
+  target = data.aws_servicequotas_service_quota.elastic_ip_quota
+  values = {
+    value = 100
+  }
+}
+
+override_data {
+  target = data.aws_eips.current_usage
+  values = {
+    public_ips = []
+  }
+}
+
+override_data {
+  target = data.aws_vpcs.current_vpcs
+  values = {
+    ids = []
+  }
+}
+
+run "load_tests_absent_by_default" {
+  command = plan
+
+  assert {
+    condition     = output.prometheus_endpoint == null
+    error_message = "No Prometheus should be planned unless enable_load_tests is set"
+  }
+
+  assert {
+    condition     = output.load_generator_log_group == null
+    error_message = "No load generator should be planned unless enable_load_tests is set"
+  }
+
+  assert {
+    condition     = output.load_generator_target == null
+    error_message = "No load generator target should be reported unless enable_load_tests is set"
+  }
+}
+
+run "load_tests_wired_when_enabled" {
+  command = plan
+
+  variables {
+    enable_load_tests = true
+  }
+
+  assert {
+    condition     = output.prometheus_endpoint != null
+    error_message = "Prometheus should be planned when enable_load_tests is true"
+  }
+
+  assert {
+    condition     = output.load_generator_log_group != null
+    error_message = "The load generator should be planned when enable_load_tests is true"
+  }
+}
+
+run "generator_points_at_this_cluster" {
+  command = plan
+
+  variables {
+    enable_load_tests = true
+    prefix            = "wired"
+  }
+
+  # The orchestration-cluster module registers
+  # "orchestration-cluster.<prefix>-oc1.service.local" in Cloud Map. Getting
+  # this wrong produces a generator that starts, connects to nothing and
+  # reports zero throughput without ever failing.
+  assert {
+    condition     = output.load_generator_target == "orchestration-cluster.wired-oc1.service.local"
+    error_message = "The generator should target the orchestration cluster's Cloud Map record"
+  }
+}

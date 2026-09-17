@@ -11,6 +11,8 @@ This directory contains the Terraform implementation for the ECS single-region (
 | Name | Source | Version |
 | ---- | ------ | ------- |
 | <a name="module_connectors"></a> [connectors](#module\_connectors) | ../../../../modules/ecs/fargate/connectors | n/a |
+| <a name="module_load_generator"></a> [load\_generator](#module\_load\_generator) | ../../../../modules/ecs/fargate/load-generator | n/a |
+| <a name="module_monitoring"></a> [monitoring](#module\_monitoring) | ../../../../modules/ecs/fargate/monitoring | n/a |
 | <a name="module_orchestration_cluster"></a> [orchestration\_cluster](#module\_orchestration\_cluster) | ../../../../modules/ecs/fargate/orchestration-cluster | n/a |
 | <a name="module_postgresql"></a> [postgresql](#module\_postgresql) | ../../../../modules/aurora | n/a |
 | <a name="module_vpc"></a> [vpc](#module\_vpc) | terraform-aws-modules/vpc/aws | v6.6.1 |
@@ -57,6 +59,7 @@ This directory contains the Terraform implementation for the ECS single-region (
 | [aws_security_group.allow_remote_9600](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.allow_remote_grpc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_security_group.efs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_security_group.prometheus](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [null_resource.run_db_seed_task](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [random_password.admin_user_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [random_password.connectors_user_password](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
@@ -79,7 +82,11 @@ This directory contains the Terraform implementation for the ECS single-region (
 | <a name="input_db_seed_enabled"></a> [db\_seed\_enabled](#input\_db\_seed\_enabled) | Run a one-time ECS task to create/grant IAM DB users (uses db\_admin\_username/password) | `bool` | `true` | no |
 | <a name="input_db_seed_iam_usernames"></a> [db\_seed\_iam\_usernames](#input\_db\_seed\_iam\_usernames) | Database users to create and grant rds\_iam + privileges for (used for IAM DB auth) | `list(string)` | <pre>[<br/>  "camunda"<br/>]</pre> | no |
 | <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
+| <a name="input_enable_load_tests"></a> [enable\_load\_tests](#input\_enable\_load\_tests) | Deploy the load test overlay: a long-lived Prometheus that discovers this cluster through Cloud Map, and a load generator driving process instances at it. Off by default; the plan is unchanged while it is false. | `bool` | `false` | no |
 | <a name="input_limit_access_to_cidrs"></a> [limit\_access\_to\_cidrs](#input\_limit\_access\_to\_cidrs) | List of CIDR blocks to allow access to ssh of Bastion and LoadBalancer | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
+| <a name="input_load_tests_prometheus_port"></a> [load\_tests\_prometheus\_port](#input\_load\_tests\_prometheus\_port) | Port the load test Prometheus listens on. Deliberately outside var.ports so enabling the overlay does not widen the cluster's own security group. | `number` | `9090` | no |
+| <a name="input_load_tests_retention_time"></a> [load\_tests\_retention\_time](#input\_load\_tests\_retention\_time) | How long the load test Prometheus keeps samples, as a Prometheus duration. | `string` | `"168h"` | no |
+| <a name="input_load_tests_start_rate"></a> [load\_tests\_start\_rate](#input\_load\_tests\_start\_rate) | Process instances started per second by the load generator. | `number` | `10` | no |
 | <a name="input_ports"></a> [ports](#input\_ports) | The ports to open for the security groups within the VPC | `map(number)` | <pre>{<br/>  "camunda_metrics_endpoint": 9600,<br/>  "camunda_web_ui": 8080,<br/>  "postgresql": 5432,<br/>  "zeebe_broker_network_command_api_port": 26501,<br/>  "zeebe_gateway_cluster_port": 26502,<br/>  "zeebe_gateway_network_port": 26500<br/>}</pre> | no |
 | <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for names of resources | `string` | `"camunda"` | no |
 | <a name="input_registry_password"></a> [registry\_password](#input\_registry\_password) | (Optional) The password for the container registry (e.g., Docker Hub) | `string` | `""` | no |
@@ -91,5 +98,8 @@ This directory contains the Terraform implementation for the ECS single-region (
 | ---- | ----------- |
 | <a name="output_admin_user_password"></a> [admin\_user\_password](#output\_admin\_user\_password) | The admin password for Camunda. Easy access purposes, saved in Secrets Manager. |
 | <a name="output_alb_endpoint"></a> [alb\_endpoint](#output\_alb\_endpoint) | (Optional) The DNS name of the Application Load Balancer (ALB) to access the Camunda Webapp. |
+| <a name="output_load_generator_log_group"></a> [load\_generator\_log\_group](#output\_load\_generator\_log\_group) | CloudWatch log group carrying the load generator's throughput lines, or null when enable\_load\_tests is false. |
+| <a name="output_load_generator_target"></a> [load\_generator\_target](#output\_load\_generator\_target) | The Orchestration Cluster the load generator drives, or null when enable\_load\_tests is false. |
 | <a name="output_nlb_endpoint"></a> [nlb\_endpoint](#output\_nlb\_endpoint) | (Optional) The DNS name of the Network Load Balancer (NLB) to access the Camunda Core. |
+| <a name="output_prometheus_endpoint"></a> [prometheus\_endpoint](#output\_prometheus\_endpoint) | In-VPC base URL of the load test Prometheus, or null when enable\_load\_tests is false. |
 <!-- END_TF_DOCS -->
