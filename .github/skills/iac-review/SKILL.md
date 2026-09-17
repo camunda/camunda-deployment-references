@@ -33,7 +33,7 @@ Apache License 2.0. The full license text and the list of changes are in
 |---|---|
 | `**/*.{tf,tfvars,hcl}` | [Terraform](#1-terraform--hcl) |
 | `.github/workflows/**/*.{yml,yaml}`, `.github/actions/**/*.{yml,yaml}` | [Workflows](#2-github-actions) |
-| `.github/*.{yml,yaml}`, `.github/ISSUE_TEMPLATE/**` | [Repo config](#3-github-configuration) |
+| `.github/{zizmor.yml,actionlint.yaml,labeler.yml}` | [Tool config](#3-github-tool-configuration) |
 | any other `*.{yml,yaml}` | [YAML](#4-yaml) |
 
 ## What the gates already own
@@ -198,15 +198,22 @@ Assume `zizmor` and `actionlint` already passed. Report only:
 - A new heavy job that does not honour the `skip_all` / `skip_<workflow>`
   triage gate, so it cannot be paused during a review loop.
 
-### 3. `.github/` configuration
+### 3. `.github/` tool configuration
 
-- An issue template missing `name`, `description`, or `body`.
-- A body input with an invalid `type` (valid: `dropdown`, `input`, `textarea`,
-  `checkboxes`, `markdown`).
-- A `dropdown` with an empty `options` list.
-- A form input with no `id`, so nothing can parse it programmatically.
-- `release.yml` referencing category labels that do not exist, or lacking a
-  catch-all `*` category, which silently drops PRs from release notes.
+The files that govern the gates themselves — `zizmor.yml`, `actionlint.yaml`,
+`labeler.yml`. A mistake here disables a check silently, which is worse than
+a check failing loudly.
+
+- A new suppression with no stated reason. `.github/zizmor.yml` sets the
+  precedent: each `dangerous-triggers` ignore carries the reasoning for why
+  that workflow is safe. An `ignore`, an `exclude`, or a lowered threshold
+  added without one is the finding.
+- A suppression whose reason no longer holds — an exempted workflow that has
+  since gained the very pattern it was exempted from.
+- A `labeler.yml` rule matching a path that no longer exists, so the label
+  silently stops being applied.
+- A mistyped key. These files are read by third-party binaries that mostly do
+  not reject unknown keys, so a typo disables the setting instead of failing.
 
 ### 4. YAML
 
