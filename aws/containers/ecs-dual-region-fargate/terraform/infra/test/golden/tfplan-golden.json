@@ -1236,6 +1236,7 @@
         "name": "camunda-r0-oc-admin-user-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -1260,6 +1261,7 @@
         "name": "camunda-r1-oc-admin-user-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-3",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -1284,6 +1286,7 @@
         "name": "camunda-r0-oc-connectors-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -1308,6 +1311,7 @@
         "name": "camunda-r1-oc-connectors-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-3",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -1332,6 +1336,7 @@
         "name": "camunda-r0-db-admin-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -3091,6 +3096,12 @@
           }
         },
         "module.aurora_global[0].aws_rds_cluster_instance.primary[0]": {
+          "identity": {
+            "account_id": null,
+            "identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "primary",
@@ -3121,6 +3132,12 @@
           }
         },
         "module.aurora_global[0].aws_rds_cluster_instance.secondary[0]": {
+          "identity": {
+            "account_id": null,
+            "identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "secondary",
