@@ -12,7 +12,7 @@ resource "aws_lb_target_group" "prometheus" {
   vpc_id      = var.vpc_id
 
   health_check {
-    path                = "/-/healthy"
+    path                = "${var.web_route_prefix}/-/healthy"
     port                = tostring(var.prometheus_port)
     protocol            = "HTTP"
     matcher             = "200"
@@ -41,9 +41,11 @@ resource "aws_lb_listener_rule" "prometheus" {
     target_group_arn = aws_lb_target_group.prometheus[0].arn
   }
 
+  # Both forms: the bare prefix is what a person types, the wildcard carries
+  # every asset and API path under it.
   condition {
     path_pattern {
-      values = [var.alb_listener_rule_path_pattern]
+      values = [var.web_route_prefix, "${var.web_route_prefix}/*"]
     }
   }
 }

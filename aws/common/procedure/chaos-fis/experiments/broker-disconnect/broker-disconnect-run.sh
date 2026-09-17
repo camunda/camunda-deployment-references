@@ -120,7 +120,9 @@ run_pre_check
 # ========================================
 confirm_experiment \
   "This experiment will ISOLATE broker task ${TARGET_TASK_ID} in ${TARGET_AZ} for ${DURATION}." \
-  "The task keeps running but cannot reach the other brokers, forcing partition leadership failover."
+  "The task keeps running but cannot reach the other brokers, forcing partition leadership failover." \
+  "BLAST RADIUS: FIS swaps the network ACL of the whole subnet, so every other task" \
+  "sharing it (connectors, load generator, Prometheus) loses connectivity too."
 # ========================================
 # PHASE 2: Run experiment
 # ========================================

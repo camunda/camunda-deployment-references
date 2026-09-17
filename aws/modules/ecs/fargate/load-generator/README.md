@@ -96,7 +96,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| <a name="input_auth_method"></a> [auth\_method](#input\_auth\_method) | How the generator authenticates against the Orchestration Cluster. The ECS reference deploys no Management Identity, so it runs basic auth. | `string` | `"basic"` | no |
+| <a name="input_auth_method"></a> [auth\_method](#input\_auth\_method) | How the generator authenticates against the Orchestration Cluster. The ECS reference deploys no Management Identity, so it runs basic auth. OIDC is not offered because this module exposes no client credential inputs to configure it with. | `string` | `"basic"` | no |
 | <a name="input_auth_password_secret_arn"></a> [auth\_password\_secret\_arn](#input\_auth\_password\_secret\_arn) | ARN of the Secrets Manager secret holding the password. Required when auth\_method is basic. Passed as an ECS secret so it never appears in the task definition. | `string` | `""` | no |
 | <a name="input_auth_username"></a> [auth\_username](#input\_auth\_username) | Username used when auth\_method is basic | `string` | `"demo"` | no |
 | <a name="input_auto_deploy_process"></a> [auto\_deploy\_process](#input\_auto\_deploy\_process) | Whether the generator deploys its process definition on startup. | `bool` | `true` | no |

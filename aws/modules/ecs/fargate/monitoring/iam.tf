@@ -17,9 +17,11 @@ resource "aws_iam_role" "ecs_task_role" {
   }
 }
 
-# The discovery sidecar reads Cloud Map to find the orchestration clusters.
-# These three List* actions have no resource-level permissions in IAM, so the
-# resource has to stay "*"; the policy is kept read-only to compensate.
+# The discovery sidecar reads Cloud Map to find the orchestration clusters, and
+# resolves each namespace's Route 53 hosted zone to confirm it belongs to this
+# VPC before scraping it. None of these actions support resource-level
+# permissions for the List/Get shapes used here, so the resource has to stay
+# "*"; the policy is kept read-only to compensate.
 resource "aws_iam_policy" "cloudmap_discovery" {
   name = "${var.prefix}-monitoring-cloudmap-discovery"
 
@@ -33,6 +35,15 @@ resource "aws_iam_policy" "cloudmap_discovery" {
           "servicediscovery:ListNamespaces",
           "servicediscovery:ListServices",
           "servicediscovery:ListInstances",
+          "servicediscovery:GetNamespace",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "ResolveNamespaceVpcAssociation"
+        Effect = "Allow"
+        Action = [
+          "route53:GetHostedZone",
         ]
         Resource = "*"
       }

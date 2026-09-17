@@ -137,6 +137,18 @@ run "rejects_an_unknown_auth_method" {
   expect_failures = [var.auth_method]
 }
 
+run "rejects_oidc_because_it_is_not_implemented" {
+  command = plan
+
+  # The module exposes no client credential inputs, so accepting oidc would
+  # silently fall through to the image defaults instead of configuring it.
+  variables {
+    auth_method = "oidc"
+  }
+
+  expect_failures = [var.auth_method]
+}
+
 run "rejects_basic_auth_without_a_password_secret" {
   command = plan
 

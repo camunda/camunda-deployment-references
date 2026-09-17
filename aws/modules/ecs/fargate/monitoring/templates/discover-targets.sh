@@ -20,6 +20,7 @@ PORT="${PORT:-9600}"
 METRICS_PATH="${METRICS_PATH:-/actuator/prometheus}"
 NAMESPACE_SUFFIX="${NAMESPACE_SUFFIX:-.service.local}"
 SERVICE_NAME="${SERVICE_NAME:-orchestration-cluster}"
+VPC_ID="${VPC_ID:-}"
 TMPDIR="${TMPDIR:-/tmp}"
 
 mkdir -p "$(dirname "$TARGETS_FILE")"
@@ -61,6 +62,31 @@ while true; do
         esac
 
         echo "  Checking namespace: ${NS_NAME} (${NS_ID})"
+
+        # list-namespaces is account and region wide, so a namespace with the
+        # same suffix in another VPC would otherwise be scraped: its addresses
+        # are unreachable from here and would pollute the series. A private DNS
+        # namespace is backed by a Route 53 hosted zone, whose VPC associations
+        # are what actually decide reachability.
+        if [ -n "$VPC_ID" ]; then
+            HZ_ID=$(aws servicediscovery get-namespace --id "$NS_ID" \
+                --query 'Namespace.Properties.DnsProperties.HostedZoneId' \
+                --output text 2> /dev/null || echo "None")
+
+            if [ -z "$HZ_ID" ] || [ "$HZ_ID" = "None" ]; then
+                echo "    Could not resolve the hosted zone, skipping"
+                continue
+            fi
+
+            ASSOCIATED=$(aws route53 get-hosted-zone --id "$HZ_ID" \
+                --query "length(VPCs[?VPCId=='${VPC_ID}'])" \
+                --output text 2> /dev/null || echo "0")
+
+            if [ "$ASSOCIATED" = "0" ] || [ "$ASSOCIATED" = "None" ]; then
+                echo "    Not associated with ${VPC_ID}, skipping"
+                continue
+            fi
+        fi
 
         SVC_ID=$(aws servicediscovery list-services \
             --filters Name=NAMESPACE_ID,Values="$NS_ID" \

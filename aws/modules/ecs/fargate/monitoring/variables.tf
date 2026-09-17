@@ -243,8 +243,13 @@ variable "alb_listener_rule_priority" {
   default     = 100
 }
 
-variable "alb_listener_rule_path_pattern" {
-  description = "The path pattern the ALB listener rule matches on."
+variable "web_route_prefix" {
+  description = "Path prefix Prometheus is served under when exposed through an ALB. An ALB forwards the original URI rather than stripping the matched prefix, so this is passed to --web.route-prefix as well as used to build the listener rule, keeping the two from drifting. Ignored when enable_alb_http_listener_rule is false, where Prometheus stays at the root of its private DNS name."
   type        = string
-  default     = "/prometheus/*"
+  default     = "/prometheus"
+
+  validation {
+    condition     = startswith(var.web_route_prefix, "/") && !endswith(var.web_route_prefix, "/")
+    error_message = "web_route_prefix must start with a / and must not end with one, for example /prometheus."
+  }
 }

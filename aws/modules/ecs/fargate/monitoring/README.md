@@ -37,6 +37,15 @@ module "monitoring" {
 The service needs egress to the metrics port inside the VPC to scrape, and
 egress on 443 to reach the Cloud Map API.
 
+Discovery is scoped to `vpc_id`. `ListNamespaces` is account- and region-wide,
+so a second deployment in another VPC would otherwise be scraped through
+addresses this task cannot reach; each candidate namespace is checked against
+the VPC associations of its Route 53 hosted zone before its tasks are added.
+
+Exposing the server through an ALB moves it under `web_route_prefix`
+(`/prometheus` by default) on both the ALB and the private DNS name, because a
+load balancer forwards the matched path rather than stripping it.
+
 ## What it does not do
 
 **No public endpoint by default.** Prometheus serves an unauthenticated read of
@@ -81,7 +90,6 @@ No modules.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_alb_listener_http_arn"></a> [alb\_listener\_http\_arn](#input\_alb\_listener\_http\_arn) | The ARN of the ALB listener to attach the Prometheus rule to. Required when enable\_alb\_http\_listener\_rule is true. | `string` | `""` | no |
-| <a name="input_alb_listener_rule_path_pattern"></a> [alb\_listener\_rule\_path\_pattern](#input\_alb\_listener\_rule\_path\_pattern) | The path pattern the ALB listener rule matches on. | `string` | `"/prometheus/*"` | no |
 | <a name="input_alb_listener_rule_priority"></a> [alb\_listener\_rule\_priority](#input\_alb\_listener\_rule\_priority) | The priority of the ALB listener rule created for Prometheus. | `number` | `100` | no |
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | The AWS region to deploy resources in | `string` | n/a | yes |
 | <a name="input_discovery_image"></a> [discovery\_image](#input\_discovery\_image) | The container image used by the Cloud Map discovery sidecar. It only needs the AWS CLI. | `string` | `"amazon/aws-cli:2.32.7"` | no |
@@ -112,6 +120,7 @@ No modules.
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | The VPC id where the ECS cluster and service are deployed | `string` | n/a | yes |
 | <a name="input_vpc_private_subnets"></a> [vpc\_private\_subnets](#input\_vpc\_private\_subnets) | List of private subnet IDs within the VPC | `list(string)` | n/a | yes |
 | <a name="input_wait_for_steady_state"></a> [wait\_for\_steady\_state](#input\_wait\_for\_steady\_state) | Whether to wait for the ECS service to reach a steady state after deployment | `bool` | `true` | no |
+| <a name="input_web_route_prefix"></a> [web\_route\_prefix](#input\_web\_route\_prefix) | Path prefix Prometheus is served under when exposed through an ALB. An ALB forwards the original URI rather than stripping the matched prefix, so this is passed to --web.route-prefix as well as used to build the listener rule, keeping the two from drifting. Ignored when enable\_alb\_http\_listener\_rule is false, where Prometheus stays at the root of its private DNS name. | `string` | `"/prometheus"` | no |
 ## Outputs
 
 | Name | Description |

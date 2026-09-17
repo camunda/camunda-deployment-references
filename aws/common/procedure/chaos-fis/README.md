@@ -24,11 +24,11 @@ Stops a **random Camunda broker** (ECS task) using the FIS `aws:ecs:stop-task` a
 
 ### 2. Broker Disconnect
 
-Disconnects a **single Camunda broker** (ECS task) by isolating the subnet where the targeted broker runs. The task keeps running but cannot communicate with other brokers. This tests partition leadership failover while the disconnected broker is still alive. Includes automated pre/post health verification.
+Isolates the subnet the targeted broker runs in, using `aws:network:disrupt-connectivity`. The task keeps running but cannot reach the other brokers, which tests partition leadership failover while the disconnected broker is still alive. Includes automated pre/post health verification.
 
 ### 3. S3 Disconnect
 
-Blocks **S3 traffic** from a single broker's subnet using `aws:network:disrupt-connectivity` with `scope=s3`. The broker can still communicate with other brokers and Aurora, but cannot reach S3. S3 disconnect should trigger shutdown by NodeIdProvider as the lease cannot be acquired anymore. This causes task restarts, but the new tasks should be able to acquire node id and become healthy eventually. Includes automated pre/post health verification.
+Blocks **S3 traffic** from the targeted broker's subnet using `aws:network:disrupt-connectivity` with `scope=s3`. The broker can still reach the other brokers and Aurora, but not S3. Losing S3 should make `NodeIdProvider` shut the broker down once it can no longer renew its lease; the replacement task should acquire a node id and become healthy. Includes automated pre/post health verification.
 
 ### 4. S3 Disconnect + Broker Stop (compound failure)
 
@@ -36,11 +36,28 @@ Combines **two simultaneous faults** in a single FIS experiment:
 1. **S3 disconnect** — blocks S3 traffic from one broker's subnet (same as experiment #3)
 2. **Broker stop** — stops a different broker task via `aws:ecs:stop-task` (ECS replaces it)
 
-Both actions run in parallel. The script selects two brokers in different AZs (when possible). This tests how the cluster handles a compound failure — one broker loses S3 while another crashes. Includes automated pre/post health verification with a 300s recovery timeout.
+Both actions run in parallel. The script selects two brokers in different AZs (when possible). This tests how the cluster handles a compound failure — one broker loses S3 while another crashes. Includes automated pre/post health verification with a 900s recovery timeout.
 
 ### 5. AZ Disconnect (broad impact)
 
 Disconnects an **entire Availability Zone** by disrupting network connectivity on all private subnets in that AZ. This affects **all** benchmarks and services running in the AZ. Not recommended for production.
+
+> [!IMPORTANT]
+> **Experiments 2, 3 and 4 are subnet-scoped, not task-scoped.** FIS implements
+> `aws:network:disrupt-connectivity` by swapping the network ACL of the target
+> *subnet*, so the fault hits every task in that subnet, not only the broker the
+> script selected and names in its output. The reference architecture places the
+> Orchestration Cluster, Connectors, the load generator and Prometheus in the
+> same private subnets, so a broker disconnect also cuts off whichever of those
+> happen to run in the same AZ.
+>
+> This is a property of the FIS action, not of these scripts: AWS offers no
+> per-ENI connectivity disruption. Read the result accordingly — a recovery time
+> measured here includes collateral damage to co-located services. To isolate a
+> single broker, give it a dedicated subnet.
+>
+> Only experiment 1 (broker stop) is genuinely single-task: `aws:ecs:stop-task`
+> targets one task ARN.
 
 ### How network disruption works
 
@@ -143,7 +160,7 @@ source ./experiments/assume-fis-role.sh
 #   - Verify the cluster is healthy (pre-check)
 #   - Run the FIS experiment (stops the broker task)
 #   - Wait for ECS to launch a replacement
-#   - Verify the cluster recovers (post-check, default 300s timeout)
+#   - Verify the cluster recovers (post-check, default 900s timeout)
 #   - Print a summary report with PASS/FAIL result
 
 # 5. (Optional) Stop early
@@ -210,7 +227,7 @@ source ./experiments/assume-fis-role.sh
 #   - Verify the cluster is healthy (pre-check)
 #   - Run the experiment (blocks S3 from the broker's subnet)
 #   - Wait for experiment to complete
-#   - Verify the cluster recovers (post-check, default 120s timeout)
+#   - Verify the cluster recovers (post-check, default 900s timeout)
 #   - Print a summary report with PASS/FAIL result
 
 # 5. (Optional) Stop early
@@ -243,7 +260,7 @@ source ./experiments/assume-fis-role.sh
 #   - Verify the cluster is healthy (pre-check)
 #   - Run the experiment (both actions start in parallel)
 #   - Wait for both actions to complete
-#   - Verify the cluster recovers (post-check, default 300s timeout)
+#   - Verify the cluster recovers (post-check, default 900s timeout)
 #   - Print a summary report showing per-action results
 
 # 5. (Optional) Stop early

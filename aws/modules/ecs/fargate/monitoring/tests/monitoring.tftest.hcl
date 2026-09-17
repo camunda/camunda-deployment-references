@@ -101,6 +101,29 @@ run "alb_rule_created_when_listener_supplied" {
     condition     = length(aws_lb_listener_rule.prometheus) == 1
     error_message = "A listener rule should be created when the ALB listener rule is enabled"
   }
+
+  # An ALB forwards the matched path unchanged, so the server has to be told
+  # which prefix it is served under or every request under it answers 404.
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "--web.route-prefix=/prometheus")
+    error_message = "Prometheus should be started under the same prefix the listener rule matches"
+  }
+
+  assert {
+    condition     = aws_lb_target_group.prometheus[0].health_check[0].path == "/prometheus/-/healthy"
+    error_message = "The health check must be probed under the route prefix, not at the root"
+  }
+}
+
+run "route_prefix_not_applied_without_a_listener" {
+  command = plan
+
+  # Without the ALB the way in is the private DNS name, where a prefix would
+  # only make the server harder to reach.
+  assert {
+    condition     = !strcontains(aws_ecs_task_definition.prometheus.container_definitions, "--web.route-prefix")
+    error_message = "No route prefix should be set when Prometheus is not behind a listener"
+  }
 }
 
 run "log_group_created_when_not_supplied" {

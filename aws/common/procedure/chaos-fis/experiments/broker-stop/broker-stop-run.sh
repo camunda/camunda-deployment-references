@@ -73,7 +73,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --id             Template ID (or use --name)"
       echo "  --prefix         Benchmark prefix for ECS service health check (optional)"
       echo "  --endpoint       ALB DNS name for health checks (required)"
-      echo "  --recovery-wait  Seconds to wait for recovery (default: 300)"
+      echo "  --recovery-wait  Seconds to wait for recovery (default: 900)"
       echo "  --cluster        ECS cluster name (default: camunda-cluster)"
       echo "  --skip-pre-check Skip pre-experiment health check"
       echo "  --yes            Skip confirmation prompt"

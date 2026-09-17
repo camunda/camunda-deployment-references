@@ -59,6 +59,19 @@
 #   --wait       Retry for up to N seconds if unhealthy (default: 0 = no retry)
 #   --quiet      Only output the JSON report, no progress messages
 #
+# Authentication:
+#   The reference architecture runs `basic` authentication with no unprotected
+#   API, so /v2/topology answers 401 to an anonymous request and the cluster
+#   looks unreachable. Export the credentials to authenticate:
+#
+#     export CAMUNDA_AUTH_USERNAME=admin
+#     export CAMUNDA_AUTH_PASSWORD="$(aws secretsmanager get-secret-value \
+#       --secret-id <prefix>-oc1-admin-user-password --query SecretString --output text)"
+#
+#   They are handed to curl through a config file on stdin rather than --user,
+#   so the password never appears in argv or in `ps` output. Leave them unset
+#   for a cluster that exposes the API without authentication.
+#
 
 set -euo pipefail
 
@@ -66,6 +79,8 @@ ENDPOINT=""
 PREFIX=""
 ECS_CLUSTER="${ECS_CLUSTER:-camunda-cluster}"
 AWS_REGION="${AWS_REGION:-eu-west-1}"
+CAMUNDA_AUTH_USERNAME="${CAMUNDA_AUTH_USERNAME:-}"
+CAMUNDA_AUTH_PASSWORD="${CAMUNDA_AUTH_PASSWORD:-}"
 WAIT_SECONDS=0
 QUIET=false
 
@@ -97,6 +112,19 @@ ENDPOINT="${ENDPOINT#http://}"
 ENDPOINT="${ENDPOINT#https://}"
 
 BASE_URL="http://${ENDPOINT}:80"
+
+# Fetch a URL, authenticating when credentials are exported.
+#
+# The password is written to curl's stdin config rather than passed as --user,
+# so it stays out of argv and out of `ps` for other users on the machine.
+camunda_curl() {
+    if [[ -n "${CAMUNDA_AUTH_USERNAME}" ]]; then
+        printf 'user = "%s:%s"\n' "${CAMUNDA_AUTH_USERNAME}" "${CAMUNDA_AUTH_PASSWORD}" |
+            curl -sf --max-time 10 --config - "$1" 2> /dev/null
+    else
+        curl -sf --max-time 10 "$1" 2> /dev/null
+    fi
+}
 
 log() {
   if [[ "${QUIET}" != "true" ]]; then
@@ -250,11 +278,15 @@ check_health() {
 
   # Query the v2 topology endpoint (single call replaces old actuator/health + actuator/cluster)
   local topology_response
-  topology_response=$(curl -sf --max-time 10 "${BASE_URL}/v2/topology" 2>/dev/null) || true
+  topology_response=$(camunda_curl "${BASE_URL}/v2/topology") || true
 
   if [[ -z "${topology_response}" ]]; then
+    local hint="Topology API at ${BASE_URL}/v2/topology is not reachable"
+    if [[ -z "${CAMUNDA_AUTH_USERNAME}" ]]; then
+      hint="${hint} (no credentials exported; this reference runs basic auth, so an anonymous request gets 401 — see the header of this script)"
+    fi
     report=$(echo '{}' | jq \
-      --arg details "Topology API at ${BASE_URL}/v2/topology is not reachable" \
+      --arg details "${hint}" \
       '{healthy: false, details: $details}')
     echo "${report}"
     return 1
@@ -318,6 +350,14 @@ check_health() {
   if [[ "${total_partitions}" -gt 0 && "${partitions_with_leader}" -lt "${total_partitions}" ]]; then
     healthy=false
     details="${details}${partitions_with_leader}/${total_partitions} partitions have a leader. "
+  fi
+
+  # Every count above is derived from the partitions the response actually
+  # lists, so a partition missing from every broker would satisfy all of them.
+  # partitionsCount is what the cluster says it should have.
+  if [[ "${expected_partitions}" -gt 0 && "${total_partitions}" -lt "${expected_partitions}" ]]; then
+    healthy=false
+    details="${details}Only ${total_partitions}/${expected_partitions} partitions are present in the topology. "
   fi
 
   # Trim trailing space

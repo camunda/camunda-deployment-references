@@ -66,7 +66,7 @@ while [[ $# -gt 0 ]]; do
       echo "Options:"
       echo "  --prefix        Benchmark prefix (required, e.g., benchmark1)"
       echo "  --az            Target a broker in this AZ (default: random task)"
-      echo "  --duration      Disruption duration in ISO 8601 (default: PT10M)"
+      echo "  --duration      Disruption duration in ISO 8601 (default: PT1M)"
       echo "  --name          Template name tag (default: s3-disconnect-<prefix>)"
       echo "  --cluster       ECS cluster name (default: camunda-cluster)"
       echo "  --log-group     CloudWatch log group for FIS logs (default: /fis/chaos-tests)"

@@ -172,13 +172,13 @@ variable "prefer_rest_over_grpc" {
 }
 
 variable "auth_method" {
-  description = "How the generator authenticates against the Orchestration Cluster. The ECS reference deploys no Management Identity, so it runs basic auth."
+  description = "How the generator authenticates against the Orchestration Cluster. The ECS reference deploys no Management Identity, so it runs basic auth. OIDC is not offered because this module exposes no client credential inputs to configure it with."
   type        = string
   default     = "basic"
 
   validation {
-    condition     = contains(["basic", "none", "oidc"], var.auth_method)
-    error_message = "auth_method must be one of: basic, none, oidc."
+    condition     = contains(["basic", "none"], var.auth_method)
+    error_message = "auth_method must be one of: basic, none."
   }
 }
 

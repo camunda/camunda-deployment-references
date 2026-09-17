@@ -16,7 +16,15 @@ locals {
     refresh_interval = var.discovery_refresh_interval_seconds
   })
 
-  prometheus_command = join("", [
+  # An ALB forwards the matched path unchanged, so a server left at the root
+  # would answer 404 to every request arriving under the prefix. Only set when
+  # the listener rule exists; otherwise the server stays at / for the private
+  # DNS name, which is the default way in.
+  web_route_prefix_args = var.enable_alb_http_listener_rule ? [
+    " --web.route-prefix=${var.web_route_prefix}",
+  ] : []
+
+  prometheus_command = join("", concat([
     "cat <<'EOF' >/etc/prometheus/prometheus.yml\n",
     local.prometheus_config,
     "\nEOF\n",
@@ -25,7 +33,8 @@ locals {
     " --storage.tsdb.retention.time=${var.retention_time}",
     " --web.enable-lifecycle",
     " --web.listen-address=:${var.prometheus_port}",
-  ])
+    ], local.web_route_prefix_args
+  ))
 
   repository_credentials = var.registry_credentials_arn != "" ? {
     repositoryCredentials = {
@@ -62,6 +71,7 @@ resource "aws_ecs_task_definition" "prometheus" {
         { name = "METRICS_PATH", value = var.metrics_path },
         { name = "NAMESPACE_SUFFIX", value = var.discovery_namespace_suffix },
         { name = "SERVICE_NAME", value = var.discovery_service_name },
+        { name = "VPC_ID", value = var.vpc_id },
         { name = "AWS_DEFAULT_REGION", value = var.aws_region },
       ]
       mountPoints = [

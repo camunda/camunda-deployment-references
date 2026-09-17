@@ -76,7 +76,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --id             Template ID (or use --name)"
       echo "  --prefix         Benchmark prefix for ECS service health check (optional)"
       echo "  --endpoint       ALB DNS name for health checks (required)"
-      echo "  --recovery-wait  Seconds to wait for recovery (default: 120)"
+      echo "  --recovery-wait  Seconds to wait for recovery (default: 900)"
       echo "  --cluster        ECS cluster name (default: camunda-cluster)"
       echo "  --skip-pre-check Skip pre-experiment health check"
       echo "  --yes            Skip confirmation prompt"
@@ -128,7 +128,9 @@ run_pre_check
 # ========================================
 confirm_experiment \
   "This experiment will BLOCK S3 TRAFFIC from the broker's subnet." \
-  "Inter-broker and Aurora connectivity will NOT be affected."
+  "Inter-broker and Aurora connectivity will NOT be affected." \
+  "BLAST RADIUS: the ACL swap covers the whole subnet, so every task sharing it" \
+  "loses S3 access, not only the broker named above."
 
 # ========================================
 # PHASE 2: Run experiment

@@ -24,6 +24,7 @@ POLICIES_DIR="${SCRIPT_DIR}/../policies"
 
 AWS_REGION="${AWS_REGION:-eu-west-1}"
 FIS_ADMIN_ROLE="${FIS_ADMIN_ROLE:-FIS-Admin}"
+FIS_EXPERIMENT_ROLE="${FIS_EXPERIMENT_ROLE:-FIS-Experiment-Role}"
 
 echo "=== Setting up FIS Admin Role ==="
 echo "Role name: ${FIS_ADMIN_ROLE}"
@@ -110,10 +111,18 @@ fi
 
 # Attach permissions policy
 echo "Attaching permissions policy..."
+
+# The PassRole statement has to name the experiment role that the create
+# scripts actually put in roleArn. Leaving the literal default in the policy
+# file would let setup succeed and start-experiment fail later with an
+# iam:PassRole AccessDenied, which is a long way from the cause.
+ADMIN_POLICY=$(sed "s/FIS_EXPERIMENT_ROLE_NAME/${FIS_EXPERIMENT_ROLE}/g" \
+  "${POLICIES_DIR}/fis-admin-role-perms.json")
+
 aws iam put-role-policy \
   --role-name "${FIS_ADMIN_ROLE}" \
   --policy-name FIS-Admin-Access \
-  --policy-document "file://${POLICIES_DIR}/fis-admin-role-perms.json"
+  --policy-document "${ADMIN_POLICY}"
 
 echo ""
 echo "=== FIS Admin Role setup complete ==="

@@ -27,7 +27,7 @@
       "Sid": "PassRoleToFIS",
       "Effect": "Allow",
       "Action": "iam:PassRole",
-      "Resource": "arn:aws:iam::*:role/FIS-Experiment-Role",
+      "Resource": "arn:aws:iam::*:role/FIS_EXPERIMENT_ROLE_NAME",
       "Condition": {
         "StringEquals": {
           "iam:PassedToService": "fis.amazonaws.com"

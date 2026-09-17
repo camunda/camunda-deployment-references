@@ -74,7 +74,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --id             Template ID (or use --name)"
       echo "  --prefix         Benchmark prefix for ECS service health check (optional)"
       echo "  --endpoint       ALB DNS name for health checks (required)"
-      echo "  --recovery-wait  Seconds to wait for recovery (default: 300)"
+      echo "  --recovery-wait  Seconds to wait for recovery (default: 900)"
       echo "  --cluster        ECS cluster name (default: camunda-cluster)"
       echo "  --skip-pre-check Skip pre-experiment health check"
       echo "  --yes            Skip confirmation prompt"
@@ -136,7 +136,9 @@ run_pre_check
 confirm_experiment \
   "This experiment will SIMULTANEOUSLY:" \
   "  1. Block S3 traffic from one broker's subnet for ${DURATION}" \
-  "  2. Stop a different broker task (ECS will replace it)"
+  "  2. Stop a different broker task (ECS will replace it)" \
+  "BLAST RADIUS: fault 1 is subnet-scoped, so every task sharing that subnet" \
+  "loses S3 access, not only the broker named above."
 
 # ========================================
 # PHASE 2: Run experiment
