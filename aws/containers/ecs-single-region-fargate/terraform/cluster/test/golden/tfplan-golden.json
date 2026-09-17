@@ -762,6 +762,7 @@
         "name": "camunda-oc1-connectors-client-auth-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -787,6 +788,7 @@
         "name": "camunda-oc1-connectors-oidc-client-secret",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -811,6 +813,7 @@
         "name": "camunda-db-admin-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -836,6 +839,7 @@
         "name": "camunda-oc1-identity-oidc-client-secret",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -861,6 +865,7 @@
         "name": "camunda-oc1-identity-db-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -886,6 +891,7 @@
         "name": "camunda-oc1-keycloak-admin-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -911,6 +917,7 @@
         "name": "camunda-oc1-keycloak-db-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -936,6 +943,7 @@
         "name": "camunda-oc1-keycloak-realm-import",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -960,6 +968,7 @@
         "name": "camunda-oc1-admin-user-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -985,6 +994,7 @@
         "name": "camunda-oc1-orchestration-oidc-client-secret",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -1010,6 +1020,7 @@
         "name": "camunda-oc1-realm-admin-user-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -4851,6 +4862,12 @@
           }
         },
         "module.postgresql.aws_rds_cluster_instance.aurora_instance[0]": {
+          "identity": {
+            "account_id": null,
+            "identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "aurora_instance",
