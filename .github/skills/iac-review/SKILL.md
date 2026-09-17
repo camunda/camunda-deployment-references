@@ -62,14 +62,19 @@ configuration choice in this repository, not an oversight:
 - **`tflint` runs four rules disabled** in `.lint/tflint/.tflint.hcl`:
   `terraform_unused_declarations`, `terraform_required_version`,
   `terraform_required_providers`, `terraform_typed_variables`.
-- **`trivy` does not see every module** — see its row above. Terraform under
-  `test/`, `fixtures/`, or in a directory with no `README.md` gets no
-  misconfiguration scan at all.
-- **`zizmor` is capped at `high`.** `.github/zizmor.yml` records that the
-  repository knowingly carries medium and low findings (`artipacked`,
-  `${{ steps.*.outputs }}` interpolation). It also runs offline, which skips
+- **`trivy` does not see every module** — see its row above. It selects a
+  directory holding a `README.md` and a top-level `*.tf`, then scans that
+  directory recursively, so a README-less subdirectory *below* a selected one
+  is still covered. The gap is a Terraform tree whose **top** has no
+  `README.md`, one carrying a `.trivy_ignore`, and anything under `test/` or
+  `fixtures/`, which are skipped outright.
+- **`zizmor` is capped at `high`.** The hook comment in
+  `.pre-commit-config.yaml` records that the repository knowingly carries
+  medium and low findings (`artipacked`, `${{ steps.*.outputs }}`
+  interpolation) and that running offline skips
   `known-vulnerable-actions`, `impostor-commit`, `ref-confusion`,
-  `ref-version-mismatch` and `stale-action-refs`, and it ignores
+  `ref-version-mismatch` and `stale-action-refs`. `.github/zizmor.yml` holds
+  the rule configuration and the trigger exceptions, and it ignores
   `dangerous-triggers` for two named workflows.
 - **`actionlint` never reads `.github/actions/`**, where most of this
   repository's shell lives.
@@ -130,8 +135,9 @@ it where trivy does not reach:
 
 **State and lifecycle**
 
-- A `terraform.tfstate` or `*.tfstate.backup` in the diff — state holds
-  resource attributes and secrets in plaintext and is never committed.
+- A `*.tfstate` or `*.tfstate.backup` file in the diff, under any name — a
+  custom-named `prod.tfstate` holds the same plaintext resource attributes and
+  secrets as the default one, and neither is ever committed.
 - Removing or weakening `lifecycle { prevent_destroy = true }` on a stateful
   resource (database, persistent volume, KMS key) with no explanation.
 - A stateful resource created without lifecycle protection when sibling
@@ -141,15 +147,29 @@ it where trivy does not reach:
 **Reproducibility** — `tflint`'s `required_version` and `required_providers`
 rules are disabled here, so this is unguarded:
 
-- A `required_providers` entry or module `source` left with no version
-  constraint where sibling entries in the same file pin one. A deliberately
-  wide but documented constraint (`~>`, an explicit range) is fine.
+- A `terraform` block with no `required_version`, or a `required_providers`
+  entry with no `source` or no version constraint, where sibling modules set
+  one.
+- A **registry or remote** module `source` (`terraform-aws-modules/...`, a
+  git URL) with no `version` argument where sibling entries in the same file
+  pin one. Local relative sources (`../../../../modules/vpn`) take no
+  `version` argument at all — never flag them; this repository uses them
+  throughout by design.
+- A deliberately wide but documented constraint (`~>`, an explicit range) is
+  fine.
 
-**Declarations** — `terraform_unused_declarations` is disabled here:
+**Declarations** — `terraform_unused_declarations` and
+`terraform_typed_variables` are disabled here:
 
-- A `variable` or `output` declared in the diff's module and read by nothing.
+- A `variable`, `local`, `data` source, or provider alias declared in the
+  diff's module and read by nothing in it.
+- A `variable` with no `type`. Untyped input accepts anything and shifts the
+  failure to apply time.
 - A referenced variable never declared in the diff's scope.
 - Duplicate resource or data-source labels in one module.
+- Do **not** flag an unused `output`: outputs are the module's public
+  interface and are consumed by callers and by `terraform-docs`, not by the
+  module that declares them.
 
 ### 2. GitHub Actions
 
@@ -157,14 +177,22 @@ Assume `zizmor` and `actionlint` already passed. Report only:
 
 **Security below the gate**
 
-- A finding in `.github/actions/**`, which `actionlint` does not read.
+- A composite action under `.github/actions/**` whose **workflow semantics**
+  go unchecked: `actionlint` never reads that tree, so `inputs`/`outputs`
+  wired to names the action does not declare, a `using:` step referencing a
+  missing script, or an `if:` on a composite step survive there. Shell
+  correctness and YAML style in that tree are already owned by `shellcheck`,
+  `yamllint` and `yamlfmt` — do not re-report those.
 - A medium/low-severity pattern that `zizmor` carries by policy but that this
   diff *introduces* rather than inherits — a new `artipacked` checkout, a new
   `${{ steps.*.outputs.* }}` interpolated straight into `run:`. Report as
   SHOULD-FIX, never BLOCKING: the threshold is a deliberate choice.
-- An action reference that zizmor's offline run cannot audit — a SHA pinned to
-  a repository that is archived, renamed, or whose tag has moved. Worth one
-  look when a diff adds a third-party action.
+- An action reference that zizmor's offline run cannot resolve: a pinned SHA
+  that does not exist in the named repository, or a repository that has been
+  renamed so the pin now resolves through a redirect to something other than
+  the action intended. A full-length SHA is immutable, so a moved *tag* is
+  never the problem — do not flag a pin merely because the repository is
+  archived or the tag drifted.
 - A secret reaching a step that does not need it, or interpolated into a place
   it can be echoed.
 
