@@ -84,7 +84,7 @@ Zeebe places replicas per zone, so the replication factor is the sum of the zone
 
 Two optional pieces exist to observe a deployment under load rather than at rest,
 both folded in from [`camunda/camunda-load-tests-ecs`](https://github.com/camunda/camunda-load-tests-ecs)
-(see [team-infrastructure-experience#464](https://github.com/camunda/team-infrastructure-experience/issues/464)):
+(see camunda/team-infrastructure-experience#464):
 
 | Piece | Path | Applies to |
 |---|---|---|

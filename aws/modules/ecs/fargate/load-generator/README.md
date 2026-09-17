@@ -10,7 +10,7 @@ with the [monitoring](../monitoring/README.md) module and the
 [FIS chaos experiments](../../../../common/procedure/chaos-fis/README.md).
 
 Absorbed from [`camunda/camunda-load-tests-ecs`](https://github.com/camunda/camunda-load-tests-ecs)
-per [team-infrastructure-experience#464](https://github.com/camunda/team-infrastructure-experience/issues/464).
+per camunda/team-infrastructure-experience#464.
 
 ## Usage
 

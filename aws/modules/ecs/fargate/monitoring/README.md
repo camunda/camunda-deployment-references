@@ -11,7 +11,7 @@ with no change here.
 
 Absorbed from [`camunda/camunda-load-tests-ecs`](https://github.com/camunda/camunda-load-tests-ecs),
 where it answered the "persistent performance monitoring" half of
-[team-infrastructure-experience#464](https://github.com/camunda/team-infrastructure-experience/issues/464).
+camunda/team-infrastructure-experience#464.
 
 ## Usage
 

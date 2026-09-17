@@ -46,7 +46,7 @@ a broker restart or a lost Availability Zone does to the throughput number.
 The overlay is the part of
 [`camunda/camunda-load-tests-ecs`](https://github.com/camunda/camunda-load-tests-ecs)
 that made sense here, folded in under
-[team-infrastructure-experience#464](https://github.com/camunda/team-infrastructure-experience/issues/464).
+camunda/team-infrastructure-experience#464.
 That repository built an ECS Camunda cluster plus load against it, and already
 consumed this repository's `ecs/fargate/orchestration-cluster` and `aurora`
 modules by commit pin, so most of the overlap was already one-directional.
