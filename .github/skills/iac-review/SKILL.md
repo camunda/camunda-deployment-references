@@ -1,6 +1,6 @@
 ---
 name: iac-review
-description: 'Review an infrastructure diff for security and correctness defects that this repository''s deterministic gates do not catch: Terraform/HCL and state files, GitHub Actions workflows and composite actions, the `.github/` gate configuration, other YAML, and the golden plans, shell procedures and repository files that only AGENTS.md governs. USE WHEN: the user invokes "/iac-review", says "IaC review", "terraform review", "workflow security review", or the review-loop skill reaches its self-review step on a diff touching `*.tf`, `*.tfvars`, `*.hcl`, `*.tfstate`, `*.tfstate.backup`, `.github/workflows/**`, `.github/actions/**`, `.github/*.{yml,yaml}`, any other `*.{yml,yaml}`, `**/golden/**`, `**/procedure/**/*.sh`, `.target-branch` or `justfile` — the Scope table in the skill is authoritative. INVOKES: git diff, ripgrep. DO NOT USE FOR: maintainability review (code-quality-review owns that), re-reporting what pre-commit already blocks, or approving/merging PRs.'
+description: 'Review an infrastructure diff for security and correctness defects that this repository''s deterministic gates do not catch: Terraform/HCL and state files, GitHub Actions workflows and composite actions, the `.github/` gate configuration, other YAML, and the golden plans, shell procedures and repository files that only AGENTS.md governs. USE WHEN: the user invokes "/iac-review", says "IaC review", "terraform review", "workflow security review", or the review-loop skill reaches its self-review step on a diff touching `*.tf`, `*.tfvars`, `*.hcl`, `*.tf.json`, `*.tfvars.json`, `*.tfstate`, `*.tfstate.backup`, `.github/workflows/**`, `.github/actions/**`, `.github/*.{yml,yaml}`, any other `*.{yml,yaml}`, `**/golden/**`, `**/procedure/**/*.sh`, `.target-branch` or `justfile` — the Scope table in the skill is authoritative. INVOKES: git diff, ripgrep. DO NOT USE FOR: maintainability review (code-quality-review owns that), re-reporting what pre-commit already blocks, or approving/merging PRs.'
 argument-hint: '[base-ref] (defaults to the merge base with the target branch)'
 ---
 
@@ -52,7 +52,7 @@ the report.
 | `actionlint` | workflow schema, expression syntax, embedded shell — **`.github/workflows/` only** |
 | `shellcheck` | correctness of **standalone `*.sh` files** (`--exclude=SC2155`). It does not see shell embedded in YAML |
 | `terraform fmt`, `terraform-docs` | HCL formatting, module READMEs |
-| `tflint` (`.lint/tflint/.tflint.hcl`) | naming convention, and **`terraform_module_pinned_source`** — git module sources must be pinned; the repository carries `tflint-ignore` comments for it, so it demonstrably fires |
+| `tflint` (`.lint/tflint/.tflint.hcl`) | naming convention, and **`terraform_module_pinned_source`** — pinning of git/mercurial module sources. The repository has no git-backed sources today, so the rule is moot here rather than demonstrably firing; its `tflint-ignore` comments all sit on relative sources the rule skips anyway |
 | `trivy config` | Terraform misconfiguration — **only** in directories holding a `README.md`, at least one `*.tf`, and no `.trivy_ignore`, skipping `.terraform`, `.test`, `test`, `fixtures` |
 | `detect-private-key`, `check-added-large-files` | committed keys, stray blobs |
 | `yamllint`, `yamlfmt` | YAML style |
@@ -121,8 +121,9 @@ Report a finding only when it is actionable. An empty report is a valid result.
   string assigned to a resource argument, a `variable` default, or a `locals`
   entry instead of coming from a secret manager or an environment-backed
   data source.
-- A `*.tfvars` file assigning a real-looking secret rather than a placeholder —
-  `.tfvars` is the conventional home for real values and the usual accident.
+- A `*.tfvars` or `*.tfvars.json` file assigning a real-looking secret rather
+  than a placeholder — these are the conventional home for real values and the
+  usual accident.
 - A `variable` that clearly holds a credential (name or description implies
   password, token, key, secret) missing `sensitive = true`.
 
@@ -155,20 +156,18 @@ rules are disabled here, so this is unguarded:
   `terraform` blocks across every file in a module, so check the module, not
   the block — a backend-only `terraform` block is normal and is not a finding.
 - A `provider` configured with no matching `required_providers` entry, or an
-  entry with no `source`.
+  entry missing either its `source` or its version constraint — the disabled
+  rule requires both.
 - A **registry** module `source` — any `<namespace>/<name>/<provider>` address,
   not just `terraform-aws-modules/*`; this repository also uses
   `terraform-redhat/rosa-hcp/rhcs` — with no `version`, **or with a version
   that is unbounded in disguise** such as `>= 0.0.0`. A deliberately wide but
   documented range (`~>`, an explicit bounded range) is fine.
-- Git-backed module sources are **not** reviewed here: `tflint`'s
-  `terraform_module_pinned_source` is enabled and owns them.
+- Git-backed sources (`git::`, `github.com/`) are pinned through `?ref=` and
+  are owned by `tflint`'s `terraform_module_pinned_source`, which is enabled.
+  The repository has none today, so this is a boundary note, not a check.
 - Local relative sources (`../../../../modules/vpn`) take no version of any
   kind — never flag them; this repository uses them throughout by design.
-- Local relative sources (`../../../../modules/vpn`) take no version of any
-  kind — never flag them; this repository uses them throughout by design.
-- A deliberately wide but documented constraint (`~>`, an explicit range) is
-  fine.
 
 **Declarations** — `terraform_unused_declarations` and
 `terraform_typed_variables` are disabled here:
@@ -180,7 +179,9 @@ rules are disabled here, so this is unguarded:
   defect twice.
 - A `variable` with no `type`. Untyped input accepts anything and shifts the
   failure to apply time.
-- A referenced variable never declared in the diff's scope.
+- A referenced variable declared nowhere in its **module**. Resolve against
+  every file in the module, not just the changed ones — a changed `main.tf`
+  routinely uses variables declared in an untouched `variables.tf`.
 - Duplicate resource or data-source labels in one module.
 - Do **not** flag an unused `output`: outputs are the module's public
   interface and are consumed by callers and by `terraform-docs`, not by the
@@ -197,8 +198,11 @@ Assume `zizmor` and `actionlint` already passed. Report only:
   - `${{ inputs.x }}` referenced with no matching declaration in the action's
     own `inputs:` block; an `outputs.<name>.value` mapping whose
     `${{ steps.<id>.outputs.<name> }}` names a step id or output the action
-    does not produce; or a `uses:`/`run:` step pointing at a local action or
-    script that is not in the repository.
+    does not produce; or a literal repository-relative `uses: ./...` action
+    reference that does not exist. Do **not** flag a script path that a
+    preceding clone, download, or input populates at runtime — composite
+    actions here deliberately run scripts from caller-supplied trees such as
+    `tf-modules-path`, which are absent from this repository by design.
   - **Inline `run:` shell.** `shellcheck` only receives standalone `*.sh`
     files, and `actionlint`'s embedded-shell check stops at
     `.github/workflows/`, so every `run:` step in this tree is linted by
@@ -236,10 +240,14 @@ Assume `zizmor` and `actionlint` already passed. Report only:
 
 **Reliability**
 
-- A job that provisions or holds cloud resources with no `timeout-minutes`. A
-  hung `terraform apply` keeps real infrastructure billing until the six-hour
-  default expires. Do not flag short bookkeeping jobs — triage, labelling,
-  matrix assembly; the cost of hanging is what makes this worth raising.
+- A step that provisions or holds cloud resources bounded by no
+  `timeout-minutes` at **either** scope. `timeout-minutes` is valid on a job
+  and on a step, and this repository usually bounds the resource-holding step
+  (Terratest, Terraform cleanup, smoke test) rather than the enclosing job —
+  so a job without one is not a finding when its heavy steps carry their own.
+  A hung `terraform apply` bills real infrastructure until the six-hour
+  default expires. Do not flag short bookkeeping jobs: triage, labelling,
+  matrix assembly.
 - A push/PR-triggered workflow with no `concurrency` group, queuing redundant
   runs on the same ref.
 - `|| true` or `continue-on-error` hiding a failure that should surface —
