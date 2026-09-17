@@ -159,7 +159,7 @@ variable "restapi_image" {
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
   # renovate: datasource=docker depName=camunda/hub versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
-  default = "camunda/hub:8.10.0-alpha3"
+  default = "camunda/hub:8.10.0-alpha5"
 }
 
 variable "websockets_image" {
@@ -169,7 +169,7 @@ variable "websockets_image" {
   # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
   # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
   # renovate: datasource=docker depName=camunda/hub-websockets versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
-  default = "camunda/hub-websockets:8.10.0-alpha3"
+  default = "camunda/hub-websockets:8.10.0-alpha5"
 }
 
 variable "context_path" {
