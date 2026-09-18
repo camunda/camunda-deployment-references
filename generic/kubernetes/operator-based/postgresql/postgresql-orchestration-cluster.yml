@@ -1,15 +1,20 @@
 ---
+# instances and walStorage follow the same reasoning as postgresql-clusters.yml: two
+# instances keep the node drainable, and a dedicated WAL volume keeps replication-slot
+# retention out of PGDATA. See the header of that file for the full rationale.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
     name: pg-camunda
 spec:
-    instances: 1
+    instances: 2
     description: PostgreSQL cluster for Camunda orchestration secondary storage (RDBMS mode)
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
     imageName: ghcr.io/cloudnative-pg/postgresql:18.4
     storage:
         size: 15Gi
+    walStorage:
+        size: 5Gi
     superuserSecret:
         name: pg-camunda-superuser-secret
     # OpenShift Security Context - let SCC manage the security context

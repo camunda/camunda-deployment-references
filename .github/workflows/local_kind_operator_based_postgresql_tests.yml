@@ -1,0 +1,63 @@
+---
+name: Tests - Integration - Local Kind Operator Based PostgreSQL
+
+permissions:
+    contents: read
+
+on:
+    schedule:
+        - cron: 0 5 * * 3 # Runs at 5 AM on Wednesdays
+    pull_request:
+        paths:
+            - .github/workflows/local_kind_operator_based_postgresql_tests.yml
+            - .github/actions/internal-triage-skip/**
+            - .tool-versions
+            - generic/kubernetes/operator-based/postgresql/**
+            - generic/kubernetes/operator-based/tests/postgresql-ha/**
+    workflow_dispatch:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    postgresql-ha-tests:
+        name: PostgreSQL HA defaults
+        needs: triage
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+
+            # Creates its own three-node Kind cluster: the drain under test needs a node to
+            # switch the primary over to. Everything it pulls comes from ghcr.io, so no
+            # registry credentials and no Docker Hub rate limit are involved.
+            - name: Run the PostgreSQL HA integration test
+              run: ./generic/kubernetes/operator-based/tests/postgresql-ha/run-tests.sh
+
+            - name: Collect diagnostics on failure
+              if: failure()
+              run: |
+                  set +e
+                  kubectl get nodes -o wide
+                  kubectl get clusters.postgresql.cnpg.io -A
+                  kubectl get pods,pvc,pdb -A
+                  kubectl logs -n cnpg-system deployment/cnpg-controller-manager --tail=200

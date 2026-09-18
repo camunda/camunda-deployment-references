@@ -1,15 +1,38 @@
 ---
+# Two instances, and a dedicated volume for the write-ahead log. Both are operational
+# defaults rather than performance tuning:
+#
+# instances: below three instances CloudNativePG only builds a PodDisruptionBudget for the
+# primary, and a single-instance cluster has no switchover target — so the operator refuses
+# the eviction and `kubectl drain` never finishes, stalling a node upgrade on the database.
+# A second instance gives the operator somewhere to switch over to.
+# https://cloudnative-pg.io/docs/1.30/kubernetes_upgrade/
+#
+# walStorage: a standby holds a replication slot, so a standby that is down or lagging makes
+# the primary retain WAL. Sharing a volume with PGDATA lets that retention fill the data
+# directory; a dedicated volume bounds it. 5Gi covers the 1GB `max_wal_size` checkpoint
+# target plus the 512MB CloudNativePG keeps in `wal_keep_size`, with headroom.
+# https://cloudnative-pg.io/docs/1.30/storage/#volume-for-wal
+#
+# Single-node environments (Kind, a laptop) cannot spread two instances over two nodes: pass
+# PG_INSTANCES=1 to deploy.sh, which also disables the PodDisruptionBudget so the one node
+# stays drainable. Both settings are one-way — the validating webhook rejects removing
+# walStorage and rejects lowering storage.size. Existing single-instance deployments migrate
+# in place; see "Migrate an existing single-instance deployment" in
+# https://docs.camunda.io/docs/self-managed/deployment/helm/configure/operator-based-infrastructure/
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
     name: pg-identity
 spec:
-    instances: 1
+    instances: 2
     description: PostgreSQL cluster for Camunda Identity
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
     imageName: ghcr.io/cloudnative-pg/postgresql:18.4
     storage:
         size: 15Gi
+    walStorage:
+        size: 5Gi
     superuserSecret:
         name: pg-identity-superuser-secret
     # OpenShift Security Context - let SCC manage the security context
@@ -28,12 +51,14 @@ kind: Cluster
 metadata:
     name: pg-keycloak
 spec:
-    instances: 1
+    instances: 2
     description: PostgreSQL cluster for Keycloak
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
     imageName: ghcr.io/cloudnative-pg/postgresql:18.4
     storage:
         size: 15Gi
+    walStorage:
+        size: 5Gi
     superuserSecret:
         name: pg-keycloak-superuser-secret
     # OpenShift Security Context - let SCC manage the security context
@@ -56,7 +81,7 @@ kind: Cluster
 metadata:
     name: pg-webmodeler
 spec:
-    instances: 1
+    instances: 2
     description: PostgreSQL cluster for Webmodeler
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
     imageName: ghcr.io/cloudnative-pg/postgresql:18.4
@@ -73,3 +98,5 @@ spec:
                 name: pg-webmodeler-secret
     storage:
         size: 15Gi
+    walStorage:
+        size: 5Gi
