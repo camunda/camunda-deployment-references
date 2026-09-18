@@ -31,6 +31,18 @@ resource "aws_security_group" "prometheus" {
   description = "Allow access to the Prometheus UI and API from within the VPC"
   vpc_id      = module.vpc.vpc_id
 
+  # The generator speaks basic auth only. Under authentication_mode = "oidc"
+  # the cluster rejects it, so the tasks would start, collect 401s and report
+  # zero throughput without ever failing. Stop at plan time instead. Attached
+  # here because a module block cannot carry a precondition, and this resource
+  # is created by exactly the same flag.
+  lifecycle {
+    precondition {
+      condition     = var.authentication_mode == "basic"
+      error_message = "enable_load_tests requires authentication_mode = \"basic\": the load generator wires basic auth only and would collect 401s against an OIDC cluster."
+    }
+  }
+
   ingress {
     from_port   = var.load_tests_prometheus_port
     to_port     = var.load_tests_prometheus_port

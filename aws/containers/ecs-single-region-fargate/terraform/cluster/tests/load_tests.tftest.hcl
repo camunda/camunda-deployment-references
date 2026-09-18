@@ -94,3 +94,31 @@ run "generator_points_at_this_cluster" {
     error_message = "The generator should target the orchestration cluster's Cloud Map record"
   }
 }
+
+run "overlay_refuses_to_deploy_against_an_oidc_cluster" {
+  command = plan
+
+  # The generator wires basic auth only. Against authentication_mode = "oidc"
+  # it would start, collect 401s and report zero throughput without failing,
+  # so the plan has to stop instead.
+  variables {
+    enable_load_tests   = true
+    authentication_mode = "oidc"
+  }
+
+  expect_failures = [aws_security_group.prometheus]
+}
+
+run "oidc_cluster_is_fine_without_the_overlay" {
+  command = plan
+
+  variables {
+    enable_load_tests   = false
+    authentication_mode = "oidc"
+  }
+
+  assert {
+    condition     = output.load_generator_target == null
+    error_message = "An OIDC cluster should still plan cleanly when the overlay is off"
+  }
+}
