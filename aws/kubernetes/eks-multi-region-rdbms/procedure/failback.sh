@@ -93,8 +93,14 @@ cluster="$(camunda::management "$survivor_context" GET /actuator/cluster)"
 # field follows. `jq`'s `?` swallows a missing field, so a single spelling would
 # silently report the zone as absent and send this script down the re-add branch
 # for a zone that was never removed.
-if echo "$cluster" | jq -e --arg zone "$recovered_zone" \
-    '[(.partitionDistribution // .partitioning).zones[]? | select(.name == $zone)] | length > 0' >/dev/null; then
+if ! partitioning="$(echo "$cluster" | jq -ce \
+    '(.partitionDistribution // .partitioning) | select((.zones | type) == "array")')"; then
+    echo "ERROR: the cluster response contains no valid partition distribution with a zones array." >&2
+    exit 1
+fi
+
+if echo "$partitioning" | jq -e --arg zone "$recovered_zone" \
+    '[.zones[] | select(.name == $zone)] | length > 0' >/dev/null; then
     echo "    Zone $recovered_zone was never removed; its brokers rejoin and catch up"
     echo "    from the Raft log without any membership change."
 else
