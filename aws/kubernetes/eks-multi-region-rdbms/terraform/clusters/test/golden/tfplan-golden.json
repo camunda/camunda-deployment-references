@@ -1600,6 +1600,12 @@
           }
         },
         "module.database_region_0[0].aws_rds_cluster_instance.this[0]": {
+          "identity": {
+            "account_id": null,
+            "identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "this",
@@ -1845,6 +1851,12 @@
           }
         },
         "module.database_secondary[\"1\"].aws_rds_cluster_instance.this[0]": {
+          "identity": {
+            "account_id": null,
+            "identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "this",
