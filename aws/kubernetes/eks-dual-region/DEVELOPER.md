@@ -74,8 +74,8 @@ helm dependency update "$CHART_DIR/charts/camunda-platform-8.10"
 export HELM_CHART_NAME="$CHART_DIR/charts/camunda-platform-8.10"
 export GLOBAL_IMAGE_TAG=SNAPSHOT
 
-# Otherwise it's sufficient to set the helm chart version or rely on the default.
-export HELM_CHART_VERSION=14.0.0
+# TODO: [release-duty] replace the source checkout with the public v15 chart once
+# an 8.10 release containing `orchestration.partitioning` is published.
 ```
 
 - Deploy the dual-region setup

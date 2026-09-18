@@ -1,25 +1,33 @@
 package test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestPartitioningValuesRequireSourceBuiltChart(t *testing.T) {
-	err := validatePartitioningChart("camunda/camunda-platform", "14.8.0")
+	err := validatePartitioningChart("camunda/camunda-platform")
 
-	assert.ErrorContains(t, err, "HELM_CHART_NAME must point to a source-built chart")
+	assert.ErrorContains(t, err, "cannot read chart schema")
 }
 
-func TestPartitioningValuesAcceptSourceBuiltChart(t *testing.T) {
-	err := validatePartitioningChart("/workspace/camunda-platform-8.10", "15-dev-latest")
+func TestPartitioningValuesRejectChartWithoutPartitioning(t *testing.T) {
+	chart := t.TempDir()
+	assert.NoError(t, os.WriteFile(filepath.Join(chart, "values.schema.json"), []byte(`{"properties":{"orchestration":{"properties":{}}}}`), 0o600))
 
-	assert.NoError(t, err)
+	err := validatePartitioningChart(chart)
+
+	assert.ErrorContains(t, err, "does not expose orchestration.partitioning")
 }
 
-func TestPartitioningValuesAcceptPublicChartVersion15(t *testing.T) {
-	err := validatePartitioningChart("camunda/camunda-platform", "15.0.0")
+func TestPartitioningValuesAcceptCapableChart(t *testing.T) {
+	chart := t.TempDir()
+	assert.NoError(t, os.WriteFile(filepath.Join(chart, "values.schema.json"), []byte(`{"properties":{"orchestration":{"properties":{"partitioning":{}}}}}`), 0o600))
+
+	err := validatePartitioningChart(chart)
 
 	assert.NoError(t, err)
 }
