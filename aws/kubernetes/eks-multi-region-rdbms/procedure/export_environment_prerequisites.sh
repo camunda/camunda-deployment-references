@@ -102,7 +102,7 @@ fi
 export CAMUNDA_REPLICATION_FACTOR
 
 # Zone awareness is not in a released chart yet. The reference architecture
-# builds the exact reviewed merge of camunda/camunda-platform-helm#6949 until a
+# builds the exact reviewed merge of camunda/camunda-platform-helm#7179 until a
 # release includes `orchestration.partitioning.scheme: zone-aware`.
 #
 # The alternative was hand-assembling CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_*
@@ -112,7 +112,7 @@ export CAMUNDA_REPLICATION_FACTOR
 # it -- `${VAR:-default}` treats an empty value as unset. See
 # camunda/camunda-platform-helm#6807.
 #
-export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-e3d2a7271b113dbca6f179e3c4bb486bde828451}"
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-e3fb08f65ab7c3760e284d1f06c0d31fdcd604a4}"
 
 # TODO: [release-duty] pin to the released chart version and switch
 # HELM_CHART_REF to https://helm.camunda.io once 8.10 is generally available.
