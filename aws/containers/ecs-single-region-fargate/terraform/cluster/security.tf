@@ -1,3 +1,26 @@
+locals {
+  # var.ports is expanded into VPC-wide ingress and egress rules on the security group
+  # shared by every service, so each entry widens the internal network surface whether or
+  # not the component behind it exists. Management Identity is only deployed in oidc
+  # mode, and Keycloak only when it is also the bundled provider, so their ports are
+  # dropped otherwise -- in basic mode, and for Keycloak also under an external provider.
+  # Camunda Hub is opt-in the same way, so its three ports follow its flag; that keeps
+  # "Hub disabled" a true zero-delta against the rest of the stack.
+  conditional_port_names = {
+    management_identity_app        = local.oidc_enabled
+    management_identity_management = local.oidc_enabled
+    keycloak_http                  = local.deploy_bundled_keycloak
+    keycloak_management            = local.deploy_bundled_keycloak
+    camunda_hub_restapi            = var.enable_camunda_hub
+    camunda_hub_management         = var.enable_camunda_hub
+    camunda_hub_websockets         = var.enable_camunda_hub
+  }
+
+  effective_ports = {
+    for name, port in var.ports : name => port
+    if lookup(local.conditional_port_names, name, true)
+  }
+}
 
 resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   name        = "${var.prefix}-allow-necessary-camunda-ports-within-vpc"
@@ -5,7 +28,7 @@ resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   vpc_id      = module.vpc.vpc_id
 
   dynamic "ingress" {
-    for_each = var.ports
+    for_each = local.effective_ports
     content {
       from_port   = ingress.value
       to_port     = ingress.value
@@ -16,7 +39,7 @@ resource "aws_security_group" "allow_necessary_camunda_ports_within_vpc" {
   }
 
   dynamic "egress" {
-    for_each = var.ports
+    for_each = local.effective_ports
     content {
       from_port   = egress.value
       to_port     = egress.value
