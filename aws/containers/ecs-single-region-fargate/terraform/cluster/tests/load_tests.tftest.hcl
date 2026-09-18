@@ -122,3 +122,37 @@ run "oidc_cluster_is_fine_without_the_overlay" {
     error_message = "An OIDC cluster should still plan cleanly when the overlay is off"
   }
 }
+
+run "benchmark_cluster_profile_is_off_by_default" {
+  command = plan
+
+  # Flow control and provisioned EFS change how the engine and its storage
+  # behave for every workload, so the untouched plan must not carry them.
+  assert {
+    condition     = length(local.benchmark_cluster_environment) == 0
+    error_message = "No flow-control settings should be applied while the benchmark profile is off"
+  }
+
+  assert {
+    condition     = !strcontains(jsonencode(local.benchmark_cluster_environment), "FLOWCONTROL")
+    error_message = "Flow control must not leak into the default plan"
+  }
+}
+
+run "benchmark_cluster_profile_applies_the_absorbed_settings" {
+  command = plan
+
+  variables {
+    enable_benchmark_cluster_profile = true
+  }
+
+  assert {
+    condition     = length(local.benchmark_cluster_environment) == 3
+    error_message = "The profile should apply the three flow-control settings the absorbed benchmark ran with"
+  }
+
+  assert {
+    condition     = strcontains(jsonencode(local.benchmark_cluster_environment), "\"CAMUNDA_PROCESSING_FLOWCONTROL_WRITE_LIMIT\",\"value\":\"10000\"")
+    error_message = "The write limit should match the absorbed benchmark"
+  }
+}

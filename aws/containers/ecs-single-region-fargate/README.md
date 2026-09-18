@@ -108,9 +108,23 @@ terraform output -raw prometheus_endpoint
 
 | Knob | Default | What it changes |
 |---|---|---|
-| `load_tests_start_rate` | `10` | Process instances started per second |
+| `load_tests_start_rate` | `150` | Process instances started per second |
 | `load_tests_retention_time` | `168h` | How far back Prometheus can be queried |
 | `load_tests_prometheus_port` | `9090` | Port Prometheus listens on |
+| `enable_benchmark_cluster_profile` | `false` | Applies the cluster-side settings the absorbed benchmark ran with |
+
+For numbers comparable with the benchmark this came from, turn on the cluster
+profile as well:
+
+```hcl
+enable_load_tests                = true
+enable_benchmark_cluster_profile = true
+```
+
+That adds explicit processing flow control (`WRITE_LIMIT = 10000`) and switches
+EFS from elastic to 60 MiB/s provisioned throughput, which is what that
+benchmark ran with. It is separate from `enable_load_tests` because both change
+how the engine and its storage behave for every workload, not just a benchmark.
 
 > [!IMPORTANT]
 > The overlay requires `authentication_mode = "basic"`. The generator runs the

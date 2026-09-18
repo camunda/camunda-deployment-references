@@ -233,13 +233,13 @@ variable "job_type" {
 }
 
 variable "multiple_job_types" {
-  description = "Number of job types, derived by suffixing job_type with 1..N. Must equal the number of service tasks in the process, or instances get stuck on a task nothing subscribes to."
+  description = "Number of job types, derived by suffixing job_type with 1..N. Zero means the worker subscribes to job_type verbatim, which is what the bundled single-task process needs. Any other value must equal the number of service tasks in the process, or instances get stuck on a task nothing subscribes to."
   type        = number
-  default     = 1
+  default     = 0
 
   validation {
-    condition     = var.multiple_job_types >= 1
-    error_message = "multiple_job_types must be at least 1."
+    condition     = var.multiple_job_types >= 0
+    error_message = "multiple_job_types must be zero or more."
   }
 }
 
@@ -262,15 +262,43 @@ variable "auto_deploy_process" {
 }
 
 variable "bpmn_process_id" {
-  description = "Process id to start. Leave empty to use the image's built-in benchmark process."
+  description = "Process id to start. Defaults to the id of the bundled single-task process, which is also the id the absorbed benchmark used."
   type        = string
-  default     = ""
+  default     = "benchmark"
 }
 
 variable "bpmn_resource" {
-  description = "Location of the process definition to deploy, for example 'classpath:bpmn/one_task.bpmn'. Leave empty to use the image default; ECS has no ConfigMap equivalent, so a custom file needs a volume you mount yourself."
+  description = "Location of the process definition to deploy. Defaults to the single-task process this module renders into the task at startup, matching the workload the absorbed benchmark drove. Point it at a classpath: resource the image already bundles, or at another path you mount yourself."
   type        = string
-  default     = ""
+  default     = "file:/tmp/one-task.bpmn"
+}
+
+variable "payload_path" {
+  description = "Location of the process variables payload. Defaults to the image's bundled typical_payload.json, which is the payload the absorbed benchmark used. Leave empty to fall back to the image default."
+  type        = string
+  default     = "classpath:bpmn/typical_payload.json"
+}
+
+variable "max_jobs_active" {
+  description = "Maximum jobs a worker activates at once (camunda.client.zeebe.defaults.max-jobs-active). Defaults to the value the absorbed benchmark's worker ran with; the image default is 2000. Zero leaves the image default in place."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.max_jobs_active >= 0
+    error_message = "max_jobs_active must be zero or more."
+  }
+}
+
+variable "execution_threads" {
+  description = "Job worker execution threads (camunda.client.zeebe.execution-threads). Defaults to the value the absorbed benchmark's worker ran with; the image default is 100. Zero leaves the image default in place."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.execution_threads >= 0
+    error_message = "execution_threads must be zero or more."
+  }
 }
 
 variable "extra_environment_variables" {

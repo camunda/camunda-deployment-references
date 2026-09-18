@@ -64,6 +64,41 @@ Consolidation of the two load-testing stacks is tracked in
 [camunda/camunda#51191](https://github.com/camunda/camunda/issues/51191); revisit
 this choice when that lands.
 
+## The environment variable spelling is not a typo
+
+Spring resolves a camelCase property such as `benchmark.startPiPerSecond` from
+`BENCHMARK_STARTPIPERSECOND`. Writing `BENCHMARK_START_PI_PER_SECOND` names a
+property that does not exist: it binds to nothing, no error is raised, and the
+image keeps its packaged default of **1** process instance per second. The
+kebab-case client properties are the other way round —
+`camunda.client.zeebe.grpc-address` binds from
+`CAMUNDA_CLIENT_ZEEBE_GRPC_ADDRESS` and not from the contiguous spelling.
+
+Both shapes were checked against `camundacommunityhub/camunda-8-benchmark:main`
+through its `/actuator/env` endpoint. A test pins them, because the failure mode
+is a generator that runs happily at the wrong rate.
+
+## Matching the absorbed benchmark
+
+The defaults reproduce the workload
+[`camunda-load-tests-ecs`](https://github.com/camunda/camunda-load-tests-ecs)
+drove: one service task (`benchmark`, job type `benchmark-task`), the image's
+`typical_payload.json`, a 50 ms completion delay, and worker concurrency at 60
+active jobs over 10 threads rather than the image's 2000 over 100.
+
+The single-task process is not bundled in the image — it ships ten-task
+processes — so this module writes its own into the container at startup and
+execs the image's entrypoint. That keeps it to one container and no volume.
+
+`multiple_job_types` defaults to `0`, which makes the worker subscribe to
+`job_type` verbatim; the bundled process uses that literal type. Raising it
+without supplying a matching process leaves every instance stuck on a task
+nothing subscribes to.
+
+Rate is the one thing the module leaves conservative: `start_rate` defaults to
+10 here, while the reference architecture's overlay sets 150 to match the
+absorbed benchmark.
+
 ## Defaults worth knowing
 
 **The rate is fixed, not adaptive.** `rate_adjustment_strategy` defaults to
@@ -101,20 +136,23 @@ No modules.
 | <a name="input_auth_username"></a> [auth\_username](#input\_auth\_username) | Username used when auth\_method is basic | `string` | `"demo"` | no |
 | <a name="input_auto_deploy_process"></a> [auto\_deploy\_process](#input\_auto\_deploy\_process) | Whether the generator deploys its process definition on startup. | `bool` | `true` | no |
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | The AWS region to deploy resources in | `string` | n/a | yes |
-| <a name="input_bpmn_process_id"></a> [bpmn\_process\_id](#input\_bpmn\_process\_id) | Process id to start. Leave empty to use the image's built-in benchmark process. | `string` | `""` | no |
-| <a name="input_bpmn_resource"></a> [bpmn\_resource](#input\_bpmn\_resource) | Location of the process definition to deploy, for example 'classpath:bpmn/one\_task.bpmn'. Leave empty to use the image default; ECS has no ConfigMap equivalent, so a custom file needs a volume you mount yourself. | `string` | `""` | no |
+| <a name="input_bpmn_process_id"></a> [bpmn\_process\_id](#input\_bpmn\_process\_id) | Process id to start. Defaults to the id of the bundled single-task process, which is also the id the absorbed benchmark used. | `string` | `"benchmark"` | no |
+| <a name="input_bpmn_resource"></a> [bpmn\_resource](#input\_bpmn\_resource) | Location of the process definition to deploy. Defaults to the single-task process this module renders into the task at startup, matching the workload the absorbed benchmark drove. Point it at a classpath: resource the image already bundles, or at another path you mount yourself. | `string` | `"file:/tmp/one-task.bpmn"` | no |
 | <a name="input_camunda_grpc_port"></a> [camunda\_grpc\_port](#input\_camunda\_grpc\_port) | The gRPC port of the Orchestration Cluster gateway | `number` | `26500` | no |
 | <a name="input_camunda_host"></a> [camunda\_host](#input\_camunda\_host) | Hostname of the Orchestration Cluster to drive load against, typically the Cloud Map record of the orchestration-cluster module (orchestration-cluster.<prefix>.service.local). | `string` | n/a | yes |
 | <a name="input_camunda_rest_port"></a> [camunda\_rest\_port](#input\_camunda\_rest\_port) | The REST port of the Orchestration Cluster gateway | `number` | `8080` | no |
 | <a name="input_ecs_cluster_id"></a> [ecs\_cluster\_id](#input\_ecs\_cluster\_id) | The cluster id of the ECS cluster to spawn the ECS service in | `string` | n/a | yes |
 | <a name="input_ecs_task_execution_role_arn"></a> [ecs\_task\_execution\_role\_arn](#input\_ecs\_task\_execution\_role\_arn) | ARN of the ECS task execution role (centrally managed). It must be allowed to read auth\_password\_secret\_arn. | `string` | n/a | yes |
+| <a name="input_execution_threads"></a> [execution\_threads](#input\_execution\_threads) | Job worker execution threads (camunda.client.zeebe.execution-threads). Defaults to the value the absorbed benchmark's worker ran with; the image default is 100. Zero leaves the image default in place. | `number` | `10` | no |
 | <a name="input_extra_environment_variables"></a> [extra\_environment\_variables](#input\_extra\_environment\_variables) | Additional environment variables appended to the container definition, for benchmark settings this module does not surface. | <pre>list(object({<br/>    name  = string<br/>    value = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_image"></a> [image](#input\_image) | The container image used to generate load. Defaults to the community benchmark project, which is publicly pullable; the Camunda reliability-testing images are not. | `string` | `"camundacommunityhub/camunda-8-benchmark:main"` | no |
 | <a name="input_job_type"></a> [job\_type](#input\_job\_type) | The job type the workers subscribe to. Must match the service tasks in the deployed process. | `string` | `"benchmark-task"` | no |
 | <a name="input_log_group_name"></a> [log\_group\_name](#input\_log\_group\_name) | The name of an existing CloudWatch log group for the ECS tasks. When empty, the module creates its own log group. | `string` | `""` | no |
 | <a name="input_log_level"></a> [log\_level](#input\_log\_level) | Root log level of the generator. The throughput lines it prints are INFO. | `string` | `"INFO"` | no |
 | <a name="input_log_retention_in_days"></a> [log\_retention\_in\_days](#input\_log\_retention\_in\_days) | Retention of the CloudWatch log group created by this module. Ignored when log\_group\_name is supplied. | `number` | `7` | no |
-| <a name="input_multiple_job_types"></a> [multiple\_job\_types](#input\_multiple\_job\_types) | Number of job types, derived by suffixing job\_type with 1..N. Must equal the number of service tasks in the process, or instances get stuck on a task nothing subscribes to. | `number` | `1` | no |
+| <a name="input_max_jobs_active"></a> [max\_jobs\_active](#input\_max\_jobs\_active) | Maximum jobs a worker activates at once (camunda.client.zeebe.defaults.max-jobs-active). Defaults to the value the absorbed benchmark's worker ran with; the image default is 2000. Zero leaves the image default in place. | `number` | `60` | no |
+| <a name="input_multiple_job_types"></a> [multiple\_job\_types](#input\_multiple\_job\_types) | Number of job types, derived by suffixing job\_type with 1..N. Zero means the worker subscribes to job\_type verbatim, which is what the bundled single-task process needs. Any other value must equal the number of service tasks in the process, or instances get stuck on a task nothing subscribes to. | `number` | `0` | no |
+| <a name="input_payload_path"></a> [payload\_path](#input\_payload\_path) | Location of the process variables payload. Defaults to the image's bundled typical\_payload.json, which is the payload the absorbed benchmark used. Leave empty to fall back to the image default. | `string` | `"classpath:bpmn/typical_payload.json"` | no |
 | <a name="input_prefer_rest_over_grpc"></a> [prefer\_rest\_over\_grpc](#input\_prefer\_rest\_over\_grpc) | Whether the client should prefer the REST API over gRPC | `bool` | `false` | no |
 | <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for naming resources | `string` | n/a | yes |
 | <a name="input_rate_adjustment_strategy"></a> [rate\_adjustment\_strategy](#input\_rate\_adjustment\_strategy) | How the generator reacts when the cluster slows down. 'none' holds a fixed rate, which is what makes a throughput dip visible instead of absorbed. | `string` | `"none"` | no |

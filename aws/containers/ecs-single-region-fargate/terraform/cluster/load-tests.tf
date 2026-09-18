@@ -20,6 +20,16 @@
 locals {
   load_tests_enabled = var.enable_load_tests ? 1 : 0
   load_tests_prefix  = "${var.prefix}-lt"
+
+  # Flow control bounds how fast the engine accepts writes. The absorbed
+  # benchmark ran with an explicit limit so a run measures the engine rather
+  # than an unbounded intake queue; the reference architecture leaves the
+  # engine's own defaults alone unless asked.
+  benchmark_cluster_environment = var.enable_benchmark_cluster_profile ? [
+    { name = "CAMUNDA_PROCESSING_FLOWCONTROL_WRITE_ENABLED", value = "true" },
+    { name = "CAMUNDA_PROCESSING_FLOWCONTROL_WRITE_LIMIT", value = tostring(var.benchmark_cluster_write_limit) },
+    { name = "CAMUNDA_PROCESSING_FLOWCONTROL_WRITE_THROTTLE_ENABLED", value = "true" },
+  ] : []
 }
 
 # Prometheus listens on a port outside var.ports, so that enabling the overlay

@@ -84,8 +84,122 @@ run "workers_run_alongside_the_starter_by_default" {
   # rate stops tracking the start rate, which is the number this exists to hold
   # steady.
   assert {
-    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"BENCHMARK_START_WORKERS\",\"value\":\"true\"}")
-    error_message = "BENCHMARK_START_WORKERS should default to true"
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"BENCHMARK_STARTWORKERS\",\"value\":\"true\"}")
+    error_message = "BENCHMARK_STARTWORKERS should default to true"
+  }
+}
+
+# Spring binds a camelCase property such as benchmark.startPiPerSecond from
+# BENCHMARK_STARTPIPERSECOND only. An underscore between the words makes it a
+# different property, so the variable is ignored in silence and the image keeps
+# its packaged default of 1 process instance per second. Verified against
+# camundacommunityhub/camunda-8-benchmark:main through /actuator/env: the
+# underscore spelling left benchmark.startPiPerSecond at 1, the contiguous
+# spelling bound 150.
+#
+# kebab-case properties are the opposite: camunda.client.zeebe.grpc-address
+# binds from CAMUNDA_CLIENT_ZEEBE_GRPC_ADDRESS, and not from the contiguous
+# spelling. Both shapes are pinned below.
+run "benchmark_settings_use_the_env_spelling_spring_actually_binds" {
+  command = plan
+
+  variables {
+    start_rate                   = 150
+    task_completion_delay        = 50
+    warmup_phase_duration_millis = 10000
+    multiple_job_types           = 0
+    bpmn_process_id              = "benchmark"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"BENCHMARK_STARTPIPERSECOND\",\"value\":\"150\"}")
+    error_message = "The start rate must be BENCHMARK_STARTPIPERSECOND; BENCHMARK_START_PI_PER_SECOND is silently ignored"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"BENCHMARK_TASKCOMPLETIONDELAY\",\"value\":\"50\"}")
+    error_message = "The completion delay must be BENCHMARK_TASKCOMPLETIONDELAY"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"BENCHMARK_WARMUPPHASEDURATIONMILLIS\",\"value\":\"10000\"}")
+    error_message = "The warmup must be BENCHMARK_WARMUPPHASEDURATIONMILLIS"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"BENCHMARK_STARTRATEADJUSTMENTSTRATEGY\",\"value\":\"none\"}")
+    error_message = "The rate strategy must be BENCHMARK_STARTRATEADJUSTMENTSTRATEGY"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"BENCHMARK_BPMNPROCESSID\",\"value\":\"benchmark\"}")
+    error_message = "The process id must be BENCHMARK_BPMNPROCESSID"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"BENCHMARK_MULTIPLEJOBTYPES\",\"value\":\"0\"}")
+    error_message = "multiple_job_types = 0 must reach the container, meaning the worker subscribes to job_type verbatim"
+  }
+
+  # No BENCHMARK_ key may contain an underscore after the prefix.
+  assert {
+    condition     = length(regexall("\"BENCHMARK_[A-Z]+_[A-Z]", aws_ecs_task_definition.load_generator.container_definitions)) == 0
+    error_message = "A BENCHMARK_* variable still uses the underscore spelling, which Spring does not bind"
+  }
+
+  # The client properties are kebab-case and need exactly the opposite shape.
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "CAMUNDA_CLIENT_ZEEBE_GRPC_ADDRESS")
+    error_message = "camunda.client.zeebe.grpc-address binds from the underscore spelling"
+  }
+}
+
+run "worker_concurrency_is_configurable" {
+  command = plan
+
+  variables {
+    max_jobs_active   = 60
+    execution_threads = 10
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"CAMUNDA_CLIENT_ZEEBE_DEFAULTS_MAX_JOBS_ACTIVE\",\"value\":\"60\"}")
+    error_message = "max_jobs_active should reach the container as the kebab-shaped env var"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"CAMUNDA_CLIENT_ZEEBE_EXECUTION_THREADS\",\"value\":\"10\"}")
+    error_message = "execution_threads should reach the container as the kebab-shaped env var"
+  }
+}
+
+run "payload_is_configurable" {
+  command = plan
+
+  variables {
+    payload_path = "classpath:bpmn/typical_payload.json"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"BENCHMARK_PAYLOADPATH\",\"value\":\"classpath:bpmn/typical_payload.json\"}")
+    error_message = "payload_path should reach the container as BENCHMARK_PAYLOADPATH"
+  }
+}
+
+run "single_task_workload_is_deployed_by_default" {
+  command = plan
+
+  # The absorbed benchmark drove a one-service-task process. The image bundles
+  # only multi-task ones, so the module ships its own and renders it into the
+  # task, the same way the monitoring module renders its Prometheus config.
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "BENCHMARK_BPMNRESOURCE")
+    error_message = "The generator should deploy a known process rather than the image's default"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "one-task.bpmn")
+    error_message = "The bundled single-task process should be the default workload"
   }
 }
 
@@ -97,8 +211,8 @@ run "workers_can_be_turned_off" {
   }
 
   assert {
-    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"BENCHMARK_START_WORKERS\",\"value\":\"false\"}")
-    error_message = "BENCHMARK_START_WORKERS should follow start_workers"
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "{\"name\":\"BENCHMARK_STARTWORKERS\",\"value\":\"false\"}")
+    error_message = "BENCHMARK_STARTWORKERS should follow start_workers"
   }
 }
 

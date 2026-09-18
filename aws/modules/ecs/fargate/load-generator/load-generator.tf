@@ -23,10 +23,20 @@ locals {
   # Left out when empty so the image's own defaults apply rather than an empty
   # string overriding them.
   optional_environment = concat(
-    var.bpmn_process_id != "" ? [{ name = "BENCHMARK_BPMN_PROCESS_ID", value = var.bpmn_process_id }] : [],
-    var.bpmn_resource != "" ? [{ name = "BENCHMARK_BPMN_RESOURCE", value = var.bpmn_resource }] : [],
+    var.bpmn_process_id != "" ? [{ name = "BENCHMARK_BPMNPROCESSID", value = var.bpmn_process_id }] : [],
+    var.bpmn_resource != "" ? [{ name = "BENCHMARK_BPMNRESOURCE", value = var.bpmn_resource }] : [],
+    var.payload_path != "" ? [{ name = "BENCHMARK_PAYLOADPATH", value = var.payload_path }] : [],
+    var.max_jobs_active > 0 ? [{ name = "CAMUNDA_CLIENT_ZEEBE_DEFAULTS_MAX_JOBS_ACTIVE", value = tostring(var.max_jobs_active) }] : [],
+    var.execution_threads > 0 ? [{ name = "CAMUNDA_CLIENT_ZEEBE_EXECUTION_THREADS", value = tostring(var.execution_threads) }] : [],
   )
 
+  # Spring resolves a camelCase property such as benchmark.startPiPerSecond from
+  # BENCHMARK_STARTPIPERSECOND. Inserting underscores between the words names a
+  # different property, which binds to nothing and leaves the packaged default
+  # in place, so the generator would quietly run at 1 process instance per
+  # second. Kebab-case properties such as camunda.client.zeebe.grpc-address are
+  # the other way round and do take the underscores. Both spellings below were
+  # checked against the image through /actuator/env.
   environment = concat(
     [
       { name = "CAMUNDA_CLIENT_MODE", value = "self-managed" },
@@ -34,16 +44,16 @@ locals {
       { name = "CAMUNDA_CLIENT_ZEEBE_REST_ADDRESS", value = local.rest_address },
       { name = "CAMUNDA_CLIENT_ZEEBE_PREFER_REST_OVER_GRPC", value = tostring(var.prefer_rest_over_grpc) },
 
-      { name = "BENCHMARK_AUTO_DEPLOY_PROCESS", value = tostring(var.auto_deploy_process) },
-      { name = "BENCHMARK_START_PROCESSES", value = "true" },
-      { name = "BENCHMARK_START_PI_PER_SECOND", value = tostring(var.start_rate) },
-      { name = "BENCHMARK_START_RATE_ADJUSTMENT_STRATEGY", value = var.rate_adjustment_strategy },
-      { name = "BENCHMARK_WARMUP_PHASE_DURATION_MILLIS", value = tostring(var.warmup_phase_duration_millis) },
+      { name = "BENCHMARK_AUTODEPLOYPROCESS", value = tostring(var.auto_deploy_process) },
+      { name = "BENCHMARK_STARTPROCESSES", value = "true" },
+      { name = "BENCHMARK_STARTPIPERSECOND", value = tostring(var.start_rate) },
+      { name = "BENCHMARK_STARTRATEADJUSTMENTSTRATEGY", value = var.rate_adjustment_strategy },
+      { name = "BENCHMARK_WARMUPPHASEDURATIONMILLIS", value = tostring(var.warmup_phase_duration_millis) },
 
-      { name = "BENCHMARK_START_WORKERS", value = tostring(var.start_workers) },
+      { name = "BENCHMARK_STARTWORKERS", value = tostring(var.start_workers) },
       { name = "BENCHMARK_JOBTYPE", value = var.job_type },
       { name = "BENCHMARK_MULTIPLEJOBTYPES", value = tostring(var.multiple_job_types) },
-      { name = "BENCHMARK_TASK_COMPLETION_DELAY", value = tostring(var.task_completion_delay) },
+      { name = "BENCHMARK_TASKCOMPLETIONDELAY", value = tostring(var.task_completion_delay) },
 
       { name = "JDK_JAVA_OPTIONS", value = "-XX:+HeapDumpOnOutOfMemoryError" },
       { name = "LOG_LEVEL", value = var.log_level },
@@ -58,6 +68,19 @@ locals {
       credentialsParameter = var.registry_credentials_arn
     }
   } : {}
+
+  # The image bundles only multi-task processes, so the single-task workload the
+  # absorbed benchmark drove is written into the container at startup and the
+  # image's own entrypoint is then exec'd. /tmp is writable for the image's
+  # unprivileged user, which keeps this to one container and no volume.
+  bpmn_path = "/tmp/one-task.bpmn"
+
+  container_command = join("", [
+    "cat <<'BPMNEOF' > ${local.bpmn_path}\n",
+    file("${path.module}/templates/one-task.bpmn"),
+    "\nBPMNEOF\n",
+    "exec java org.springframework.boot.loader.launch.JarLauncher",
+  ])
 }
 
 resource "aws_ecs_task_definition" "load_generator" {
@@ -86,6 +109,8 @@ resource "aws_ecs_task_definition" "load_generator" {
       name        = "load-generator"
       image       = var.image
       essential   = true
+      entryPoint  = ["/bin/sh", "-c"]
+      command     = [local.container_command]
       environment = local.environment
       secrets     = local.auth_secrets
       logConfiguration = {
