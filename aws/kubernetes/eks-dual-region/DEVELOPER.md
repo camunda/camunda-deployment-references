@@ -55,8 +55,8 @@ go test --count=1 -v -timeout 120m -run TestAWSDNSChaining
 
 ### Running Tests
 
-(Optional) Allows overwriting the version to use for Camunda 8, e.g. dev-latest.
-Otherwise defaults to published Helm versions and the latest stable release.
+The partitioning values require a chart that exposes `orchestration.partitioning`.
+Until that reaches a public release, build the reviewed chart commit locally:
 
 ```bash
 # Overwriting to the pre-release (dev) chart. It isn't published to the public Helm

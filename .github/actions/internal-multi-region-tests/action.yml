@@ -142,9 +142,8 @@ runs:
                 # point the test at the local chart directory. InstallUpgradeC8Helm
                 # skips `helm repo add` and `--version` for a local chart path.
                 # The pre-release (dev-latest) chart isn't on the public Helm repo, so
-                # build it from source; released versions use the public repo via the
-                # `else` branch, so GA needs no manual switch here (the workflow's
-                # helm-version flips to a released value and this block is bypassed).
+                # build it from source; released versions are pulled locally in the
+                # `else` branch so both paths can validate the chart schema before use.
                 # TODO: [release-duty] switch to the public chart when 8.10 is released.
                 CHART_GIT_REF="e3fb08f65ab7c3760e284d1f06c0d31fdcd604a4"
                 CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
@@ -158,8 +157,14 @@ runs:
                   echo "HELM_CHART_NAME=$CHART_CHECKOUT/charts/camunda-platform-$CAMUNDA_VERSION"
                 } >> "$GITHUB_ENV"
               else
+                CHART_CHECKOUT="$(mktemp -d)"
+                helm repo add camunda https://helm.camunda.io --force-update
+                helm pull camunda/camunda-platform \
+                  --version "$INPUTS_HELM_VERSION" \
+                  --untar \
+                  --untardir "$CHART_CHECKOUT"
                 {
-                  echo "HELM_CHART_NAME=camunda/camunda-platform"
+                  echo "HELM_CHART_NAME=$CHART_CHECKOUT/camunda-platform"
                 } >> "$GITHUB_ENV"
               fi
 
