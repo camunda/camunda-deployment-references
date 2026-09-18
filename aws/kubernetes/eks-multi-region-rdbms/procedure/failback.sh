@@ -94,7 +94,8 @@ cluster="$(camunda::management "$survivor_context" GET /actuator/cluster)"
 # silently report the zone as absent and send this script down the re-add branch
 # for a zone that was never removed.
 if ! partitioning="$(echo "$cluster" | jq -ce \
-    '(.partitionDistribution // .partitioning) | select((.zones | type) == "array")')"; then
+    '(.partitionDistribution // .partitioning) |
+    select((.zones | type) == "array" and all(.zones[]; type == "object" and (.name | type) == "string"))')"; then
     echo "ERROR: the cluster response contains no valid partition distribution with a zones array." >&2
     exit 1
 fi
