@@ -68,22 +68,33 @@ spec:
                                 name: camunda-load-generator-auth
                                 key: password
 
-                      - name: BENCHMARK_BPMN_RESOURCE
+                      # The BENCHMARK_ names below carry no underscore between
+                      # the words on purpose. Spring resolves a camelCase
+                      # property such as benchmark.startPiPerSecond from
+                      # BENCHMARK_STARTPIPERSECOND only; spelling it
+                      # BENCHMARK_START_PI_PER_SECOND names a property that
+                      # does not exist, binds to nothing, and leaves the image
+                      # running at its packaged default of 1 process instance
+                      # per second. Verified against
+                      # camundacommunityhub/camunda-8-benchmark:main through
+                      # /actuator/env. CAMUNDA_CLIENT_ properties are
+                      # kebab-case and do take the underscores.
+                      - name: BENCHMARK_BPMNRESOURCE
                         value: file:/process/load-generator.bpmn
-                      - name: BENCHMARK_BPMN_PROCESS_ID
+                      - name: BENCHMARK_BPMNPROCESSID
                         value: multiRegionLoad
-                      - name: BENCHMARK_AUTO_DEPLOY_PROCESS
+                      - name: BENCHMARK_AUTODEPLOYPROCESS
                         value: 'true'
-                      - name: BENCHMARK_START_PROCESSES
+                      - name: BENCHMARK_STARTPROCESSES
                         value: 'true'
-                      - name: BENCHMARK_START_PI_PER_SECOND
+                      - name: BENCHMARK_STARTPIPERSECOND
                         value: '${LOAD_RATE}'
 
                       # Workers complete what the starter creates. Without them
                       # instances pile up as active work and the export rate
                       # stops reflecting the start rate, which is the number
                       # this generator exists to hold steady.
-                      - name: BENCHMARK_START_WORKERS
+                      - name: BENCHMARK_STARTWORKERS
                         value: 'true'
                       - name: BENCHMARK_JOBTYPE
                         value: multi-region-load
@@ -94,16 +105,16 @@ spec:
                       # instance stuck on it.
                       - name: BENCHMARK_MULTIPLEJOBTYPES
                         value: '3'
-                      - name: BENCHMARK_TASK_COMPLETION_DELAY
+                      - name: BENCHMARK_TASKCOMPLETIONDELAY
                         value: '100'
 
                       # A fixed rate, not an adaptive one. During a region loss
                       # the cluster is briefly slower, and a strategy that
                       # backs off would hide exactly the dip the demo is there
                       # to show.
-                      - name: BENCHMARK_START_RATE_ADJUSTMENT_STRATEGY
+                      - name: BENCHMARK_STARTRATEADJUSTMENTSTRATEGY
                         value: none
-                      - name: BENCHMARK_WARMUP_PHASE_DURATION_MILLIS
+                      - name: BENCHMARK_WARMUPPHASEDURATIONMILLIS
                         value: '10000'
                   resources:
                       requests:

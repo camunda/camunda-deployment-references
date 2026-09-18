@@ -106,7 +106,14 @@ module "orchestration_cluster" {
       { name = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_NAME", value = "Connectors User" },
       { name = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_EMAIL", value = "connectors@example.com" },
       { name = "CAMUNDA_SECURITY_INITIALIZATION_DEFAULTROLES_CONNECTORS_USERS_0", value = "connectors" },
-  ])
+    ],
+    local.benchmark_cluster_environment,
+  )
+
+  # The absorbed benchmark ran its cluster on provisioned EFS throughput rather
+  # than elastic, so sustained write load does not depend on burst credits.
+  efs_throughput_mode                 = var.enable_benchmark_cluster_profile ? "provisioned" : "elastic"
+  efs_provisioned_throughput_in_mibps = var.benchmark_cluster_efs_throughput_in_mibps
 
   # Prefer ECS task secrets for sensitive values (container definition 'secrets')
   secrets = local.oidc_enabled ? [

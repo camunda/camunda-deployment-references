@@ -1,0 +1,51 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "FISNetworkDisruptConnectivity",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateNetworkAcl",
+        "ec2:CreateNetworkAclEntry",
+        "ec2:CreateTags",
+        "ec2:DeleteNetworkAcl",
+        "ec2:DescribeManagedPrefixLists",
+        "ec2:DescribeNetworkAcls",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeVpcs",
+        "ec2:GetManagedPrefixListEntries",
+        "ec2:ReplaceNetworkAclAssociation"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "FISECSStopTask",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeTasks",
+        "ecs:ListTasks",
+        "ecs:StopTask",
+        "tag:GetResources"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "FISLogging",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogDelivery",
+        "logs:GetLogDelivery",
+        "logs:UpdateLogDelivery",
+        "logs:DeleteLogDelivery",
+        "logs:ListLogDeliveries",
+        "logs:PutLogEvents",
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutResourcePolicy",
+        "logs:DescribeResourcePolicies",
+        "logs:DescribeLogGroups"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
