@@ -5,6 +5,9 @@
 # Environment variables:
 #   CAMUNDA_NAMESPACE  - Target namespace (default: camunda)
 #   CLUSTER_FILTER     - Optional: deploy only specific clusters, comma-separated (e.g., "pg-keycloak" or "pg-identity,pg-webmodeler")
+#   PG_INSTANCES       - Optional: override the instance count of every cluster. Unset by
+#                        default, so the manifests apply exactly as written (two instances).
+#                        Single-node environments set 1; see the note next to PG_INSTANCES below.
 #
 # Arguments:
 #   $1 - CNPG operator namespace (default: cnpg-system)
@@ -21,6 +24,27 @@ OPERATOR_NAMESPACE=${1:-cnpg-system}
 # times out.
 CLUSTER_FILTER=${CLUSTER_FILTER:-}
 CLUSTER_FILTER=${CLUSTER_FILTER// /}
+
+# A single-node cluster cannot honour the manifests' two instances, and CloudNativePG
+# refuses to evict the sole instance of a one-instance cluster, so its node can never be
+# drained unless the PodDisruptionBudget is disabled at the same time.
+# https://cloudnative-pg.io/docs/1.30/kubernetes_upgrade/
+PG_INSTANCES=${PG_INSTANCES:-}
+if [[ -n "$PG_INSTANCES" && ! "$PG_INSTANCES" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: PG_INSTANCES must be a positive integer, got: '$PG_INSTANCES'" >&2
+    exit 1
+fi
+
+# Emit a cluster manifest, applying the PG_INSTANCES override when one is set.
+render_clusters() {
+    if [[ -z "$PG_INSTANCES" ]]; then
+        cat "$1"
+        return
+    fi
+    local enable_pdb=true
+    [[ "$PG_INSTANCES" -gt 1 ]] || enable_pdb=false
+    yq ".spec.instances = $PG_INSTANCES | .spec.enablePDB = $enable_pdb" "$1"
+}
 
 # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
 CNPG_VERSION="1.30.0"
@@ -60,7 +84,7 @@ CLUSTER_FILTER="$CLUSTER_FILTER" CAMUNDA_NAMESPACE="$CAMUNDA_NAMESPACE" "./set-s
 echo "Deploying PostgreSQL clusters..."
 
 if [[ -z "$CLUSTER_FILTER" ]]; then
-    kubectl apply --server-side -f postgresql-clusters.yml -n "$CAMUNDA_NAMESPACE"
+    render_clusters postgresql-clusters.yml | kubectl apply --server-side -n "$CAMUNDA_NAMESPACE" -f -
     kubectl wait --for=condition=Ready --timeout=600s cluster --all -n "$CAMUNDA_NAMESPACE"
 else
     echo "Filtered deployment: $CLUSTER_FILTER"
@@ -68,9 +92,11 @@ else
     for cluster in "${CLUSTERS[@]}"; do
         # pg-camunda is defined in a separate orchestration manifest
         if [[ "$cluster" == "pg-camunda" ]]; then
-            kubectl apply --server-side -f postgresql-orchestration-cluster.yml -n "$CAMUNDA_NAMESPACE"
+            render_clusters postgresql-orchestration-cluster.yml | \
+                kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f -
         else
-            yq "select(.metadata.name == \"$cluster\")" postgresql-clusters.yml | \
+            render_clusters postgresql-clusters.yml | \
+                yq "select(.metadata.name == \"$cluster\")" | \
                 kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f -
         fi
     done

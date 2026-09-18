@@ -1,0 +1,21 @@
+---
+# Three nodes, because the behaviour under test is a node drain: CloudNativePG has to have
+# somewhere to switch the primary over to, which a single-node cluster cannot offer.
+# Deliberately separate from local/kubernetes/kind-single-region: this cluster runs
+# PostgreSQL alone, so it has the memory budget for two instances per cluster that the full
+# Camunda stack does not.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+name: cnpg-ha-test
+
+nodes:
+    - role: control-plane
+      # renovate: datasource=docker depName=kindest/node
+      image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
+    - role: worker
+      # renovate: datasource=docker depName=kindest/node
+      image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a
+    - role: worker
+      # renovate: datasource=docker depName=kindest/node
+      image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a

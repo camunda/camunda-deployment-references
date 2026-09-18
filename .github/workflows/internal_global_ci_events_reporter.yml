@@ -25,6 +25,7 @@ on:
             - Tests - Integration - AWS EKS/RDS/OS Modules
             - Tests - Integration - AWS EKS Multi Region RDBMS
             - Tests - Integration - Local Kubernetes Kind Single Region
+            - Tests - Integration - Local Kind Operator Based PostgreSQL
             - Tests - Integration - AWS Containers ECS Dual Region Fargate
             - Tests - Integration - Teleport - AWS Kubernetes EKS Dual Region
             - Tests - Integration - AWS EKS Cluster with an AuroraDB and OpenSearch creation and destruction
