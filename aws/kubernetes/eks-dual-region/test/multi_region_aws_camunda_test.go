@@ -267,6 +267,7 @@ func initKubernetesHelpers(t *testing.T) {
 
 func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
+	require.NoError(t, validatePartitioningChart(remoteChartName))
 
 	setStringValues := map[string]string{}
 
