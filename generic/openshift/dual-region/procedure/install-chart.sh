@@ -28,6 +28,9 @@ fi
 # Build the chart from source so no registry authentication is required; prints the
 # local chart directory. The build helper is shared with the generic k8s guide.
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+# Pin the reviewed merge that introduced `orchestration.partitioning`; the shared
+# helper's default also serves unrelated single-region guides.
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-e3fb08f65ab7c3760e284d1f06c0d31fdcd604a4}"
 LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
 
 # Resolve the broker image of the chart being installed so the cross-region

@@ -9,7 +9,7 @@
 # that must survive envsubst and reach the container at runtime.
 #
 # Every region installs the same release from this file. Only two values differ
-# per region: `orchestration.multiregion.zone` and the advertised host, both injected
+# per region: `orchestration.partitioning.zone` and the advertised host, both injected
 # from the environment. The zone LIST is identical everywhere, which is what
 # makes the topology a single description rather than N of them.
 
@@ -43,23 +43,29 @@ connectors:
     enabled: true
 
 orchestration:
-    # Multiregion options for the Orchestration Cluster. This architecture is a
-    # reference, not a production configuration.
-    multiregion:
-        # Zone awareness, rather than the mode that numbers the brokers.
+    # How partition replicas are distributed across brokers, and how brokers are
+    # grouped into failure domains. Mirrors the engine configuration
+    # `camunda.cluster.partitioning`, with `scheme` being
+    # `io.camunda.configuration.Partitioning.Scheme` lower-cased and hyphenated.
+    # This does NOT set the number of partitions -- that is
+    # `orchestration.partitionCount` -- it sets how their replicas are placed.
+    # This architecture is a reference, not a production configuration.
+    partitioning:
+        # Zone awareness, rather than the round-robin scheme that leaves brokers
+        # on plain numeric node IDs.
         #
-        # That mode infers a broker's region from the parity of its node ID,
+        # That scheme infers a broker's region from the parity of its node ID,
         # which only works for exactly two regions and is what made the region
         # count immutable: changing it renumbered every broker. Zone awareness
         # names the zones instead, so brokers are identified as <zone>_<index>.
         # It is the configuration to use for a new deployment, and required for
         # three or more zones.
-        mode: zoned
+        scheme: zone-aware
         # The zone THIS deployment belongs to. The only per-region value here.
         zone: ${CAMUNDA_ZONE_NAME}
         # `regions` and `regionId` are deliberately absent. The chart REFUSES
-        # them in zoned mode -- constraints.tpl fails the render with
-        # "cannot be used with zoned mode" -- because the StatefulSet sizes
+        # them with the zone-aware scheme -- constraints.tpl fails the render with
+        # "cannot be used with the zone-aware scheme" -- because the StatefulSet sizes
         # itself from this zone's own numberOfBrokers, not from a division.
         # Every zone of the cluster, including any not deployed yet. Listing a
         # zone before it exists is deliberate: its replicas are reserved, so

@@ -55,26 +55,27 @@ go test --count=1 -v -timeout 120m -run TestAWSDNSChaining
 
 ### Running Tests
 
-(Optional) Allows overwriting the version to use for Camunda 8, e.g. dev-latest.
-Otherwise defaults to published Helm versions and the latest stable release.
+The partitioning values require a chart that exposes `orchestration.partitioning`.
+Until that reaches a public release, build the reviewed chart commit locally:
 
 ```bash
 # Overwriting to the pre-release (dev) chart. It isn't published to the public Helm
 # repo, so build it from source (no private registry) and point HELM_CHART_NAME at the
 # local chart directory — the test installs from a local path (see InstallUpgradeC8Helm).
-# Note: a camunda-platform-helm release tag carries the *previous* version in Chart.yaml
-# (tag N ships version N-1), so this tag's chart is one alpha behind the tag name (the
-# known-good set the tests validate); the deployed image tags come from GLOBAL_IMAGE_TAG below.
+# The commit is the reviewed merge that introduced `orchestration.partitioning`;
+# the deployed image tags still come from GLOBAL_IMAGE_TAG below.
 export HELM_CHART_VERSION=15-dev-latest
 CHART_DIR="$(mktemp -d)"
-git clone --depth 1 --branch camunda-platform-8.10-15.0.0-alpha3 \
-  https://github.com/camunda/camunda-platform-helm.git "$CHART_DIR"
+git -C "$CHART_DIR" init
+git -C "$CHART_DIR" remote add origin https://github.com/camunda/camunda-platform-helm.git
+git -C "$CHART_DIR" fetch --depth 1 origin e3fb08f65ab7c3760e284d1f06c0d31fdcd604a4
+git -C "$CHART_DIR" checkout --detach FETCH_HEAD
 helm dependency update "$CHART_DIR/charts/camunda-platform-8.10"
 export HELM_CHART_NAME="$CHART_DIR/charts/camunda-platform-8.10"
 export GLOBAL_IMAGE_TAG=SNAPSHOT
 
-# Otherwise it's sufficient to set the helm chart version or rely on the default.
-export HELM_CHART_VERSION=14.0.0
+# TODO: [release-duty] replace the source checkout with the public v15 chart once
+# an 8.10 release containing `orchestration.partitioning` is published.
 ```
 
 - Deploy the dual-region setup
