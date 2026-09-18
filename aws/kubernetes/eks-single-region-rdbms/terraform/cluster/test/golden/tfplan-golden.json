@@ -3154,10 +3154,17 @@
             "source_region": null,
             "storage_encrypted": true,
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.postgresql.aws_rds_cluster_instance.aurora_instance[0]": {
+          "identity": {
+            "account_id": null,
+            "identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "aurora_instance",
@@ -3184,7 +3191,8 @@
             "promotion_tier": 0,
             "region": "eu-west-2",
             "tags": null,
-            "timeouts": null
+            "timeouts": null,
+            "warning_event_categories": null
           }
         },
         "module.postgresql.aws_security_group.this": {
