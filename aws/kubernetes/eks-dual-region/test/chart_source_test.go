@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPartitioningValuesRequireSourceBuiltChart(t *testing.T) {
+func TestPartitioningValuesRequireLocalChart(t *testing.T) {
 	err := validatePartitioningChart("camunda/camunda-platform")
 
 	assert.ErrorContains(t, err, "cannot read chart schema")
