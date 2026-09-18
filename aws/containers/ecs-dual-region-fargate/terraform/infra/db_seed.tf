@@ -4,7 +4,7 @@
 
 locals {
   # renovate: datasource=docker depName=public.ecr.aws/docker/library/mysql versioning=docker
-  db_seed_image_mysql = "public.ecr.aws/docker/library/mysql:8.4"
+  db_seed_image_mysql = "public.ecr.aws/docker/library/mysql:26.7"
   # renovate: datasource=docker depName=public.ecr.aws/docker/library/postgres versioning=docker
   db_seed_image_postgres = "public.ecr.aws/docker/library/postgres:17-alpine"
 
