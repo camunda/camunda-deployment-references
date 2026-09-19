@@ -243,6 +243,10 @@
       "newDigest": "sha256:4b73f7d8c5a2872fe85152da3729daeb8cb55fc532e822da7dcb441f8c4d2574"
     },
     {
+      "version": "14.24.0-debian-12-r10",
+      "newDigest": "sha256:17e1cf1bb9b45292276e844b44dc27ecb65b222f546dc80a6851ae8c6c014628"
+    },
+    {
       "version": "15.15.0-debian-12-r0",
       "newDigest": "sha256:fc2e864ca5117330c010054894e62ab8855bb425d8139c9ab969975cf726dfa0"
     },
@@ -467,6 +471,10 @@
       "newDigest": "sha256:f871b0d4194ff8d78f238702ca9b6ade4170f6f3c5f30f99dababd934cbe3999"
     },
     {
+      "version": "15.19.0-debian-12-r9",
+      "newDigest": "sha256:8501bc24c5a0293eaf54a0d1cb0ea6095e192f0dccea0316540284a58346faa1"
+    },
+    {
       "version": "16.11.0-debian-12-r0",
       "newDigest": "sha256:760d6a0a2a490cae41b6fd1b74c8cb3207bbffc5ea7e6725f92a75542a44a1b6"
     },
@@ -685,6 +693,10 @@
     {
       "version": "16.15.0-debian-12-r8",
       "newDigest": "sha256:768fda3c061286ee3651079115189776fc2b275200e00dbbb1ad1ace01291cfc"
+    },
+    {
+      "version": "16.15.0-debian-12-r9",
+      "newDigest": "sha256:79750caf212f487544252c3e547ef543c26e34f5fb6da7314c232a1befaf8719"
     },
     {
       "version": "17.6.0-debian-12-r28",
@@ -927,6 +939,14 @@
       "newDigest": "sha256:9f96473cc5021b1b02c4fe88daaae9bb585e370663221781a59441a4dca5a4b6"
     },
     {
+      "version": "17.11.0-debian-12-r8",
+      "newDigest": "sha256:82d82440b25b077215c3d9b50e7466edecacf5859853ce77a7a070bf7a7f8084"
+    },
+    {
+      "version": "17.11.0-debian-12-r9",
+      "newDigest": "sha256:dcca006af2c3477be9f385e421dc8032026ef650d049e9e129437b0df552d78b"
+    },
+    {
       "version": "18.0.0-debian-12-r16",
       "newDigest": "sha256:1c4144964df608d7ef3d9101ccaf92f762a4e704415944b94cae0215d8a2b698"
     },
@@ -1145,6 +1165,10 @@
     {
       "version": "18.6.0-debian-12-r8",
       "newDigest": "sha256:48e2464f55ebd72f5e57fce20c0761917ae13a367b4472b55f409f01f866d588"
+    },
+    {
+      "version": "18.6.0-debian-12-r9",
+      "newDigest": "sha256:c093b0269a7224f18448f6c0722e65b8e98c6e32e13b6d638f9bbf127d623a0d"
     }
   ]
 }
