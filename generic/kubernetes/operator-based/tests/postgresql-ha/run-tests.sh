@@ -25,6 +25,10 @@ CNPG_TIMEOUT=${CNPG_TIMEOUT:-600}
 
 failures=0
 checks=0
+# The node this run cordoned, so the teardown can restore that one rather than every
+# cordoned node in the cluster: with SKIP_CLUSTER_CREATE the context may be shared, and
+# `uncordon --all` would re-enable scheduling on nodes somebody else drained on purpose.
+cordoned_node=""
 
 pass() {
     checks=$((checks + 1))
@@ -65,9 +69,11 @@ cleanup() {
         kubectl logs -n cnpg-system deployment/cnpg-controller-manager --tail=100 || true
     fi
 
-    # A cordoned node outlives a failed run and silently breaks the next one, so uncordon
+    # A cordoned node outlives a failed run and silently breaks the next one, so restore it
     # before anything else and never let the teardown itself fail the test.
-    kubectl uncordon --all >/dev/null 2>&1 || true
+    if [[ -n "$cordoned_node" ]]; then
+        kubectl uncordon "$cordoned_node" >/dev/null 2>&1 || true
+    fi
     if [[ "$SKIP_CLUSTER_CREATE" != "true" && "$KEEP_CLUSTER" != "true" ]]; then
         echo ""
         echo "Deleting Kind cluster $KIND_CLUSTER_NAME"
@@ -282,6 +288,7 @@ primary_before=$(primary_pod pg-identity "$HA_NAMESPACE")
 primary_node=$(kubectl get pod "$primary_before" -n "$HA_NAMESPACE" -o jsonpath='{.spec.nodeName}')
 echo "  draining $primary_node, which hosts primary $primary_before"
 
+cordoned_node=$primary_node
 if kubectl drain "$primary_node" --ignore-daemonsets --delete-emptydir-data --timeout=300s; then
     pass "the node hosting the primary drained"
 else
@@ -301,6 +308,7 @@ assert_eq "written before the migration" \
     "the database still serves after the switchover"
 
 kubectl uncordon "$primary_node"
+cordoned_node=""
 wait_ready_instances pg-identity "$HA_NAMESPACE" 2
 
 echo ""

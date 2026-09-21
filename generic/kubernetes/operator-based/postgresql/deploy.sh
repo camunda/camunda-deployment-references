@@ -44,6 +44,17 @@ render_clusters() {
     yq ".spec.instances = $PG_INSTANCES | .spec.enablePDB = ($PG_INSTANCES > 1)" "$1"
 }
 
+# Wait for a cluster to be fully up. `condition=Ready` turns true while a second instance is
+# still cloning, so on its own it lets this script return before a switchover target exists,
+# and an immediate node drain then fails for want of a candidate.
+wait_cluster_ready() {
+    local cluster=$1 want
+    kubectl wait --for=condition=Ready --timeout=600s cluster "$cluster" -n "$CAMUNDA_NAMESPACE"
+    want=$(kubectl get cluster "$cluster" -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.spec.instances}')
+    kubectl wait --for=jsonpath="{.status.readyInstances}=$want" --timeout=600s \
+        cluster "$cluster" -n "$CAMUNDA_NAMESPACE"
+}
+
 # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
 CNPG_VERSION="1.30.0"
 
@@ -83,7 +94,9 @@ echo "Deploying PostgreSQL clusters..."
 
 if [[ -z "$CLUSTER_FILTER" ]]; then
     render_clusters postgresql-clusters.yml | kubectl apply --server-side -n "$CAMUNDA_NAMESPACE" -f -
-    kubectl wait --for=condition=Ready --timeout=600s cluster --all -n "$CAMUNDA_NAMESPACE"
+    for cluster in $(kubectl get cluster -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.items[*].metadata.name}'); do
+        wait_cluster_ready "$cluster"
+    done
 else
     echo "Filtered deployment: $CLUSTER_FILTER"
     IFS=',' read -ra CLUSTERS <<< "$CLUSTER_FILTER"
@@ -99,7 +112,7 @@ else
         fi
     done
     for cluster in "${CLUSTERS[@]}"; do
-        kubectl wait --for=condition=Ready --timeout=600s cluster "$cluster" -n "$CAMUNDA_NAMESPACE"
+        wait_cluster_ready "$cluster"
     done
 fi
 

@@ -10,6 +10,14 @@ metadata:
     name: pg-identity
 spec:
     instances: 2
+    affinity:
+        enablePodAntiAffinity: true
+        topologyKey: kubernetes.io/hostname
+        # required, not the CloudNativePG default of preferred: under scheduler pressure
+        # preferred silently co-locates both instances, and draining that node then has no
+        # switchover target, which is the failure these defaults exist to prevent. A cluster
+        # with fewer schedulable nodes than instances should set PG_INSTANCES instead.
+        podAntiAffinityType: required
     description: PostgreSQL cluster for Camunda Identity
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
     imageName: ghcr.io/cloudnative-pg/postgresql:18.4
@@ -36,6 +44,14 @@ metadata:
     name: pg-keycloak
 spec:
     instances: 2
+    affinity:
+        enablePodAntiAffinity: true
+        topologyKey: kubernetes.io/hostname
+        # required, not the CloudNativePG default of preferred: under scheduler pressure
+        # preferred silently co-locates both instances, and draining that node then has no
+        # switchover target, which is the failure these defaults exist to prevent. A cluster
+        # with fewer schedulable nodes than instances should set PG_INSTANCES instead.
+        podAntiAffinityType: required
     description: PostgreSQL cluster for Keycloak
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
     imageName: ghcr.io/cloudnative-pg/postgresql:18.4
@@ -66,6 +82,14 @@ metadata:
     name: pg-webmodeler
 spec:
     instances: 2
+    affinity:
+        enablePodAntiAffinity: true
+        topologyKey: kubernetes.io/hostname
+        # required, not the CloudNativePG default of preferred: under scheduler pressure
+        # preferred silently co-locates both instances, and draining that node then has no
+        # switchover target, which is the failure these defaults exist to prevent. A cluster
+        # with fewer schedulable nodes than instances should set PG_INSTANCES instead.
+        podAntiAffinityType: required
     description: PostgreSQL cluster for Webmodeler
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
     imageName: ghcr.io/cloudnative-pg/postgresql:18.4
