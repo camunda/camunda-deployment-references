@@ -58,9 +58,12 @@ wait_cluster_ready() {
 # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
 CNPG_VERSION="1.30.0"
 
-# Auto-detect OpenShift by checking for the route.openshift.io API group
+# Auto-detect OpenShift by checking for the route.openshift.io API group.
+# The output has to be tested, not the exit status: `kubectl api-resources --api-group` exits
+# 0 with no output for a group the cluster does not serve, and only fails when the cluster is
+# unreachable, so testing the status alone reports OpenShift everywhere.
 is_openshift() {
-    kubectl api-resources --api-group=route.openshift.io --no-headers >/dev/null 2>&1
+    [[ -n "$(kubectl api-resources --api-group=route.openshift.io --no-headers 2>/dev/null)" ]]
 }
 
 CNPG_MANIFEST_URL="https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-${CNPG_VERSION%.*}/releases/cnpg-${CNPG_VERSION}.yaml"
