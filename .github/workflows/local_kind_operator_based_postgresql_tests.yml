@@ -49,15 +49,7 @@ jobs:
 
             # Creates its own three-node Kind cluster: the drain under test needs a node to
             # switch the primary over to. Everything it pulls comes from ghcr.io, so no
-            # registry credentials and no Docker Hub rate limit are involved.
+            # registry credentials and no Docker Hub rate limit are involved. The script
+            # dumps cluster diagnostics itself on failure, before tearing the cluster down.
             - name: Run the PostgreSQL HA integration test
               run: ./generic/kubernetes/operator-based/tests/postgresql-ha/run-tests.sh
-
-            - name: Collect diagnostics on failure
-              if: failure()
-              run: |
-                  set +e
-                  kubectl get nodes -o wide
-                  kubectl get clusters.postgresql.cnpg.io -A
-                  kubectl get pods,pvc,pdb -A
-                  kubectl logs -n cnpg-system deployment/cnpg-controller-manager --tail=200

@@ -54,6 +54,17 @@ scenario() {
 # shellcheck disable=SC2317,SC2329 # invoked indirectly, through the EXIT trap below
 cleanup() {
     local exit_code=$?
+
+    # Dump state before the cluster goes away, or a failure leaves nothing to look at: this
+    # trap deletes the Kind cluster, so anything collected afterwards queries a dead context.
+    if [[ "$exit_code" -ne 0 ]]; then
+        echo ""
+        echo "=== diagnostics ==="
+        kubectl get nodes -o wide || true
+        kubectl get clusters.postgresql.cnpg.io,pods,pvc,pdb -A -o wide || true
+        kubectl logs -n cnpg-system deployment/cnpg-controller-manager --tail=100 || true
+    fi
+
     # A cordoned node outlives a failed run and silently breaks the next one, so uncordon
     # before anything else and never let the teardown itself fail the test.
     kubectl uncordon --all >/dev/null 2>&1 || true

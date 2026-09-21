@@ -64,8 +64,7 @@ fi
 
 # 2. Deploy PostgreSQL via CloudNativePG operator
 # One instance per cluster: these Kind nodes share a host with the whole Camunda stack, so a
-# second instance costs memory without buying availability. The HA defaults are exercised on
-# their own cluster, by generic/kubernetes/operator-based/tests/postgresql-ha/run-tests.sh.
+# second instance costs memory without buying availability.
 echo ""
 echo "=== Deploying PostgreSQL (CloudNativePG) ==="
 (

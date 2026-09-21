@@ -35,13 +35,13 @@ fi
 
 # Emit a cluster manifest, applying the PG_INSTANCES override when one is set.
 render_clusters() {
+    # Without an override the manifest is emitted byte for byte: piping it through yq would
+    # reformat the very file the documentation shows readers.
     if [[ -z "$PG_INSTANCES" ]]; then
         cat "$1"
         return
     fi
-    local enable_pdb=true
-    [[ "$PG_INSTANCES" -gt 1 ]] || enable_pdb=false
-    yq ".spec.instances = $PG_INSTANCES | .spec.enablePDB = $enable_pdb" "$1"
+    yq ".spec.instances = $PG_INSTANCES | .spec.enablePDB = ($PG_INSTANCES > 1)" "$1"
 }
 
 # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
