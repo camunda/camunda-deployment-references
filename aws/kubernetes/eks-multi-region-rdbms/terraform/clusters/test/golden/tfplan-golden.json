@@ -1600,6 +1600,12 @@
           }
         },
         "module.database_region_0[0].aws_rds_cluster_instance.this[0]": {
+          "identity": {
+            "account_id": null,
+            "identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "this",
@@ -1845,6 +1851,12 @@
           }
         },
         "module.database_secondary[\"1\"].aws_rds_cluster_instance.this[0]": {
+          "identity": {
+            "account_id": null,
+            "identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "this",
@@ -2296,7 +2308,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.36.3-SUFFIX",
+                    "release_version": "1.36.4-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -5317,7 +5329,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-3",
-                    "release_version": "1.36.3-SUFFIX",
+                    "release_version": "1.36.4-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -8338,7 +8350,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-central-2",
-                    "release_version": "1.36.3-SUFFIX",
+                    "release_version": "1.36.4-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
