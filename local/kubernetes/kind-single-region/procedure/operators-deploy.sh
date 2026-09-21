@@ -63,13 +63,9 @@ else
 fi
 
 # 2. Deploy PostgreSQL via CloudNativePG operator
-# One instance per cluster instead of the two the generic manifests default to: the Kind
-# nodes are containers on a single host that already runs Elasticsearch, Keycloak and every
-# Camunda component, and a second instance per PostgreSQL cluster buys no real availability
-# there while costing memory the stack is already short of. PG_INSTANCES=1 also disables the
-# PodDisruptionBudget, without which CloudNativePG would refuse to evict the sole instance
-# and the node could never be drained. The HA defaults are exercised on their own Kind
-# cluster instead, by generic/kubernetes/operator-based/tests/postgresql-ha/run-tests.sh.
+# One instance per cluster: these Kind nodes share a host with the whole Camunda stack, so a
+# second instance costs memory without buying availability. The HA defaults are exercised on
+# their own cluster, by generic/kubernetes/operator-based/tests/postgresql-ha/run-tests.sh.
 echo ""
 echo "=== Deploying PostgreSQL (CloudNativePG) ==="
 (

@@ -1,26 +1,14 @@
 #!/bin/bash
 # Integration test for the PostgreSQL reference architecture defaults.
 #
-# It pins the two properties the `instances: 2` and `walStorage` defaults exist for, neither
-# of which a manifest lint can see:
-#
-#   1. the node hosting PostgreSQL can be drained, so a Kubernetes upgrade is not stuck on
-#      the database;
-#   2. a deployment still running the previous single-instance shape migrates to those
-#      defaults in place, without losing its data.
-#
-# It also covers the PG_INSTANCES escape hatch, so the single-instance path that Kind and
-# other memory-constrained environments take stays drainable too. Both branches of
-# deploy.sh, with and without the override, run through deploy.sh itself rather than
-# through a re-implementation of what it does.
-#
-# Needs a multi-node cluster: a switchover has nowhere to go on a single node. Creates its
-# own Kind cluster by default.
+# Pins what a manifest lint cannot see: the node hosting PostgreSQL can be drained, a
+# deployment on the previous single-instance shape migrates in place without losing data,
+# and the PG_INSTANCES escape hatch stays drainable. Each scenario below names what it
+# checks. Needs a multi-node cluster, because a switchover has nowhere to go on one node.
 #
 # Environment variables:
 #   SKIP_CLUSTER_CREATE - "true" reuses the current kubectl context instead of creating a
-#                         Kind cluster. The context must point at a cluster with at least
-#                         two schedulable nodes.
+#                         Kind cluster. It must have at least two schedulable nodes.
 #   KEEP_CLUSTER        - "true" leaves the Kind cluster running for inspection.
 #   CNPG_TIMEOUT        - seconds to wait for a cluster to reach its instance count (600).
 
@@ -78,13 +66,10 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Wait until a CloudNativePG cluster reports the expected number of ready instances.
-# `kubectl wait --for=condition=Ready cluster` is satisfied while a second instance is still
-# being cloned, so it cannot stand in for this.
-#
-# The fourth argument asks for the healthy phase on top of the count. It defaults to true,
-# because a converged cluster reports both, and is passed false right after a drain, where
-# one instance is deliberately down and the cluster is expected to stay degraded.
+# Wait for a cluster to report the expected number of ready instances. `kubectl wait
+# --for=condition=Ready cluster` is satisfied while a second instance is still cloning.
+# Pass "false" as the fourth argument right after a drain, where one instance is
+# deliberately down and the cluster is expected to stay degraded.
 wait_ready_instances() {
     local cluster=$1 namespace=$2 expected=$3 require_healthy=${4:-true}
     local deadline=$((SECONDS + CNPG_TIMEOUT))
@@ -152,13 +137,9 @@ has_symlinked_wal() {
     kubectl exec -n "$2" "$1" -c postgres -- test -L /var/lib/postgresql/data/pgdata/pg_wal
 }
 
-# Wait until the standby is actually streaming from the primary.
-#
-# This is not the same as the cluster reporting a healthy state. After the primary restarts
-# to attach its WAL volume, the cluster can report two ready instances while the standby has
-# not re-established streaming replication yet. A standby in that state is not a switchover
-# candidate, so a drain started too early gets "Current primary is running on unschedulable
-# node, but there are no valid candidates" from the operator and never completes.
+# Wait for the standby to stream, which lags the cluster reporting itself healthy after the
+# primary restarts. A standby that is not streaming is not a switchover candidate, so a drain
+# started earlier stalls on "no valid candidates" from the operator.
 wait_replica_streaming() {
     local cluster=$1 namespace=$2
     local deadline=$((SECONDS + CNPG_TIMEOUT))

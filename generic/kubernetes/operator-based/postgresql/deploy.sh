@@ -6,8 +6,7 @@
 #   CAMUNDA_NAMESPACE  - Target namespace (default: camunda)
 #   CLUSTER_FILTER     - Optional: deploy only specific clusters, comma-separated (e.g., "pg-keycloak" or "pg-identity,pg-webmodeler")
 #   PG_INSTANCES       - Optional: override the instance count of every cluster. Unset by
-#                        default, so the manifests apply exactly as written (two instances).
-#                        Single-node environments set 1; see the note next to PG_INSTANCES below.
+#                        default, so the manifests apply as written. See the note below.
 #
 # Arguments:
 #   $1 - CNPG operator namespace (default: cnpg-system)
@@ -25,10 +24,9 @@ OPERATOR_NAMESPACE=${1:-cnpg-system}
 CLUSTER_FILTER=${CLUSTER_FILTER:-}
 CLUSTER_FILTER=${CLUSTER_FILTER// /}
 
-# A single-node cluster cannot honour the manifests' two instances, and CloudNativePG
-# refuses to evict the sole instance of a one-instance cluster, so its node can never be
-# drained unless the PodDisruptionBudget is disabled at the same time.
-# https://cloudnative-pg.io/docs/1.30/kubernetes_upgrade/
+# Optional override for environments that cannot host two instances. Setting 1 also disables
+# the PodDisruptionBudget, which is what keeps a single-instance cluster drainable; see the
+# docs link in postgresql-clusters.yml.
 PG_INSTANCES=${PG_INSTANCES:-}
 if [[ -n "$PG_INSTANCES" && ! "$PG_INSTANCES" =~ ^[1-9][0-9]*$ ]]; then
     echo "ERROR: PG_INSTANCES must be a positive integer, got: '$PG_INSTANCES'" >&2

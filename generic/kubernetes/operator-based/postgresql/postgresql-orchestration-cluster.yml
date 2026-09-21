@@ -1,7 +1,5 @@
 ---
-# instances and walStorage follow the same reasoning as postgresql-clusters.yml: two
-# instances keep the node drainable, and a dedicated WAL volume keeps replication-slot
-# retention out of PGDATA. See the header of that file for the full rationale.
+# instances and walStorage follow postgresql-clusters.yml; see its header.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
