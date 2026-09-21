@@ -1,15 +1,26 @@
 ---
+# instances and walStorage follow postgresql-clusters.yml; see its header.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
     name: pg-camunda
 spec:
-    instances: 1
+    instances: 2
+    affinity:
+        enablePodAntiAffinity: true
+        topologyKey: kubernetes.io/hostname
+        # required, not the CloudNativePG default of preferred: under scheduler pressure
+        # preferred silently co-locates both instances, and draining that node then has no
+        # switchover target, which is the failure these defaults exist to prevent. A cluster
+        # with fewer schedulable nodes than instances should set PG_INSTANCES instead.
+        podAntiAffinityType: required
     description: PostgreSQL cluster for Camunda orchestration secondary storage (RDBMS mode)
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
     imageName: ghcr.io/cloudnative-pg/postgresql:18.4
     storage:
         size: 15Gi
+    walStorage:
+        size: 5Gi
     superuserSecret:
         name: pg-camunda-superuser-secret
     # OpenShift Security Context - let SCC manage the security context
