@@ -21,41 +21,34 @@ func runPartitioning(t *testing.T, clusterJSON string) (string, error) {
 	return string(out), err
 }
 
-// The cluster API is renaming /cluster/partition-distribution to
-// /cluster/partitioning. Both spellings have to resolve, because the
-// procedures run against engines on either side of that rename.
-func TestPartitioningReadsBothSpellings(t *testing.T) {
+// The procedures track the current cluster API, which serves the partition
+// distribution under `partitioning`.
+func TestPartitioningReadsTheClusterResponse(t *testing.T) {
 	t.Parallel()
 
-	for name, cluster := range map[string]string{
-		"legacy":  `{"partitionDistribution":{"zones":[{"name":"paris"},{"name":"london"}]}}`,
-		"renamed": `{"partitioning":{"zones":[{"name":"paris"},{"name":"london"}]}}`,
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			out, err := runPartitioning(t, cluster)
-			if err != nil {
-				t.Fatalf("expected the %s spelling to resolve, got %v:\n%s", name, err, out)
-			}
-			if !strings.Contains(out, `"paris"`) {
-				t.Fatalf("expected the zone list in the output, got:\n%s", out)
-			}
-		})
+	out, err := runPartitioning(t, `{"partitioning":{"zones":[{"name":"paris"},{"name":"london"}]}}`)
+	if err != nil {
+		t.Fatalf("expected the cluster response to resolve, got %v:\n%s", err, out)
+	}
+	if !strings.Contains(out, `"paris"`) {
+		t.Fatalf("expected the zone list in the output, got:\n%s", out)
 	}
 }
 
 // The regression this guards: jq's `?` swallowed a missing field, so a response
-// carrying the other spelling read as "no such zone" and sent failback.sh down
+// the script could not read looked like "no such zone" and sent failback.sh down
 // its re-add branch for a zone that was never removed — on a live cluster,
 // without erroring. Anything short of a usable zone list has to fail here
-// instead of reaching that branch, including an empty list: a cluster always
-// has at least one zone, so an empty one is an incomplete response rather than
-// a membership state worth acting on.
+// instead of reaching that branch. That includes a response from before the
+// `/cluster/partition-distribution` rename: refusing loudly is recoverable,
+// silently re-adding a live zone is not. An empty list counts too, since a
+// cluster always has at least one zone, and a blank name can never match a
+// recovered zone, which `camunda::zone_name` guarantees is non-empty.
 func TestPartitioningRejectsUnusableResponses(t *testing.T) {
 	t.Parallel()
 
 	for name, cluster := range map[string]string{
+		"pre-rename spelling":  `{"partitionDistribution":{"zones":[{"name":"paris"}]}}`,
 		"neither spelling":     `{"brokers":[{"nodeId":0}]}`,
 		"unnamed zone entries": `{"partitioning":{"zones":["paris"]}}`,
 		"empty zone list":      `{"partitioning":{"zones":[]}}`,

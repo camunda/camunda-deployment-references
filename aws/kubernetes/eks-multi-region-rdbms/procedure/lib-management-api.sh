@@ -249,18 +249,16 @@ camunda::management() {
 # camunda::partitioning
 #
 # Reads a GET /actuator/cluster response on stdin and emits its partition
-# distribution, under either spelling: the API is renaming
-# `/cluster/partition-distribution` to `/cluster/partitioning` to agree with the
-# `camunda.cluster.partitioning` property, and the response field follows.
+# distribution.
 #
-# Errors on a missing, empty or malformed field rather than emitting nothing,
-# because `jq`'s `?` would make "spelled the other way" look like "genuinely
-# absent". An empty zone list is rejected for the same reason: a cluster always
-# has at least one zone, and `all` is vacuously true over an empty array. A
-# blank zone name is rejected too — it can never match a recovered zone, which
-# `camunda::zone_name` guarantees is non-empty, so it would read as "absent".
+# Errors on a missing, empty or malformed field rather than emitting nothing:
+# `jq`'s `?` would make an unreadable response look like "the zone is genuinely
+# absent", which sends the caller into a membership change. An empty zone list
+# counts as unreadable, since a cluster always has at least one zone, and so
+# does a blank name, which can never match the non-empty zone name that
+# `camunda::zone_name` returns.
 camunda::partitioning() {
-    if ! jq -ce '(.partitionDistribution // .partitioning)
+    if ! jq -ce '.partitioning
         | select((.zones | type) == "array" and (.zones | length) > 0
             and all(.zones[]; type == "object"
                 and (.name | type) == "string" and (.name | length) > 0))'; then
