@@ -64,9 +64,14 @@ describe_service() {
 }
 
 # Orchestration runs 4 tasks per region, connectors 1.
-describe_service "${REGION_0}" "${CLUSTER_NAME}-r0-cluster" "${CLUSTER_NAME}-r0-oc-service" 4
-describe_service "${REGION_1}" "${CLUSTER_NAME}-r1-cluster" "${CLUSTER_NAME}-r1-oc-service" 4
-describe_service "${REGION_0}" "${CLUSTER_NAME}-r0-cluster" "${CLUSTER_NAME}-r0-oc-connectors-service" 1
-describe_service "${REGION_1}" "${CLUSTER_NAME}-r1-cluster" "${CLUSTER_NAME}-r1-oc-connectors-service" 1
+# Service names come from the ECS modules, not from a convention invented here:
+# modules/ecs/fargate/orchestration-cluster/ecs.tf names its service
+# "${prefix}-orchestration-cluster" and modules/ecs/fargate/connectors/ecs.tf
+# names its own "${prefix}-connectors", where prefix is "<cluster>-rN-oc"
+# (terraform/app/camunda.tf).
+describe_service "${REGION_0}" "${CLUSTER_NAME}-r0-cluster" "${CLUSTER_NAME}-r0-oc-orchestration-cluster" 4
+describe_service "${REGION_1}" "${CLUSTER_NAME}-r1-cluster" "${CLUSTER_NAME}-r1-oc-orchestration-cluster" 4
+describe_service "${REGION_0}" "${CLUSTER_NAME}-r0-cluster" "${CLUSTER_NAME}-r0-oc-connectors" 1
+describe_service "${REGION_1}" "${CLUSTER_NAME}-r1-cluster" "${CLUSTER_NAME}-r1-oc-connectors" 1
 
 exit "${converged}"

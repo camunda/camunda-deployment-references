@@ -70,7 +70,7 @@ Wait until this returns `8` (all brokers registered).
 
 5. **Verify partition leaders:**
 ```bash
-curl -s "http://${ALB_R0}/v2/topology" | jq '[.brokers[].partitions[] | select(.role == "LEADER")] | length'
+curl -s "http://${ALB_R0}/v2/topology" | jq '[.brokers[].partitions[] | select(.role == "leader")] | length'
 ```
 Should return `8` (one leader per partition).
 
