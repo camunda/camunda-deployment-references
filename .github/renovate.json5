@@ -46,9 +46,10 @@
       managerFilePatterns: [
         '/^\\.github/actions/internal-multi-region-tests/action\\.yml$/',
         '/^aws/kubernetes/eks-dual-region/DEVELOPER\\.md$/',
+        '/^generic/openshift/dual-region/procedure/install-chart\\.sh$/',
       ],
       // The marker comment, then the SHA anywhere on the line below it. Deliberately not
-      // anchored on `datasource=`, so the preset's manager never matches these two lines.
+      // anchored on `datasource=`, so the preset's manager never matches these lines.
       matchStrings: [
         'renovate-helm-main[^\\n]*\\r?\\n[^\\n]*?(?<currentDigest>[0-9a-f]{40})',
       ],
