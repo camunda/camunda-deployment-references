@@ -253,11 +253,13 @@ camunda::management() {
 # `/cluster/partition-distribution` to `/cluster/partitioning` to agree with the
 # `camunda.cluster.partitioning` property, and the response field follows.
 #
-# Errors on a missing or malformed field rather than emitting nothing, because
-# `jq`'s `?` would make "spelled the other way" look like "genuinely absent".
+# Errors on a missing, empty or malformed field rather than emitting nothing,
+# because `jq`'s `?` would make "spelled the other way" look like "genuinely
+# absent". An empty zone list is rejected for the same reason: a cluster always
+# has at least one zone, and `all` is vacuously true over an empty array.
 camunda::partitioning() {
     if ! jq -ce '(.partitionDistribution // .partitioning)
-        | select((.zones | type) == "array"
+        | select((.zones | type) == "array" and (.zones | length) > 0
             and all(.zones[]; type == "object" and (.name | type) == "string"))'; then
         echo "ERROR: the cluster response carries no valid partition distribution with a zones array." >&2
         return 1

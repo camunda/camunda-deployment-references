@@ -48,29 +48,28 @@ func TestPartitioningReadsBothSpellings(t *testing.T) {
 // The regression this guards: jq's `?` swallowed a missing field, so a response
 // carrying the other spelling read as "no such zone" and sent failback.sh down
 // its re-add branch for a zone that was never removed — on a live cluster,
-// without erroring.
-func TestPartitioningRejectsAResponseCarryingNeitherSpelling(t *testing.T) {
+// without erroring. Anything short of a usable zone list has to fail here
+// instead of reaching that branch, including an empty list: a cluster always
+// has at least one zone, so an empty one is an incomplete response rather than
+// a membership state worth acting on.
+func TestPartitioningRejectsUnusableResponses(t *testing.T) {
 	t.Parallel()
 
-	out, err := runPartitioning(t, `{"brokers":[{"nodeId":0}]}`)
-	if err == nil {
-		t.Fatalf("expected a response without a partition distribution to be rejected, got success:\n%s", out)
-	}
-	if !strings.Contains(out, "no valid partition distribution") {
-		t.Fatalf("expected the failure to name the missing partition distribution, got:\n%s", out)
-	}
-}
+	for name, cluster := range map[string]string{
+		"neither spelling":     `{"brokers":[{"nodeId":0}]}`,
+		"unnamed zone entries": `{"partitioning":{"zones":["paris"]}}`,
+		"empty zone list":      `{"partitioning":{"zones":[]}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-// A zones array whose entries are not named objects is malformed rather than
-// empty: reporting it as "zone absent" would again pick the re-add branch.
-func TestPartitioningRejectsMalformedZoneEntries(t *testing.T) {
-	t.Parallel()
-
-	out, err := runPartitioning(t, `{"partitioning":{"zones":["paris"]}}`)
-	if err == nil {
-		t.Fatalf("expected malformed zone entries to be rejected, got success:\n%s", out)
-	}
-	if !strings.Contains(out, "no valid partition distribution") {
-		t.Fatalf("expected the failure to name the missing partition distribution, got:\n%s", out)
+			out, err := runPartitioning(t, cluster)
+			if err == nil {
+				t.Fatalf("expected %s to be rejected, got success:\n%s", name, out)
+			}
+			if !strings.Contains(out, "no valid partition distribution") {
+				t.Fatalf("expected the failure to name the missing partition distribution, got:\n%s", out)
+			}
+		})
 	}
 }
