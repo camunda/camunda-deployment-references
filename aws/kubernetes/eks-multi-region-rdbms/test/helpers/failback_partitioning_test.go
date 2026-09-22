@@ -64,3 +64,49 @@ func TestPartitioningRejectsUnusableResponses(t *testing.T) {
 		})
 	}
 }
+
+// failback.sh assigns the distribution to a variable under `set -euo pipefail`,
+// and the whole guarantee rests on that assignment aborting the script: a
+// rejected response has to stop the procedure outright, not leave the caller
+// holding an empty value and fall through to the branch that POSTs a membership
+// change. Calling the function directly, as the cases above do, cannot show it.
+func TestPartitioningAbortsTheCallerOnAnUnusableResponse(t *testing.T) {
+	t.Parallel()
+
+	const script = `set -euo pipefail
+. "$1"
+partitioning="$(printf '%s' "$2" | camunda::partitioning)"
+echo "REACHED-MEMBERSHIP-BRANCH with $partitioning"`
+
+	const marker = "REACHED-MEMBERSHIP-BRANCH"
+
+	for name, tc := range map[string]struct {
+		cluster      string
+		wantsToReach bool
+	}{
+		"usable response":    {`{"partitioning":{"zones":[{"name":"paris"}]}}`, true},
+		"no partitioning":    {`{"brokers":[{"nodeId":0}]}`, false},
+		"empty zone list":    {`{"partitioning":{"zones":[]}}`, false},
+		"blank zone name":    {`{"partitioning":{"zones":[{"name":""}]}}`, false},
+		"unnamed zone entry": {`{"partitioning":{"zones":["paris"]}}`, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			lib := filepath.Join(ProcedureDir(t), "lib-management-api.sh")
+			out, err := exec.Command("bash", "-c", script, "bash", lib, tc.cluster).CombinedOutput()
+			reached := strings.Contains(string(out), marker)
+
+			switch {
+			case tc.wantsToReach && err != nil:
+				t.Fatalf("expected the caller to continue, got %v:\n%s", err, out)
+			case tc.wantsToReach && !reached:
+				t.Fatalf("expected the caller to reach the membership branch, got:\n%s", out)
+			case !tc.wantsToReach && err == nil:
+				t.Fatalf("expected the caller to abort, got success:\n%s", out)
+			case !tc.wantsToReach && reached:
+				t.Fatalf("expected the abort to precede the membership branch, got:\n%s", out)
+			}
+		})
+	}
+}
