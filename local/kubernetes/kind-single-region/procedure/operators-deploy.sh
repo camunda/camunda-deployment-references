@@ -65,6 +65,8 @@ else
 fi
 
 # 2. Deploy PostgreSQL via CloudNativePG operator
+# One instance per cluster: these Kind nodes share a host with the whole Camunda stack, so a
+# second instance costs memory without buying availability.
 echo ""
 echo "=== Deploying PostgreSQL (CloudNativePG) ==="
 (
@@ -75,7 +77,7 @@ echo "=== Deploying PostgreSQL (CloudNativePG) ==="
         CLUSTER_FILTER="${CLUSTER_FILTER:+$CLUSTER_FILTER,}pg-camunda"
     fi
 
-    CLUSTER_FILTER="$CLUSTER_FILTER" ./deploy.sh
+    PG_INSTANCES=1 CLUSTER_FILTER="$CLUSTER_FILTER" ./deploy.sh
 )
 
 # 3. Deploy Keycloak via Keycloak operator

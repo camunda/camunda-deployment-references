@@ -57,3 +57,27 @@ output "secondary_cluster_resource_id" {
   value       = aws_rds_cluster.secondary.cluster_resource_id
   description = "The resource ID of the secondary Aurora cluster (used for IAM auth)"
 }
+
+output "db_port" {
+  value       = local.db_port
+  description = "The database port for the selected engine (5432 for PostgreSQL, 3306 for MySQL)."
+}
+
+################################################################
+#   JDBC URL components (compose the URL in the app layer)     #
+################################################################
+
+output "jdbc_subprotocol" {
+  value       = local.jdbc_subprotocol
+  description = "JDBC subprotocol for the selected engine ('postgresql' or 'mysql'), i.e. the segment after 'jdbc:aws-wrapper:'."
+}
+
+output "database_name" {
+  value       = var.database_name
+  description = "The database created on the cluster; the path segment of the JDBC URL."
+}
+
+output "jdbc_url_parameters" {
+  value       = local.jdbc_url_parameters
+  description = "Every query parameter for the JDBC URL, as a map: wrapperPlugins ('failover', plus 'iam' and 'initialConnection' when iam_auth_enabled, plus any extra_wrapper_plugins), globalClusterInstanceHostPatterns, the engine's TLS key (sslmode=require for PostgreSQL, sslMode=REQUIRED for MySQL — set explicitly because the driver defaults permit a plaintext downgrade; note require forces encryption but does not verify the server certificate, and extra_url_parameters may raise it), and any extra_url_parameters. Render it as '?' plus '&'-joined 'key=value' pairs; no entry carries a separator of its own."
+}

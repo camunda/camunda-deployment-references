@@ -5,6 +5,8 @@
 # This file wires selected sensitive environment variables through
 # ECS task definition `secrets` (Secrets Manager) instead of plaintext
 # `environment` values.
+#
+# Keycloak / realm secrets live in keycloak_secrets.tf (bundled-IdP only).
 
 locals {
   db_admin_password_effective = var.db_admin_password != "" ? var.db_admin_password : random_password.db_admin_password[0].result
@@ -63,4 +65,87 @@ resource "aws_secretsmanager_secret" "connectors_client_auth_password" {
 resource "aws_secretsmanager_secret_version" "connectors_client_auth_password" {
   secret_id     = aws_secretsmanager_secret.connectors_client_auth_password.id
   secret_string = random_password.connectors_user_password.result
+}
+
+# Management Identity database role password. Only needed when OIDC is enabled
+# (Identity is deployed); in basic mode Identity is not deployed.
+resource "random_password" "identity_db_password" {
+  count            = local.oidc_enabled ? 1 : 0
+  length           = 32
+  special          = true
+  override_special = "!#$%^()-_=+[]{}:?"
+}
+
+resource "aws_secretsmanager_secret" "identity_db_password" {
+  count                   = local.oidc_enabled ? 1 : 0
+  name                    = "${var.prefix}-oc1-identity-db-password"
+  description             = "Password for the Management Identity Aurora PostgreSQL role (IDENTITY_DATABASE_PASSWORD)"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+
+resource "aws_secretsmanager_secret_version" "identity_db_password" {
+  count         = local.oidc_enabled ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.identity_db_password[0].id
+  secret_string = random_password.identity_db_password[0].result
+}
+
+################################################################
+#                     Camunda Hub Secrets                      #
+################################################################
+
+# Shared Pusher credentials (must be identical across restapi + websockets).
+resource "random_password" "camunda_hub_pusher_app_key" {
+  count   = var.enable_camunda_hub ? 1 : 0
+  length  = 20
+  special = false
+}
+
+resource "random_password" "camunda_hub_pusher_app_secret" {
+  count   = var.enable_camunda_hub ? 1 : 0
+  length  = 20
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "pusher_app_key" {
+  count                   = var.enable_camunda_hub ? 1 : 0
+  name                    = "${var.prefix}-oc1-camunda-hub-pusher-app-key"
+  description             = "Camunda Hub Pusher app key (shared restapi/websockets)"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+
+resource "aws_secretsmanager_secret_version" "pusher_app_key" {
+  count         = var.enable_camunda_hub ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.pusher_app_key[0].id
+  secret_string = random_password.camunda_hub_pusher_app_key[0].result
+}
+
+resource "aws_secretsmanager_secret" "pusher_app_secret" {
+  count                   = var.enable_camunda_hub ? 1 : 0
+  name                    = "${var.prefix}-oc1-camunda-hub-pusher-app-secret"
+  description             = "Camunda Hub Pusher app secret (shared restapi/websockets)"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+
+resource "aws_secretsmanager_secret_version" "pusher_app_secret" {
+  count         = var.enable_camunda_hub ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.pusher_app_secret[0].id
+  secret_string = random_password.camunda_hub_pusher_app_secret[0].result
+}
+
+# Camunda license key (only when provided; Hub runs in trial mode otherwise).
+resource "aws_secretsmanager_secret" "camunda_license_key" {
+  count                   = var.enable_camunda_hub && var.camunda_license_key != "" ? 1 : 0
+  name                    = "${var.prefix}-oc1-camunda-license-key"
+  description             = "Camunda license key injected as CAMUNDA_LICENSE_KEY"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_effective
+}
+
+resource "aws_secretsmanager_secret_version" "camunda_license_key" {
+  count         = var.enable_camunda_hub && var.camunda_license_key != "" ? 1 : 0
+  secret_id     = aws_secretsmanager_secret.camunda_license_key[0].id
+  secret_string = var.camunda_license_key
 }

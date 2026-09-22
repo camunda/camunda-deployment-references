@@ -11,9 +11,24 @@ This folder describes the IaC of Camunda on AWS ECS Fargate in a dual-region act
 - **8 Zeebe brokers** — 4 per region with asymmetric initial contact points (Service Connect locally, NLB cross-region)
 - **Aurora Global Database** — single writer endpoint with [AWS JDBC Wrapper](https://github.com/aws/aws-advanced-jdbc-wrapper) `failover` plugin for automatic reconnection
 - **Route 53 Resolver** — forwards Cloud Map DNS queries cross-region for service discovery
-- **RDBMS secondary storage** — uses PostgreSQL (Aurora) instead of Elasticsearch/OpenSearch
+- **RDBMS secondary storage** — uses Aurora (PostgreSQL by default, or MySQL via `db_engine`) instead of Elasticsearch/OpenSearch
 
 Cluster configuration: `cluster_size=8`, `replication_factor=4`, `partition_count=8`.
+
+### Choosing the RDBMS engine
+
+`db_engine` on the `infra` state selects the Aurora engine for RDBMS secondary storage. It drives the cluster, the security-group rules, the IAM DB-user seeding, and the generated JDBC URL.
+
+| `db_engine` | Aurora engine | Port |
+|---|---|---|
+| `postgresql` (default) | `aurora-postgresql` | 5432 |
+| `mysql` | `aurora-mysql` | 3306 |
+
+> [!WARNING]
+> **`db_engine` is a create-time choice.** Changing it on an existing deployment replaces the global cluster and both regional clusters, and the module skips the final snapshot — the data does not survive. Camunda does not support in-place migration between secondary-storage backends either, so migrating means standing up a new deployment.
+
+> [!NOTE]
+> Running Camunda against `db_engine = "mysql"` requires a custom Camunda image carrying the MySQL JDBC driver — the published image does not include it. See [user-supplied drivers](https://docs.camunda.io/docs/self-managed/deployment/manual/rdbms/configuration/#user-supplied-drivers-oracle-mysql).
 
 ## Prerequisites
 

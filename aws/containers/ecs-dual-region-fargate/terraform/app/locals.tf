@@ -65,11 +65,32 @@ locals {
       name  = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_1_PRIORITY"
       value = "500"
     },
-    # enable async replication in zeebe to avoid data loss on failover.
-    # reference: https://docs.camunda.io/docs/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
+    # Async replication monitoring: the exporter acknowledges a record to the
+    # broker only once Aurora confirms it replicated, so the Zeebe log is held
+    # until then. Mechanism, trade-offs and sizing:
+    # https://docs.camunda.io/docs/self-managed/deployment/containers/cloud-providers/amazon/aws-ecs-dual-region/#secondary-storage-replication-lag
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED"
       value = "true"
+    },
+    # Engine default, pinned because support is vendor-specific: an unsupported
+    # backend fails the exporter at startup rather than degrading quietly.
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE"
+      value = "LOG_SEQ"
+    },
+    # Pause threshold, inert while the flag below stays false. An hour rather
+    # than the PT15M default: a cross-region promotion under load exceeds it.
+    # min-sync-replicas stays at 1, the global cluster's only secondary.
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG"
+      value = "PT1H"
+    },
+    # Engine default, kept deliberately. Enabling it halts exporting without
+    # protecting data or bounding disk, so it is an operator decision.
+    {
+      name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED"
+      value = "false"
     },
   ]
 
@@ -88,15 +109,74 @@ locals {
     },
   ]
 
-  # Aurora Global instance host patterns for AWS JDBC Wrapper.
-  # Must be derived from the regional cluster endpoints (not the global endpoint),
-  # since instance DNS names share the regional cluster's hostname suffix.
-  aurora_primary_instance_pattern = local.infra.secondary_storage_type == "rdbms" ? "?.${
-    replace(local.infra.aurora_primary_cluster_endpoint, "${local.infra.aurora_primary_cluster_identifier}.cluster-", "")
-  }" : ""
-  aurora_secondary_instance_pattern = local.infra.secondary_storage_type == "rdbms" ? "?.${
-    replace(local.infra.aurora_secondary_cluster_endpoint, "${local.infra.aurora_secondary_cluster_identifier}.cluster-", "")
-  }" : ""
+  # JDBC URL for RDBMS secondary storage, assembled here rather than in the infra
+  # layer: a connection property (timeout, pool setting, an extra wrapper
+  # property) is an application concern, and changing one should not require
+  # re-applying the infrastructure state. The infra layer supplies only the
+  # engine-derived components.
+  #
+  # Precedence: var.rdbms_jdbc_url (full override) > var.rdbms_extra_jdbc_params
+  # > the parameters and components the infra layer supplies. A full override is
+  # taken verbatim, so the caller keeps complete control.
+  #
+  # The URL splits into the parts before the '?' and the query parameters. Both
+  # are required, with no silent defaults: defaulting the database name to
+  # "camunda" would point Camunda at a *different* database on a cluster that
+  # happens to have one, which connects and behaves plausibly. Absent any part
+  # we compose no URL at all and the precondition in validations.tf says which.
+  # tostring() keeps the emptiness check honest for aurora_db_port, a number.
+  rdbms_jdbc_required_components = [
+    try(local.infra.aurora_jdbc_subprotocol, null),
+    try(local.infra.aurora_global_writer_endpoint, null),
+    try(local.infra.aurora_db_port, null),
+    try(local.infra.db_name, null),
+  ]
+
+  # The app layer's parameters merge *over* the infra layer's rather than being
+  # concatenated after them: two rendered fragments can carry the same key
+  # twice, and which occurrence a driver honours is driver-specific.
+  rdbms_jdbc_url_parameters = merge(
+    try(local.infra.aurora_jdbc_url_parameters, {}),
+    var.rdbms_extra_jdbc_params,
+  )
+
+  # TLS, the plugin list and the host patterns travel inside that map now, so
+  # they are checked by key rather than as separate components. Checking them at
+  # all is the point: an infra state predating the map would otherwise compose a
+  # URL with no TLS pinning and no failover topology, both silently. Compared
+  # lower-cased because the TLS key is spelled sslmode by pgjdbc and sslMode by
+  # Connector/J.
+  rdbms_jdbc_required_parameters = ["wrapperplugins", "globalclusterinstancehostpatterns", "sslmode"]
+
+  rdbms_jdbc_parameters_present = alltrue([
+    for required in local.rdbms_jdbc_required_parameters :
+    anytrue([for k in keys(local.rdbms_jdbc_url_parameters) : lower(k) == required])
+  ])
+
+  rdbms_jdbc_components_available = alltrue([
+    for v in local.rdbms_jdbc_required_components : v != null && tostring(v) != ""
+  ]) && local.rdbms_jdbc_parameters_present
+
+  # Map iteration is key-sorted, so the query string is stable across plans.
+  # Parameter order carries no meaning to either driver.
+  rdbms_jdbc_query_string = join("&", [
+    for k, v in local.rdbms_jdbc_url_parameters : "${k}=${v}"
+  ])
+
+  rdbms_jdbc_url_composed = local.rdbms_jdbc_components_available ? join("", [
+    "jdbc:aws-wrapper:",
+    local.infra.aurora_jdbc_subprotocol,
+    "://",
+    local.infra.aurora_global_writer_endpoint,
+    ":",
+    tostring(local.infra.aurora_db_port),
+    "/",
+    local.infra.db_name,
+    "?",
+    local.rdbms_jdbc_query_string,
+  ]) : null
+
+  rdbms_jdbc_url = var.rdbms_jdbc_url != null ? var.rdbms_jdbc_url : local.rdbms_jdbc_url_composed
 
   # Secondary storage environment variables (conditional on storage type)
   rdbms_env_vars = local.infra.secondary_storage_type == "rdbms" ? [
@@ -110,7 +190,7 @@ locals {
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_URL"
-      value = "jdbc:aws-wrapper:postgresql://${local.infra.aurora_global_writer_endpoint}:5432/${local.infra.db_name}?wrapperPlugins=iam,failover&globalClusterInstanceHostPatterns=${local.aurora_primary_instance_pattern},${local.aurora_secondary_instance_pattern}"
+      value = local.rdbms_jdbc_url
     },
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_USERNAME"

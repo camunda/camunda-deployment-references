@@ -13,7 +13,7 @@ set -euo pipefail
 #
 # Optional overrides (env vars):
 #   CAMUNDA_HELM_CHART_GIT_URL       source repo URL
-#   CAMUNDA_HELM_CHART_GIT_REF       branch or tag to build (passed to git clone --branch)
+#   CAMUNDA_HELM_CHART_GIT_REF       branch, tag, or FULL 40-character commit SHA
 #   CAMUNDA_HELM_CHART_CHECKOUT_DIR  clone location; must be an absolute path
 #   CAMUNDA_HELM_CHART_CLONE_ATTEMPTS how many times to try the clone; positive integer, default 3
 
@@ -109,9 +109,32 @@ rm -rf -- "$_chart_checkout_dir"
 # the prompt is disabled and the failure is retried a few times. Four separate CI
 # runs failed here on a tag that was public and present the whole time.
 _clone_attempt=1
+# A short SHA looks like a valid ref but is neither fetchable nor a branch name,
+# so it would fail below as "Remote branch not found". Say what is actually
+# wrong: git cannot fetch an abbreviated commit, only a full one.
+if [[ "$_chart_git_ref" =~ ^[0-9a-f]{7,39}$ ]]; then
+    echo "ERROR: CAMUNDA_HELM_CHART_GIT_REF '$_chart_git_ref' looks like an abbreviated commit SHA." >&2
+    echo "       Git can only fetch a full 40-character SHA; use the complete one, a branch, or a tag." >&2
+    exit 1
+fi
 while true; do
-    if GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$_chart_git_ref" \
-        -- "$_chart_git_url" "$_chart_checkout_dir" >&2; then
+    if [[ "$_chart_git_ref" =~ ^[0-9a-f]{40}$ ]]; then
+        mkdir -p "$_chart_checkout_dir"
+        git -C "$_chart_checkout_dir" init --quiet
+        git -C "$_chart_checkout_dir" remote add origin "$_chart_git_url"
+        cloned=false
+        if GIT_TERMINAL_PROMPT=0 git -C "$_chart_checkout_dir" fetch --depth 1 origin "$_chart_git_ref" >&2 &&
+            git -C "$_chart_checkout_dir" checkout --detach FETCH_HEAD >&2; then
+            cloned=true
+        fi
+    else
+        cloned=false
+        if GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$_chart_git_ref" \
+            -- "$_chart_git_url" "$_chart_checkout_dir" >&2; then
+            cloned=true
+        fi
+    fi
+    if [[ "$cloned" == true ]]; then
         break
     fi
     # Remove the partial checkout so the marker guard does not block a rerun.

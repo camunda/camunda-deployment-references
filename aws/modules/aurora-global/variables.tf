@@ -6,14 +6,67 @@ variable "global_cluster_identifier" {
 variable "engine" {
   type        = string
   default     = "aurora-postgresql"
-  description = "The engine type e.g. aurora-postgresql"
+  description = "The Aurora engine type: 'aurora-postgresql' or 'aurora-mysql'"
+
+  validation {
+    condition     = contains(["aurora-postgresql", "aurora-mysql"], var.engine)
+    error_message = "engine must be either 'aurora-postgresql' or 'aurora-mysql'."
+  }
 }
 
+# DEPRECATED. Removed as an input in favour of the per-engine pins below, which
+# each carry their own Renovate annotation. Kept only so that a consumer still
+# setting it gets an actionable message instead of Terraform's bare "An argument
+# named engine_version is not expected here". Safe to delete once consumers have
+# migrated.
 variable "engine_version" {
+  type        = string
+  default     = null
+  description = "DEPRECATED and non-functional. Use postgresql_engine_version or mysql_engine_version, whichever matches var.engine; the module selects between them."
+
+  validation {
+    condition     = var.engine_version == null
+    error_message = "engine_version has been removed. Set postgresql_engine_version (when engine = aurora-postgresql) or mysql_engine_version (when engine = aurora-mysql) instead — the module selects the right one for the engine in use."
+  }
+}
+
+variable "postgresql_engine_version" {
   type = string
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
   default     = "18.4"
-  description = "The DB engine version for Postgres to use"
+  description = "Aurora PostgreSQL engine version, used when engine = aurora-postgresql. Set this to pin a specific version for the PostgreSQL path."
+
+  # This value reaches aws_rds_global_cluster and aws_rds_cluster unchanged, so
+  # a blank one surfaces as an AWS API error mid-apply rather than at plan time.
+  # nullable = false makes an explicit null fall back to the default above.
+  nullable = false
+
+  validation {
+    condition     = trimspace(var.postgresql_engine_version) != ""
+    error_message = "postgresql_engine_version must not be blank — it is the version pin passed to the RDS resources when engine = aurora-postgresql."
+  }
+}
+
+variable "mysql_engine_version" {
+  type = string
+  # Aurora MySQL versions are compound (8.4.mysql_aurora.8.4.7) and need a
+  # regex versioning so Renovate orders them correctly. That versioning is
+  # attached centrally to the custom.aurora-mysql-camunda datasource in
+  # camunda/infraex-common-config (default.json5), so no inline `versioning=`
+  # is needed here. See camunda/team-infrastructure-experience#1209.
+  # renovate: datasource=custom.aurora-mysql-camunda depName=aurora-mysql
+  default     = "8.4.mysql_aurora.8.4.7"
+  description = "Aurora MySQL engine version, used when engine = aurora-mysql. Set this to pin a specific version for the MySQL path."
+
+  # As above: a blank pin would only fail once AWS rejected it. Note the value
+  # is compound (8.4.mysql_aurora.8.4.7); a bare 8.4.7 is not a valid Aurora
+  # MySQL version and is rejected by AWS, not here.
+  nullable = false
+
+  validation {
+    condition     = trimspace(var.mysql_engine_version) != ""
+    error_message = "mysql_engine_version must not be blank — it is the version pin passed to the RDS resources when engine = aurora-mysql."
+  }
 }
 
 variable "auto_minor_version_upgrade" {
@@ -30,13 +83,13 @@ variable "database_name" {
 
 variable "master_username" {
   type        = string
-  description = "The username for the postgres admin user"
+  description = "The username for the database admin user"
   sensitive   = true
 }
 
 variable "master_password" {
   type        = string
-  description = "The password for the postgres admin user"
+  description = "The password for the database admin user"
   sensitive   = true
 }
 
@@ -44,6 +97,72 @@ variable "iam_auth_enabled" {
   type        = bool
   default     = true
   description = "Enable IAM database authentication"
+}
+
+variable "extra_wrapper_plugins" {
+  type        = list(string)
+  default     = []
+  description = "Additional AWS Advanced JDBC Wrapper plugins, appended to the wrapperPlugins entry of jdbc_url_parameters. The module always sets 'failover' and 'initialConnection' (plus 'iam' when iam_auth_enabled), so list only the extras here, e.g. ['readWriteSplitting']. Duplicates of the built-ins are ignored. The position a plugin takes in the list is not the execution order: the wrapper re-sorts the pipeline by built-in weight unless autoSortWrapperPluginOrder is disabled, which extra_url_parameters must not do."
+
+  validation {
+    condition     = alltrue([for p in var.extra_wrapper_plugins : can(regex("^[A-Za-z][A-Za-z0-9]*$", p))])
+    error_message = "extra_wrapper_plugins entries must be bare plugin codes (alphanumeric, no commas or spaces) — pass each plugin as its own list element."
+  }
+}
+
+variable "extra_url_parameters" {
+  type        = map(string)
+  default     = {}
+  description = "Additional query parameters merged into jdbc_url_parameters, e.g. the failover plugin's { failoverTimeoutMs = \"60000\" } or the efm2 plugin's { failureDetectionTime = \"15000\" }. The parameters the module derives from the engine (wrapperPlugins, globalClusterInstanceHostPatterns, wrapperDialect) are reserved; the TLS mode may be raised but not lowered."
+
+  # Two guards, both required. The shape check keeps '&' and '=' out of keys and
+  # values, without which a single entry could append arbitrary extra parameters
+  # to the URL (e.g. connectTimeout = "5000&wrapperPlugins=none") and defeat the
+  # reserved-key check below. Rejecting is preferred over url-encoding: such
+  # input can only be a mistake, and encoding would also mangle the ':' and '/'
+  # that legitimately appear in values.
+  validation {
+    condition = alltrue([
+      for k, v in var.extra_url_parameters :
+      can(regex("^[A-Za-z][A-Za-z0-9]*$", k)) && can(regex("^[A-Za-z0-9._:/,-]+$", v))
+    ])
+    error_message = "extra_url_parameters keys must be bare JDBC parameter names (letters and digits, starting with a letter) and values may contain only letters, digits and . _ : / , - — notably no '&' or '=', so that no entry can append a parameter of its own."
+  }
+
+  # Compared lower-cased: the reserved list is a closed set of exact strings, so
+  # a variant differing only in case (WRAPPERPLUGINS) would otherwise slip
+  # through and land in the query string, where whether a driver honours it is
+  # driver-specific — the same hazard as emitting a duplicate key.
+  #
+  # wrapperDialect is reserved for the same reason as the host patterns: it is
+  # derived from the engine, and a value belonging to the other engine breaks
+  # topology discovery silently rather than failing to connect.
+  #
+  # The TLS key is deliberately *not* on this list. Reserving it would have
+  # blocked hardening as well as weakening, which matters because require only
+  # encrypts — it does not verify the server certificate. The value check below
+  # allows the stronger modes and rejects the weaker ones instead.
+  validation {
+    condition = length(setintersection(
+      [for k in keys(var.extra_url_parameters) : lower(k)],
+      ["wrapperplugins", "globalclusterinstancehostpatterns", "wrapperdialect"],
+    )) == 0
+    error_message = "extra_url_parameters must not contain the parameters the module derives from the engine (wrapperPlugins, globalClusterInstanceHostPatterns, wrapperDialect), in any capitalisation — use extra_wrapper_plugins for the plugin list; the host patterns and dialect follow the engine."
+  }
+
+  # TLS may be raised, never lowered. The driver defaults (prefer / PREFERRED)
+  # permit a silent plaintext downgrade, and with IAM authentication the
+  # credential on the wire is a bearer token — so 'disable', 'allow' and
+  # 'prefer' are rejected while verify-ca / verify-full / VERIFY_IDENTITY are
+  # accepted for a deployment that ships a CA bundle.
+  validation {
+    condition = alltrue([
+      for k, v in var.extra_url_parameters :
+      contains(["require", "verify-ca", "verify-full", "REQUIRED", "VERIFY_CA", "VERIFY_IDENTITY"], v)
+      if lower(k) == "sslmode"
+    ])
+    error_message = "A TLS parameter in extra_url_parameters may only strengthen the default: use require, verify-ca or verify-full for PostgreSQL, or REQUIRED, VERIFY_CA or VERIFY_IDENTITY for MySQL. The weaker modes (disable, allow, prefer, DISABLED, PREFERRED) permit a plaintext downgrade."
+  }
 }
 
 variable "instance_class" {

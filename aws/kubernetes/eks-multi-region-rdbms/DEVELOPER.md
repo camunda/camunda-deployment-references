@@ -1,0 +1,300 @@
+# Developer's Guide
+
+Local development reference for the AWS EKS multi-region RDBMS architecture.
+Read [README.md](./README.md) first: the topology invariants (zones, per-zone
+replicas, leadership priority) are not obvious and getting them wrong produces a
+cluster that silently never forms a quorum.
+
+## Prerequisites
+
+```bash
+just install-tooling   # terraform, kubectl, helm, yq, jq, go
+pre-commit install
+```
+
+Plus:
+
+- `subctl` — installed by `procedure/submariner/install-subctl.sh`
+- an AWS profile with access to **all** the regions in play
+
+> [!WARNING]
+> `eu-central-2` (Zurich) and `eu-south-1` (Milan) are AWS **opt-in** regions.
+> They must be enabled on the account before anything can be created there:
+> `aws account enable-region --region-name eu-central-2`. Their cleanup schedule
+> also has to be declared in
+> [infraex-common-config](https://github.com/camunda/infraex-common-config).
+
+> [!WARNING]
+> `eu-west-2` and `eu-west-3` are nuked nightly. Use a `cluster_name` of your
+> own, never the CI default, and expect anything left running overnight to be
+> gone.
+
+## Cost awareness
+
+This architecture is significantly more expensive than the dual-region one:
+
+- 3 EKS control planes and node groups instead of 2
+- 3 Transit Gateways plus 3 inter-region peering attachments, billed per
+  attachment-hour **and** per GB of inter-region data
+- 1 Aurora Global Database with a member per database region
+
+Destroy it as soon as you are done. `single_nat_gateway = true` and a smaller
+`np_desired_node_count` cut a meaningful share of the bill for local iteration.
+
+## Bringing it up
+
+```bash
+cd terraform/clusters
+terraform init
+
+# Local iteration: 2 of 3 slots, smallest viable footprint.
+terraform apply \
+  -var cluster_name="$USER-mr" \
+  -var active_region_count=2 \
+  -var single_nat_gateway=true \
+  -var np_desired_node_count=2
+```
+
+`active_region_count=2` with 3 slots is a valid, supported state: every
+partition holds 2 of its 3 replicas. It halves the cost while still exercising
+the cross-region code paths, and it is the starting point of the
+`activate-region.sh` flow.
+
+Then:
+
+```bash
+cd ../../procedure
+. ./export-terraform-outputs.sh
+./register-kubecontexts.sh
+. ./export_environment_prerequisites.sh
+```
+
+`export-terraform-outputs.sh` derives the whole environment from the state, down
+to the kubectl context aliases that `register-kubecontexts.sh` then creates, so
+nothing here has to be typed twice.
+
+## Debugging
+
+### Cross-region pod traffic is dropped
+
+Before blaming Camunda, prove the substrate:
+
+```bash
+./verify-cross-region-connectivity.sh
+```
+
+Two minutes instead of the thirty a full deployment takes. If it fails, check
+the ownership of the pod range:
+
+Submariner does not carry this traffic, so do not start with `subctl`. The
+data plane is the Transit Gateway:
+
+```bash
+# Are the remote ranges routed? Expect one route per remote VPC and service CIDR.
+aws ec2 describe-route-tables --region eu-west-2 \
+  --filters "Name=vpc-id,Values=<vpc>" \
+  --query 'RouteTables[].Routes[?TransitGatewayId!=null].[DestinationCidrBlock]' --output text
+
+# Does the remote security group allow the port? Rules come from
+# terraform/clusters/security.tf, keyed <rule>|<remote cidr>.
+aws ec2 describe-security-group-rules --region eu-west-3 \
+  --filters "Name=group-id,Values=<cluster sg>" \
+  --query 'SecurityGroupRules[?!IsEgress].[CidrIpv4,IpProtocol,FromPort,ToPort]' --output text
+```
+
+If the names do not resolve at all, that is Lighthouse rather than routing:
+
+```bash
+subctl show networks --contexts cluster-london
+kubectl --context cluster-london -n submariner-operator get clusters.submariner.io
+kubectl --context cluster-london -n camunda get serviceexports,serviceimports
+```
+
+### Zeebe never reaches the expected broker count
+
+Almost always cross-region DNS. In order:
+
+```bash
+./submariner/verify-submariner.sh          # is Lighthouse up and wired into CoreDNS?
+./submariner/diagnose-submariner.sh        # full dump incl. cross-cluster nslookup
+kubectl --context cluster-london -n camunda logs camunda-zeebe-0 -c wait-clusterset-dns
+```
+
+The `wait-clusterset-dns` init container logs exactly which name it is waiting
+for. If it times out and the broker starts anyway (fail-open), the broker will
+then hang on `NXDOMAIN` while dialing a peer — see
+[camunda/camunda#55038](https://github.com/camunda/camunda/issues/55038).
+
+### A broker is `Running` but never `Ready`
+
+Same root cause. Delete the pod; it re-resolves on restart.
+
+### Brokers are up but partitions are unhealthy
+
+Check the broker distribution. Every zone must hold its declared number of
+brokers, and every partition a replica in each zone:
+
+```bash
+./check-cluster-topology.sh
+```
+
+Broker names carry the zone (`paris_1`), so a misplaced broker is visible
+directly. The usual cause is `orchestration.multiregion.zone` not matching any `name`
+in the zone list, which the chart now rejects at render time (see
+camunda/camunda-platform-helm#6949).
+
+### RDBMS connection failures
+
+```bash
+kubectl --context cluster-london -n camunda logs camunda-zeebe-0 | grep -i -E 'jdbc|hikari|liquibase'
+```
+
+Common causes:
+
+- the Aurora security group does not include the region's VPC, service or pod
+  CIDR — check `database_allowed_cidr_blocks` in
+  `terraform/clusters/database.tf`. Pods reach a **local** Aurora member with
+  their own address, and a **remote** one with the node address, because the
+  VPC CNI only source-NATs traffic leaving the VPC;
+- the writer moved and `globalClusterInstanceHostPatterns` does not list the new
+  region;
+- Liquibase is blocked on `DATABASECHANGELOGLOCK` after a crashed startup.
+
+## Exercising the interesting paths
+
+```bash
+# Grow the cluster from 2 to 3 regions without touching the running brokers
+cd terraform/clusters && terraform apply -var active_region_count=3 && cd -
+. ./export-terraform-outputs.sh   # refreshes the slot-indexed lists, keeps the Camunda count
+./register-kubecontexts.sh
+export CAMUNDA_ACTIVE_REGIONS=3
+./activate-region.sh 2
+
+# Lose a region and observe that nothing stops
+./failover.sh 1
+./check-cluster-topology.sh
+
+# Bring it back
+./failback.sh 1
+```
+
+"Observe that nothing stops" is easier to believe with something running. The
+load generator starts process instances and completes their jobs at a fixed
+rate, from a Job inside one region's cluster, so it keeps writing while another
+region goes away:
+
+```bash
+./load-generator.sh start        # defaults to the last active slot
+./load-generator.sh status       # job, pod, and the last throughput lines
+./load-generator.sh stop
+```
+
+`start` prints the exact `kubectl logs -f` command for the context it picked, so
+to watch the rate live while a region goes away, paste that into a second shell.
+That shell needs the environment too, since nothing is inherited across
+terminals:
+
+```bash
+cd procedure
+. ./export-terraform-outputs.sh
+. ./export_environment_prerequisites.sh
+./load-generator.sh status       # or the logs command `start` printed
+```
+
+Point it at a slot other than the one you are about to lose. Slot 0 hosts the
+Aurora writer, so it is the slot worth losing in a test and the worst place to
+run the generator, which is why `start` defaults away from it.
+
+### Why the community benchmark, and not the RT load tests
+
+Camunda has two load-testing stacks, and this reference uses the community one
+([`camunda-8-benchmark`](https://github.com/camunda-community-hub/camunda-8-benchmark))
+on purpose.
+
+The reliability-testing stack is not usable from here, for two independent
+reasons. Its images live in `gcr.io/zeebe-io` and are not publicly pullable, so
+anyone copying this reference would get `ImagePullBackOff`. And the
+[load test chart](https://github.com/camunda/camunda-load-tests-helm) has no
+basic-auth path: its SaaS branch uses OIDC and its self-managed branch sets no
+authentication at all, while this reference runs
+`global.security.authentication.method: basic` with no default credentials.
+`load-tests/setup` in the monorepo is further still: it provisions Camunda
+itself onto Camunda's own GKE benchmark cluster, reached through Teleport.
+
+Using the community benchmark also gets something back: it is what customers
+run, so exercising it here is coverage of the path they are on.
+
+If you are inside Camunda and want the RT chart against this cluster anyway,
+you need image pull access plus overrides the chart does not set itself:
+
+```bash
+helm install load camunda-load-tests/camunda-load-tests \
+  --set global.connect.serviceName="$CAMUNDA_RELEASE_NAME-zeebe-gateway" \
+  --set-json 'global.extraEnvVars=[
+    {"name":"CAMUNDA_CLIENT_MODE","value":"self-managed"},
+    {"name":"CAMUNDA_CLIENT_AUTH_METHOD","value":"basic"},
+    {"name":"CAMUNDA_CLIENT_AUTH_USERNAME","valueFrom":{"secretKeyRef":{"name":"camunda-load-generator-auth","key":"username"}}},
+    {"name":"CAMUNDA_CLIENT_AUTH_PASSWORD","valueFrom":{"secretKeyRef":{"name":"camunda-load-generator-auth","key":"password"}}}
+  ]'
+```
+
+The two stacks are tracked for consolidation in
+[camunda/camunda#51191](https://github.com/camunda/camunda/issues/51191); revisit
+this choice when that lands.
+
+## Tearing down
+
+```bash
+helm --kube-context cluster-london -n camunda uninstall camunda || true
+# ... one per region
+
+cd terraform/clusters
+terraform destroy -var cluster_name="$USER-mr"
+```
+
+Destroy order matters: Kubernetes-managed load balancers and ENIs keep the VPC
+alive. If `terraform destroy` stalls on a VPC or subnet, look for leftover
+LoadBalancer services and Submariner gateway resources first.
+
+### After the nightly sweep took your cluster
+
+`eu-west-2`, `eu-west-3` and `eu-central-2` are swept nightly at 5AM, so a
+cluster left running overnight is gone in the morning — but **its Terraform
+state is not**. Reusing the same state key the next day puts you in the worst
+position: Terraform believes in resources that no longer exist.
+
+Do not try to reconcile it. `terraform apply -refresh-only` fails outright on
+the half-emptied state, because the EKS module reads attributes off a cluster
+that has gone.
+
+The sweep also does not remove everything. It clears VPCs, EKS clusters, Aurora
+and Transit Gateways, but these survive it and are exactly what a fresh apply
+collides with:
+
+| Leftover | Symptom on the next apply |
+| --- | --- |
+| IAM roles and policies (`<cluster_name>-*`) | `EntityAlreadyExists` |
+| CloudWatch log groups (`/aws/eks/<cluster_name>-*/cluster`) | `ResourceAlreadyExistsException` |
+| KMS aliases (`alias/eks/<cluster_name>-*`) | `AlreadyExistsException` |
+
+So do not delete the state and re-apply under the same `cluster_name`, which is
+the tempting move: you will hit those three in sequence, one apply at a time,
+and a crashed apply can leave EKS clusters outside state to clean up by hand.
+
+**Use a new `cluster_name` instead.** It is a fresh namespace with no orphans,
+and it costs nothing — the sweep collects the old resources tonight. Delete the
+stale state object only once the new deployment is up, so nothing references it
+while you still might need the resource names it records.
+
+If you do need the old name back, sweep it first: IAM roles, IAM policies,
+CloudWatch log groups and KMS aliases matching the prefix, in that order,
+detaching policies before deleting the roles that hold them.
+
+## Golden files
+
+```bash
+just regenerate-golden-file eks-multi-region-rdbms eu-west-2
+```
+
+Golden plans are regenerated from `terraform/clusters/test/golden/golden.tfvars`.
+Never edit them by hand, and check the redaction before committing.

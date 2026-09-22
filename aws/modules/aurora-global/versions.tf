@@ -1,5 +1,7 @@
 terraform {
-  required_version = ">= 1.0"
+  # 1.1 rather than 1.0: the engine version pins use nullable = false, which
+  # was added for input variables in Terraform 1.1.
+  required_version = ">= 1.1"
 
   required_providers {
     aws = {
