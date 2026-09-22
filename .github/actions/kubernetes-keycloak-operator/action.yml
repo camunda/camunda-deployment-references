@@ -66,10 +66,17 @@ runs:
                       export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-openshift.yml"
                       ;;
                   *)
-                      echo "Error: Unknown mode '$MODE'" >&2
+                      echo "Error: Unknown mode '$MODE'. Supported: no-domain, domain-contour, domain-openshift" >&2
                       exit 1
                       ;;
               esac
+
+              # deploy.sh renders the Keycloak hostname from CAMUNDA_DOMAIN via envsubst,
+              # so an empty value yields "https:///auth" and fails far downstream.
+              if [[ "$MODE" == domain-* && -z "${CAMUNDA_DOMAIN:-}" ]]; then
+                  echo "Error: domain-name is required for mode '$MODE'." >&2
+                  exit 1
+              fi
 
               echo "🔑 Deploying Keycloak (mode: $MODE, config: $KEYCLOAK_CONFIG_FILE)..."
 
