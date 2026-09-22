@@ -59,6 +59,7 @@ func TestPartitioningRejectsUnusableResponses(t *testing.T) {
 		"neither spelling":     `{"brokers":[{"nodeId":0}]}`,
 		"unnamed zone entries": `{"partitioning":{"zones":["paris"]}}`,
 		"empty zone list":      `{"partitioning":{"zones":[]}}`,
+		"blank zone name":      `{"partitioning":{"zones":[{"name":""}]}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
