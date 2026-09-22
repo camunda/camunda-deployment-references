@@ -148,10 +148,9 @@ runs:
                 # A commit rather than a tag: the suites need the
                 # `orchestration.partitioning` rename (camunda/camunda-platform-helm#7179)
                 # and the ingress-nginx compatibility flag (#7145), both merged but
-                # unreleased. The newest tag, 15.0.0-alpha5, predates both. Renovate
-                # follows published tags only, so this moves by hand.
+                # unreleased. The newest tag, 15.0.0-alpha5, predates both.
                 # TODO: [release-duty] switch to the public chart when 8.10 is released.
-                # renovate-inert-ok
+                # renovate-helm-main: digest tracked against camunda-platform-helm main
                 CHART_GIT_REF="1225a5b7ff9d62e3db1ce005e128249197b2d339"
                 CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
                 CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"

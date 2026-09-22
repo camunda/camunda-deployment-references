@@ -29,6 +29,34 @@
       groupName: 'camunda keycloak operator and image',
     },
   ],
+  customManagers: [
+    {
+      // The 8.10 chart pin is a camunda-platform-helm *commit*, not a release tag: the
+      // reference architectures need changes that are merged upstream but not in any
+      // published tag. The shared preset's inline annotation cannot express that. Its
+      // matchString only captures a digest in `@sha256:` form, so a bare 40-character git
+      // SHA lands in `currentValue`, where `git-refs` cannot resolve it -- Renovate reads
+      // the annotation and then drops it, which is exactly what `check-renovate-lookup`
+      // fails the build on.
+      //
+      // Capturing the SHA as `currentDigest` against `currentValue: main` is what makes
+      // `git-refs` offer a digest bump every time main moves. Arrays of mergeable options
+      // concatenate, so this manager is added to the preset's rather than replacing it.
+      customType: 'regex',
+      managerFilePatterns: [
+        '/^\\.github/actions/internal-multi-region-tests/action\\.yml$/',
+        '/^aws/kubernetes/eks-dual-region/DEVELOPER\\.md$/',
+      ],
+      // The marker comment, then the SHA anywhere on the line below it. Deliberately not
+      // anchored on `datasource=`, so the preset's manager never matches these two lines.
+      matchStrings: [
+        'renovate-helm-main[^\\n]*\\r?\\n[^\\n]*?(?<currentDigest>[0-9a-f]{40})',
+      ],
+      currentValueTemplate: 'main',
+      datasourceTemplate: 'git-refs',
+      depNameTemplate: 'https://github.com/camunda/camunda-platform-helm',
+    },
+  ],
   baseBranchPatterns: [
     'main',
     // TODO: [release-duty] remove branches whose maintenance period has ended and add the new stable branch
