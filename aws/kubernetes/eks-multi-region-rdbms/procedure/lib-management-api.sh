@@ -249,7 +249,7 @@ camunda::management() {
 # camunda::partitioning
 #
 # Reads a GET /actuator/cluster response on stdin and emits its partition
-# distribution.
+# distribution, under either spelling.
 #
 # Errors on a missing, empty or malformed field rather than emitting nothing:
 # `jq`'s `?` would make an unreadable response look like "the zone is genuinely
@@ -257,8 +257,16 @@ camunda::management() {
 # counts as unreadable, since a cluster always has at least one zone, and so
 # does a blank name, which can never match the non-empty zone name that
 # `camunda::zone_name` returns.
+#
+# TODO: [release-duty] drop `.partitionDistribution` and read `.partitioning`
+# alone once the stable release carries the rename. The API is renaming
+# `/cluster/partition-distribution` to `/cluster/partitioning` to agree with the
+# `camunda.cluster.partitioning` property, and the response field follows, but
+# the engine this architecture deploys today — `camunda/camunda:8.10.0-alpha5`,
+# the same on either side of the chart pin bump — still answers with the old
+# one. Reading only the new spelling makes failback stop on every cluster.
 camunda::partitioning() {
-    if ! jq -ce '.partitioning
+    if ! jq -ce '(.partitionDistribution // .partitioning)
         | select(.zones | type == "array" and length > 0
             and all(type == "object" and (.name | type) == "string" and (.name | length) > 0))'; then
         echo "ERROR: the cluster response carries no valid partition distribution with a zones array." >&2

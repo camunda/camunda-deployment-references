@@ -21,17 +21,29 @@ func runPartitioning(t *testing.T, clusterJSON string) (string, error) {
 	return string(out), err
 }
 
-// The procedures track the current cluster API, which serves the partition
-// distribution under `partitioning`.
-func TestPartitioningReadsTheClusterResponse(t *testing.T) {
+// Both spellings resolve. The API is renaming `/cluster/partition-distribution`
+// to `/cluster/partitioning`, but the engine the reference architecture deploys
+// today, `camunda/camunda:8.10.0-alpha5`, still answers with the old one — the
+// same engine on either side of the chart pin bump. The fallback goes away with
+// the release that carries the rename; see the release-duty note on the function.
+func TestPartitioningReadsBothSpellings(t *testing.T) {
 	t.Parallel()
 
-	out, err := runPartitioning(t, `{"partitioning":{"zones":[{"name":"paris"},{"name":"london"}]}}`)
-	if err != nil {
-		t.Fatalf("expected the cluster response to resolve, got %v:\n%s", err, out)
-	}
-	if !strings.Contains(out, `"paris"`) {
-		t.Fatalf("expected the zone list in the output, got:\n%s", out)
+	for name, cluster := range map[string]string{
+		"pre-rename": `{"partitionDistribution":{"zones":[{"name":"paris"},{"name":"london"}]}}`,
+		"renamed":    `{"partitioning":{"zones":[{"name":"paris"},{"name":"london"}]}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			out, err := runPartitioning(t, cluster)
+			if err != nil {
+				t.Fatalf("expected the %s spelling to resolve, got %v:\n%s", name, err, out)
+			}
+			if !strings.Contains(out, `"paris"`) {
+				t.Fatalf("expected the zone list in the output, got:\n%s", out)
+			}
+		})
 	}
 }
 
