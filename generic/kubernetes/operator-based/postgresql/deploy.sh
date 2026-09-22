@@ -5,6 +5,8 @@
 # Environment variables:
 #   CAMUNDA_NAMESPACE  - Target namespace (default: camunda)
 #   CLUSTER_FILTER     - Optional: deploy only specific clusters, comma-separated (e.g., "pg-keycloak" or "pg-identity,pg-webmodeler")
+#   PG_INSTANCES       - Optional: override the instance count of every cluster. Unset by
+#                        default, so the manifests apply as written. See the note below.
 #
 # Arguments:
 #   $1 - CNPG operator namespace (default: cnpg-system)
@@ -22,12 +24,46 @@ OPERATOR_NAMESPACE=${1:-cnpg-system}
 CLUSTER_FILTER=${CLUSTER_FILTER:-}
 CLUSTER_FILTER=${CLUSTER_FILTER// /}
 
+# Optional override for environments that cannot host two instances. Setting 1 also disables
+# the PodDisruptionBudget, which is what keeps a single-instance cluster drainable; see the
+# docs link in postgresql-clusters.yml.
+PG_INSTANCES=${PG_INSTANCES:-}
+if [[ -n "$PG_INSTANCES" && ! "$PG_INSTANCES" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: PG_INSTANCES must be a positive integer, got: '$PG_INSTANCES'" >&2
+    exit 1
+fi
+
+# Emit a cluster manifest, applying the PG_INSTANCES override when one is set.
+render_clusters() {
+    # Without an override the manifest is emitted byte for byte: piping it through yq would
+    # reformat the very file the documentation shows readers.
+    if [[ -z "$PG_INSTANCES" ]]; then
+        cat "$1"
+        return
+    fi
+    yq ".spec.instances = $PG_INSTANCES | .spec.enablePDB = ($PG_INSTANCES > 1)" "$1"
+}
+
+# Wait for a cluster to be fully up. `condition=Ready` turns true while a second instance is
+# still cloning, so on its own it lets this script return before a switchover target exists,
+# and an immediate node drain then fails for want of a candidate.
+wait_cluster_ready() {
+    local cluster=$1 want
+    kubectl wait --for=condition=Ready --timeout=600s cluster "$cluster" -n "$CAMUNDA_NAMESPACE"
+    want=$(kubectl get cluster "$cluster" -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.spec.instances}')
+    kubectl wait --for=jsonpath="{.status.readyInstances}=$want" --timeout=600s \
+        cluster "$cluster" -n "$CAMUNDA_NAMESPACE"
+}
+
 # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
 CNPG_VERSION="1.30.0"
 
-# Auto-detect OpenShift by checking for the route.openshift.io API group
+# Auto-detect OpenShift by checking for the route.openshift.io API group.
+# The output has to be tested, not the exit status: `kubectl api-resources --api-group` exits
+# 0 with no output for a group the cluster does not serve, and only fails when the cluster is
+# unreachable, so testing the status alone reports OpenShift everywhere.
 is_openshift() {
-    kubectl api-resources --api-group=route.openshift.io --no-headers >/dev/null 2>&1
+    [[ -n "$(kubectl api-resources --api-group=route.openshift.io --no-headers 2>/dev/null)" ]]
 }
 
 CNPG_MANIFEST_URL="https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-${CNPG_VERSION%.*}/releases/cnpg-${CNPG_VERSION}.yaml"
@@ -60,22 +96,26 @@ CLUSTER_FILTER="$CLUSTER_FILTER" CAMUNDA_NAMESPACE="$CAMUNDA_NAMESPACE" "./set-s
 echo "Deploying PostgreSQL clusters..."
 
 if [[ -z "$CLUSTER_FILTER" ]]; then
-    kubectl apply --server-side -f postgresql-clusters.yml -n "$CAMUNDA_NAMESPACE"
-    kubectl wait --for=condition=Ready --timeout=600s cluster --all -n "$CAMUNDA_NAMESPACE"
+    render_clusters postgresql-clusters.yml | kubectl apply --server-side -n "$CAMUNDA_NAMESPACE" -f -
+    for cluster in $(kubectl get cluster -n "$CAMUNDA_NAMESPACE" -o jsonpath='{.items[*].metadata.name}'); do
+        wait_cluster_ready "$cluster"
+    done
 else
     echo "Filtered deployment: $CLUSTER_FILTER"
     IFS=',' read -ra CLUSTERS <<< "$CLUSTER_FILTER"
     for cluster in "${CLUSTERS[@]}"; do
         # pg-camunda is defined in a separate orchestration manifest
         if [[ "$cluster" == "pg-camunda" ]]; then
-            kubectl apply --server-side -f postgresql-orchestration-cluster.yml -n "$CAMUNDA_NAMESPACE"
+            render_clusters postgresql-orchestration-cluster.yml | \
+                kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f -
         else
-            yq "select(.metadata.name == \"$cluster\")" postgresql-clusters.yml | \
+            render_clusters postgresql-clusters.yml | \
+                yq "select(.metadata.name == \"$cluster\")" | \
                 kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f -
         fi
     done
     for cluster in "${CLUSTERS[@]}"; do
-        kubectl wait --for=condition=Ready --timeout=600s cluster "$cluster" -n "$CAMUNDA_NAMESPACE"
+        wait_cluster_ready "$cluster"
     done
 fi
 
