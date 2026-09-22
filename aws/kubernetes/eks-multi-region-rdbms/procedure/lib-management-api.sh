@@ -259,9 +259,8 @@ camunda::management() {
 # `camunda::zone_name` returns.
 camunda::partitioning() {
     if ! jq -ce '.partitioning
-        | select((.zones | type) == "array" and (.zones | length) > 0
-            and all(.zones[]; type == "object"
-                and (.name | type) == "string" and (.name | length) > 0))'; then
+        | select(.zones | type == "array" and length > 0
+            and all(type == "object" and (.name | type) == "string" and (.name | length) > 0))'; then
         echo "ERROR: the cluster response carries no valid partition distribution with a zones array." >&2
         return 1
     fi
