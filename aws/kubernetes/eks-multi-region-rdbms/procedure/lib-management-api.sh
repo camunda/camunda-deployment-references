@@ -246,6 +246,24 @@ camunda::management() {
         "$method" "$path" "$body"
 }
 
+# camunda::partitioning
+#
+# Reads a GET /actuator/cluster response on stdin and emits its partition
+# distribution, under either spelling: the API is renaming
+# `/cluster/partition-distribution` to `/cluster/partitioning` to agree with the
+# `camunda.cluster.partitioning` property, and the response field follows.
+#
+# Errors on a missing or malformed field rather than emitting nothing, because
+# `jq`'s `?` would make "spelled the other way" look like "genuinely absent".
+camunda::partitioning() {
+    if ! jq -ce '(.partitionDistribution // .partitioning)
+        | select((.zones | type) == "array"
+            and all(.zones[]; type == "object" and (.name | type) == "string"))'; then
+        echo "ERROR: the cluster response carries no valid partition distribution with a zones array." >&2
+        return 1
+    fi
+}
+
 # camunda::_basic_auth
 #
 # Emits the gateway basic-auth pair, refusing to invent one. The chart's
