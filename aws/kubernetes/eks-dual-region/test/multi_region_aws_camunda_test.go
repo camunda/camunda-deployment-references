@@ -826,6 +826,46 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	require.True(t, exporterStatusIs(lastBody, "camundaregion1", "ENABLED"), "expected camundaregion1 to be ENABLED, got: %s", lastBody)
 }
 
+// topologyHasActiveEntry reports whether a cluster response contains any object
+// carrying the given numeric id and state.
+//
+// Walked over the decoded response rather than matched as a substring: the
+// engine inserts `physicalTenant` between `id` and `state`, so a literal
+// `"id":8,"state":"ACTIVE"` no longer appears even when the entry is present and
+// active. A body that does not parse reads false rather than passing on a
+// response nobody looked at.
+func topologyHasActiveEntry(body string, id int, state string) bool {
+	var doc any
+	if err := json.Unmarshal([]byte(body), &doc); err != nil {
+		return false
+	}
+
+	var walk func(any) bool
+	walk = func(node any) bool {
+		switch v := node.(type) {
+		case map[string]any:
+			if n, ok := v["id"].(float64); ok && int(n) == id {
+				if s, ok := v["state"].(string); ok && s == state {
+					return true
+				}
+			}
+			for _, child := range v {
+				if walk(child) {
+					return true
+				}
+			}
+		case []any:
+			for _, child := range v {
+				if walk(child) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	return walk(doc)
+}
+
 func addSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILBACK] Adding secondary brokers 🚀")
 
@@ -837,7 +877,7 @@ func addSecondaryBrokers(t *testing.T) {
 	require.NoError(t, err, "[FAILBACK] failed to request broker addition")
 	require.Equal(t, 202, status)
 	require.NotEmpty(t, body)
-	require.Contains(t, body, "\"id\":8,\"state\":\"ACTIVE\"")
+	require.True(t, topologyHasActiveEntry(body, 8, "ACTIVE"), "expected partition 8 to be ACTIVE in the accepted topology, got: %s", body)
 
 	// Check that the addition of new brokers was completed. This can take a while,
 	// and brokers restart during redistribution, so tolerate transient connection
