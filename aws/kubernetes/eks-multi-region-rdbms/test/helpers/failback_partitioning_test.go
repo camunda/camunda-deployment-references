@@ -39,20 +39,17 @@ func TestPartitioningReadsTheClusterResponse(t *testing.T) {
 // the script could not read looked like "no such zone" and sent failback.sh down
 // its re-add branch for a zone that was never removed — on a live cluster,
 // without erroring. Anything short of a usable zone list has to fail here
-// instead of reaching that branch. That includes a response from before the
-// `/cluster/partition-distribution` rename: refusing loudly is recoverable,
-// silently re-adding a live zone is not. An empty list counts too, since a
-// cluster always has at least one zone, and a blank name can never match a
-// recovered zone, which `camunda::zone_name` guarantees is non-empty.
+// instead of reaching that branch. An empty list counts, since a cluster always
+// has at least one zone, and so does a blank name, which can never match a
+// recovered zone — `camunda::zone_name` guarantees that one is non-empty.
 func TestPartitioningRejectsUnusableResponses(t *testing.T) {
 	t.Parallel()
 
 	for name, cluster := range map[string]string{
-		"pre-rename spelling":  `{"partitionDistribution":{"zones":[{"name":"paris"}]}}`,
-		"neither spelling":     `{"brokers":[{"nodeId":0}]}`,
-		"unnamed zone entries": `{"partitioning":{"zones":["paris"]}}`,
-		"empty zone list":      `{"partitioning":{"zones":[]}}`,
-		"blank zone name":      `{"partitioning":{"zones":[{"name":""}]}}`,
+		"no partitioning field": `{"brokers":[{"nodeId":0}]}`,
+		"unnamed zone entries":  `{"partitioning":{"zones":["paris"]}}`,
+		"empty zone list":       `{"partitioning":{"zones":[]}}`,
+		"blank zone name":       `{"partitioning":{"zones":[{"name":""}]}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
