@@ -1,6 +1,7 @@
 package test
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -717,6 +718,36 @@ func removeSecondaryBrokers(t *testing.T) {
 	require.NotContains(t, lastBody, "PARTITION_FORCE_RECONFIGURE")
 }
 
+// exporterStatusIs reports whether every entry GET /actuator/exporters lists for
+// the given exporter carries the given status.
+//
+// Parsed, not substring-matched: the engine added a `physicalTenant` field to
+// each entry, which a byte-exact `{"exporterId":"x","status":"y"}` comparison
+// cannot survive. Each tenant contributes its own entry, so one tenant still
+// exporting means the exporter is not disabled cluster-wide. A body that does
+// not parse, or never names the exporter, is not evidence and reads false.
+func exporterStatusIs(body, exporterID, status string) bool {
+	var entries []struct {
+		ExporterID string `json:"exporterId"`
+		Status     string `json:"status"`
+	}
+	if err := json.Unmarshal([]byte(body), &entries); err != nil {
+		return false
+	}
+
+	found := false
+	for _, e := range entries {
+		if e.ExporterID != exporterID {
+			continue
+		}
+		if e.Status != status {
+			return false
+		}
+		found = true
+	}
+	return found
+}
+
 func disableElasticExportersToSecondary(t *testing.T) {
 	t.Log("[FAILOVER] Disabling Elasticsearch Exporters to secondary 🚀")
 
@@ -736,7 +767,7 @@ func disableElasticExportersToSecondary(t *testing.T) {
 	brokerRestarts := 0
 	for i := 0; i < 20; i++ {
 		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/exporters", nil)
-		if err == nil && status == 200 && strings.Contains(lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"DISABLED\"}") {
+		if err == nil && status == 200 && exporterStatusIs(lastBody, "camundaregion1", "DISABLED") {
 			disabled = true
 			break
 		}
@@ -752,8 +783,8 @@ func disableElasticExportersToSecondary(t *testing.T) {
 	}
 
 	require.True(t, disabled, "[FAILOVER] exporter was not disabled within the retry budget")
-	require.Contains(t, lastBody, "{\"exporterId\":\"camundaregion0\",\"status\":\"ENABLED\"}")
-	require.Contains(t, lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"DISABLED\"}")
+	require.True(t, exporterStatusIs(lastBody, "camundaregion0", "ENABLED"), "expected camundaregion0 to be ENABLED, got: %s", lastBody)
+	require.True(t, exporterStatusIs(lastBody, "camundaregion1", "DISABLED"), "expected camundaregion1 to be DISABLED, got: %s", lastBody)
 }
 
 func enableElasticExportersToSecondary(t *testing.T) {
@@ -775,7 +806,7 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	brokerRestarts := 0
 	for i := 0; i < 60; i++ {
 		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/exporters", nil)
-		if err == nil && status == 200 && strings.Contains(lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"ENABLED\"}") {
+		if err == nil && status == 200 && exporterStatusIs(lastBody, "camundaregion1", "ENABLED") {
 			enabled = true
 			break
 		}
@@ -791,8 +822,8 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	}
 
 	require.True(t, enabled, "[FAILBACK] exporter was not enabled within the retry budget")
-	require.Contains(t, lastBody, "{\"exporterId\":\"camundaregion0\",\"status\":\"ENABLED\"}")
-	require.Contains(t, lastBody, "{\"exporterId\":\"camundaregion1\",\"status\":\"ENABLED\"}")
+	require.True(t, exporterStatusIs(lastBody, "camundaregion0", "ENABLED"), "expected camundaregion0 to be ENABLED, got: %s", lastBody)
+	require.True(t, exporterStatusIs(lastBody, "camundaregion1", "ENABLED"), "expected camundaregion1 to be ENABLED, got: %s", lastBody)
 }
 
 func addSecondaryBrokers(t *testing.T) {
