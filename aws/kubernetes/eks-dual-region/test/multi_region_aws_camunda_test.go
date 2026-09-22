@@ -782,7 +782,7 @@ func disableElasticExportersToSecondary(t *testing.T) {
 		time.Sleep(15 * time.Second)
 	}
 
-	require.True(t, disabled, "[FAILOVER] exporter was not disabled within the retry budget")
+	require.True(t, disabled, "[FAILOVER] exporter was not disabled within the retry budget, last response: %s", lastBody)
 	require.True(t, exporterStatusIs(lastBody, "camundaregion0", "ENABLED"), "expected camundaregion0 to be ENABLED, got: %s", lastBody)
 	require.True(t, exporterStatusIs(lastBody, "camundaregion1", "DISABLED"), "expected camundaregion1 to be DISABLED, got: %s", lastBody)
 }
@@ -821,7 +821,7 @@ func enableElasticExportersToSecondary(t *testing.T) {
 		time.Sleep(15 * time.Second)
 	}
 
-	require.True(t, enabled, "[FAILBACK] exporter was not enabled within the retry budget")
+	require.True(t, enabled, "[FAILBACK] exporter was not enabled within the retry budget, last response: %s", lastBody)
 	require.True(t, exporterStatusIs(lastBody, "camundaregion0", "ENABLED"), "expected camundaregion0 to be ENABLED, got: %s", lastBody)
 	require.True(t, exporterStatusIs(lastBody, "camundaregion1", "ENABLED"), "expected camundaregion1 to be ENABLED, got: %s", lastBody)
 }
