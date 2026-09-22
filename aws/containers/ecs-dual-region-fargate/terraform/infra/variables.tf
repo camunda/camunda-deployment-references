@@ -233,6 +233,24 @@ variable "db_seed_run_id" {
 #                      S3 Options                               #
 ################################################################
 
+variable "db_force_destroy" {
+  type        = bool
+  default     = true
+  description = <<-EOT
+    Allow `terraform destroy` to detach the Aurora Global cluster's members
+    before deleting it. A global cluster cannot be deleted while it still has
+    members, and after a failover those members are no longer in the topology
+    Terraform recorded — so without this a teardown wedges and leaves an
+    Aurora Global cluster, two DB clusters and their instances billing.
+
+    Defaults to true for the same reason as `s3_force_destroy`: this is a
+    reference architecture and `terraform destroy` should clean up after
+    itself. Detaching a member does not delete its data — Terraform destroys
+    the DB clusters separately — but set it to false before running a real
+    workload through this stack if you want destroy to refuse.
+  EOT
+}
+
 variable "s3_force_destroy" {
   type        = bool
   default     = true

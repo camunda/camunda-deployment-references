@@ -1,0 +1,408 @@
+---
+name: Tests - Integration - AWS Containers ECS Dual Region Fargate
+
+# Greenfield dual-region happy path, on one cluster, end to end:
+#
+#   deploy (VPC peering + Aurora Global) -> prove it runs process instances
+#   -> failover to region 1 -> prove region 1 still runs them
+#   -> failback to region 0 -> prove recovery -> destroy
+#
+# The failover and failback steps drive procedure/failover.sh and
+# procedure/failback.sh — the same runbook a customer follows — rather than
+# reimplementing the sequence in YAML. If the runbook breaks, this breaks.
+#
+# The Terratest suite under test/src covers the other combinations
+# (transit_gateway, OpenSearch, BYO-VPC) through the dispatch-only
+# _integration.yml, _failover.yml and _byo_vpc.yml workflows.
+
+permissions:
+    contents: read
+
+on:
+    workflow_dispatch:
+        inputs:
+            cluster_name:
+                description: Prefix for the resource names. Must be unique across all reference architectures.
+                type: string
+            delete_clusters:
+                description: Whether to delete the resources or not.
+                type: boolean
+                default: true
+            enable_tests:
+                description: Whether to run the functional tests after the deployment.
+                type: boolean
+                default: true
+    pull_request:
+        paths:
+            - .github/actions/aws-containers-ecs-dual-region-fargate-create/**
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/camunda-smoke-test/**
+            - .github/actions/internal-debug-failed-ecs-tasks/**
+            - .github/actions/internal-install-session-manager-plugin/**
+            # Used by the create action, not by this workflow directly.
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/internal-terraform-drift-detect/**
+            - .github/workflows/aws_ecs_dual_region_fargate_tests.yml
+            - .tool-versions
+            - aws/containers/ecs-dual-region-fargate/**
+            # Golden fixtures, prose, and the Terratest suite cannot change what
+            # a live deployment does — and this workflow does not run that suite
+            # (aws_ecs_dual_region_fargate_integration.yml does).
+            - '!aws/containers/ecs-dual-region-fargate/terraform/*/test/golden/**'
+            - '!aws/containers/ecs-dual-region-fargate/test/**'
+            - '!aws/containers/ecs-dual-region-fargate/**/*.md'
+            # Only the two Fargate modules the app layer instantiates; a change
+            # to camunda-hub, keycloak or management-identity cannot reach this
+            # deployment. See terraform/app/camunda.tf.
+            - aws/modules/ecs/fargate/orchestration-cluster/**
+            - aws/modules/ecs/fargate/connectors/**
+            - aws/modules/aurora-global/**
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    # Never cancel a run mid-teardown: a cancelled destroy strands two VPCs,
+    # an Aurora Global cluster and a pair of NAT gateways.
+    cancel-in-progress: false
+
+env:
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
+
+    AWS_PROFILE: infraex
+    AWS_REGION: eu-west-2
+    REGION_0: eu-west-2
+    REGION_1: eu-west-3
+
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BACKEND_BUCKET_PREFIX: aws/containers/ecs-dual-region-fargate/
+    TF_MODULES_PATH: ./.action-tf-modules/aws-containers-ecs-dual-region-fargate-create
+
+    DELETE_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+    TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+
+    # One gate, applied identically before failover, after it, and after the
+    # failback: 1 instance/second for 10s, asserted at >= 5 completed. Enough
+    # to prove the engine executes work without becoming a load test.
+    BENCH_DURATION: '10'
+    BENCH_PI_PER_SECOND: '1'
+    BENCH_MIN_EXPECTED: '5'
+    # The action's 60s default is a hard sleep that exists to keep kubectl
+    # port-forwards warm; this suite talks to the ALB directly, and the
+    # verification that follows already retries for five minutes.
+    BENCH_PROPAGATION_WAIT: '10'
+
+jobs:
+    triage:
+        runs-on: ubuntu-slim
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+            cluster_name: ${{ steps.name.outputs.cluster_name }}
+            backend_key_prefix: ${{ steps.name.outputs.backend_key_prefix }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+            # Resolved here rather than in a job of its own: it is two shell
+            # lines, and this job already has a runner and a checkout.
+            - name: Compose the cluster name
+              id: name
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  # Resources are named <cluster-name>-r{0,1}-<resource>, and
+                  # several AWS names cap at 32 characters, so this has to stay
+                  # short — hence the PR number or a short SHA rather than a
+                  # branch name.
+                  if [ -n "${INPUT_CLUSTER_NAME}" ]; then
+                      CLUSTER_NAME="${INPUT_CLUSTER_NAME}"
+                  elif [ -n "${PR_NUMBER}" ]; then
+                      CLUSTER_NAME="ecsdr-${PR_NUMBER}"
+                  else
+                      CLUSTER_NAME="ecsdr-${GITHUB_SHA:0:8}"
+                  fi
+
+                  echo "cluster_name=${CLUSTER_NAME}" >> "$GITHUB_OUTPUT"
+                  echo "backend_key_prefix=${S3_BACKEND_BUCKET_PREFIX}$(cat .target-branch)/" >> "$GITHUB_OUTPUT"
+                  echo "Cluster name: ${CLUSTER_NAME}"
+              env:
+                  INPUT_CLUSTER_NAME: ${{ github.event.inputs.cluster_name }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+
+    # Deploy and test share one job. Splitting them would buy nothing here —
+    # there is no matrix to fan out over — and would cost a second runner
+    # acquisition, checkout, tool install, Vault auth and `terraform init`,
+    # all charged while the cluster sits idle.
+    integration-tests:
+        name: Deploy, happy path, failover and failback
+        runs-on: ubuntu-latest
+        needs: [triage]
+        if: needs.triage.outputs.should_skip == 'false'
+        timeout-minutes: 180
+        env:
+            CLUSTER_NAME: ${{ needs.triage.outputs.cluster_name }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Install session-manager-plugin
+              uses: ./.github/actions/internal-install-session-manager-plugin
+
+            - name: Deploy vpc, infra and app
+              id: create
+              uses: ./.github/actions/aws-containers-ecs-dual-region-fargate-create
+              with:
+                  cluster-name: ${{ needs.triage.outputs.cluster_name }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  region-0: ${{ env.REGION_0 }}
+                  region-1: ${{ env.REGION_1 }}
+                  # The happy path this suite guards: greenfield VPC peering
+                  # with Aurora Global as the secondary storage.
+                  networking-mode: vpc_peering
+                  secondary-storage-type: rdbms
+                  tf-modules-revision: ${{ github.ref }}
+                  tf-modules-path: ${{ env.TF_MODULES_PATH }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  s3-bucket-key-prefix: ${{ needs.triage.outputs.backend_key_prefix }}
+                  tags: >
+                      {
+                        "ci-run-id": "${{ github.run_id }}",
+                        "ci-run-number": "${{ github.run_number }}",
+                        "ci-workflow": "${{ github.workflow }}",
+                        "ci-actor": "${{ github.actor }}",
+                        "ci-ref": "${{ github.ref }}",
+                        "ci-commit": "${{ github.sha }}",
+                        "ci-repo": "${{ github.repository }}",
+                        "ci-event": "${{ github.event_name }}",
+                        "map-migrated": "migARUADZHVWZ"
+                      }
+
+            - name: Load the deployment environment
+              id: env
+              shell: bash
+              working-directory: aws/containers/ecs-dual-region-fargate/procedure
+              run: |
+                  set -euo pipefail
+
+                  # export_environment_prerequisites.sh is the canonical contract
+                  # every procedure script reads. Sourcing it — rather than
+                  # rebuilding the variables in YAML — keeps CI and the runbook
+                  # from drifting apart. The create action applied the state in
+                  # this same workspace, so it is read straight from there.
+                  TF_DIR="${GITHUB_WORKSPACE}/${TF_MODULES_PATH}/aws/containers/ecs-dual-region-fargate/terraform/infra"
+                  export TF_DIR
+                  # shellcheck disable=SC1091
+                  . ./export_environment_prerequisites.sh
+
+                  echo "::add-mask::${ADMIN_PASS}"
+                  {
+                      echo "REGION_0=${REGION_0}"
+                      echo "REGION_1=${REGION_1}"
+                      echo "CLUSTER_0=${CLUSTER_0}"
+                      echo "CLUSTER_1=${CLUSTER_1}"
+                      echo "ALB_ENDPOINT_0=${ALB_ENDPOINT_0}"
+                      echo "ALB_ENDPOINT_1=${ALB_ENDPOINT_1}"
+                      echo "AURORA_GLOBAL_CLUSTER_ID=${AURORA_GLOBAL_CLUSTER_ID}"
+                      echo "AURORA_ENGINE=${AURORA_ENGINE}"
+                      echo "ADMIN_USER=${ADMIN_USER}"
+                      echo "ADMIN_PASS=${ADMIN_PASS}"
+                  } >> "$GITHUB_ENV"
+
+            # The app-layer services are created with wait_for_steady_state, so
+            # the apply above already blocked until desired == running. No
+            # convergence poll is needed here; verify_dual_region.sh re-checks
+            # service health generically as its first section.
+            - name: Deploy the health-check process
+              if: env.TESTS_ENABLED == 'true'
+              shell: bash
+              working-directory: aws/containers/ecs-dual-region-fargate/procedure
+              run: ./deploy_health_check_process.sh
+
+            - name: Verify the deployment (baseline)
+              if: env.TESTS_ENABLED == 'true'
+              shell: bash
+              working-directory: aws/containers/ecs-dual-region-fargate/procedure
+              run: ./verify_dual_region.sh
+
+            - name: Smoke test — baseline in region 0
+              if: env.TESTS_ENABLED == 'true'
+              uses: ./.github/actions/camunda-smoke-test
+              timeout-minutes: 15
+              with:
+                  zeebe-rest-address: http://${{ env.ALB_ENDPOINT_0 }}
+                  auth-mode: basic
+                  basic-auth-user: ${{ env.ADMIN_USER }}
+                  basic-auth-password: ${{ env.ADMIN_PASS }}
+                  benchmark-duration: ${{ env.BENCH_DURATION }}
+                  benchmark-pi-per-second: ${{ env.BENCH_PI_PER_SECOND }}
+                  min-expected-instances: ${{ env.BENCH_MIN_EXPECTED }}
+                  propagation-wait-seconds: ${{ env.BENCH_PROPAGATION_WAIT }}
+
+            - name: Failover to region 1
+              if: env.TESTS_ENABLED == 'true'
+              shell: bash
+              working-directory: aws/containers/ecs-dual-region-fargate/procedure
+              run: ./failover.sh --failed-region 0
+
+            - name: Smoke test — region 1 survives the failover
+              if: env.TESTS_ENABLED == 'true'
+              uses: ./.github/actions/camunda-smoke-test
+              timeout-minutes: 15
+              with:
+                  zeebe-rest-address: http://${{ env.ALB_ENDPOINT_1 }}
+                  auth-mode: basic
+                  basic-auth-user: ${{ env.ADMIN_USER }}
+                  basic-auth-password: ${{ env.ADMIN_PASS }}
+                  benchmark-duration: ${{ env.BENCH_DURATION }}
+                  benchmark-pi-per-second: ${{ env.BENCH_PI_PER_SECOND }}
+                  min-expected-instances: ${{ env.BENCH_MIN_EXPECTED }}
+                  propagation-wait-seconds: ${{ env.BENCH_PROPAGATION_WAIT }}
+
+            - name: Failback to region 0
+              if: env.TESTS_ENABLED == 'true'
+              shell: bash
+              working-directory: aws/containers/ecs-dual-region-fargate/procedure
+              # --failed-region must match the failover above: failback re-adds
+              # that zone through the Zones API, without which the restored
+              # brokers rejoin membership but host no partitions.
+              run: ./failback.sh --failed-region 0 --switch-writer
+
+            - name: Smoke test — region 0 after the failback
+              if: env.TESTS_ENABLED == 'true'
+              uses: ./.github/actions/camunda-smoke-test
+              timeout-minutes: 15
+              with:
+                  zeebe-rest-address: http://${{ env.ALB_ENDPOINT_0 }}
+                  auth-mode: basic
+                  basic-auth-user: ${{ env.ADMIN_USER }}
+                  basic-auth-password: ${{ env.ADMIN_PASS }}
+                  benchmark-duration: ${{ env.BENCH_DURATION }}
+                  benchmark-pi-per-second: ${{ env.BENCH_PI_PER_SECOND }}
+                  min-expected-instances: ${{ env.BENCH_MIN_EXPECTED }}
+                  propagation-wait-seconds: ${{ env.BENCH_PROPAGATION_WAIT }}
+
+            - name: Verify the deployment (after failback)
+              if: env.TESTS_ENABLED == 'true'
+              shell: bash
+              working-directory: aws/containers/ecs-dual-region-fargate/procedure
+              run: ./verify_dual_region.sh
+
+            # A failure can be a task refusing to start in either region, so
+            # dump both. CLUSTER_0/1 are unset if the failure preceded the
+            # environment load, hence the fallback to the derived name.
+            - name: Debug failed ECS tasks in region 0
+              if: failure()
+              uses: ./.github/actions/internal-debug-failed-ecs-tasks
+              with:
+                  cluster-name: ${{ env.CLUSTER_0 || format('{0}-r0-cluster', needs.triage.outputs.cluster_name) }}
+                  aws-region: ${{ env.REGION_0 }}
+                  artifact-suffix: tests-r0
+
+            - name: Debug failed ECS tasks in region 1
+              if: failure()
+              uses: ./.github/actions/internal-debug-failed-ecs-tasks
+              with:
+                  cluster-name: ${{ env.CLUSTER_1 || format('{0}-r1-cluster', needs.triage.outputs.cluster_name) }}
+                  aws-region: ${{ env.REGION_1 }}
+                  artifact-suffix: tests-r1
+
+    cleanup-cluster:
+        name: Destroy the dual-region cluster
+        runs-on: ubuntu-latest
+        needs: [triage, integration-tests]
+        if: always() && needs.triage.outputs.should_skip == 'false' && needs.triage.result == 'success'
+        timeout-minutes: 130
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Configure AWS CLI
+              if: env.DELETE_CLUSTERS == 'true'
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            # The layer order is the reverse of the apply: infra/ and app/ read
+            # the layer above through terraform_remote_state, so destroying
+            # vpc/ first would break the two behind it.
+            # One call, not two: the action already makes a second pass
+            # internally with cloud-nuke enabled (destroy-pass 85m + retry 30m
+            # by default). The step budget has to clear that sum with room for
+            # the log upload, or a killed step takes the artifact with it.
+            - name: Destroy app, infra and vpc
+              id: delete_clusters
+              if: env.DELETE_CLUSTERS == 'true'
+              timeout-minutes: 125
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              env:
+                  # Read by the cleanup provider configuration below, which has
+                  # to declare every alias the state can reference.
+                  TF_VAR_region_0: ${{ env.REGION_0 }}
+                  TF_VAR_region_1: ${{ env.REGION_1 }}
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  tf-bucket-key-prefix: ${{ needs.triage.outputs.backend_key_prefix }}
+                  max-age-hours: '0'
+                  target: ${{ needs.triage.outputs.cluster_name }}
+                  modules-order: app/terraform,infra/terraform,vpc/terraform
+                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-ecs
+                  cleanup-regions: ${{ env.REGION_0 }} ${{ env.REGION_1 }}
+                  fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
+
+    report-success:
+        name: Report success
+        if: ${{ !failure() && !cancelled() }}
+        runs-on: ubuntu-slim
+        needs:
+            - integration-tests
+            - cleanup-cluster
+        permissions:
+            contents: read
+            pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Prevent other runs for renovate
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+    report-failure:
+        name: Report failure
+        runs-on: ubuntu-slim
+        if: needs.triage.outputs.should_skip == 'false' && (failure())
+        needs:
+            - triage
+            - report-success
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

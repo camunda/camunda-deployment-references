@@ -265,3 +265,21 @@ variable "tags" {
   default     = {}
   description = "Additional tags to add to resources"
 }
+
+variable "force_destroy" {
+  type        = bool
+  default     = null
+  description = <<-EOT
+    Allow `terraform destroy` to remove the global cluster's members before
+    deleting it. Without this a teardown fails while any member remains, which
+    is the normal state after a failover.
+
+    Leave unset for anything holding real data. Test environments set it true
+    so an interrupted run can always be swept.
+
+    The default is `null`, not `false`, so that callers which do not set it
+    plan exactly as they did before this variable existed — Terraform omits an
+    unset optional attribute, and a `false` default would have rewritten every
+    consumer's golden plan for no behavioural change.
+  EOT
+}

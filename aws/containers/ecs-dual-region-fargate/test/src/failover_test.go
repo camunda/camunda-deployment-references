@@ -1,127 +1,92 @@
 // Failover end-to-end tests.
 //
-// Deploys a baseline cluster, runs procedure/failover.sh, verifies Aurora
-// writer moved to region 1 and Zeebe brokers are still healthy via region 1.
-// Destroys on completion.
+// Deploys a baseline cluster, runs procedure/failover.sh — which force-removes
+// the lost zone through the Zones API — and asserts on what that script
+// actually guarantees: the failed region is scaled to zero, the surviving
+// region still has a working Zeebe cluster, and Aurora Global is untouched and
+// healthy.
+//
+// Note on Aurora: failover.sh deliberately does NOT move the writer ("the
+// JDBC failover plugin and AWS handle writer promotion automatically via the
+// global cluster endpoint"). Asserting a writer-region change here would test
+// a behaviour the reference architecture does not implement. The writer move
+// is asserted in TestFailback_SwitchWriter, where `aws rds
+// failover-global-cluster` really does perform it.
 
 package src
 
 import (
-	"fmt"
-	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/gruntwork-io/terratest/modules/random"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
 
 	"github.com/camunda/camunda-deployment-references/aws/containers/ecs-dual-region-fargate/test/src/helpers"
 )
 
+// TestPlannedFailover is the graceful case: the operator runs failover.sh
+// against a fully healthy deployment and lets it drain region 0 itself.
 func TestPlannedFailover(t *testing.T) {
-	t.Parallel()
-	runFailoverTest(t, "planned", "")
+	runFailoverTest(t, "planned", false)
 }
 
+// TestUnplannedFailover is the outage case: region 0 is already gone by the
+// time the operator reaches for the runbook.
+//
+// There is no --unplanned flag — failover.sh's parser rejects unknown
+// arguments. The scenario is built from the flags that do exist: kill region 0
+// out-of-band, then pass --keep-tasks, which is exactly the "region is already
+// down, skip the ECS scale-down" case the script documents.
 func TestUnplannedFailover(t *testing.T) {
-	t.Parallel()
-	runFailoverTest(t, "unplanned", "--unplanned")
+	runFailoverTest(t, "unplanned", true)
 }
 
-// runFailoverTest is the shared body for planned and unplanned failover.
-func runFailoverTest(t *testing.T, label, failoverFlag string) {
+func runFailoverTest(t *testing.T, label string, killRegionFirst bool) {
 	t.Helper()
 
-	awsProfile := envOrDefault("TEST_AWS_PROFILE", "infraex")
-	region0 := envOrDefault("TEST_REGION_0", "eu-west-2")
-	region1 := envOrDefault("TEST_REGION_1", "eu-west-3")
-	clusterPrefix := envOrDefault("TEST_CLUSTER_PREFIX", fmt.Sprintf("e2e-fo-%s-%s", label, strings.ToLower(random.UniqueId())))
-	raftTimeoutMin := envIntOrDefault(t, "TEST_RAFT_TIMEOUT_MIN", 30)
-	backendBucket := envOrDefault("TEST_BACKEND_BUCKET", "tests-ra-aws-rosa-hcp-tf-state-eu-central-1")
-	backendRegion := envOrDefault("TEST_BACKEND_REGION", "eu-central-1")
-
-	_, thisFile, _, _ := runtime.Caller(0)
-	thisDir := filepath.Dir(thisFile)
-	paths := helpers.DefaultStatePaths(thisDir)
-	procedureDir := filepath.Join(thisDir, "..", "..", "procedure")
-
-	commonTags := map[string]interface{}{
-		"Test":    "true",
-		"RunID":   clusterPrefix,
-		"Owner":   "terratest",
-		"Purpose": fmt.Sprintf("ecs-dual-region-failover-%s", label),
-	}
-
-	opts := helpers.ApplyOptions{
-		VPCVars: map[string]interface{}{
-			"cluster_name":       clusterPrefix,
-			"aws_profile":        awsProfile,
-			"region_0":           region0,
-			"region_1":           region1,
-			"networking_mode":    "transit_gateway",
-			"single_nat_gateway": true,
-			"default_tags":       commonTags,
-		},
-		InfraVars: map[string]interface{}{
-			"cluster_name":           clusterPrefix,
-			"aws_profile":            awsProfile,
-			"region_0":               region0,
-			"region_1":               region1,
-			"secondary_storage_type": "rdbms",
-			"s3_force_destroy":       true,
-			"default_tags":           commonTags,
-		},
-		AppVars: map[string]interface{}{
-			"aws_profile":  awsProfile,
-			"default_tags": commonTags,
-		},
-		BackendBucket:    backendBucket,
-		BackendRegion:    backendRegion,
-		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
-	}
+	f := helpers.NewFixture(t, "failover-"+label, "transit_gateway", "rdbms")
 
 	var vpcOpts, infraOpts, appOpts *terraform.Options
 	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
 
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, paths, opts)
+	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, f.Paths, f.Options)
 
-	// Baseline assertion: writer in region 0.
-	globalClusterID := terraform.Output(t, infraOpts, "aurora_global_cluster_id")
-	require.NotEmpty(t, globalClusterID)
-	require.Equal(t, region0, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),
+	// The procedure scripts hard-require a full environment contract; source
+	// it from the script that owns it rather than rebuilding it here.
+	env := helpers.ProcedureEnv(t, f.ProcedureDir, f.Paths.Infra, f.AWSProfile)
+	globalClusterID := env["AURORA_GLOBAL_CLUSTER_ID"]
+
+	// Baseline: writer in region 0, full quorum.
+	require.Equal(t, f.Region0, helpers.AuroraWriterRegion(t, f.AWSProfile, globalClusterID),
 		"baseline: Aurora writer should start in region 0")
-
-	// Wait for initial quorum before triggering failover.
 	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
-	helpers.WaitForRaftQuorum(t, albEndpoint0, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	helpers.WaitForRaftQuorum(t, albEndpoint0, env["ADMIN_USER"], env["ADMIN_PASS"], 8, 8, f.RaftTimeout)
 
-	// Run failover.
-	scriptPath := filepath.Join(procedureDir, "failover.sh")
-	env := map[string]string{
-		"REGION_0":                 region0,
-		"REGION_1":                 region1,
-		"CLUSTER_NAME":             clusterPrefix,
-		"AWS_PROFILE":              awsProfile,
-		"AURORA_GLOBAL_CLUSTER_ID": globalClusterID,
+	args := []string{"--failed-region", "0"}
+	if killRegionFirst {
+		t.Log("Simulating an unplanned outage: scaling region 0 to zero before the runbook starts")
+		helpers.ScaleRegionServices(t, f.AWSProfile, f.Region0, env["CLUSTER_0"], 0, 10*time.Minute)
+		// The region is already down, so there is nothing left for the script
+		// to scale.
+		args = append(args, "--keep-tasks")
 	}
-	args := []string{}
-	if failoverFlag != "" {
-		args = append(args, failoverFlag)
-	}
-	helpers.RunProcedureScript(t, scriptPath, env, args...)
 
-	// Assertion 1: writer is now in region 1.
-	require.Equal(t, region1, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),
-		"after %s failover: Aurora writer should be in region 1", label)
+	helpers.RunProcedureScript(t, f.Procedure("failover.sh"), env, args...)
 
-	// Assertion 2: region 1 ALB is still reachable post-failover.
+	// Assertion 1: the failed region is drained. This is the step the script
+	// performs itself and the one that prevents split-brain.
+	helpers.RequireRegionScaledDown(t, f.AWSProfile, f.Region0, env["CLUSTER_0"])
+
+	// Assertion 2: the surviving region still serves a Zeebe cluster. Region 0
+	// is down, so only its four brokers remain; the partition count is
+	// unchanged because failover redistributes rather than drops partitions.
 	albEndpoint1 := terraform.Output(t, appOpts, "region_1_alb_endpoint")
 	require.NotEmpty(t, albEndpoint1)
-	// Note: post-failover broker count depends on partition replica placement
-	// (region 0 is scaled to 0). Verifying full Raft re-quorum here would
-	// require richer topology assertions — covered by the failback test which
-	// brings region 0 back. For this test, the writer-region change is enough.
+	helpers.WaitForRaftQuorum(t, albEndpoint1, env["ADMIN_USER"], env["ADMIN_PASS"], 4, 8, 15*time.Minute)
+
+	// Assertion 3: Aurora Global is healthy and, per the script's own
+	// contract, the writer has NOT been moved by the runbook.
+	require.Equal(t, "available", helpers.AuroraGlobalClusterStatus(t, f.AWSProfile, globalClusterID),
+		"after %s failover: Aurora global cluster should still be available", label)
 }

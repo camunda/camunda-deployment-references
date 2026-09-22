@@ -126,7 +126,10 @@ source ../../procedure/export_environment_prerequisites.sh
 # 5. Verify cross-region DNS resolution (if enable_cross_region_dns_resolver = true)
 ../../procedure/test_cross_region_dns.sh
 
-# 6. Verify dual-region health
+# 6. Deploy the health-check process (verify_dual_region.sh asserts it exists)
+../../procedure/deploy_health_check_process.sh
+
+# 7. Verify dual-region health
 ../../procedure/verify_dual_region.sh
 ```
 
@@ -272,35 +275,30 @@ open http://localhost:8080
 
 `failover.sh` itself leaves Aurora alone, so a plain failover does not change the
 writer. But if the writer did move — AWS promoting the survivor during a real
-region loss, or `failback.sh --switch-writer` — Terraform still expects the
-original topology and `terraform destroy` may hang on the Aurora resources. To
-work around this:
+region loss, or `failback.sh --switch-writer` — the Aurora Global cluster is no
+longer in the topology Terraform recorded, and a global cluster cannot be
+deleted while it still has members.
+
+`db_force_destroy` (default `true`) handles this: the provider detaches every
+member before deleting the global cluster, in dependency order and with the
+state left consistent. No manual runbook is needed.
+
+If you set `db_force_destroy = false` for a real workload, a post-failover
+`terraform destroy` will stop on the global cluster. Detach the members
+yourself and re-run:
 
 ```bash
-# 1. Remove both clusters from the Global cluster
+# For each member ARN in the global cluster
 aws rds remove-from-global-cluster \
   --global-cluster-identifier <global-id> \
-  --db-cluster-identifier <region-0-cluster-arn>
+  --db-cluster-identifier <member-cluster-arn>
 
-# 2. Delete instances in both regions (skip-final-snapshot for dev)
-aws rds delete-db-instance --db-instance-identifier <r0-instance> --skip-final-snapshot --region <region-0>
-aws rds delete-db-instance --db-instance-identifier <r1-instance> --skip-final-snapshot --region <region-1>
-
-# 3. Wait for instances to delete, then delete clusters
-aws rds delete-db-cluster --db-cluster-identifier <r0-cluster> --skip-final-snapshot --region <region-0>
-aws rds delete-db-cluster --db-cluster-identifier <r1-cluster> --skip-final-snapshot --region <region-1>
-
-# 4. Delete the global cluster
-aws rds delete-global-cluster --global-cluster-identifier <global-id>
-
-# 5. Remove Aurora resources from Terraform state and proceed with destroy
-terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster_instance.primary[0]'
-terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster_instance.secondary[0]'
-terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster.primary'
-terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster.secondary'
-terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_global_cluster.this'
-terraform -chdir=terraform/infra destroy -auto-approve
+terraform -chdir=terraform/infra destroy
 ```
+
+CI never hits this path: it deploys with the default, and
+`.github/workflows/aws_ecs_dual_region_fargate_daily_cleanup.yml` sweeps
+anything an interrupted run leaves behind.
 
 ## Known limitations
 

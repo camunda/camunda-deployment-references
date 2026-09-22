@@ -63,6 +63,12 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
+            # The failover/failback tests shell out to procedure/failover.sh
+            # and procedure/failback.sh, which reach the Zeebe management API
+            # over ECS Exec.
+            - name: Install session-manager-plugin
+              uses: ./.github/actions/internal-install-session-manager-plugin
+
             - name: Cache Go modules
               uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
               with:

@@ -1,0 +1,174 @@
+---
+name: Tests - Daily Cleanup - AWS Containers ECS Dual Region Fargate
+
+# Sweeps ECS dual-region clusters left behind by a cancelled or wedged run.
+#
+# This architecture is the expensive one to leak: two VPCs, an Aurora Global
+# cluster, two ALBs and a pair of NAT gateways per cluster. The destroy action
+# also carries the post-failover Aurora runbook, without which a cluster the
+# failover suite touched can never be torn down automatically.
+
+on:
+    workflow_dispatch:
+        inputs:
+            max_age_hours_cluster:
+                description: Maximum age of clusters in hours
+                required: true
+                default: '12'
+    pull_request:
+        paths:
+            - .github/workflows/aws_ecs_dual_region_fargate_daily_cleanup.yml
+            - .tool-versions
+            - aws/containers/ecs-dual-region-fargate/**
+            - '!aws/containers/ecs-dual-region-fargate/terraform/*/test/golden/**'
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/observe-build-status/**
+
+    schedule:
+        - cron: 30 1 * * * # At 01:30 everyday, after the single-region sweep.
+
+# No row in .github/workflows-config/workflow-scheduler.yml: that file only
+# carries blocks for the released stable branches, and this reference
+# architecture does not exist on any of them yet. The cron above covers the
+# default branch, which is where it lives today.
+# TODO [release-duty]: when 8.10 is cut to stable/8.10, add this workflow to
+# that branch's "Everyday schedules" block alongside the single-region sweep.
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
+    cancel-in-progress: false
+
+env:
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+
+    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
+
+    # please keep those variables synced with aws_ecs_dual_region_fargate_tests.yml
+    AWS_PROFILE: infraex
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BACKEND_BUCKET_PREFIX: aws/containers/ecs-dual-region-fargate/
+    AWS_REGION: eu-west-2
+    REGION_0: eu-west-2
+    REGION_1: eu-west-3
+
+jobs:
+    triage:
+        runs-on: ubuntu-slim
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    cleanup-clusters:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        steps:
+            # Telemetry must never block the job: a monitoring outage may cost a
+            # duration metric, never a teardown.
+            - continue-on-error: true
+              uses: camunda/infra-global-github-actions/start-build-monitor@02b3f0e49b00b98fffc76af690ebc83c28f24dae # main
+
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  ref: ${{ github.ref }}
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+
+            - name: Use repo .tool-version as global version
+              run: cp .tool-versions ~/.tool-versions
+
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Delete clusters
+              id: delete_clusters
+              continue-on-error: true
+              timeout-minutes: 125
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              env:
+                  TF_VAR_region_0: ${{ env.REGION_0 }}
+                  TF_VAR_region_1: ${{ env.REGION_1 }}
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
+                  modules-order: app/terraform,infra/terraform,vpc/terraform
+                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-ecs
+                  cleanup-regions: ${{ env.REGION_0 }} ${{ env.REGION_1 }}
+
+            # The previous step sets continue-on-error, so the job is still
+            # green when it fails and `if: failure()` would not fire. Check the
+            # step outcome instead. Retry at max-age-hours 0 because the first
+            # pass has already touched the state objects and reset their age —
+            # they would otherwise look too young to sweep.
+            - name: Retry delete clusters
+              id: retry_delete_clusters
+              if: steps.delete_clusters.outcome == 'failure'
+              timeout-minutes: 125
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              env:
+                  TF_VAR_region_0: ${{ env.REGION_0 }}
+                  TF_VAR_region_1: ${{ env.REGION_1 }}
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  max-age-hours: '0' # the previous step alters the age and resets it to 0
+                  modules-order: app/terraform,infra/terraform,vpc/terraform
+                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-ecs
+                  cleanup-regions: ${{ env.REGION_0 }} ${{ env.REGION_1 }}
+
+            - name: Observe build status
+              if: always()
+              continue-on-error: true
+              uses: ./.github/actions/observe-build-status
+              with:
+                  build_status: ${{ job.status }}
+                  secret_vault_address: ${{ secrets.VAULT_ADDR }}
+                  secret_vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  secret_vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+
+    report-failure:
+        name: Report failures
+        if: needs.triage.outputs.should_skip == 'false' && (failure())
+        runs-on: ubuntu-slim
+        needs:
+            - triage
+            - cleanup-clusters
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

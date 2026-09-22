@@ -2,16 +2,22 @@
 
 End-to-end tests that apply the full three-state Terraform stack (`vpc/` → `infra/` → `app/`), wait for Camunda to reach steady state, and verify Zeebe Raft quorum forms across both regions. These tests create **real AWS resources** and cost real money — only run against the sandbox account.
 
-Per `docs/superpowers/specs/2026-06-10-ecs-dual-region-testing-design.md` §2 (Sprint 4).
-
 ## What's here
 
 | File | Test | What it proves |
 |---|---|---|
 | `src/dual_region_greenfield_rdbms_test.go` | `TestEndToEnd_Greenfield_TGW_RDBMS` | Apply with `networking_mode = transit_gateway` + `secondary_storage_type = rdbms`. Wait for 8 Zeebe brokers + one leader per partition. |
 | `src/dual_region_greenfield_opensearch_test.go` | `TestEndToEnd_Greenfield_VpcPeering_OpenSearch` | Same workflow with the alternative combo: `vpc_peering` + `opensearch`. |
+| `src/byo_vpc_test.go` | `TestEndToEnd_BYO_VPC_TGW_RDBMS` | Stands up the throwaway VPC pair in `aws/test-fixtures/byo-vpcs/`, then applies with `byo_vpc = true`. |
+| `src/failover_test.go` | `TestPlannedFailover`, `TestUnplannedFailover` | Runs `procedure/failover.sh`, which force-removes the lost zone through the Zones API, and asserts what it guarantees: the failed region drained, the survivor still serving every partition, Aurora untouched and available. The unplanned variant kills region 0 first and passes `--keep-tasks`. |
+| `src/failback_test.go` | `TestFailback_NoSwitchWriter`, `TestFailback_SwitchWriter` | Failover, promote the region 1 database the way AWS would during a real region loss, then `procedure/failback.sh` — asserting the zone is re-added, quorum returns, and the writer settles where each variant expects. |
 | `src/helpers/apply.go` | `ApplyAllThreeStates(...)` | Wraps `terraform init && apply` for `vpc/` → `infra/` → `app/` with proper `defer Destroy` cleanup in reverse order. |
-| `src/helpers/raft.go` | `WaitForRaftQuorum(...)` | Polls `http://<alb>/v2/topology` until 8 brokers register and each of the 8 partitions has exactly one leader, or fails after a configurable timeout (default 30 min). |
+| `src/helpers/raft.go` | `WaitForRaftQuorum(...)` | Polls `http://<alb>/v2/topology` (basic auth — 8.10 rejects unauthenticated `/v2/*`) until the expected brokers register and each partition has exactly one leader, or fails after a configurable timeout (default 30 min). |
+| `src/helpers/procedure_env.go` | `ProcedureEnv(...)` | Sources `procedure/export_environment_prerequisites.sh` and reads back its exports, so the environment contract has one definition rather than a Go copy to keep in step. |
+| `src/helpers/fixture.go` | `NewFixture(...)` | Resolves the `TEST_*` overrides and assembles the `ApplyOptions` every suite needs; the four suites differ only in networking mode, storage type, and a label. |
+| `src/helpers/ecs.go` | `ScaleRegionServices(...)`, `RequireRegionScaledDown(...)` | Simulates a region outage and asserts on the service counts failover leaves behind. |
+
+> **No test calls `t.Parallel()`.** They share three module directories on disk, and each provisions a full dual-region stack in shared CI regions — the second is the binding reason. See `src/doc.go`.
 
 ## Prerequisites
 
@@ -39,7 +45,7 @@ Override defaults with env vars:
 
 ## Cleanup
 
-Each test does `defer terraform.Destroy(...)` for all three states in reverse order (app → infra → vpc). If the test panics or is killed, resources will leak — the daily cleanup workflow (`tests-daily-cleanup-aws-ecs-dual-region.yml`) sweeps anything tagged with `Test = "true"`. All tests apply this tag via `default_tags`.
+Each test does `defer terraform.Destroy(...)` for all three states in reverse order (app → infra → vpc). If the test panics or is killed, resources will leak — `.github/workflows/aws_ecs_dual_region_fargate_daily_cleanup.yml` sweeps clusters whose state is older than 12 hours. All tests tag their resources `Test = "true"` via `default_tags`.
 
 To force a manual cleanup after a stuck run:
 
@@ -51,4 +57,13 @@ cd ../vpc && terraform destroy -auto-approve
 
 ## CI integration
 
-Triggered by `.github/workflows/tests-integration-aws-ecs-dual-region.yml` (per the design spec; not yet wired up — opt-in to add after a manual sandbox run validates the suite end-to-end). The BYO-VPC variant and the failover/failback variants come in Sprint 5.
+| Workflow | Trigger | Covers |
+|---|---|---|
+| `aws_ecs_dual_region_fargate_tests.yml` | pull request + dispatch | The happy path, and the only lane that runs on PRs. Deploys greenfield `vpc_peering` + `rdbms`, proves process instances execute, then drives `failover.sh` and `failback.sh` against that same cluster, re-proving execution after each transition. Does not use this Terratest suite. |
+| `aws_ecs_dual_region_fargate_integration.yml` | dispatch | `go test ./...` — the whole suite below. |
+| `aws_ecs_dual_region_fargate_failover.yml` | dispatch | The four failover/failback tests. Installs `session-manager-plugin`: the scripts reach the management API over ECS Exec, since port 9600 is not exposed through the ALB. |
+| `aws_ecs_dual_region_fargate_byo_vpc.yml` | dispatch | `TestEndToEnd_BYO_VPC_TGW_RDBMS`. |
+| `aws_ecs_dual_region_fargate_golden.yml` | pull request + dispatch | Golden plan comparison for all three states. No AWS resources created. |
+| `aws_ecs_dual_region_fargate_daily_cleanup.yml` | daily + dispatch | Sweeps leaked clusters, including the post-failover Aurora teardown. |
+
+The dispatch-only workflows stay dispatch-only on purpose: each test provisions its own full stack, so running the suite is several clusters' worth of spend. The PR lane deliberately covers one combination on one cluster.
