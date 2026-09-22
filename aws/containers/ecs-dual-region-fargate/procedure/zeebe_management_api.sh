@@ -156,7 +156,10 @@ mgmt_tunnel_reopen() {
 # subshell, so an assignment here would never reach them. Read the status with
 # mgmt_last_code. Never fails the caller on a non-2xx, so the caller can report
 # the body itself.
-MGMT_CODE_FILE="${TMPDIR:-/tmp}/zeebe-mgmt-code.$$"
+# mktemp rather than a $$-derived name: the fallback temp directory is shared,
+# and mgmt_request opens this path with ">", which would follow a symlink
+# planted at a predictable location.
+MGMT_CODE_FILE="$(mktemp "${TMPDIR:-/tmp}/zeebe-mgmt-code.XXXXXX")"
 mgmt_request() {
     local method="$1" path="$2" body="${3:-}"
     local args=(-s -w '\n%{http_code}' -X "${method}" --max-time 60

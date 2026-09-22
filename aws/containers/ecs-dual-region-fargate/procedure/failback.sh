@@ -148,11 +148,42 @@ WRITER_ARN=$(echo "${MEMBERS}" | jq -r '.[] | select(.IsWriter == true) | .DBClu
 log "Aurora writer is in: $(echo "${WRITER_ARN}" | awk -F':' '{print $4}')"
 
 if [ "${MEMBER_COUNT}" = "1" ]; then
-    log "Global DB has one member — the recovered region's cluster must be re-attached."
-    err "This needs the regional cluster to exist first. If it was destroyed, run:"
-    err "  terraform -chdir=${SCRIPT_DIR}/../terraform/infra apply"
-    err "then re-run this script."
-    exit 1
+    log "Global DB has one member — re-attaching the ${RECOVERED_AWS_REGION} cluster."
+
+    # The cluster has to exist and be standalone. An unplanned failover can
+    # leave it detached but intact, which is the case this re-attaches; if it
+    # was destroyed outright, Terraform has to recreate it first.
+    RECOVERED_DB_ARN=$(aws rds describe-db-clusters \
+        --region "${RECOVERED_AWS_REGION}" \
+        --query "DBClusters[?contains(DBClusterIdentifier, '${RECOVERED_CLUSTER%-cluster}')].DBClusterArn" \
+        --output text 2>/dev/null | head -1 || echo "")
+
+    if [ -z "${RECOVERED_DB_ARN}" ]; then
+        err "No Aurora cluster found in ${RECOVERED_AWS_REGION} to re-attach."
+        err "If it was destroyed, recreate it first:"
+        err "  terraform -chdir=${SCRIPT_DIR}/../terraform/infra apply"
+        err "then re-run this script."
+        exit 1
+    fi
+
+    RECOVERED_DB_ID="${RECOVERED_DB_ARN##*:}"
+    log "  Found ${RECOVERED_DB_ID}; attaching to ${AURORA_GLOBAL_CLUSTER_ID}..."
+
+    if [ "$DRY_RUN" = true ]; then
+        log "  --dry-run given, not attaching."
+    else
+        aws rds create-db-cluster \
+            --region "${RECOVERED_AWS_REGION}" \
+            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+            --db-cluster-identifier "${RECOVERED_DB_ID}" \
+            --engine "${AURORA_ENGINE:?AURORA_ENGINE is required — source procedure/export_environment_prerequisites.sh}" \
+            --no-cli-pager > /dev/null || {
+                err "Failed to attach ${RECOVERED_DB_ID} to the global cluster."
+                err "It may need to be recreated: terraform -chdir=${SCRIPT_DIR}/../terraform/infra apply"
+                exit 1
+            }
+        wait_aurora_available "${RECOVERED_DB_ID}" "${RECOVERED_AWS_REGION}" 900
+    fi
 else
     log "Global DB has ${MEMBER_COUNT} members — nothing to re-attach."
 fi
@@ -164,13 +195,20 @@ fi
 log ""
 log "=== Step 2: Scale up ECS services in ${RECOVERED_AWS_REGION} ==="
 
-SERVICES=$(aws ecs list-services \
-    --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
-    --query 'serviceArns[]' --output text 2>/dev/null || echo "")
+# A dry run must not restart the recovered region; only the Zones API call is
+# exercised, with dryRun=true, further down.
+if [ "$DRY_RUN" = true ]; then
+    log "  --dry-run given, leaving ECS untouched."
+    SERVICES=""
+else
+    SERVICES=$(aws ecs list-services \
+        --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+        --query 'serviceArns[]' --output text 2>/dev/null || echo "")
 
-if [ -z "${SERVICES}" ]; then
-    err "No ECS services found in ${RECOVERED_CLUSTER}."
-    exit 1
+    if [ -z "${SERVICES}" ]; then
+        err "No ECS services found in ${RECOVERED_CLUSTER}."
+        exit 1
+    fi
 fi
 
 for service_arn in ${SERVICES}; do
@@ -200,6 +238,10 @@ log "  (they join as members but host no partitions until the zone is re-added)"
 TARGET_BROKERS=$(( ZONE_BROKERS * 2 ))
 ELAPSED=0
 MAX_WAIT=900
+if [ "$DRY_RUN" = true ]; then
+    log "  --dry-run given, nothing was scaled up, so there is nothing to wait for."
+    MAX_WAIT=0
+fi
 while [ "${ELAPSED}" -lt "${MAX_WAIT}" ]; do
     TOPOLOGY=$(curl -sf --max-time 15 -u "${ADMIN_USER}:${ADMIN_PASS}" \
         "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
@@ -217,7 +259,7 @@ while [ "${ELAPSED}" -lt "${MAX_WAIT}" ]; do
     sleep 30; ELAPSED=$((ELAPSED + 30))
 done
 
-if [ "${ELAPSED}" -ge "${MAX_WAIT}" ]; then
+if [ "$DRY_RUN" != true ] && [ "${ELAPSED}" -ge "${MAX_WAIT}" ]; then
     err "Timed out waiting for ${RECOVERED_ZONE} brokers to rejoin."
     exit 1
 fi
@@ -340,13 +382,19 @@ if [ "${SWITCH_WRITER}" = "true" ]; then
         exit 1
     fi
 
-    aws rds failover-global-cluster \
-        --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-        --target-db-cluster-identifier "${MEMBER_ARN}" \
-        --no-cli-pager
-    sleep 15
-    wait_aurora_available "$(echo "${MEMBER_ARN}" | awk -F':' '{print $7}')" "${RECOVERED_AWS_REGION}"
-    log "Aurora writer moved to ${RECOVERED_AWS_REGION}."
+    if [ "$DRY_RUN" = true ]; then
+        # Reachable on a dry run when the zone is already present, so this has
+        # to be gated too: promoting the writer is not a validation step.
+        log "  --dry-run given, not moving the writer."
+    else
+        aws rds failover-global-cluster \
+            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+            --target-db-cluster-identifier "${MEMBER_ARN}" \
+            --no-cli-pager
+        sleep 15
+        wait_aurora_available "$(echo "${MEMBER_ARN}" | awk -F':' '{print $7}')" "${RECOVERED_AWS_REGION}"
+        log "Aurora writer moved to ${RECOVERED_AWS_REGION}."
+    fi
 else
     log ""
     log "Skipping the writer switch (pass --switch-writer to move it back)."

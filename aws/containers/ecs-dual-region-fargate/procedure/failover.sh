@@ -125,7 +125,11 @@ mgmt_topology_summary "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
 log ""
 log "=== Step 1: Scale down ECS services in ${FAILED_AWS_REGION} ==="
 
-if [[ "$KEEP_TASKS" == "true" ]]; then
+if [[ "$DRY_RUN" == "true" ]]; then
+  # A dry run must not take the region offline: the whole point is to validate
+  # the request without changing anything.
+  log "  --dry-run given, leaving ECS untouched."
+elif [[ "$KEEP_TASKS" == "true" ]]; then
   log "  --keep-tasks given, leaving ECS untouched."
 else
   SERVICES=$(aws ecs list-services \
