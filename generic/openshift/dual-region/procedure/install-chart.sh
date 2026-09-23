@@ -28,11 +28,9 @@ fi
 # Build the chart from source so no registry authentication is required; prints the
 # local chart directory. The build helper is shared with the generic k8s guide.
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-# Pin the same commit the EKS dual-region suite builds from. Without this the
-# helper falls back to its own default, which serves the single-region guides and
-# still points at 15.0.0-alpha3. The two dual-region suites compare against one
-# shared topology golden, so a split here makes that file unsatisfiable: the newer
-# engine reports `brokerId` and the older one does not.
+# Consume the rolling chart from the camunda-platform-helm main branch. The pin
+# below is a commit on that branch, bumped by Renovate as main moves; without it
+# the shared build helper falls back to its own default, a released chart tag.
 # renovate-helm-main: digest tracked against camunda-platform-helm main
 export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-1225a5b7ff9d62e3db1ce005e128249197b2d339}"
 LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
