@@ -562,7 +562,10 @@ jobs:
 
                   # Add integration tests values
                   if [ "$TESTS_ENABLED" == "true" ]; then
-                    for file in registry.yml identity.yml; do
+                    # TODO: [release-duty] drop image-overrides.yml from this list
+                    # together with the file itself; see
+                    # camunda/camunda-platform-helm#7284.
+                    for file in registry.yml identity.yml image-overrides.yml; do
                       yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/$file\")" values.yml > values-result.yml
                       cat values-result.yml && mv values-result.yml values.yml
                     done

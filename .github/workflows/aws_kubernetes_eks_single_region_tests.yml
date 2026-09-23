@@ -739,6 +739,11 @@ jobs:
                     yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/registry.yml\")" values.yml > values-result.yml
                     mv values-result.yml values.yml
 
+                    # TODO: [release-duty] drop this load together with the file it
+                    # reads; see camunda/camunda-platform-helm#7284.
+                    yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/image-overrides.yml\")" values.yml > values-result.yml
+                    mv values-result.yml values.yml
+
                     # Add identity.yml only if using Keycloak (not for external OIDC)
                     if [[ "${{ matrix.scenario.auth_provider }}" != "oidc" ]]; then
                       yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/identity.yml\")" values.yml > values-result.yml

@@ -1,0 +1,27 @@
+---
+# Temporary image overrides for the integration-test deployments.
+#
+# TODO: [release-duty] delete this file, and every line that loads it, once the
+# chart's default image tags carry the fix described below. Tracked in
+# camunda/camunda-platform-helm#7284.
+#
+# Optimize is pinned to the rolling SNAPSHOT tag because the chart currently
+# defaults to camunda/optimize:8.10.0-alpha5 (2026-08-31), which resolves the
+# OIDC issuer eagerly while the Spring context is built. Identity creates the
+# `camunda-platform` Keycloak realm only after `helm install`, so Optimize loses
+# that race and dies with "Realm does not exist" (or a 503 from the ingress when
+# the issuer is the browser-facing URL).
+#
+# The failure is terminal, not transient: Tomcat never binds, so the readiness
+# probe gets `connection refused` forever, while the JVM stays alive so the
+# kubelet never restarts the container. The chart disables both
+# `optimize.startupProbe` and `optimize.livenessProbe` by default, so nothing
+# breaks the deadlock and the pod sits at 0/1 until the job times out.
+#
+# Fixed upstream in camunda/camunda#62935 (merged 2026-09-21, backported to
+# stable/8.10 in #63691): resolution is deferred to the first request. That
+# fix ships in 8.10.0-rc1, which the chart does not reference yet — the
+# SNAPSHOT tag carries it today.
+optimize:
+    image:
+        tag: SNAPSHOT

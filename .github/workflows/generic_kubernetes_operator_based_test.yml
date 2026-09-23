@@ -551,6 +551,9 @@ jobs:
                     "tests/utils/camunda-values-identity-secrets.yml"
                     "tests/helm-values/identity.yml"
                     "tests/helm-values/registry.yml"
+                    # TODO: [release-duty] drop this entry together with the file it
+                    # names; see camunda/camunda-platform-helm#7284.
+                    "../../../generic/kubernetes/single-region/tests/helm-values/image-overrides.yml"
                   )
 
                   # Add OpenShift-specific SCC configuration
