@@ -21,6 +21,7 @@ global:
             # This deployment does not use ingress-nginx, so the chart's
             # compatibility annotations are not needed. Removed in the next chart major.
             renderAnnotations: false
+
     ingress:
         enabled: true
         className: contour
