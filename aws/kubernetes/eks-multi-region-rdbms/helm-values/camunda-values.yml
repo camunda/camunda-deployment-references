@@ -64,12 +64,8 @@ orchestration:
         # The zone THIS deployment belongs to. The only per-region value here.
         zone: ${CAMUNDA_ZONE_NAME}
         # `numberOfZones` and `zoneIndex` are deliberately absent: they are the
-        # round-robin numbering, and the chart REFUSES them here -- constraints.tpl
-        # fails the render with "cannot be used with the zone-aware scheme; the zone
-        # list describes the topology instead". It rejects them even when
-        # `numberOfZones` equals the length of the zone list, because the list is
-        # authoritative: the StatefulSet sizes itself from this zone's own
-        # numberOfBrokers, not from a division.
+        # round-robin numbering, and the chart refuses them with this scheme --
+        # the zone list describes the topology instead.
         # Every zone of the cluster, including any not deployed yet. Listing a
         # zone before it exists is deliberate: its replicas are reserved, so
         # each partition runs at N-1 of N until the zone is filled, which is a
