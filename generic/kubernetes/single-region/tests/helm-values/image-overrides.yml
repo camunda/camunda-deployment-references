@@ -1,13 +1,25 @@
 ---
 # Temporary image overrides for the integration-test deployments.
 #
-# TODO: [release-duty] delete this file, and every line that loads it, once the
-# chart's default image tags carry the fix described below. Tracked in
-# camunda/camunda-platform-helm#7284.
+# Every pin here overrides a chart default that is currently broken, and each
+# one names the upstream issue that retires it. Suites load this file rather
+# than carrying their own `yq -i '.<component>.image.tag = ...'` line.
 #
-# Optimize is pinned to the rolling SNAPSHOT tag because the chart currently
-# defaults to camunda/optimize:8.10.0-alpha5 (2026-08-31), which resolves the
-# OIDC issuer eagerly while the Spring context is built. Identity creates the
+# TODO: [release-duty] once both entries below are gone, delete this file and
+# every line that loads it.
+
+# TODO: [release-duty] drop this SNAPSHOT pin once
+# camunda/camunda-platform-helm#6567 is fixed. The chart's default Hub image
+# rejects the `hub`/`admin` cluster app types introduced in chart 15.x; the
+# rolling SNAPSHOT tag for camunda/hub and camunda/hub-websockets accepts them.
+camundaHub:
+    image:
+        tag: SNAPSHOT
+
+# TODO: [release-duty] drop this SNAPSHOT pin once
+# camunda/camunda-platform-helm#7284 is fixed. The chart currently defaults to
+# camunda/optimize:8.10.0-alpha5 (2026-08-31), which resolves the OIDC issuer
+# eagerly while the Spring context is built. Identity creates the
 # `camunda-platform` Keycloak realm only after `helm install`, so Optimize loses
 # that race and dies with "Realm does not exist" (or a 503 from the ingress when
 # the issuer is the browser-facing URL).

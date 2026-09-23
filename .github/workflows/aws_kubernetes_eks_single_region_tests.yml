@@ -726,22 +726,17 @@ jobs:
                   if [ "$HUB_ENABLED" == "true" ]; then
                     echo "Enabling Camunda Hub"
                     yq -i '.camundaHub.enabled = true' values.yml
-                    # TODO: [release-duty] drop this SNAPSHOT pin once
-                    # camunda/camunda-platform-helm#6567 is fixed. The chart's default
-                    # Hub image rejects the `hub`/`admin` cluster app types; the rolling
-                    # SNAPSHOT tag accepts them (as kind already does).
-                    yq -i '.camundaHub.image.tag = "SNAPSHOT"' values.yml
                   fi
+
+                  # TODO: [release-duty] drop this load together with the file it
+                  # reads; see camunda/camunda-platform-helm#7284.
+                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/image-overrides.yml\")" values.yml > values-result.yml
+                  mv values-result.yml values.yml
 
                   # Add integration tests values
                   if [ "$TESTS_ENABLED" == "true" ]; then
                     # Always add registry.yml
                     yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/registry.yml\")" values.yml > values-result.yml
-                    mv values-result.yml values.yml
-
-                    # TODO: [release-duty] drop this load together with the file it
-                    # reads; see camunda/camunda-platform-helm#7284.
-                    yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/image-overrides.yml\")" values.yml > values-result.yml
                     mv values-result.yml values.yml
 
                     # Add identity.yml only if using Keycloak (not for external OIDC)

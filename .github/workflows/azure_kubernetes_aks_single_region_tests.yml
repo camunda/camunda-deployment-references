@@ -659,11 +659,6 @@ jobs:
                   if [ "$HUB_ENABLED" == "true" ]; then
                     echo "Enabling Camunda Hub"
                     yq -i '.camundaHub.enabled = true' values.yml
-                    # TODO: [release-duty] drop this SNAPSHOT pin once
-                    # camunda/camunda-platform-helm#6567 is fixed. The chart's default
-                    # Hub image rejects the `hub`/`admin` cluster app types; the rolling
-                    # SNAPSHOT tag accepts them (as kind already does).
-                    yq -i '.camundaHub.image.tag = "SNAPSHOT"' values.yml
                   fi
 
                   # If using wildcard certificate, remove cert-manager annotations from values
