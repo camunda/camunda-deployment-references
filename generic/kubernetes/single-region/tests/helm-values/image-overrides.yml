@@ -16,7 +16,7 @@ camundaHub:
     image:
         tag: SNAPSHOT
 
-# TODO: [release-duty] drop this SNAPSHOT pin once
+# TODO: [release-duty] drop this pin once
 # camunda/camunda-platform-helm#7284 is fixed. The chart currently defaults to
 # camunda/optimize:8.10.0-alpha5 (2026-08-31), which resolves the OIDC issuer
 # eagerly while the Spring context is built. Identity creates the
@@ -31,9 +31,15 @@ camundaHub:
 # breaks the deadlock and the pod sits at 0/1 until the job times out.
 #
 # Fixed upstream in camunda/camunda#62935 (merged 2026-09-21, backported to
-# stable/8.10 in #63691): resolution is deferred to the first request. That
-# fix ships in 8.10.0-rc1, which the chart does not reference yet — the
-# SNAPSHOT tag carries it today.
+# stable/8.10 in #63691): resolution is deferred to the first request. The
+# 8.10.0-rc1 image carries that backport — its revision is 37 commits ahead of
+# the #63691 merge — and the chart does not reference it yet.
+#
+# Deliberately not the rolling `SNAPSHOT` tag, which the Hub pin above uses:
+# camunda/optimize:SNAPSHOT reports `org.opencontainers.image.version:
+# 8.11-SNAPSHOT`, so it would mix an 8.11 Optimize into an 8.10 chart whose
+# other components stay on 8.10.0-alpha5. A fixed 8.10 tag also keeps the
+# deployment reproducible, which a rolling tag does not.
 optimize:
     image:
-        tag: SNAPSHOT
+        tag: 8.10.0-rc1
