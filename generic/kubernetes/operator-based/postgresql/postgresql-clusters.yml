@@ -76,6 +76,13 @@ spec:
             secret:
                 name: pg-keycloak-secret
 ---
+# Renamed from `pg-webmodeler` with the 8.10 Web Modeler to Camunda Hub rename, along
+# with its database, user and secrets. Applying this to an existing deployment creates
+# a new empty cluster and leaves the old one untouched, so Camunda Hub starts without
+# the existing Web Modeler data: this is a fresh-install reference, not an upgrade
+# path. To keep an existing database, override the identifiers back to the
+# `pg-webmodeler` names rather than renaming the cluster, or dump and restore into the
+# new one before pointing Hub at it.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
