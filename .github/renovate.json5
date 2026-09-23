@@ -43,12 +43,18 @@
       // `git-refs` offer a digest bump every time main moves. Arrays of mergeable options
       // concatenate, so this manager is added to the preset's rather than replacing it.
       customType: 'regex',
-      managerFilePatterns: [
-        '/^\\.github/actions/internal-multi-region-tests/action\\.yml$/',
-        '/^aws/kubernetes/eks-dual-region/DEVELOPER\\.md$/',
-        '/^aws/kubernetes/eks-multi-region-rdbms/procedure/export_environment_prerequisites\\.sh$/',
-        '/^generic/openshift/dual-region/procedure/install-chart\\.sh$/',
-      ],
+      // Every file, because the marker below is the opt-in and a second list of
+      // paths is just somewhere to forget one. Each pin added since this manager
+      // landed carried the marker and was missing from the list, so Renovate
+      // silently never bumped it -- a frozen pin is the failure the marker exists
+      // to prevent, and it leaves no trace when it happens.
+      //
+      // Matching the whole repository costs nothing here (about a thousand files)
+      // and widens nothing: the marker is a deliberate token, so a file matches
+      // only by asking to be tracked. This file mentions the marker inside
+      // `matchStrings` but does not match it, since no SHA follows on the next
+      // line -- keep it that way if this block is ever reordered.
+      managerFilePatterns: ['/.*/'],
       // The marker comment, then the SHA anywhere on the line below it. Deliberately not
       // anchored on `datasource=`, so the preset's manager never matches these lines.
       matchStrings: [
