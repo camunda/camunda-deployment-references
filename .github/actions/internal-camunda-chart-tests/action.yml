@@ -422,9 +422,17 @@ runs:
               echo "Replacing release name value in golden file..."
               sed -e "s/camunda-zeebe/${CAMUNDA_RELEASE_NAME}-zeebe/g" -i "$reference_file"
 
-              # Order each file also remove not predictable fields
-              yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$temp_output"
-              yq e '.brokers |= sort_by(.host) | .brokers[] |= (.partitions |= sort_by(.partitionId) | .partitions[].role = "NOT_PREDICTABLE")' -i "$reference_file"
+              # Order each file also remove not predictable fields.
+              # `state` is dropped rather than recorded: it is the live convergence
+              # state of a partition, so pinning it in a snapshot makes the golden
+              # fail on a healthy cluster that happens to be mid-transition. The
+              # broker identity and the partition placement are what this compares.
+              normalise_topology='.brokers |= sort_by(.host) | .brokers[] |= ('
+              normalise_topology+='.partitions |= sort_by(.partitionId) | '
+              normalise_topology+='.partitions[].role = "NOT_PREDICTABLE" | '
+              normalise_topology+='del(.partitions[].state))'
+              yq e "$normalise_topology" -i "$temp_output"
+              yq e "$normalise_topology" -i "$reference_file"
 
               # Compare the two files using diff (in compacted JSON format)
               diff_output=$(delta <(jq -S . "$temp_output") <(jq -S . "$reference_file") || true)

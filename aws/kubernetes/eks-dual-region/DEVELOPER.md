@@ -55,27 +55,31 @@ go test --count=1 -v -timeout 120m -run TestAWSDNSChaining
 
 ### Running Tests
 
-The partitioning values require a chart that exposes `orchestration.partitioning`.
-Until that reaches a public release, build the reviewed chart commit locally:
+(Optional) Allows overwriting the version to use for Camunda 8, e.g. dev-latest.
+Otherwise defaults to published Helm versions and the latest stable release.
 
 ```bash
 # Overwriting to the pre-release (dev) chart. It isn't published to the public Helm
 # repo, so build it from source (no private registry) and point HELM_CHART_NAME at the
 # local chart directory — the test installs from a local path (see InstallUpgradeC8Helm).
-# The commit is the reviewed merge that introduced `orchestration.partitioning`;
-# the deployed image tags still come from GLOBAL_IMAGE_TAG below.
+# Note: this pins a commit rather than a release tag, because the suites need the
+# ingress-nginx compatibility flag (camunda/camunda-platform-helm#7145), which is
+# merged but not in any published 8.10 tag yet. `git clone --branch` resolves a
+# branch or a tag but never a commit, hence the fetch below. The deployed image
+# tags come from GLOBAL_IMAGE_TAG.
 export HELM_CHART_VERSION=15-dev-latest
 CHART_DIR="$(mktemp -d)"
-git -C "$CHART_DIR" init
+git init --quiet "$CHART_DIR"
 git -C "$CHART_DIR" remote add origin https://github.com/camunda/camunda-platform-helm.git
-git -C "$CHART_DIR" fetch --depth 1 origin e3fb08f65ab7c3760e284d1f06c0d31fdcd604a4
+# renovate-helm-main: digest tracked against camunda-platform-helm main
+git -C "$CHART_DIR" fetch --depth 1 origin 1225a5b7ff9d62e3db1ce005e128249197b2d339
 git -C "$CHART_DIR" checkout --detach FETCH_HEAD
 helm dependency update "$CHART_DIR/charts/camunda-platform-8.10"
 export HELM_CHART_NAME="$CHART_DIR/charts/camunda-platform-8.10"
 export GLOBAL_IMAGE_TAG=SNAPSHOT
 
-# TODO: [release-duty] replace the source checkout with the public v15 chart once
-# an 8.10 release containing `orchestration.partitioning` is published.
+# Otherwise it's sufficient to set the helm chart version or rely on the default.
+export HELM_CHART_VERSION=14.0.0
 ```
 
 - Deploy the dual-region setup

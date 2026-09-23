@@ -86,19 +86,7 @@ echo
 echo "--> 3/4 Checking whether zone $recovered_zone is still in the partition distribution"
 
 cluster="$(camunda::management "$survivor_context" GET /actuator/cluster)"
-
-# Read both spellings of the field. The cluster API is renaming
-# `/cluster/partition-distribution` to `/cluster/partitioning` so it agrees with
-# the `camunda.cluster.partitioning` configuration property, and the response
-# field follows. `jq`'s `?` swallows a missing field, so a single spelling would
-# silently report the zone as absent and send this script down the re-add branch
-# for a zone that was never removed.
-if ! partitioning="$(echo "$cluster" | jq -ce \
-    '(.partitionDistribution // .partitioning) |
-    select((.zones | type) == "array" and all(.zones[]; type == "object" and (.name | type) == "string"))')"; then
-    echo "ERROR: the cluster response contains no valid partition distribution with a zones array." >&2
-    exit 1
-fi
+partitioning="$(echo "$cluster" | camunda::partitioning)"
 
 if echo "$partitioning" | jq -e --arg zone "$recovered_zone" \
     '[.zones[] | select(.name == $zone)] | length > 0' >/dev/null; then
