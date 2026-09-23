@@ -73,9 +73,19 @@ create_password_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "elasticsearch-es-pas
 # Kubernetes never restarts a Pod when the content of a referenced secret changes.
 # A broker left running therefore keeps the previous password, and its cross-region
 # exporter can never open again ("unable to authenticate user [elastic]"). Roll the
-# brokers, and wait, so the new passwords are in place everywhere before anything
-# downstream relies on them: a partially rolled StatefulSet silently leaves the
-# lowest ordinals holding the old credential.
+# brokers so the new passwords reach every one of them.
+#
+# The wait is advisory, not a gate. `rollout status` waits for Pods to become *Ready*,
+# and a StatefulSet rolls with OrderedReady, so it cannot move past a Pod that stays
+# unready. During a failback the cluster is deliberately incomplete — the secondary
+# region is recreated and its brokers re-added several steps later — so a restarted
+# broker sits as FOLLOWER logging `NoSuchMemberException` for the members that are
+# still gone, and never reaches Ready. Failing here would fail the procedure for a
+# condition the failback itself guarantees is false for a while.
+#
+# Nothing is lost by continuing: the StatefulSet controller keeps reconciling and
+# finishes the roll on its own once the brokers can become ready again, and the
+# callers assert real health afterwards, when the cluster shape is whole.
 broker_statefulset="${CAMUNDA_RELEASE_NAME:-camunda}-zeebe"
 broker_rollout_timeout="${BROKER_ROLLOUT_TIMEOUT:-5m}"
 
@@ -100,8 +110,11 @@ restart_brokers() {
     fi
 
     printf '  - %s\n' "$output"
-    kubectl --context "$context" -n "$namespace" rollout status "statefulset/$broker_statefulset" \
-        --timeout="$broker_rollout_timeout"
+    if ! kubectl --context "$context" -n "$namespace" rollout status "statefulset/$broker_statefulset" \
+        --timeout="$broker_rollout_timeout"; then
+        echo "  ! $broker_statefulset in $namespace did not finish rolling within $broker_rollout_timeout." >&2
+        echo "    Expected while the cluster is missing brokers; Kubernetes resumes the roll by itself." >&2
+    fi
 }
 
 echo "Restarting the Zeebe brokers so they pick up the new passwords..."
