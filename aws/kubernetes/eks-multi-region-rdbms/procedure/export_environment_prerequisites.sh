@@ -218,7 +218,7 @@ if [ "$((2 * _active_replicas))" -le "$CAMUNDA_REPLICATION_FACTOR" ]; then
 fi
 unset _slot _replicas _active_replicas _zone_replica_count
 
-# No clusterSize/slots divisibility check any more: in zoned mode the chart
+# No clusterSize/slots divisibility check any more: with the zone-aware scheme the chart
 # derives the StatefulSet replica count from the zone's own numberOfBrokers, and
 # the cluster size from the sum across zones. Asymmetric zones are therefore
 # expressible, which the integer division of node-ID numbering could not do.
