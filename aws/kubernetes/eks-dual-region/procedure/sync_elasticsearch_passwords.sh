@@ -110,10 +110,23 @@ restart_brokers() {
     fi
 
     printf '  - %s\n' "$output"
-    if ! kubectl --context "$context" -n "$namespace" rollout status "statefulset/$broker_statefulset" \
-        --timeout="$broker_rollout_timeout"; then
-        echo "  ! $broker_statefulset in $namespace did not finish rolling within $broker_rollout_timeout." >&2
-        echo "    Expected while the cluster is missing brokers; Kubernetes resumes the roll by itself." >&2
+
+    local status_output
+    if ! status_output=$(kubectl --context "$context" -n "$namespace" rollout status \
+        "statefulset/$broker_statefulset" --timeout="$broker_rollout_timeout" 2>&1); then
+        printf '%s\n' "$status_output" >&2
+        case "$status_output" in
+            # Only a timeout is expected here. Anything else -- forbidden, no route to
+            # the API server, wrong context -- is a real failure and must not be
+            # reported as a roll that merely has not finished.
+            *"timed out waiting for the condition"*)
+                echo "  ! $broker_statefulset in $namespace did not finish rolling within $broker_rollout_timeout." >&2
+                echo "    Expected while the cluster is missing brokers; Kubernetes resumes the roll by itself." >&2
+                ;;
+            *)
+                exit 1
+                ;;
+        esac
     fi
 }
 
