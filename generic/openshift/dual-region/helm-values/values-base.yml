@@ -20,9 +20,9 @@ global:
     # Camunda reserves the right to limit support if no review was done prior to launch or the review showed significant risks.
     #
     # The broker numbering itself lives in the per-region overlay under
-    # `orchestration.partitioning`: `regions` and `regionId` must be set together,
-    # and the chart refuses a release that configures both that block and the
-    # deprecated `global.multiregion`.
+    # `orchestration.partitioning`: `numberOfZones` and `zoneIndex` must be set
+    # together, and the chart refuses a release that configures both that block
+    # and the deprecated `global.multiregion`.
     security:
         authentication:
             # Use basic auth for inter-component communication (demo/demo)

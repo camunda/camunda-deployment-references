@@ -1,11 +1,12 @@
 ---
 orchestration:
-    # Broker numbering across regions. `global.multiregion.*` is deprecated since
-    # chart v15 (Camunda 8.10) and removed in v16; the same fields now live here.
-    # Both blocks cannot be set at once -- the chart fails the render rather than
-    # picking one -- so `regions` moves here with `regionId`.
+    # Broker numbering across failure domains. `global.multiregion.*` is
+    # deprecated since chart v15 (Camunda 8.10) and removed in v16; the fields
+    # moved here and were renamed with it. Both blocks cannot be set at once --
+    # the chart fails the render rather than picking one.
     partitioning:
-        # number of regions that this Camunda Platform instance is stretched across
-        regions: 2
-        # unique id of the region. MUST be an integer starting at 0 for computation. With 2 regions, you would have region ids 0 and 1.
-        regionId: 0
+        # number of failure domains this Camunda Platform instance is stretched across
+        numberOfZones: 2
+        # zero-based index of the zone this release is deployed to. Node IDs are
+        # derived as `<ordinal> * numberOfZones + zoneIndex`.
+        zoneIndex: 0
