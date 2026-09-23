@@ -58,19 +58,13 @@ _repo_root="$_chart_src_dir/../../../.."
 _camunda_version="$(cat "$_repo_root/.camunda-version")"
 
 _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda-platform-helm.git}"
-# Pin to the released chart tag the guide targets (the pre-release 15.x line), not a
-# moving 'main': 'main' can be mid-migration and drop components (e.g. console when
-# values move under camundaHub) or ship an inconsistent set of component images,
-# which breaks the deployment tests. Renovate bumps the pin below only once a newer
-# 8.10 chart tag is *published* (not the moving 'main' tip); the default is split out
-# on its own line so the '# renovate:' inline manager can parse it (the ${VAR:-...}
-# override wrapper is not cleanly matchable). A camunda-platform-helm release tag carries
-# the previous version in its Chart.yaml (tag N ships version N-1), so the built chart is
-# one prerelease behind the tag name — intentional; it's the known-good set the tests validate.
-# Parked: pre-GA alpha chart until 8.10 GA.
-# renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$ renovate-inert-ok
-_chart_default_git_ref="camunda-platform-8.10-15.0.0-alpha5"
-# TODO: [release-duty] bump the 8.10 pin above as the 15.x line advances (keep in sync with CAMUNDA_HELM_CHART_VERSION and the helm-values).
+# Consume the rolling chart from the camunda-platform-helm main branch. The pin
+# below is a commit on that branch, bumped by Renovate as main moves, rather than
+# a published tag: the guide needs the Camunda Hub keys this branch migrates to,
+# which no released 8.10 tag carries yet.
+# renovate-helm-main: digest tracked against camunda-platform-helm main
+_chart_default_git_ref="1225a5b7ff9d62e3db1ce005e128249197b2d339"
+# TODO: [release-duty] drop the source build and install the published chart once 8.10 is released.
 _chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-$_chart_default_git_ref}"
 _default_checkout_dir="$(cd "$_chart_src_dir/.." && pwd)/.camunda-platform-helm"
 _chart_checkout_dir="${CAMUNDA_HELM_CHART_CHECKOUT_DIR:-$_default_checkout_dir}"
