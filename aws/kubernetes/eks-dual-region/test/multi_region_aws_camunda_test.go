@@ -672,27 +672,8 @@ func checkTheMathFailover_8_6_plus(t *testing.T) {
 	require.True(t, helpers.IsEven(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlNamespace, "camunda-zeebe-3")))
 }
 
-// waitForNoPendingClusterChange blocks until /actuator/cluster reports no change
-// in flight. Zeebe answers 409 to a configuration change that overlaps one already
-// in progress, and the exporter and broker steps issue changes back to back.
-func waitForNoPendingClusterChange(t *testing.T, kubectlOptions *k8s.KubectlOptions, phase string) {
-	t.Helper()
-
-	for i := 0; i < 40; i++ {
-		status, body, err := kubectlHelpers.GatewayManagementRequest(t, kubectlOptions, "GET", "/actuator/cluster", nil)
-		if err == nil && status == 200 && !strings.Contains(body, "pendingChange") {
-			return
-		}
-		t.Logf("%s cluster configuration change still in flight, waiting (attempt %d/40)", phase, i+1)
-		time.Sleep(15 * time.Second)
-	}
-	t.Fatalf("%s a cluster configuration change was still in flight after the retry budget", phase)
-}
-
 func removeSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILOVER] Removing secondary brokers 🚀")
-
-	waitForNoPendingClusterChange(t, &primary.KubectlNamespace, "[FAILOVER]")
 
 	// Redistribute to remaining brokers. Each request uses its own short-lived
 	// port-forward (see GatewayManagementRequest) so a broker restarting during
@@ -737,23 +718,34 @@ func removeSecondaryBrokers(t *testing.T) {
 	require.NotContains(t, lastBody, "PARTITION_FORCE_RECONFIGURE")
 }
 
-// exporterHasStatus reports whether the /actuator/exporters payload reports
-// exporterID with the given status. It parses the payload instead of matching an
-// exact JSON substring, so an entry gaining a field does not silently stop matching.
-func exporterHasStatus(body, exporterID, status string) bool {
-	var exporters []struct {
+// exporterStatusIs reports whether every entry GET /actuator/exporters lists for
+// the given exporter carries the given status.
+//
+// Parsed, not substring-matched: the engine added a `physicalTenant` field to
+// each entry, which a byte-exact `{"exporterId":"x","status":"y"}` comparison
+// cannot survive. Each tenant contributes its own entry, so one tenant still
+// exporting means the exporter is not disabled cluster-wide. A body that does
+// not parse, or never names the exporter, is not evidence and reads false.
+func exporterStatusIs(body, exporterID, status string) bool {
+	var entries []struct {
 		ExporterID string `json:"exporterId"`
 		Status     string `json:"status"`
 	}
-	if err := json.Unmarshal([]byte(body), &exporters); err != nil {
+	if err := json.Unmarshal([]byte(body), &entries); err != nil {
 		return false
 	}
-	for _, exporter := range exporters {
-		if exporter.ExporterID == exporterID && exporter.Status == status {
-			return true
+
+	found := false
+	for _, e := range entries {
+		if e.ExporterID != exporterID {
+			continue
 		}
+		if e.Status != status {
+			return false
+		}
+		found = true
 	}
-	return false
+	return found
 }
 
 func disableElasticExportersToSecondary(t *testing.T) {
@@ -775,14 +767,14 @@ func disableElasticExportersToSecondary(t *testing.T) {
 	brokerRestarts := 0
 	for i := 0; i < 20; i++ {
 		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/exporters", nil)
-		if err == nil && status == 200 && exporterHasStatus(lastBody, "camundaregion1", "DISABLED") {
+		if err == nil && status == 200 && exporterStatusIs(lastBody, "camundaregion1", "DISABLED") {
 			disabled = true
 			break
 		}
 		if err != nil {
 			t.Logf("[FAILOVER] exporters status request failed (attempt %d/20), retrying: %v", i+1, err)
 		} else {
-			t.Logf("[FAILOVER] Exporter not yet disabled, retrying... (status=%d body=%s)", status, lastBody)
+			t.Log("[FAILOVER] Exporter not yet disabled, retrying...")
 		}
 		if kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6) == 0 {
 			kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
@@ -790,9 +782,9 @@ func disableElasticExportersToSecondary(t *testing.T) {
 		time.Sleep(15 * time.Second)
 	}
 
-	require.True(t, disabled, "[FAILOVER] exporter was not disabled within the retry budget")
-	require.True(t, exporterHasStatus(lastBody, "camundaregion0", "ENABLED"), "camundaregion0 should stay ENABLED, got: %s", lastBody)
-	require.True(t, exporterHasStatus(lastBody, "camundaregion1", "DISABLED"), "camundaregion1 should be DISABLED, got: %s", lastBody)
+	require.True(t, disabled, "[FAILOVER] exporter was not disabled within the retry budget, last response: %s", lastBody)
+	require.True(t, exporterStatusIs(lastBody, "camundaregion0", "ENABLED"), "expected camundaregion0 to be ENABLED, got: %s", lastBody)
+	require.True(t, exporterStatusIs(lastBody, "camundaregion1", "DISABLED"), "expected camundaregion1 to be DISABLED, got: %s", lastBody)
 }
 
 func enableElasticExportersToSecondary(t *testing.T) {
@@ -814,14 +806,14 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	brokerRestarts := 0
 	for i := 0; i < 60; i++ {
 		status, lastBody, err = kubectlHelpers.GatewayManagementRequest(t, &primary.KubectlNamespace, "GET", "/actuator/exporters", nil)
-		if err == nil && status == 200 && exporterHasStatus(lastBody, "camundaregion1", "ENABLED") {
+		if err == nil && status == 200 && exporterStatusIs(lastBody, "camundaregion1", "ENABLED") {
 			enabled = true
 			break
 		}
 		if err != nil {
 			t.Logf("[FAILBACK] exporters status request failed (attempt %d/60), retrying: %v", i+1, err)
 		} else {
-			t.Logf("[FAILBACK] Exporter not yet enabled, retrying... (status=%d body=%s)", status, lastBody)
+			t.Log("[FAILBACK] Exporter not yet enabled, retrying...")
 		}
 		if kubectlHelpers.SelfHealStuckBrokers(t, &secondary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6) == 0 {
 			kubectlHelpers.SelfHealStuckBrokers(t, &primary.KubectlNamespace, "camunda-zeebe", notReadySince, &brokerRestarts, 90*time.Second, 6)
@@ -829,46 +821,53 @@ func enableElasticExportersToSecondary(t *testing.T) {
 		time.Sleep(15 * time.Second)
 	}
 
-	require.True(t, enabled, "[FAILBACK] exporter was not enabled within the retry budget")
-	require.True(t, exporterHasStatus(lastBody, "camundaregion0", "ENABLED"), "camundaregion0 should stay ENABLED, got: %s", lastBody)
-	require.True(t, exporterHasStatus(lastBody, "camundaregion1", "ENABLED"), "camundaregion1 should be ENABLED, got: %s", lastBody)
+	require.True(t, enabled, "[FAILBACK] exporter was not enabled within the retry budget, last response: %s", lastBody)
+	require.True(t, exporterStatusIs(lastBody, "camundaregion0", "ENABLED"), "expected camundaregion0 to be ENABLED, got: %s", lastBody)
+	require.True(t, exporterStatusIs(lastBody, "camundaregion1", "ENABLED"), "expected camundaregion1 to be ENABLED, got: %s", lastBody)
 }
 
-// topologyHasActivePartition reports whether the /actuator/cluster payload shows
-// partitionID as ACTIVE on any broker, in either the current or the expected
-// topology. Parsed rather than substring-matched: 8.10.0-alpha5 inserts
-// physicalTenant between a partition's id and its state.
-func topologyHasActivePartition(body string, partitionID int) bool {
-	type partition struct {
-		ID    int    `json:"id"`
-		State string `json:"state"`
-	}
-	type broker struct {
-		Partitions []partition `json:"partitions"`
-	}
-	var payload struct {
-		CurrentTopology  []broker `json:"currentTopology"`
-		ExpectedTopology []broker `json:"expectedTopology"`
-	}
-	if err := json.Unmarshal([]byte(body), &payload); err != nil {
+// topologyHasActiveEntry reports whether a cluster response contains any object
+// carrying the given numeric id and state.
+//
+// Walked over the decoded response rather than matched as a substring: the
+// engine inserts `physicalTenant` between `id` and `state`, so a literal
+// `"id":8,"state":"ACTIVE"` no longer appears even when the entry is present and
+// active. A body that does not parse reads false rather than passing on a
+// response nobody looked at.
+func topologyHasActiveEntry(body string, id int, state string) bool {
+	var doc any
+	if err := json.Unmarshal([]byte(body), &doc); err != nil {
 		return false
 	}
-	for _, brokers := range [][]broker{payload.ExpectedTopology, payload.CurrentTopology} {
-		for _, b := range brokers {
-			for _, p := range b.Partitions {
-				if p.ID == partitionID && p.State == "ACTIVE" {
+
+	var walk func(any) bool
+	walk = func(node any) bool {
+		switch v := node.(type) {
+		case map[string]any:
+			if n, ok := v["id"].(float64); ok && int(n) == id {
+				if s, ok := v["state"].(string); ok && s == state {
+					return true
+				}
+			}
+			for _, child := range v {
+				if walk(child) {
+					return true
+				}
+			}
+		case []any:
+			for _, child := range v {
+				if walk(child) {
 					return true
 				}
 			}
 		}
+		return false
 	}
-	return false
+	return walk(doc)
 }
 
 func addSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILBACK] Adding secondary brokers 🚀")
-
-	waitForNoPendingClusterChange(t, &primary.KubectlNamespace, "[FAILBACK]")
 
 	// Request the scaling change and poll for completion. Each request uses its
 	// own short-lived port-forward (see GatewayManagementRequest), because a broker
@@ -878,7 +877,7 @@ func addSecondaryBrokers(t *testing.T) {
 	require.NoError(t, err, "[FAILBACK] failed to request broker addition")
 	require.Equal(t, 202, status)
 	require.NotEmpty(t, body)
-	require.True(t, topologyHasActivePartition(body, 8), "[FAILBACK] partition 8 should be ACTIVE, got: %s", body)
+	require.True(t, topologyHasActiveEntry(body, 8, "ACTIVE"), "expected partition 8 to be ACTIVE in the accepted topology, got: %s", body)
 
 	// Check that the addition of new brokers was completed. This can take a while,
 	// and brokers restart during redistribution, so tolerate transient connection

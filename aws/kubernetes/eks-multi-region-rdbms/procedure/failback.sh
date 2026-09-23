@@ -86,9 +86,10 @@ echo
 echo "--> 3/4 Checking whether zone $recovered_zone is still in the partition distribution"
 
 cluster="$(camunda::management "$survivor_context" GET /actuator/cluster)"
+partitioning="$(echo "$cluster" | camunda::partitioning)"
 
-if echo "$cluster" | jq -e --arg zone "$recovered_zone" \
-    '[.partitionDistribution.zones[]? | select(.name == $zone)] | length > 0' >/dev/null; then
+if echo "$partitioning" | jq -e --arg zone "$recovered_zone" \
+    '[.zones[] | select(.name == $zone)] | length > 0' >/dev/null; then
     echo "    Zone $recovered_zone was never removed; its brokers rejoin and catch up"
     echo "    from the Raft log without any membership change."
 else
