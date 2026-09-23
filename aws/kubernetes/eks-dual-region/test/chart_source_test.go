@@ -11,7 +11,13 @@ import (
 func TestPartitioningValuesRequireLocalChart(t *testing.T) {
 	err := validatePartitioningChart("camunda/camunda-platform")
 
-	assert.ErrorContains(t, err, "cannot read chart schema")
+	assert.ErrorContains(t, err, "is not a local chart directory")
+}
+
+func TestPartitioningValuesRejectOCIReference(t *testing.T) {
+	err := validatePartitioningChart("oci://ghcr.io/camunda/helm/camunda-platform")
+
+	assert.ErrorContains(t, err, "is not a local chart directory")
 }
 
 func TestPartitioningValuesRejectChartWithoutPartitioning(t *testing.T) {
