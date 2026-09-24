@@ -27,7 +27,7 @@ runs:
               # Wait for external-dns to clean up domain records if requested
               if [[ "${INPUTS_WAIT_FOR_DNS_CLEANUP}" == "true" ]]; then
                   echo "Waiting for external-dns to remove domain records..."
-                  sleep ${INPUTS_DNS_CLEANUP_WAIT_SECONDS}
+                  sleep "${INPUTS_DNS_CLEANUP_WAIT_SECONDS}"
               fi
 
               # --ignore-not-found absorbs the absent case, so the fallbacks below only see real failures.
