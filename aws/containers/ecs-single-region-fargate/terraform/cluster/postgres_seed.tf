@@ -1,5 +1,25 @@
 data "aws_caller_identity" "current" {}
 
+# Fail at plan time when IAM database authentication is switched off.
+#
+# Every datasource in this reference is pinned to the AWS JDBC wrapper with
+# wrapperPlugins=iam -- the orchestration cluster, Management Identity and Camunda Hub
+# alike -- so a cluster without IAM auth cannot be connected to by any of them. Nothing
+# rejects the combination today: the plan succeeds, and each task then fails at startup
+# with a driver-level authentication error that names neither this flag nor the cluster.
+# The seed only notes it in its own task log, which is read after the fact if at all.
+#
+# Password authentication is a legitimate variant, but it is a code change rather than a
+# flag: the datasource URLs and credentials have to change with it.
+resource "terraform_data" "validate_database_prerequisites" {
+  lifecycle {
+    precondition {
+      condition     = var.db_iam_auth_enabled
+      error_message = "var.db_iam_auth_enabled must be true: every component connects through jdbc:aws-wrapper with wrapperPlugins=iam, which requires IAM database authentication on the Aurora cluster. To use password authentication instead, change the datasource URLs and credentials as well as this flag."
+    }
+  }
+}
+
 resource "aws_cloudwatch_log_group" "db_seed" {
   count             = var.db_seed_enabled ? 1 : 0
   name              = "/ecs/${var.prefix}-db-seed"
@@ -27,24 +47,101 @@ resource "aws_ecs_task_definition" "db_seed" {
         <<-EOT
           set -euo pipefail
 
-          if [ -z "$${IAM_DB_USERS}" ]; then
-            echo "No IAM_DB_USERS provided; nothing to do."
-            exit 0
+          if [ -n "$${IAM_DB_USERS}" ]; then
+            echo "Seeding database users for IAM auth: $${IAM_DB_USERS}"
+
+            for user in $${IAM_DB_USERS}; do
+              echo "Ensuring role exists: $${user}"
+
+              psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
+                -v ON_ERROR_STOP=1 \
+                -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${user}') THEN CREATE ROLE \"$${user}\" WITH LOGIN; END IF; END \$\$;" \
+                -c "ALTER ROLE \"$${user}\" WITH LOGIN;" \
+                -c "GRANT rds_iam TO \"$${user}\";" \
+                -c "GRANT ALL PRIVILEGES ON DATABASE \"$${AURORA_DB_NAME}\" TO \"$${user}\";" \
+                -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${user}\";"
+            done
+          else
+            echo "No IAM_DB_USERS provided; skipping IAM user seeding."
           fi
 
-          echo "Seeding database users for IAM auth: $${IAM_DB_USERS}"
+          if [ -n "$${IDENTITY_DB_NAME}" ]; then
+            echo "Provisioning Management Identity database '$${IDENTITY_DB_NAME}' and role '$${IDENTITY_DB_USERNAME}' (IAM auth)"
 
-          for user in $${IAM_DB_USERS}; do
-            echo "Ensuring role exists: $${user}"
+            # Create/refresh the role and enable IAM auth on it. The Management Identity
+            # image ships the AWS Advanced JDBC wrapper (BOOT-INF/lib/aws-advanced-jdbc-
+            # wrapper-*.jar), so it authenticates with a short-lived IAM token like the
+            # orchestration cluster and Camunda Hub do.
+            #
+            # The password is bootstrap-only: it is what CREATE ROLE needs here, and it is
+            # not a usable fallback. Granting rds_iam makes IAM authentication take
+            # precedence for this role, so pointing the datasource back at plain
+            # PostgreSQL would keep failing until that grant is revoked.
+            psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
+              -v ON_ERROR_STOP=1 \
+              -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${IDENTITY_DB_USERNAME}') THEN CREATE ROLE \"$${IDENTITY_DB_USERNAME}\" WITH LOGIN PASSWORD '$${IDENTITY_DB_PASSWORD}'; END IF; END \$\$;" \
+              -c "ALTER ROLE \"$${IDENTITY_DB_USERNAME}\" WITH LOGIN PASSWORD '$${IDENTITY_DB_PASSWORD}';" \
+              -c "GRANT rds_iam TO \"$${IDENTITY_DB_USERNAME}\";"
+
+            # Create the dedicated database if it does not exist. No OWNER is set
+            # (the RDS master role cannot create a database owned by another role);
+            # the identity role is granted access via the GRANTs below instead.
+            psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
+              -v ON_ERROR_STOP=1 \
+              -tc "SELECT 'CREATE DATABASE \"$${IDENTITY_DB_NAME}\"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$${IDENTITY_DB_NAME}')" | psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" -v ON_ERROR_STOP=1
+
+            # Grant privileges on the identity database + public schema
+            psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${IDENTITY_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
+              -v ON_ERROR_STOP=1 \
+              -c "GRANT ALL PRIVILEGES ON DATABASE \"$${IDENTITY_DB_NAME}\" TO \"$${IDENTITY_DB_USERNAME}\";" \
+              -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${IDENTITY_DB_USERNAME}\";"
+          else
+            echo "IDENTITY_DB_NAME empty; skipping Management Identity DB provisioning."
+          fi
+
+          if [ -n "$${KEYCLOAK_DB_NAME}" ]; then
+            echo "Provisioning Keycloak database '$${KEYCLOAK_DB_NAME}' and role '$${KEYCLOAK_DB_USERNAME}' (password auth)"
 
             psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
               -v ON_ERROR_STOP=1 \
-              -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${user}') THEN CREATE ROLE \"$${user}\" WITH LOGIN; END IF; END \$\$;" \
-              -c "ALTER ROLE \"$${user}\" WITH LOGIN;" \
-              -c "GRANT rds_iam TO \"$${user}\";" \
-              -c "GRANT ALL PRIVILEGES ON DATABASE \"$${AURORA_DB_NAME}\" TO \"$${user}\";" \
-              -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${user}\";"
-          done
+              -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${KEYCLOAK_DB_USERNAME}') THEN CREATE ROLE \"$${KEYCLOAK_DB_USERNAME}\" WITH LOGIN PASSWORD '$${KEYCLOAK_DB_PASSWORD}'; END IF; END \$\$;" \
+              -c "ALTER ROLE \"$${KEYCLOAK_DB_USERNAME}\" WITH LOGIN PASSWORD '$${KEYCLOAK_DB_PASSWORD}';"
+
+            psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
+              -v ON_ERROR_STOP=1 \
+              -tc "SELECT 'CREATE DATABASE \"$${KEYCLOAK_DB_NAME}\"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$${KEYCLOAK_DB_NAME}')" | psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" -v ON_ERROR_STOP=1
+
+            psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${KEYCLOAK_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
+              -v ON_ERROR_STOP=1 \
+              -c "GRANT ALL PRIVILEGES ON DATABASE \"$${KEYCLOAK_DB_NAME}\" TO \"$${KEYCLOAK_DB_USERNAME}\";" \
+              -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${KEYCLOAK_DB_USERNAME}\";"
+          else
+            echo "KEYCLOAK_DB_NAME empty; skipping Keycloak DB provisioning."
+          fi
+
+          if [ -n "$${HUB_DB_NAME}" ]; then
+            echo "Provisioning Camunda Hub database '$${HUB_DB_NAME}' and role '$${HUB_DB_USERNAME}' (IAM auth)"
+
+            psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
+              -v ON_ERROR_STOP=1 \
+              -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${HUB_DB_USERNAME}') THEN CREATE ROLE \"$${HUB_DB_USERNAME}\" WITH LOGIN; END IF; END \$\$;" \
+              -c "ALTER ROLE \"$${HUB_DB_USERNAME}\" WITH LOGIN;" \
+              -c "GRANT rds_iam TO \"$${HUB_DB_USERNAME}\";"
+
+            # No OWNER is set: on Aurora the RDS master role cannot create a database
+            # owned by another role ("must be able to SET ROLE"). Access comes from the
+            # GRANTs below instead. Web Modeler runs Flyway on boot.
+            psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
+              -v ON_ERROR_STOP=1 \
+              -tc "SELECT 'CREATE DATABASE \"$${HUB_DB_NAME}\"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$${HUB_DB_NAME}')" | psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" -v ON_ERROR_STOP=1
+
+            psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${HUB_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
+              -v ON_ERROR_STOP=1 \
+              -c "GRANT ALL PRIVILEGES ON DATABASE \"$${HUB_DB_NAME}\" TO \"$${HUB_DB_USERNAME}\";" \
+              -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${HUB_DB_USERNAME}\";"
+          else
+            echo "HUB_DB_NAME empty; skipping Camunda Hub DB provisioning."
+          fi
 
           echo "DB seeding complete."
         EOT
@@ -55,15 +152,36 @@ resource "aws_ecs_task_definition" "db_seed" {
         { name = "AURORA_PORT", value = "5432" },
         { name = "AURORA_DB_NAME", value = var.db_name },
         { name = "AURORA_ADMIN_USERNAME", value = var.db_admin_username },
-        { name = "IAM_DB_USERS", value = join(" ", var.db_seed_iam_usernames) }
+        { name = "IAM_DB_USERS", value = join(" ", var.db_seed_iam_usernames) },
+        # Empty in basic mode (Identity not deployed) so the seed script skips it.
+        { name = "IDENTITY_DB_NAME", value = local.oidc_enabled ? var.identity_db_name : "" },
+        { name = "IDENTITY_DB_USERNAME", value = var.identity_db_username },
+        # Empty unless the bundled Keycloak is deployed, so the seed script skips it.
+        { name = "KEYCLOAK_DB_NAME", value = local.deploy_bundled_keycloak ? var.keycloak_db_name : "" },
+        { name = "KEYCLOAK_DB_USERNAME", value = var.keycloak_db_username },
+        # Empty unless Camunda Hub is deployed, so the seed script skips it.
+        { name = "HUB_DB_NAME", value = var.enable_camunda_hub ? var.camunda_hub_db_name : "" },
+        { name = "HUB_DB_USERNAME", value = var.camunda_hub_db_username }
       ]
 
-      secrets = [
+      secrets = concat([
         {
           name      = "AURORA_ADMIN_PASSWORD"
           valueFrom = aws_secretsmanager_secret.db_admin_password.arn
-        }
-      ]
+        },
+        ],
+        local.oidc_enabled ? [
+          {
+            name      = "IDENTITY_DB_PASSWORD"
+            valueFrom = aws_secretsmanager_secret.identity_db_password[0].arn
+          }
+        ] : [],
+        local.deploy_bundled_keycloak ? [
+          {
+            name      = "KEYCLOAK_DB_PASSWORD"
+            valueFrom = aws_secretsmanager_secret.keycloak_db_password[0].arn
+          }
+      ] : [])
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -83,10 +201,24 @@ resource "null_resource" "run_db_seed_task" {
   count = var.db_seed_enabled ? 1 : 0
 
   triggers = {
-    aurora_endpoint = module.postgresql.aurora_endpoint
-    db_name         = var.db_name
-    iam_users       = join(",", var.db_seed_iam_usernames)
-    iam_auth        = tostring(var.db_iam_auth_enabled)
+    aurora_endpoint      = module.postgresql.aurora_endpoint
+    db_name              = var.db_name
+    iam_users            = join(",", var.db_seed_iam_usernames)
+    iam_auth             = tostring(var.db_iam_auth_enabled)
+    identity_db_name     = local.oidc_enabled ? var.identity_db_name : ""
+    identity_db_username = var.identity_db_username
+    identity_db_secret   = local.oidc_enabled ? aws_secretsmanager_secret_version.identity_db_password[0].version_id : ""
+    keycloak_db_name     = local.deploy_bundled_keycloak ? var.keycloak_db_name : ""
+    keycloak_db_username = var.keycloak_db_username
+    keycloak_db_secret   = local.deploy_bundled_keycloak ? aws_secretsmanager_secret_version.keycloak_db_password[0].version_id : ""
+
+    # Re-run when the seed task definition changes, which is what happens when the SQL
+    # itself is edited. Without this the task definition is replaced but never executed,
+    # so a change to the script (adding a GRANT, say) silently never reaches the database
+    # on an existing deployment. Safe to re-run: every statement in it is idempotent.
+    # The revision is used rather than a hash of container_definitions because the latter
+    # carries sensitive values, which the null provider rejects in triggers.
+    seed_revision = aws_ecs_task_definition.db_seed[0].revision
   }
 
   provisioner "local-exec" {
@@ -98,8 +230,8 @@ resource "null_resource" "run_db_seed_task" {
         echo "db_seed_enabled=true but db_iam_auth_enabled=false; seeding still runs, but IAM auth won't work until enabled on the cluster."
       fi
 
-      if [ -z "${join(" ", var.db_seed_iam_usernames)}" ]; then
-        echo "db_seed_enabled=true but db_seed_iam_usernames is empty; nothing to do."
+      if [ -z "${join(" ", var.db_seed_iam_usernames)}" ] && [ -z "${var.identity_db_name}" ] && [ -z "${var.keycloak_db_name}" ]; then
+        echo "db_seed_enabled=true but no IAM users, identity, or keycloak DBs; nothing to do."
         exit 0
       fi
 

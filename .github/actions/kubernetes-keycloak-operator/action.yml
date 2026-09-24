@@ -12,14 +12,13 @@ inputs:
     keycloak-mode:
         description: |
             Keycloak deployment mode:
-            - 'domain': With ingress for domain access (nginx)
             - 'domain-contour': With ingress for domain access (Contour)
             - 'domain-openshift': With ingress for OpenShift router
             - 'no-domain': Without ingress (port-forward access)
         required: false
         default: no-domain
     domain-name:
-        description: Domain name (required for domain mode)
+        description: Domain name (required for the 'domain-contour' and 'domain-openshift' modes)
         required: false
         default: ''
 
@@ -60,9 +59,6 @@ runs:
                   "no-domain")
                       export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-no-domain.yml"
                       ;;
-                  "domain")
-                      export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-nginx.yml"
-                      ;;
                   "domain-contour")
                       export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-contour.yml"
                       ;;
@@ -70,10 +66,17 @@ runs:
                       export KEYCLOAK_CONFIG_FILE="${KEYCLOAK_DIR}/keycloak-instance-domain-openshift.yml"
                       ;;
                   *)
-                      echo "Error: Unknown mode '$MODE'" >&2
+                      echo "Error: Unknown mode '$MODE'. Supported: no-domain, domain-contour, domain-openshift" >&2
                       exit 1
                       ;;
               esac
+
+              # deploy.sh renders the Keycloak hostname from CAMUNDA_DOMAIN via envsubst,
+              # so an empty value yields "https:///auth" and fails far downstream.
+              if [[ "$MODE" == domain-* && -z "${CAMUNDA_DOMAIN:-}" ]]; then
+                  echo "Error: domain-name is required for mode '$MODE'." >&2
+                  exit 1
+              fi
 
               echo "🔑 Deploying Keycloak (mode: $MODE, config: $KEYCLOAK_CONFIG_FILE)..."
 
@@ -128,8 +131,8 @@ runs:
                   --from-literal=identity-optimize-client-token="$OPTIMIZE_SECRET" \
                   --from-literal=identity-admin-client-token="$ADMIN_PASSWORD" \
                   --from-literal=identity-first-user-password="$FIRST_USER_PASSWORD" \
-                  --from-literal=webmodeler-pusher-app-secret="$PUSHER_APP_SECRET" \
-                  --from-literal=webmodeler-pusher-app-key="$PUSHER_APP_KEY" \
+                  --from-literal=hub-pusher-app-secret="$PUSHER_APP_SECRET" \
+                  --from-literal=hub-pusher-app-key="$PUSHER_APP_KEY" \
                   --dry-run=client -o yaml | kubectl apply -f -
 
               echo "✓ identity-secret-for-components created"

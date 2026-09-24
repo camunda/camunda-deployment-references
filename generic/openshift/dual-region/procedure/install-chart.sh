@@ -1,6 +1,31 @@
 #!/bin/bash
 set -euo pipefail
 
+# The values overlays are layered with `yq '. *+ load(...)'`, which *appends*
+# arrays instead of replacing them. That append is wanted for `*.env` lists, but
+# it means two overlays that each add an `extraConfiguration` entry for the same
+# `file:` mount that file twice. Helm renders it happily; server-side apply then
+# rejects the Deployment with `volumeMounts: duplicate entries for key
+# [mountPath=...]`, which does not name the values file at fault. Fail here,
+# where the message can.
+assert_no_duplicate_extra_configuration() {
+    local values_file=$1 duplicates
+    if ! command -v yq >/dev/null 2>&1; then
+        echo "ERROR: yq is required to check $values_file for duplicate extraConfiguration entries." >&2
+        echo "       Install it (see .tool-versions) or run 'just install-tooling'." >&2
+        return 1
+    fi
+    duplicates=$(yq -r \
+        '[.. | select(kind == "map" and has("extraConfiguration")) | .extraConfiguration | .[].file] | .[]' \
+        "$values_file" | sort | uniq -d)
+    [[ -z "$duplicates" ]] && return 0
+
+    echo "ERROR: $values_file mounts the same extraConfiguration file more than once:" >&2
+    while IFS= read -r duplicate; do echo "  - $duplicate" >&2; done <<<"$duplicates"
+    echo "       Each file may be contributed by only one values overlay." >&2
+    return 1
+}
+
 # Warn that this deploys an unreleased, in-development chart (to stderr).
 # TODO: [release-duty] remove this pre-release warning at release.
 cat >&2 <<'PRERELEASE_WARNING'
@@ -28,6 +53,11 @@ fi
 # Build the chart from source so no registry authentication is required; prints the
 # local chart directory. The build helper is shared with the generic k8s guide.
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
+# Consume the rolling chart from the camunda-platform-helm main branch. The pin
+# below is a commit on that branch, bumped by Renovate as main moves; without it
+# the shared build helper falls back to its own default, a released chart tag.
+# renovate-helm-main: digest tracked against camunda-platform-helm main
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-1225a5b7ff9d62e3db1ce005e128249197b2d339}"
 LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
 
 # Resolve the broker image of the chart being installed so the cross-region
@@ -61,6 +91,7 @@ for region_values in generated-values-region-0.yml generated-values-region-1.yml
   # shellcheck disable=SC2016
   envsubst '${BROKER_IMAGE}' <"$region_values" >"$region_values.tmp"
   mv "$region_values.tmp" "$region_values"
+  assert_no_duplicate_extra_configuration "$region_values"
 done
 
 helm upgrade --install \

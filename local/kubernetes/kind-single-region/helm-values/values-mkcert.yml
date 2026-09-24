@@ -11,8 +11,8 @@
 #   then point JAVA_TOOL_OPTIONS to the custom truststore
 # - For Node.js apps: Use NODE_EXTRA_CA_CERTS environment variable
 
-# WebModeler components
-webModeler:
+# Camunda Hub components
+camundaHub:
     # restapi is Java-based
     restapi:
         extraVolumes:

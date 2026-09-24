@@ -25,9 +25,9 @@ echo "Services available at:"
 echo "  - Zeebe gRPC API:    localhost:26500"
 echo "  - Zeebe REST API:    localhost:8080   (Operate, Tasklist, Admin)"
 if kubectl get svc camunda-optimize -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
-echo "  - Optimize:          localhost:8083"
+    echo "  - Optimize:          localhost:8083"
 fi
-echo "  - Web Modeler:       localhost:8070"
+echo "  - Camunda Hub:       localhost:8070"
 echo "  - Connectors:        localhost:8088"
 echo "  - Identity:          localhost:8085"
 echo "  - Keycloak:          keycloak-service:18080/auth (requires /etc/hosts entry)"
@@ -40,6 +40,8 @@ kubectl port-forward svc/camunda-zeebe-gateway 8080:8080 -n "$CAMUNDA_NAMESPACE"
 if kubectl get svc camunda-optimize -n "$CAMUNDA_NAMESPACE" >/dev/null 2>&1; then
     kubectl port-forward svc/camunda-optimize 8083:80 -n "$CAMUNDA_NAMESPACE" &
 fi
+# Not `camunda-hub-*`: the chart deliberately keeps the `web-modeler` resource
+# names under Camunda Hub so an 8.9 release upgrades in place.
 kubectl port-forward svc/camunda-web-modeler-restapi 8070:80 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/camunda-connectors 8088:8080 -n "$CAMUNDA_NAMESPACE" &
 kubectl port-forward svc/camunda-identity 8085:80 -n "$CAMUNDA_NAMESPACE" &
