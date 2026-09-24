@@ -5,7 +5,7 @@
 # one names the upstream issue that retires it. Suites load this file rather
 # than carrying their own `yq -i '.<component>.image.tag = ...'` line.
 #
-# TODO: [release-duty] once both entries below are gone, delete this file and
+# TODO: [release-duty] once the entries below are gone, delete this file and
 # every line that loads it.
 
 # TODO: [release-duty] drop this SNAPSHOT pin once
@@ -41,5 +41,30 @@ camundaHub:
 # other components stay on 8.10.0-alpha5. A fixed 8.10 tag also keeps the
 # deployment reproducible, which a rolling tag does not.
 optimize:
+    image:
+        tag: 8.10.0-rc1
+
+# TODO: [release-duty] drop this pin once
+# camunda/camunda-platform-helm#7284 is fixed. Same defect class as the Optimize
+# pin above, in a different codebase: camunda/connectors-bundle:8.10.0-alpha5
+# resolves the OIDC discovery document while Spring builds its beans, so a
+# context refresh that cannot reach the issuer takes the application down:
+#
+#   BeanCreationException: 'defaultCamundaClient'
+#     Failed to retrieve well known configuration
+#     java.net.SocketTimeoutException: Connect timed out
+#
+# It surfaces after the CoreDNS refresh bounces Connectors while the public
+# route is still converging; the restarts do not converge and the pod ends at
+# 0/1, failing the readiness and liveness checks with 503.
+#
+# camunda/camunda#62935 does not cover this — that fix is in the monorepo's
+# io.camunda.security.spring.oidc, whereas this is io.camunda.connector.runtime.
+# The connectors 8.10.0-rc1 tag fixes it on its own side: between 8.10.0-alpha5
+# and 8.10.0-rc1, `connectorObjectMapper` — the bean in the trace above — stops
+# taking `@Autowired CamundaClient` directly and takes an
+# `ObjectProvider<CamundaClient>` instead, so the client is no longer
+# instantiated eagerly during context startup.
+connectors:
     image:
         tag: 8.10.0-rc1
