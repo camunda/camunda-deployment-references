@@ -11,7 +11,7 @@ inputs:
         default: camunda
     cluster-name:
         description: |
-            Name of the CNPG cluster to delete (e.g., pg-keycloak, pg-identity, pg-webmodeler).
+            Name of the CNPG cluster to delete (e.g., pg-keycloak, pg-identity, pg-hub).
             Leave empty to only uninstall the operator.
         required: false
         default: ''

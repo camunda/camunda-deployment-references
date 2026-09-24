@@ -4,7 +4,7 @@
 #
 # Environment variables:
 #   CAMUNDA_NAMESPACE  - Target namespace (default: camunda)
-#   CLUSTER_FILTER     - Optional: deploy only specific clusters, comma-separated (e.g., "pg-keycloak" or "pg-identity,pg-webmodeler")
+#   CLUSTER_FILTER     - Optional: deploy only specific clusters, comma-separated (e.g., "pg-keycloak" or "pg-identity,pg-hub")
 #   PG_INSTANCES       - Optional: override the instance count of every cluster. Unset by
 #                        default, so the manifests apply as written. See the note below.
 #

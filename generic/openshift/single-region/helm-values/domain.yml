@@ -30,7 +30,7 @@ identity:
     contextPath: /managementidentity
     fullURL: https://${CAMUNDA_DOMAIN}/managementidentity
 
-webModeler:
+camundaHub:
     contextPath: /modeler
 
 optimize:

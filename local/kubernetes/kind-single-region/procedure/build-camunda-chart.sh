@@ -11,7 +11,7 @@ set -euo pipefail
 #
 # Optional overrides (env vars):
 #   CAMUNDA_HELM_CHART_GIT_URL       source repo URL
-#   CAMUNDA_HELM_CHART_GIT_REF       branch or tag to build (passed to git clone --branch)
+#   CAMUNDA_HELM_CHART_GIT_REF       branch, tag, or full 40-character commit SHA to build
 #   CAMUNDA_HELM_CHART_CHECKOUT_DIR  clone location; must be an absolute path
 #   CAMUNDA_HELM_CHART_CLONE_ATTEMPTS how many times to try the clone; positive integer, default 3
 #   CAMUNDA_PRERELEASE_ACK           set to 'true' (or pass --yes) to skip the prompt
@@ -58,19 +58,13 @@ _repo_root="$_chart_src_dir/../../../.."
 _camunda_version="$(cat "$_repo_root/.camunda-version")"
 
 _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda-platform-helm.git}"
-# Pin to the released chart tag the guide targets (the pre-release 15.x line), not a
-# moving 'main': 'main' can be mid-migration and drop components (e.g. console when
-# values move under camundaHub) or ship an inconsistent set of component images,
-# which breaks the deployment tests. Renovate bumps the pin below only once a newer
-# 8.10 chart tag is *published* (not the moving 'main' tip); the default is split out
-# on its own line so the '# renovate:' inline manager can parse it (the ${VAR:-...}
-# override wrapper is not cleanly matchable). A camunda-platform-helm release tag carries
-# the previous version in its Chart.yaml (tag N ships version N-1), so the built chart is
-# one prerelease behind the tag name — intentional; it's the known-good set the tests validate.
-# Parked: pre-GA alpha chart until 8.10 GA.
-# renovate: datasource=github-tags depName=camunda/camunda-platform-helm extractVersion=^camunda-platform-8\.10-(?<version>.+)$ renovate-inert-ok
-_chart_default_git_ref="camunda-platform-8.10-15.0.0-alpha3"
-# TODO: [release-duty] bump the 8.10 pin above as the 15.x line advances (keep in sync with CAMUNDA_HELM_CHART_VERSION and the helm-values).
+# Consume the rolling chart from the camunda-platform-helm main branch. The pin
+# below is a commit on that branch, bumped by Renovate as main moves, rather than
+# a published tag: the guide needs the Camunda Hub keys this branch migrates to,
+# which no released 8.10 tag carries yet.
+# renovate-helm-main: digest tracked against camunda-platform-helm main
+_chart_default_git_ref="1225a5b7ff9d62e3db1ce005e128249197b2d339"
+# TODO: [release-duty] drop the source build and install the published chart once 8.10 is released.
 _chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-$_chart_default_git_ref}"
 _default_checkout_dir="$(cd "$_chart_src_dir/.." && pwd)/.camunda-platform-helm"
 _chart_checkout_dir="${CAMUNDA_HELM_CHART_CHECKOUT_DIR:-$_default_checkout_dir}"
@@ -130,9 +124,34 @@ rm -rf -- "$_chart_checkout_dir"
 # the prompt is disabled and the failure is retried a few times. Four separate CI
 # runs failed here on a tag that was public and present the whole time.
 _clone_attempt=1
+# A short SHA looks like a valid ref but is neither fetchable nor a branch name,
+# so it would fail below as "Remote branch not found". Say what is actually
+# wrong: git cannot fetch an abbreviated commit, only a full one.
+if [[ "$_chart_git_ref" =~ ^[0-9a-f]{7,39}$ ]]; then
+    echo "ERROR: CAMUNDA_HELM_CHART_GIT_REF '$_chart_git_ref' looks like an abbreviated commit SHA." >&2
+    echo "       Git can only fetch a full 40-character SHA; use the complete one, a branch, or a tag." >&2
+    exit 1
+fi
 while true; do
-    if GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$_chart_git_ref" \
-        -- "$_chart_git_url" "$_chart_checkout_dir" >&2; then
+    # `git clone --branch` resolves only branches and tags, so a commit SHA has to
+    # be fetched into an empty repository instead.
+    if [[ "$_chart_git_ref" =~ ^[0-9a-f]{40}$ ]]; then
+        mkdir -p "$_chart_checkout_dir"
+        git -C "$_chart_checkout_dir" init --quiet
+        git -C "$_chart_checkout_dir" remote add origin "$_chart_git_url"
+        cloned=false
+        if GIT_TERMINAL_PROMPT=0 git -C "$_chart_checkout_dir" fetch --depth 1 origin "$_chart_git_ref" >&2 &&
+            git -C "$_chart_checkout_dir" checkout --detach FETCH_HEAD >&2; then
+            cloned=true
+        fi
+    else
+        cloned=false
+        if GIT_TERMINAL_PROMPT=0 git clone --depth 1 --branch "$_chart_git_ref" \
+            -- "$_chart_git_url" "$_chart_checkout_dir" >&2; then
+            cloned=true
+        fi
+    fi
+    if [[ "$cloned" == true ]]; then
         break
     fi
     # Remove the partial checkout so the marker guard does not block a rerun.

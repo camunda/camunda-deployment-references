@@ -657,14 +657,8 @@ jobs:
                   # true`. The legacy `webModeler.enabled` key is deprecated and
                   # emits warnings.
                   if [ "$HUB_ENABLED" == "true" ]; then
-                    echo "Enabling Camunda Hub (WebModeler)"
+                    echo "Enabling Camunda Hub"
                     yq -i '.camundaHub.enabled = true' values.yml
-                    # TODO: [release-duty] drop this SNAPSHOT pin once
-                    # camunda/camunda-platform-helm#6567 is fixed. The released alpha3
-                    # chart pins camunda/hub:8.10.0-alpha3-rc1, which rejects the
-                    # `hub`/`admin` cluster app types; the rolling SNAPSHOT tag accepts
-                    # them (as kind already does).
-                    yq -i '.camundaHub.webModeler.image.tag = "SNAPSHOT"' values.yml
                   fi
 
                   # If using wildcard certificate, remove cert-manager annotations from values
@@ -685,6 +679,11 @@ jobs:
 
                   # Apply registry-harbor configuration (used in all scenarios for better performance)
                   yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/registry-harbor.yml\")" values.yml > values-result.yml
+                  cat values-result.yml && mv values-result.yml values.yml
+
+                  # TODO: [release-duty] drop this load together with the file it
+                  # reads; see camunda/camunda-platform-helm#7284.
+                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/image-overrides.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
                   # Add integration tests specific values

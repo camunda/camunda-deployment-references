@@ -76,10 +76,17 @@ spec:
             secret:
                 name: pg-keycloak-secret
 ---
+# Renamed from `pg-webmodeler` with the 8.10 Web Modeler to Camunda Hub rename, along
+# with its database, user and secrets. Applying this to an existing deployment creates
+# a new empty cluster and leaves the old one untouched, so Camunda Hub starts without
+# the existing Web Modeler data: this is a fresh-install reference, not an upgrade
+# path. To keep an existing database, override the identifiers back to the
+# `pg-webmodeler` names rather than renaming the cluster, or dump and restore into the
+# new one before pointing Hub at it.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-    name: pg-webmodeler
+    name: pg-hub
 spec:
     instances: 2
     affinity:
@@ -90,20 +97,20 @@ spec:
         # switchover target, which is the failure these defaults exist to prevent. A cluster
         # with fewer schedulable nodes than instances should set PG_INSTANCES instead.
         podAntiAffinityType: required
-    description: PostgreSQL cluster for Webmodeler
+    description: PostgreSQL cluster for Camunda Hub
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
     imageName: ghcr.io/cloudnative-pg/postgresql:18.4
     superuserSecret:
-        name: pg-webmodeler-superuser-secret
+        name: pg-hub-superuser-secret
     # OpenShift Security Context - let SCC manage the security context
     seccompProfile:
         type: RuntimeDefault
     bootstrap:
         initdb:
-            database: webmodeler
-            owner: webmodeler
+            database: hub
+            owner: hub
             secret:
-                name: pg-webmodeler-secret
+                name: pg-hub-secret
     storage:
         size: 15Gi
     walStorage:
