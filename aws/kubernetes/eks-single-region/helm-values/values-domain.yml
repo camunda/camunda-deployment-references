@@ -114,8 +114,8 @@ orchestration:
             projectcontour.io/upstream-protocol.h2c: '26500'
 
 
-webModeler:
-    enabled: false # by default, webModeler is not enabled
+camundaHub:
+    enabled: false # by default, Camunda Hub is not enabled
     contextPath: /modeler
 
     restapi:

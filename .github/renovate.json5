@@ -46,7 +46,9 @@
       managerFilePatterns: [
         '/^\\.github/actions/internal-multi-region-tests/action\\.yml$/',
         '/^aws/kubernetes/eks-dual-region/DEVELOPER\\.md$/',
+        '/^generic/kubernetes/single-region/procedure/build-camunda-chart\\.sh$/',
         '/^generic/openshift/dual-region/procedure/install-chart\\.sh$/',
+        '/^local/kubernetes/kind-single-region/procedure/build-camunda-chart\\.sh$/',
       ],
       // The marker comment, then the SHA anywhere on the line below it. Deliberately not
       // anchored on `datasource=`, so the preset's manager never matches these lines.

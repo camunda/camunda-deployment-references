@@ -63,7 +63,7 @@ identity:
 connectors:
     contextPath: /connectors
 
-webModeler:
+camundaHub:
     enabled: false
     contextPath: /modeler
 

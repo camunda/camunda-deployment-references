@@ -52,7 +52,7 @@ optimize:
     contextPath: /optimize
 
 
-webModeler:
+camundaHub:
     contextPath: /modeler
 
 connectors:
