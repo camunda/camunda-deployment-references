@@ -30,24 +30,31 @@ runs:
                   sleep "${INPUTS_DNS_CLEANUP_WAIT_SECONDS}"
               fi
 
-              # --ignore-not-found absorbs the absent case, so the fallbacks below only see real failures.
-              echo "Uninstalling Contour..."
-              helm uninstall contour --namespace projectcontour --wait --ignore-not-found || echo "WARNING: uninstalling contour failed; continuing cleanup"
+              # --ignore-not-found absorbs the absent case, so the failures recorded below are real.
+              cleanup_failed=0
 
-              echo "Uninstalling external-dns..."
-              helm uninstall external-dns --namespace external-dns --wait --ignore-not-found || echo "WARNING: uninstalling external-dns failed; continuing cleanup"
+              for release in contour:projectcontour external-dns:external-dns cert-manager:cert-manager; do
+                  name="${release%%:*}"
+                  namespace="${release##*:}"
+                  echo "Uninstalling ${name}..."
+                  if ! helm uninstall "${name}" --namespace "${namespace}" --wait --ignore-not-found; then
+                      echo "WARNING: uninstalling ${name} failed; continuing cleanup" >&2
+                      cleanup_failed=1
+                  fi
+              done
 
-              echo "Uninstalling cert-manager..."
-              helm uninstall cert-manager --namespace cert-manager --wait --ignore-not-found || echo "WARNING: uninstalling cert-manager failed; continuing cleanup"
+              for namespace in projectcontour external-dns cert-manager; do
+                  echo "Deleting ${namespace} namespace..."
+                  if ! kubectl delete namespace "${namespace}" --wait --timeout=60s --ignore-not-found; then
+                      echo "WARNING: deleting namespace ${namespace} failed; continuing cleanup" >&2
+                      cleanup_failed=1
+                  fi
+              done
 
-              echo "Deleting projectcontour namespace..."
-              kubectl delete namespace projectcontour --wait --timeout=60s --ignore-not-found || echo "WARNING: deleting namespace projectcontour failed; continuing cleanup"
-
-              echo "Deleting external-dns namespace..."
-              kubectl delete namespace external-dns --wait --timeout=60s --ignore-not-found || echo "WARNING: deleting namespace external-dns failed; continuing cleanup"
-
-              echo "Deleting cert-manager namespace..."
-              kubectl delete namespace cert-manager --wait --timeout=60s --ignore-not-found || echo "WARNING: deleting namespace cert-manager failed; continuing cleanup"
+              if [[ "${cleanup_failed}" -ne 0 ]]; then
+                  echo "❌ Ingress cleanup finished with failures; see the warnings above." >&2
+                  exit 1
+              fi
 
               echo "✅ Ingress components and namespaces cleanup completed successfully."
           env:
