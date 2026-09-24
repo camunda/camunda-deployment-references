@@ -22,8 +22,8 @@ type chartSchema struct {
 // chart that predates the key makes Helm ignore the partitioning values and
 // silently deploy the numbered topology these overlays exist to replace.
 //
-// TODO: [release-duty] this rejects the public chart too. Once 8.10 ships a
-// released chart carrying orchestration.partitioning,
+// Release duty: this rejects the public chart too. Once 8.10 ships a released
+// chart carrying orchestration.partitioning,
 // `.github/actions/internal-multi-region-tests/action.yml` flips
 // HELM_CHART_NAME to `camunda/camunda-platform` and this guard fails the suite
 // on a chart that is in fact capable. Pull the reference into a temporary
