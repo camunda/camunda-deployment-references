@@ -1,0 +1,74 @@
+---
+name: Tests - Integration - Local Kind Operator Based PostgreSQL
+
+# Guards the operational defaults of the CloudNativePG reference architecture, which no
+# lint can see: the PostgreSQL clusters run two instances with a dedicated WAL volume so
+# that the node hosting a database stays drainable. A single-instance cluster gives the
+# operator no switchover target, so it refuses the eviction and `kubectl drain` never
+# finishes, which stalls a Kubernetes upgrade on the database. That failure is only
+# observable by draining a real node on a real multi-node cluster, so it is tested here
+# rather than asserted in a manifest.
+#
+# Separate from the other two suites on purpose:
+#   - generic_kubernetes_operator_based_test provisions EKS and ROSA. Draining a node
+#     there to prove a switchover would cost cloud time for a property Kind can show.
+#   - local_kubernetes_kind_single_region_tests runs the whole Camunda stack on one host
+#     and therefore deploys PostgreSQL with PG_INSTANCES=1, so by construction it cannot
+#     exercise the HA path this suite exists for.
+#
+# Cheap enough to run on every touch of the PostgreSQL reference architecture: a
+# throwaway three-node Kind cluster, images from ghcr.io only, no cloud account and no
+# registry credentials, finishing in about four minutes.
+
+permissions:
+    contents: read
+
+on:
+    schedule:
+        - cron: 0 5 * * 3 # Runs at 5 AM on Wednesdays
+    pull_request:
+        paths:
+            - .github/workflows/local_kind_operator_based_postgresql_tests.yml
+            - .github/actions/internal-triage-skip/**
+            - .tool-versions
+            - generic/kubernetes/operator-based/postgresql/**
+            - generic/kubernetes/operator-based/tests/postgresql-ha/**
+    workflow_dispatch:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    postgresql-ha-tests:
+        name: PostgreSQL HA defaults
+        needs: triage
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+
+            # Creates its own three-node Kind cluster: the drain under test needs a node to
+            # switch the primary over to. Everything it pulls comes from ghcr.io, so no
+            # registry credentials and no Docker Hub rate limit are involved. The script
+            # dumps cluster diagnostics itself on failure, before tearing the cluster down.
+            - name: Run the PostgreSQL HA integration test
+              run: ./generic/kubernetes/operator-based/tests/postgresql-ha/run-tests.sh

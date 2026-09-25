@@ -16,6 +16,12 @@
 
 global:
     host: ${CAMUNDA_DOMAIN}
+    compatibility:
+        nginx:
+            # This deployment does not use ingress-nginx, so the chart's
+            # compatibility annotations are not needed. Removed in the next chart major.
+            renderAnnotations: false
+
     ingress:
         enabled: true
         className: contour
@@ -63,7 +69,7 @@ identity:
 connectors:
     contextPath: /connectors
 
-webModeler:
+camundaHub:
     enabled: false
     contextPath: /modeler
 

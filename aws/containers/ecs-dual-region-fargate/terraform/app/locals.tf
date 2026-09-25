@@ -24,11 +24,11 @@ locals {
     },
     # Increase SWIM probe timeout for cross-region latency (default 100ms is too tight for Transit Gateway)
     {
-      name  = "ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT"
+      name  = "CAMUNDA_CLUSTER_MEMBERSHIP_PROBETIMEOUT"
       value = "1000ms"
     },
     {
-      name  = "ZEEBE_BROKER_CLUSTER_MEMBERSHIP_FAILURETIMEOUT"
+      name  = "CAMUNDA_CLUSTER_MEMBERSHIP_FAILURETIMEOUT"
       value = "10000ms"
     },
     # Region 0 topology

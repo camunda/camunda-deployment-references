@@ -101,23 +101,22 @@ if [ -z "${CAMUNDA_REPLICATION_FACTOR:-}" ]; then
 fi
 export CAMUNDA_REPLICATION_FACTOR
 
-# Zone awareness is not in a released chart yet. The reference architecture
-# builds the exact reviewed merge of camunda/camunda-platform-helm#6949 until a
-# release includes `orchestration.multiregion.mode: zoned`.
+# Consume the rolling chart from the camunda-platform-helm main branch, like the
+# other architectures. The pin below is a commit on that branch, bumped by
+# Renovate as main moves; zone awareness is in no released chart, so a tag pin
+# cannot carry `orchestration.partitioning.scheme: zone-aware`.
 #
-# The alternative was hand-assembling CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_*
-# environment variables against the released chart. That does not work: the
-# released chart derives the node ID from `regions` and `regionId`, which is the
-# arithmetic zone awareness replaces, and no value passed from outside overrides
-# it -- `${VAR:-default}` treats an empty value as unset. See
-# camunda/camunda-platform-helm#6807.
+# Hand-assembling CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_* against a released
+# chart is not an alternative: that chart derives the node ID from `regions` and
+# `regionId`, which is the arithmetic zone awareness replaces, and no value
+# passed from outside overrides it -- `${VAR:-default}` treats an empty value as
+# unset. See camunda/camunda-platform-helm#6807.
 #
-export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-e3d2a7271b113dbca6f179e3c4bb486bde828451}"
+# renovate-helm-main: digest tracked against camunda-platform-helm main
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-1225a5b7ff9d62e3db1ce005e128249197b2d339}"
 
-# TODO: [release-duty] pin to the released chart version and switch
-# HELM_CHART_REF to https://helm.camunda.io once 8.10 is generally available.
-# The chart is deliberately parked on the pre-release tag until 8.10 ships, so
-# no released version can match; renovate-inert-ok until the TODO above is done.
+# TODO: [release-duty] drop the source build and switch HELM_CHART_REF to
+# https://helm.camunda.io once 8.10 is generally available.
 # renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io renovate-inert-ok
 export HELM_CHART_VERSION="${HELM_CHART_VERSION:-15-dev-latest}"
 export HELM_CHART_REF="${HELM_CHART_REF:-oci://registry.camunda.cloud/team-distribution/camunda-platform}"
@@ -219,7 +218,7 @@ if [ "$((2 * _active_replicas))" -le "$CAMUNDA_REPLICATION_FACTOR" ]; then
 fi
 unset _slot _replicas _active_replicas _zone_replica_count
 
-# No clusterSize/slots divisibility check any more: in zoned mode the chart
+# No clusterSize/slots divisibility check any more: with the zone-aware scheme the chart
 # derives the StatefulSet replica count from the zone's own numberOfBrokers, and
 # the cluster size from the sum across zones. Asymmetric zones are therefore
 # expressible, which the integer division of node-ID numbering could not do.

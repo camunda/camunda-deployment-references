@@ -2,6 +2,7 @@
   "brokers": [
     {
       "nodeId": 6,
+      "brokerId": "6",
       "host": "camunda-zeebe-3.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
@@ -14,6 +15,7 @@
     },
     {
       "nodeId": 3,
+      "brokerId": "3",
       "host": "camunda-zeebe-1.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [
@@ -26,6 +28,7 @@
     },
     {
       "nodeId": 2,
+      "brokerId": "2",
       "host": "camunda-zeebe-1.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
@@ -38,6 +41,7 @@
     },
     {
       "nodeId": 4,
+      "brokerId": "4",
       "host": "camunda-zeebe-2.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
@@ -50,6 +54,7 @@
     },
     {
       "nodeId": 1,
+      "brokerId": "1",
       "host": "camunda-zeebe-0.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [
@@ -62,6 +67,7 @@
     },
     {
       "nodeId": 0,
+      "brokerId": "0",
       "host": "camunda-zeebe-0.local-cluster.camunda-zeebe.camunda-cluster-region-0.svc.clusterset.local",
       "port": 26501,
       "partitions": [
@@ -74,6 +80,7 @@
     },
     {
       "nodeId": 5,
+      "brokerId": "5",
       "host": "camunda-zeebe-2.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [
@@ -86,6 +93,7 @@
     },
     {
       "nodeId": 7,
+      "brokerId": "7",
       "host": "camunda-zeebe-3.cluster-region-1.camunda-zeebe.camunda-cluster-region-1.svc.clusterset.local",
       "port": 26501,
       "partitions": [

@@ -352,14 +352,15 @@ func TestCamundaUpgrade(t *testing.T) {
 
 	// Both Zeebe broker and the search-engine SchemaManager refuse upgrades from/to a
 	// pre-release version (see io.camunda.zeebe.util.migration.VersionCompatibilityCheck —
-	// UseOfPreReleaseVersion). Disable both gates so the upgrade test can run against
-	// SNAPSHOT/alpha builds.
+	// UseOfPreReleaseVersion). One unified property now gates both: the legacy
+	// zeebe.broker.experimental.versionCheckRestrictionEnabled and
+	// camunda.database.schema-manager.versionCheckRestrictionEnabled both map onto
+	// camunda.system.upgrade.enable-version-check (io.camunda.configuration.Upgrade).
 	if strings.Contains(camundaCurrentVersionFull, "SNAPSHOT") || strings.Contains(camundaCurrentVersionFull, "alpha") {
 		cmd = shell.Command{
 			Command: "bash",
 			Args: []string{"-c", `cat >> ../../configs/camunda-environment <<'EOF'
-ZEEBE_BROKER_EXPERIMENTAL_VERSIONCHECKRESTRICTIONENABLED=false
-CAMUNDA_DATABASE_SCHEMAMANAGER_VERSIONCHECKRESTRICTIONENABLED=false
+CAMUNDA_SYSTEM_UPGRADE_ENABLEVERSIONCHECK=false
 EOF`},
 		}
 		shell.RunCommand(t, cmd)

@@ -1,0 +1,33 @@
+---
+# Camunda Platform 8 Values - CNPG Camunda Hub Snippet
+# This configuration uses external services managed by Kubernetes operators:
+# - PostgreSQL: CloudNativePG operator with a dedicated cluster for Camunda Hub
+#
+# Authentication Secrets:
+# - pg-hub-secret: Contains PostgreSQL user credentials for Camunda Hub
+#
+# Requires `camundaHub.enabled: true` in the consuming values file, for example
+# local/kubernetes/kind-single-region/helm-values/values-*.yml.
+camundaHub:
+    restapi:
+        # Use external PostgreSQL for Camunda Hub
+        externalDatabase:
+            host: pg-hub-rw
+            port: 5432
+            database: hub
+            username: hub
+            secret:
+                existingSecret: pg-hub-secret
+                existingSecretKey: password
+
+        # Mail configuration (required). The from-address/from-name values keys are
+        # deprecated in chart 8.10 (removed in v16), so they are supplied via unified
+        # configuration instead.
+        extraConfiguration:
+            - file: webmodeler-mail.yaml
+              content: |
+                  camunda:
+                    modeler:
+                      mail:
+                        from-address: noreply@camunda.local
+                        from-name: Camunda Platform

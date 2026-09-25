@@ -12,6 +12,12 @@ global:
             optimize:
                 redirectUrl: https://${CAMUNDA_DOMAIN}/optimize
 
+    compatibility:
+        nginx:
+            # This deployment does not use ingress-nginx, so the chart's
+            # compatibility annotations are not needed. Removed in the next chart major.
+            renderAnnotations: false
+
     # the ingress is managed directly by the Route manifests
     ingress:
         enabled: true
@@ -30,7 +36,7 @@ identity:
     contextPath: /managementidentity
     fullURL: https://${CAMUNDA_DOMAIN}/managementidentity
 
-webModeler:
+camundaHub:
     contextPath: /modeler
 
 optimize:

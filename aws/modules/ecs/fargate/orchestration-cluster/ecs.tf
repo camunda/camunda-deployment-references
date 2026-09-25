@@ -24,7 +24,7 @@ locals {
     },
     # EFS Mount
     {
-      name  = "ZEEBE_BROKER_DATA_DIRECTORY"
+      name  = "CAMUNDA_DATA_PRIMARYSTORAGE_DIRECTORY"
       value = "/usr/local/camunda/data"
     },
     # Zeebe Cluster Configuration

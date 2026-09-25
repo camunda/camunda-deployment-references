@@ -1,0 +1,70 @@
+---
+# Temporary image overrides for the integration-test deployments.
+#
+# Every pin here overrides a chart default that is currently broken, and each
+# one names the upstream issue that retires it. Suites load this file rather
+# than carrying their own `yq -i '.<component>.image.tag = ...'` line.
+#
+# TODO: [release-duty] once the entries below are gone, delete this file and
+# every line that loads it.
+
+# TODO: [release-duty] drop this SNAPSHOT pin once
+# camunda/camunda-platform-helm#6567 is fixed. The chart's default Hub image
+# rejects the `hub`/`admin` cluster app types introduced in chart 15.x; the
+# rolling SNAPSHOT tag for camunda/hub and camunda/hub-websockets accepts them.
+camundaHub:
+    image:
+        tag: SNAPSHOT
+
+# TODO: [release-duty] drop this pin once
+# camunda/camunda-platform-helm#7284 is fixed. The chart currently defaults to
+# camunda/optimize:8.10.0-alpha5 (2026-08-31), which resolves the OIDC issuer
+# eagerly while the Spring context is built. Identity creates the
+# `camunda-platform` Keycloak realm only after `helm install`, so Optimize loses
+# that race and dies with "Realm does not exist" (or a 503 from the ingress when
+# the issuer is the browser-facing URL).
+#
+# The failure is terminal, not transient: Tomcat never binds, so the readiness
+# probe gets `connection refused` forever, while the JVM stays alive so the
+# kubelet never restarts the container. The chart disables both
+# `optimize.startupProbe` and `optimize.livenessProbe` by default, so nothing
+# breaks the deadlock and the pod sits at 0/1 until the job times out.
+#
+# Fixed upstream in camunda/camunda#62935 (merged 2026-09-21, backported to
+# stable/8.10 in #63691): resolution is deferred to the first request. The
+# 8.10.0-rc1 image carries that backport — its revision is 37 commits ahead of
+# the #63691 merge — and the chart does not reference it yet.
+#
+# Deliberately not the rolling `SNAPSHOT` tag, which the Hub pin above uses:
+# camunda/optimize:SNAPSHOT reports `org.opencontainers.image.version:
+# 8.11-SNAPSHOT`, so it would mix an 8.11 Optimize into an 8.10 chart whose
+# other components stay on 8.10.0-alpha5. A fixed 8.10 tag also keeps the
+# deployment reproducible, which a rolling tag does not.
+optimize:
+    image:
+        tag: 8.10.0-rc1
+
+# TODO: [release-duty] drop this pin once
+# camunda/camunda-platform-helm#7284 is fixed. Same defect class as the Optimize
+# pin above, in a different codebase: camunda/connectors-bundle:8.10.0-alpha5
+# resolves the OIDC discovery document while Spring builds its beans, so a
+# context refresh that cannot reach the issuer takes the application down:
+#
+#   BeanCreationException: 'defaultCamundaClient'
+#     Failed to retrieve well known configuration
+#     java.net.SocketTimeoutException: Connect timed out
+#
+# It surfaces after the CoreDNS refresh bounces Connectors while the public
+# route is still converging; the restarts do not converge and the pod ends at
+# 0/1, failing the readiness and liveness checks with 503.
+#
+# camunda/camunda#62935 does not cover this — that fix is in the monorepo's
+# io.camunda.security.spring.oidc, whereas this is io.camunda.connector.runtime.
+# The connectors 8.10.0-rc1 tag fixes it on its own side: between 8.10.0-alpha5
+# and 8.10.0-rc1, `connectorObjectMapper` — the bean in the trace above — stops
+# taking `@Autowired CamundaClient` directly and takes an
+# `ObjectProvider<CamundaClient>` instead, so the client is no longer
+# instantiated eagerly during context startup.
+connectors:
+    image:
+        tag: 8.10.0-rc1

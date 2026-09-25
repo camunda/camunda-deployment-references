@@ -2,8 +2,9 @@
 CAMUNDA_DATA_SECONDARYSTORAGE_TYPE="opensearch"
 
 # Camunda Exporter
-ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_CLASSNAME="io.camunda.exporter.CamundaExporter"
-ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_CREATESCHEMA="true"
+# The exporter itself is not declared here: the broker registers it from the
+# secondary storage type set above. Only the schema decision is stated.
+CAMUNDA_DATA_SECONDARYSTORAGE_OPENSEARCH_CREATESCHEMA="true"
 
 JAVA_TOOL_OPTIONS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/opt/camunda/camunda/logs -XX:ErrorFile=/opt/camunda/camunda/logs/zeebe_error%p.log -XX:+ExitOnOutOfMemoryError"
 

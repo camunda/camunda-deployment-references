@@ -1,6 +1,6 @@
 ---
 name: Kubernetes Ingress Cleanup
-description: Clean up ingress controllers (Contour and/or ingress-nginx), external-dns, and cert-manager components from Kubernetes clusters
+description: Clean up Project Contour, external-dns, and cert-manager components from Kubernetes clusters
 
 inputs:
     wait-for-dns-cleanup:
@@ -27,34 +27,34 @@ runs:
               # Wait for external-dns to clean up domain records if requested
               if [[ "${INPUTS_WAIT_FOR_DNS_CLEANUP}" == "true" ]]; then
                   echo "Waiting for external-dns to remove domain records..."
-                  sleep ${INPUTS_DNS_CLEANUP_WAIT_SECONDS}
+                  sleep "${INPUTS_DNS_CLEANUP_WAIT_SECONDS}"
               fi
 
-              # Uninstall ingress components (ignore errors if not present)
-              echo "Uninstalling ingress-nginx..."
-              helm uninstall ingress-nginx --namespace ingress-nginx --wait || echo "ingress-nginx not found, skipping..."
+              # --ignore-not-found absorbs the absent case, so the failures recorded below are real.
+              cleanup_failed=0
 
-              echo "Uninstalling Contour..."
-              helm uninstall contour --namespace projectcontour --wait || echo "contour not found, skipping..."
+              for release in contour:projectcontour external-dns:external-dns cert-manager:cert-manager; do
+                  name="${release%%:*}"
+                  namespace="${release##*:}"
+                  echo "Uninstalling ${name}..."
+                  if ! helm uninstall "${name}" --namespace "${namespace}" --wait --ignore-not-found; then
+                      echo "WARNING: uninstalling ${name} failed; continuing cleanup" >&2
+                      cleanup_failed=1
+                  fi
+              done
 
-              echo "Uninstalling external-dns..."
-              helm uninstall external-dns --namespace external-dns --wait || echo "external-dns not found, skipping..."
+              for namespace in projectcontour external-dns cert-manager; do
+                  echo "Deleting ${namespace} namespace..."
+                  if ! kubectl delete namespace "${namespace}" --wait --timeout=60s --ignore-not-found; then
+                      echo "WARNING: deleting namespace ${namespace} failed; continuing cleanup" >&2
+                      cleanup_failed=1
+                  fi
+              done
 
-              echo "Uninstalling cert-manager..."
-              helm uninstall cert-manager --namespace cert-manager --wait || echo "cert-manager not found, skipping..."
-
-              # Delete namespaces (ignore errors if not present)
-              echo "Deleting ingress-nginx namespace..."
-              kubectl delete namespace ingress-nginx --wait --timeout=60s || echo "ingress-nginx namespace not found, skipping..."
-
-              echo "Deleting projectcontour namespace..."
-              kubectl delete namespace projectcontour --wait --timeout=60s || echo "projectcontour namespace not found, skipping..."
-
-              echo "Deleting external-dns namespace..."
-              kubectl delete namespace external-dns --wait --timeout=60s || echo "external-dns namespace not found, skipping..."
-
-              echo "Deleting cert-manager namespace..."
-              kubectl delete namespace cert-manager --wait --timeout=60s || echo "cert-manager namespace not found, skipping..."
+              if [[ "${cleanup_failed}" -ne 0 ]]; then
+                  echo "❌ Ingress cleanup finished with failures; see the warnings above." >&2
+                  exit 1
+              fi
 
               echo "✅ Ingress components and namespaces cleanup completed successfully."
           env:
