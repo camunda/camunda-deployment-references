@@ -241,6 +241,41 @@ class CheckFileTest(unittest.TestCase):
         )
         self.assertEqual(mod.check_file(path), [])
 
+    def test_filter_on_one_event_does_not_cover_another(self) -> None:
+        path = self.write(
+            "on:\n"
+            "    pull_request:\n"
+            "        paths:\n"
+            "            - .github/actions/beta/**\n"
+            "    push:\n"
+            "        paths:\n"
+            "            - .github/actions/alpha/**\n"
+            "jobs:\n"
+            "    a:\n"
+            "        steps:\n"
+            "            - uses: ./.github/actions/beta\n"
+        )
+        problems = mod.check_file(path)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("on.push.paths", problems[0])
+        self.assertIn("beta", problems[0])
+
+    def test_both_events_covered_passes(self) -> None:
+        path = self.write(
+            "on:\n"
+            "    pull_request:\n"
+            "        paths:\n"
+            "            - .github/actions/beta/**\n"
+            "    push:\n"
+            "        paths:\n"
+            "            - .github/actions/beta/**\n"
+            "jobs:\n"
+            "    a:\n"
+            "        steps:\n"
+            "            - uses: ./.github/actions/beta\n"
+        )
+        self.assertEqual(mod.check_file(path), [])
+
 
 if __name__ == "__main__":
     unittest.main()

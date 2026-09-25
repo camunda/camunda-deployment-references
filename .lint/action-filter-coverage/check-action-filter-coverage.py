@@ -108,19 +108,23 @@ def reachable(roots: set[str], graph: dict[str, set[str]]) -> set[str]:
     return seen
 
 
-def scan(path: Path) -> tuple[set[str], set[str], bool]:
-    """Return (actions used, actions gated on, workflow has a positive filter).
+def scan(path: Path) -> tuple[set[str], dict[str, set[str]]]:
+    """Return (actions used, {event: actions gated on under that event}).
+
+    Coverage is tracked per event because each one queues the workflow on its
+    own: an action listed under `pull_request.paths` but not `push.paths`
+    still cannot trigger the suite on a push that only touches that action.
 
     `paths` is only a trigger filter directly under `on.<event>` for one of
-    FILTER_EVENTS. The same key under a step's `with:` is an action input.
+    FILTER_EVENTS. The same key under a step's `with:` is an action input, and
+    `paths-ignore` is a blocklist, so neither opens a filter block here.
     """
     used: set[str] = set()
-    filtered: set[str] = set()
-    has_filter = False
+    filtered: dict[str, set[str]] = {}
 
     on_indent: int | None = None
     event_indent: int | None = None
-    in_event = False
+    event: str | None = None
     paths_indent: int | None = None
 
     for line in path.read_text().splitlines():
@@ -132,51 +136,59 @@ def scan(path: Path) -> tuple[set[str], set[str], bool]:
         if key:
             name, ind = key.group("name"), len(key.group("indent"))
             if name == "on" and ind == 0:
-                on_indent, event_indent, in_event, paths_indent = 0, None, False, None
+                on_indent, event_indent, event, paths_indent = 0, None, None, None
                 continue
             if on_indent is not None and ind == 0 and name != "on":
-                on_indent, in_event, paths_indent = None, False, None
+                on_indent, event, paths_indent = None, None, None
             if on_indent is not None and event_indent is None and ind > on_indent:
                 event_indent = ind
             if on_indent is not None and ind == event_indent:
-                in_event = name in FILTER_EVENTS
+                event = name if name in FILTER_EVENTS else None
                 paths_indent = None
-            elif in_event and event_indent is not None and ind > event_indent:
+            elif event and event_indent is not None and ind > event_indent:
                 paths_indent = ind if name == "paths" else None
                 if name == "paths":
-                    has_filter = True
+                    filtered.setdefault(event, set())
 
-        if paths_indent is not None and indent > paths_indent:
+        if paths_indent is not None and event and indent > paths_indent:
             m = FILTERED.match(line)
             if m:
-                filtered.add(m.group("name"))
+                filtered[event].add(m.group("name"))
                 continue
 
         if ESCAPE in line:
             m = USES.match(line)
             if m:
-                filtered.add(m.group("name"))
-            continue
+                for names in filtered.values():
+                    names.add(m.group("name"))
+                used.discard(m.group("name"))
+                continue
         m = USES.match(line)
         if m:
             used.add(m.group("name"))
-    return used, filtered, has_filter
+    return used, filtered
 
 
 def check_file(path: Path, graph: dict[str, set[str]] | None = None) -> list[str]:
-    used, filtered, has_filter = scan(path)
-    if not has_filter:
+    used, filtered = scan(path)
+    if not filtered:
         return []
     if graph is None:
         graph = action_dependencies()
     used = reachable(used, graph)
-    candidates = used - filtered - SHARED_PLUMBING
-    missing = sorted(n for n in candidates if (ACTIONS / n).is_dir())
-    return [
-        f"{path}: uses .github/actions/{name} but does not filter on "
-        f".github/actions/{name}/**"
-        for name in missing
-    ]
+    problems: list[str] = []
+    for event in sorted(filtered):
+        missing = sorted(
+            n
+            for n in used - filtered[event] - SHARED_PLUMBING
+            if (ACTIONS / n).is_dir()
+        )
+        problems.extend(
+            f"{path}: uses .github/actions/{name} but does not filter on "
+            f".github/actions/{name}/** under on.{event}.paths"
+            for name in missing
+        )
+    return problems
 
 
 def main() -> int:
