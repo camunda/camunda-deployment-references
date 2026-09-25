@@ -88,7 +88,19 @@ active jobs over 10 threads rather than the image's 2000 over 100.
 
 The single-task process is not bundled in the image — it ships ten-task
 processes — so this module writes its own into the container at startup and
-execs the image's entrypoint. That keeps it to one container and no volume.
+then runs the image's entrypoint. That keeps it to one container and no volume.
+
+## The launcher is retried, not exec'd
+
+A failed initial deployment is fatal to the image. On a cold apply the
+Orchestration Cluster has no Cloud Map record yet, so the first launch exits on
+`Unable to resolve host`, and leaving it at that hands the problem to ECS: the
+deployment circuit breaker stops replacing the task after a few attempts and
+the service is left with no generator and no further logs. The container loops
+on the launcher instead, which also covers the cluster going away later.
+
+Set `task_desired_count = 0` to stop the generator; a container that keeps
+retrying is not a substitute for turning it off.
 
 `multiple_job_types` defaults to `0`, which makes the worker subscribe to
 `job_type` verbatim; the bundled process uses that literal type. Raising it

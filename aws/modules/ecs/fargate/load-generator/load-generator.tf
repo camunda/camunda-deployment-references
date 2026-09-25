@@ -71,15 +71,24 @@ locals {
 
   # The image bundles only multi-task processes, so the single-task workload the
   # absorbed benchmark drove is written into the container at startup and the
-  # image's own entrypoint is then exec'd. /tmp is writable for the image's
+  # image's own entrypoint is then run. /tmp is writable for the image's
   # unprivileged user, which keeps this to one container and no volume.
   bpmn_path = "/tmp/one-task.bpmn"
 
+  # The launcher is retried rather than exec'd. A failed initial deployment is
+  # fatal to the image, and on a cold apply the Orchestration Cluster has no
+  # Cloud Map record yet, so the first launch exits on "Unable to resolve host".
+  # Exiting hands the problem to ECS, whose deployment circuit breaker stops
+  # replacing the task after a few attempts and leaves a service with no
+  # generator at all. The same loop covers the cluster going away later.
   container_command = join("", [
     "cat <<'BPMNEOF' > ${local.bpmn_path}\n",
     file("${path.module}/templates/one-task.bpmn"),
     "\nBPMNEOF\n",
-    "exec java org.springframework.boot.loader.launch.JarLauncher",
+    "until java org.springframework.boot.loader.launch.JarLauncher; do\n",
+    "  echo 'load generator exited, retrying in 10s' >&2\n",
+    "  sleep 10\n",
+    "done",
   ])
 }
 

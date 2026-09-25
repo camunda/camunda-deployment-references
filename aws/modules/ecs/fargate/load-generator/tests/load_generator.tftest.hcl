@@ -203,6 +203,21 @@ run "single_task_workload_is_deployed_by_default" {
   }
 }
 
+run "survives_a_cluster_that_is_not_registered_yet" {
+  command = plan
+
+  # The image treats a failed initial deployment as fatal. On a cold apply the
+  # Orchestration Cluster has no Cloud Map record yet, so the first launch exits
+  # on "Unable to resolve host"; ECS replaces the task a handful of times, the
+  # deployment circuit breaker gives up, and the service is left with no
+  # generator and no further logs. Observed on a real apply before this retry
+  # existed: three launches a minute apart, then twenty-one minutes of silence.
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "until java org.springframework.boot.loader.launch.JarLauncher")
+    error_message = "The container must retry the launcher, or a cold start leaves the generator permanently stopped"
+  }
+}
+
 run "workers_can_be_turned_off" {
   command = plan
 
