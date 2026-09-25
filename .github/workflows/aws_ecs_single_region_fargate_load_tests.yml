@@ -1,0 +1,460 @@
+---
+name: Tests - Integration - AWS Containers ECS Single Region Fargate Load Tests
+
+permissions:
+    contents: read
+
+on:
+    schedule:
+        - cron: 0 5 * * 5 # Runs at 05:00 on Friday, outside every other suite's slot
+    workflow_dispatch:
+        inputs:
+            cluster_name:
+                description: Prefix for the resource names. Must be unique across all reference architectures.
+                type: string
+            delete_clusters:
+                description: Whether to delete the resources or not.
+                type: boolean
+                default: true
+            enable_tests:
+                description: Whether to enable the tests.
+                type: boolean
+                default: true
+            start_rate:
+                description: Process instances per second the load generator starts.
+                type: string
+                default: '10'
+            ref-arch:
+                description: |
+                    Valid values are `ecs-single-region-fargate-load`.
+                    Only for workflow_dispatch.
+                required: false
+                type: string
+                default: ecs-single-region-fargate-load
+    pull_request:
+        # Deliberately narrower than aws_ecs_single_region_fargate_tests.yml: that
+        # suite already covers a change to the reference architecture itself, and
+        # running a second full ECS cluster for every such change would double the
+        # bill to re-prove what it just proved. What only this suite can prove is
+        # the overlay, so it triggers on the overlay's own files — including the
+        # cluster variables that configure it and the outputs this workflow reads
+        # — and on the CI plumbing that carries it.
+        paths:
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/aws-containers-ecs-single-region-fargate-create/**
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/internal-debug-failed-ecs-tasks/**
+            - .github/actions/internal-generic-terraform-outputs/**
+            - .github/actions/internal-tests-matrix/**
+            - .github/workflows/aws_ecs_single_region_fargate_load_tests.yml
+            - .github/workflows-config/aws-containers-ecs-single-region-fargate-load-tests/**
+            - .tool-versions
+            - aws/containers/ecs-single-region-fargate/terraform/cluster/load-tests.tf
+            - aws/containers/ecs-single-region-fargate/terraform/cluster/variables.tf
+            - aws/containers/ecs-single-region-fargate/terraform/cluster/output.tf
+            - aws/modules/ecs/fargate/load-generator/**
+            - aws/modules/ecs/fargate/monitoring/**
+
+# limit to a single execution per actor of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
+    cancel-in-progress: false
+
+env:
+    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
+    IS_RENOVATE_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]' }}
+
+    # please keep those variables synced with aws_ecs_single_region_fargate_tests.yml:
+    # the state lands under the same prefix, so aws_ecs_single_region_fargate_daily_cleanup.yml
+    # already reclaims whatever a failed run of this suite leaves behind.
+    AWS_PROFILE: infraex
+    AWS_REGION: eu-west-2
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    S3_BACKEND_BUCKET_PREFIX: aws/containers/ecs-single-region-fargate/ # keep it synced with the name of the module for simplicity
+    TF_MODULES_PATH: ./.action-tf-modules/aws-containers-ecs-single-region-fargate-create
+
+    CI_MATRIX_FILE: .github/workflows-config/aws-containers-ecs-single-region-fargate-load-tests/test_matrix.yml
+    CLEANUP_CLUSTERS: ${{ github.event.inputs.delete_clusters || 'true' }}
+
+    TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
+
+    # The reference architecture defaults to 150, the rate the absorbed benchmark
+    # ran at. CI asserts that the overlay drives the cluster, not how fast it can
+    # be driven, and holding 150/s here would turn every run into a capacity test
+    # of whatever the runner provisioned.
+    LOAD_TESTS_START_RATE: ${{ github.event.inputs.start_rate || '10' }}
+
+    # Seconds between the two instance-count samples the assertion compares.
+    LOAD_TESTS_OBSERVATION_SECONDS: '120'
+
+jobs:
+    triage:
+        runs-on: ubuntu-slim
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        permissions:
+            contents: read
+            pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    clusters-info:
+        needs:
+            - triage
+        if: needs.triage.outputs.should_skip == 'false'
+        name: Define Matrix
+        runs-on: ubuntu-slim
+        outputs:
+            platform-matrix: ${{ steps.matrix.outputs.platform_matrix }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+
+            - name: Define tests matrix
+              uses: ./.github/actions/internal-tests-matrix
+              id: matrix
+              with:
+                  ci_matrix_file: ${{ env.CI_MATRIX_FILE }}
+                  cluster_name: ${{ inputs.cluster_name }}
+                  ref_arch: ${{ inputs.ref-arch }}
+                  # distinct from the integration suite's own prefix, so the two
+                  # never share a terraform state under the common key prefix
+                  cluster_prefix: ecslt-${{ github.event.pull_request.number || '' }}
+                  is_schedule: ${{ env.IS_SCHEDULE }}
+                  is_renovate_pr: ${{ env.IS_RENOVATE_PR }}
+
+    prepare-clusters:
+        needs:
+            - clusters-info
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Install asdf tools with cache
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Create Infrastructure with the load test overlay
+              id: create_infrastructure
+              uses: ./.github/actions/aws-containers-ecs-single-region-fargate-create
+              if: always() && success()
+              # Neither the action nor the step bounds the apply otherwise, so a
+              # hung one would keep a cluster billing until GitHub's six-hour job
+              # limit. Matched to the cleanup step's budget.
+              timeout-minutes: 125
+              with:
+                  aws-region: ${{ env.AWS_REGION }}
+                  tf-modules-revision: ${{ github.ref }}
+                  tf-modules-path: ${{ env.TF_MODULES_PATH }}
+                  tf-modules-name: cluster
+                  cluster-name: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  ref-arch: ecs-single-region-fargate
+                  authentication-mode: ${{ matrix.scenario.authentication_mode }}
+                  enable-load-tests: 'true'
+                  load-tests-start-rate: ${{ env.LOAD_TESTS_START_RATE }}
+                  tags: >
+                      {
+                        "ci-run-id": "${{ github.run_id }}",
+                        "ci-run-number": "${{ github.run_number }}",
+                        "ci-workflow": "${{ github.workflow }}",
+                        "ci-actor": "${{ github.actor }}",
+                        "ci-ref": "${{ github.ref }}",
+                        "ci-commit": "${{ github.sha }}",
+                        "ci-repo": "${{ github.repository }}",
+                        "ci-event": "${{ github.event_name }}",
+                        "map-migrated": "migARUADZHVWZ"
+                      }
+
+            - name: Compute ECS cluster name on failure
+              id: compute_cluster_name
+              if: failure()
+              shell: bash
+              # Mirrors the prefix logic in aws-containers-ecs-single-region-fargate-create:
+              # prefix = "ecs-" + first 9 hex of sha1(cluster-name); ECS cluster is "${prefix}-cluster"
+              run: |
+                  set -euo pipefail
+                  RAW="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}"
+                  PREFIX="ecs-$(printf '%s' "$RAW" | sha1sum | cut -c1-9)"
+                  echo "ecs-cluster=${PREFIX}-cluster" | tee -a "$GITHUB_OUTPUT"
+
+            - name: 🔬🚨 Get failed ECS tasks info
+              if: failure() && steps.compute_cluster_name.outputs.ecs-cluster != ''
+              timeout-minutes: 10
+              uses: ./.github/actions/internal-debug-failed-ecs-tasks
+              with:
+                  cluster-name: ${{ steps.compute_cluster_name.outputs.ecs-cluster }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
+
+    load-tests:
+        name: Assert the load generator drives the cluster - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
+        runs-on: ubuntu-latest
+        needs:
+            - prepare-clusters
+            - clusters-info
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+                declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Install asdf tools with cache for the project
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Get Terraform outputs
+              id: terraform-outputs
+              uses: ./.github/actions/internal-generic-terraform-outputs
+              with:
+                  tf-state-suffix: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
+                  tf-modules-name: cluster
+                  s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  s3-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
+
+            - name: Assert the load generator is starting process instances
+              if: env.TESTS_ENABLED == 'true'
+              id: throughput
+              timeout-minutes: 30
+              env:
+                  ALB_DNS: ${{ fromJson(steps.terraform-outputs.outputs.json_output).alb_endpoint.value }}
+                  ADMIN_PASSWORD: ${{ fromJson(steps.terraform-outputs.outputs.json_output).admin_user_password.value }}
+                  LOAD_GENERATOR_TARGET: ${{ fromJson(steps.terraform-outputs.outputs.json_output).load_generator_target.value }}
+                  PROMETHEUS_ENDPOINT: ${{ fromJson(steps.terraform-outputs.outputs.json_output).prometheus_endpoint.value }}
+              run: |
+                  set -euo pipefail
+
+                  echo "Load generator target: ${LOAD_GENERATOR_TARGET}"
+                  echo "Prometheus endpoint:   ${PROMETHEUS_ENDPOINT}"
+
+                  # A running task proves nothing: the generator starts, collects
+                  # errors and keeps running. Ask the cluster itself how many
+                  # instances of the benchmark process exist, twice, and require the
+                  # number to have grown. That covers the whole chain the overlay
+                  # depends on - generator, gateway, engine, exporter, search API.
+                  #
+                  # The password goes to curl through a config file on stdin rather
+                  # than --user, so it stays out of argv and out of any log line.
+                  count_instances() {
+                    printf 'user = "admin:%s"\n' "${ADMIN_PASSWORD}" |
+                      curl -sf --connect-timeout 10 --max-time 30 --config - \
+                        -H 'Content-Type: application/json' \
+                        -H 'Accept: application/json' \
+                        -X POST "http://${ALB_DNS}/v2/process-instances/search" \
+                        -d '{"filter":{"processDefinitionId":"benchmark"},"page":{"limit":1}}' |
+                      jq -r '.page.totalItems // .totalItems // 0'
+                  }
+
+                  FIRST=0
+                  for attempt in $(seq 1 60); do
+                    FIRST=$(count_instances || echo 0)
+                    if [[ "${FIRST}" =~ ^[0-9]+$ ]] && [[ "${FIRST}" -gt 0 ]]; then
+                      echo "✅ The cluster reports ${FIRST} benchmark instances (attempt ${attempt})"
+                      break
+                    fi
+                    echo "⏳ Waiting for the first benchmark instances (attempt ${attempt}/60)..."
+                    sleep 10
+                  done
+
+                  if [[ ! "${FIRST}" =~ ^[0-9]+$ ]] || [[ "${FIRST}" -eq 0 ]]; then
+                    echo "❌ No benchmark process instance reached the cluster in 10 minutes"
+                    exit 1
+                  fi
+
+                  echo "⏳ Sampling again in ${LOAD_TESTS_OBSERVATION_SECONDS}s..."
+                  sleep "${LOAD_TESTS_OBSERVATION_SECONDS}"
+
+                  SECOND=$(count_instances || echo 0)
+                  if [[ ! "${SECOND}" =~ ^[0-9]+$ ]]; then
+                    echo "❌ The second sample did not return a number: ${SECOND}"
+                    exit 1
+                  fi
+
+                  DELTA=$(( SECOND - FIRST ))
+                  echo "instances=${SECOND}" | tee -a "$GITHUB_OUTPUT"
+                  echo "delta=${DELTA}" | tee -a "$GITHUB_OUTPUT"
+
+                  # At the CI rate of ${LOAD_TESTS_START_RATE}/s the window should
+                  # produce orders of magnitude more than this. The floor only has to
+                  # separate "the generator is driving load" from "a handful of
+                  # instances trickled in while the index caught up".
+                  MINIMUM=50
+                  if [[ "${DELTA}" -lt "${MINIMUM}" ]]; then
+                    echo "❌ Only ${DELTA} new instances in ${LOAD_TESTS_OBSERVATION_SECONDS}s (need ${MINIMUM}); the generator is not driving the cluster"
+                    exit 1
+                  fi
+
+                  echo "✅ ${DELTA} new benchmark instances in ${LOAD_TESTS_OBSERVATION_SECONDS}s, total ${SECOND}"
+
+            - name: 🔬 Load generator logs
+              if: always() && env.TESTS_ENABLED == 'true'
+              continue-on-error: true
+              env:
+                  LOG_GROUP: ${{ fromJson(steps.terraform-outputs.outputs.json_output).load_generator_log_group.value }}
+              run: |
+                  set -euo pipefail
+                  [[ -n "${LOG_GROUP}" ]] || exit 0
+                  aws logs tail "${LOG_GROUP}" --since 30m --format short | tail -n 200
+
+            - name: Compute ECS cluster name on failure
+              id: compute_cluster_name
+              if: failure()
+              shell: bash
+              # Mirrors the prefix logic in aws-containers-ecs-single-region-fargate-create:
+              # prefix = "ecs-" + first 9 hex of sha1(cluster-name); ECS cluster is "${prefix}-cluster"
+              run: |
+                  set -euo pipefail
+                  RAW="${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}"
+                  PREFIX="ecs-$(printf '%s' "$RAW" | sha1sum | cut -c1-9)"
+                  echo "ecs-cluster=${PREFIX}-cluster" | tee -a "$GITHUB_OUTPUT"
+
+            - name: 🔬🚨 Get failed ECS tasks info
+              if: failure() && steps.compute_cluster_name.outputs.ecs-cluster != ''
+              timeout-minutes: 10
+              uses: ./.github/actions/internal-debug-failed-ecs-tasks
+              with:
+                  cluster-name: ${{ steps.compute_cluster_name.outputs.ecs-cluster }}
+                  aws-region: ${{ env.AWS_REGION }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+
+    cleanup-clusters:
+        name: Cleanup ECS cluster
+        if: always() && needs.clusters-info.result != 'skipped'
+        runs-on: ubuntu-latest
+        needs:
+            - clusters-info
+            - prepare-clusters
+            - load-tests
+        strategy:
+            fail-fast: false
+            matrix:
+                distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
+                scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              if: env.CLEANUP_CLUSTERS == 'true'
+              with:
+                  fetch-depth: 0
+
+            - name: Install asdf tools with cache
+              if: env.CLEANUP_CLUSTERS == 'true'
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+
+            - name: Configure AWS CLI
+              if: env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Set current target branch
+              id: target-branch
+              run: |
+                  set -euo pipefail
+                  TARGET_BRANCH=$(cat .target-branch)
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
+
+            - name: Delete on-demand Infrastructure
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              timeout-minutes: 125
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours: 0
+                  target: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
+                  fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
+                  tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+                  modules-order: cluster
+
+    report-success:
+        name: Report success
+        if: ${{ !failure() && !cancelled() }}
+        runs-on: ubuntu-slim
+        needs:
+            - load-tests
+            - cleanup-clusters
+        permissions:
+            contents: read
+            pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Prevent other runs for renovate
+              if: ${{ env.IS_RENOVATE_PR == 'true' }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              uses: ./.github/actions/internal-apply-skip-label
+
+    report-failure:
+        name: Report failure
+        runs-on: ubuntu-slim
+        if: needs.triage.outputs.should_skip == 'false' && (failure())
+        needs:
+            - triage
+            - report-success
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

@@ -1,0 +1,95 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageExperimentTemplates",
+      "Effect": "Allow",
+      "Action": [
+        "fis:CreateExperimentTemplate",
+        "fis:DeleteExperimentTemplate",
+        "fis:GetExperimentTemplate"
+      ],
+      "Resource": [
+        "arn:aws:fis:*:*:experiment-template/*",
+        "arn:aws:fis:*:*:action/*"
+      ]
+    },
+    {
+      "Sid": "RunExperiments",
+      "Effect": "Allow",
+      "Action": [
+        "fis:StartExperiment",
+        "fis:StopExperiment",
+        "fis:GetExperiment"
+      ],
+      "Resource": [
+        "arn:aws:fis:*:*:experiment/*",
+        "arn:aws:fis:*:*:experiment-template/*"
+      ]
+    },
+    {
+      "Sid": "ListExperimentsAndTemplatesNoResourceLevelSupport",
+      "Effect": "Allow",
+      "Action": [
+        "fis:ListExperimentTemplates",
+        "fis:ListExperiments"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "LetFISCreateItsServiceLinkedRoleOnFirstStart",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "arn:aws:iam::*:role/aws-service-role/fis.amazonaws.com/*",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": "fis.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "PassRoleToFIS",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::*:role/FIS_EXPERIMENT_ROLE_NAME",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "fis.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "DiscoverTargetsNoResourceLevelSupport",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeSubnets",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeNetworkInterfaces",
+        "ecs:ListServices",
+        "ecs:DescribeServices",
+        "ecs:ListTasks",
+        "ecs:DescribeTasks"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ListLogGroupsNoResourceLevelSupport",
+      "Effect": "Allow",
+      "Action": "logs:DescribeLogGroups",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadOnlyFisExperimentLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DescribeLogStreams",
+        "logs:GetLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:*:*:log-group:/fis/*",
+        "arn:aws:logs:*:*:log-group:/fis/*:*"
+      ]
+    }
+  ]
+}

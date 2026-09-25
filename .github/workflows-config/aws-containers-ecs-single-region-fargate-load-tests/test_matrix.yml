@@ -1,0 +1,16 @@
+---
+matrix:
+    distro:
+        - name: fargate
+          schedule_only: false
+
+    # One lane only. The load generator wires basic auth, and the reference
+    # architecture fails the plan when the overlay is enabled alongside
+    # authentication_mode = "oidc", so there is no second scenario to run.
+    scenario:
+        - name: ecs-single-region-fargate-load
+          authentication_mode: basic
+
+    declination:
+        - name: no-domain
+          desc: Setup in production-like setup without Ingress and TLS.

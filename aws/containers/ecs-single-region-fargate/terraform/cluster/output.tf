@@ -46,3 +46,22 @@ output "orchestration_oidc_client_secret" {
   description = "OIDC client secret for the admin orchestration client (bundled Keycloak only; empty otherwise)."
   sensitive   = true
 }
+
+################################################################
+#                      Load test overlay                       #
+################################################################
+
+output "prometheus_endpoint" {
+  value       = one(module.monitoring[*].prometheus_endpoint)
+  description = "In-VPC base URL of the load test Prometheus, or null when enable_load_tests is false."
+}
+
+output "load_generator_log_group" {
+  value       = one(module.load_generator[*].log_group_name)
+  description = "CloudWatch log group carrying the load generator's throughput lines, or null when enable_load_tests is false."
+}
+
+output "load_generator_target" {
+  value       = one(module.load_generator[*].grpc_address) != null ? module.orchestration_cluster.dns_a_record : null
+  description = "The Orchestration Cluster the load generator drives, or null when enable_load_tests is false."
+}
