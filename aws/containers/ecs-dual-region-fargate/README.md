@@ -270,7 +270,11 @@ open http://localhost:8080
 
 #### Teardown after a failover
 
-If you ran `failover.sh` (planned or unplanned) before destroying, the Aurora Global cluster writer has moved to region 1. Terraform expects the original topology and `terraform destroy` may hang on Aurora resources. To work around this:
+`failover.sh` itself leaves Aurora alone, so a plain failover does not change the
+writer. But if the writer did move — AWS promoting the survivor during a real
+region loss, or `failback.sh --switch-writer` — Terraform still expects the
+original topology and `terraform destroy` may hang on the Aurora resources. To
+work around this:
 
 ```bash
 # 1. Remove both clusters from the Global cluster

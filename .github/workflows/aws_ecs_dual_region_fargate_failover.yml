@@ -2,8 +2,10 @@
 name: Tests - Failover - AWS Containers ECS Dual Region Fargate
 
 # Failover and failback end-to-end. Deploys baseline, runs procedure/failover.sh
-# (planned/unplanned) and procedure/failback.sh (with/without --switch-writer),
-# asserts on Aurora Global writer-region transitions.
+# (with and without --keep-tasks) and procedure/failback.sh (with/without
+# --switch-writer), asserting on the zone-aware topology across the transition.
+# failover.sh does not touch Aurora, so the writer only moves where a test
+# promotes it explicitly to exercise --switch-writer.
 #
 # Expensive: each variant is a full deploy + the failover sequence. Rotation
 # across Camunda versions is intentional — fewer concurrent deploys, lower
@@ -84,7 +86,7 @@ jobs:
                   set -e
                   TEST_FILTER="${INPUTS_TEST_NAME}"
                   if [[ -z "$TEST_FILTER" ]]; then
-                      go test -v -timeout 120m -run 'TestPlannedFailover|TestUnplannedFailover|TestFailback_NoSwitchWriter|TestFailback_SwitchWriter' ./...
+                      go test -v -timeout 120m -run 'TestPlannedFailover|TestKeepTasksFailover|TestFailback_NoSwitchWriter|TestFailback_SwitchWriter' ./...
                   else
                       go test -v -timeout 120m -run "$TEST_FILTER" ./...
                   fi

@@ -89,21 +89,31 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 	globalClusterID := terraform.Output(t, infraOpts, "aurora_global_cluster_id")
 	require.NotEmpty(t, globalClusterID)
 
-	// Initial quorum.
-	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
-	helpers.WaitForRaftQuorum(t, albEndpoint0, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	// The procedure scripts require the full operator environment and exit 1 on
+	// the first missing variable, so build it from the applied state.
+	env := helpers.ProcedureEnv(t, infraOpts, appOpts, awsProfile, globalClusterID)
 
-	// Step 1: planned failover to region 1.
-	env := map[string]string{
-		"REGION_0":                 region0,
-		"REGION_1":                 region1,
-		"CLUSTER_NAME":             clusterPrefix,
-		"AWS_PROFILE":              awsProfile,
-		"AURORA_GLOBAL_CLUSTER_ID": globalClusterID,
-	}
+	// Initial quorum.
+	helpers.WaitForRaftQuorum(t, env["ALB_ENDPOINT_0"], env["ADMIN_USER"], env["ADMIN_PASS"],
+		8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+
+	// Step 1: fail region 0 away. The zone is removed and the cluster halves to
+	// 4 brokers, all 8 partitions still led from region 1.
 	helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failover.sh"), env)
-	require.Equal(t, region1, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),
-		"after failover: writer should be in region 1")
+	helpers.WaitForRaftQuorum(t, env["ALB_ENDPOINT_1"], env["ADMIN_USER"], env["ADMIN_PASS"],
+		4, 8, time.Duration(raftTimeoutMin)*time.Minute)
+
+	// failover.sh does not touch Aurora, so the writer is still in region 0.
+	require.Equal(t, region0, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),
+		"failover.sh must not move the Aurora writer")
+
+	// --switch-writer only has something to switch if the writer actually left
+	// region 0, which on a real region loss is AWS promoting the survivor.
+	// Simulate that here; without it the flag is a no-op and the test asserts
+	// nothing, which is what it used to do.
+	if expectWriterMovesBack {
+		helpers.PromoteAuroraWriter(t, awsProfile, globalClusterID, region1)
+	}
 
 	// Step 2: failback.
 	args := []string{}
@@ -112,12 +122,16 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 	}
 	helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failback.sh"), env, args...)
 
+	// Both zones are back, so the full cluster is expected again.
+	helpers.WaitForRaftQuorum(t, env["ALB_ENDPOINT_0"], env["ADMIN_USER"], env["ADMIN_PASS"],
+		8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+
 	finalWriter := helpers.AuroraWriterRegion(t, awsProfile, globalClusterID)
 	if expectWriterMovesBack {
 		require.Equal(t, region0, finalWriter,
-			"failback %s: writer should move back to region 0", label)
+			"failback %s: --switch-writer should bring the writer back to region 0", label)
 	} else {
-		require.Equal(t, region1, finalWriter,
-			"failback %s: writer should remain in region 1 (no --switch-writer)", label)
+		require.Equal(t, region0, finalWriter,
+			"failback %s: without --switch-writer the writer stays where it was", label)
 	}
 }

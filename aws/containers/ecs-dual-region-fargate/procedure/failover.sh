@@ -173,15 +173,11 @@ QUERY="force=true"
 [[ "$DRY_RUN" == "true" ]] && QUERY="${QUERY}&dryRun=true"
 
 log "  DELETE /actuator/cluster/zones/${FAILED_ZONE}?${QUERY}"
-BODY=$(mgmt_request DELETE "/actuator/cluster/zones/${FAILED_ZONE}?${QUERY}")
-
-HTTP_CODE="$(mgmt_last_code)"
-if [[ ! "${HTTP_CODE}" =~ ^2[0-9][0-9]$ ]]; then
-  err "Zone removal rejected (HTTP ${HTTP_CODE}):"
-  echo "${BODY}" | jq . 2>/dev/null || echo "${BODY}"
+if ! BODY=$(mgmt_request DELETE "/actuator/cluster/zones/${FAILED_ZONE}?${QUERY}"); then
+  err "Zone removal rejected; see the response above."
   exit 1
 fi
-log "  Accepted (HTTP ${HTTP_CODE})."
+log "  Accepted."
 
 if [[ "$DRY_RUN" == "true" ]]; then
   log ""
@@ -223,13 +219,15 @@ fi
 log ""
 log "=== Step 4: Verify ==="
 
-CLUSTER_STATE=$(mgmt_get /actuator/cluster)
-if echo "${CLUSTER_STATE}" | jq -e --arg z "${FAILED_ZONE}" \
-     '[.partitioning.zones[]?.name // empty] | index($z)' > /dev/null 2>&1; then
-  err "Zone ${FAILED_ZONE} is still present under .partitioning — removal incomplete."
-  exit 1
-fi
-log "  Zone ${FAILED_ZONE} is gone from the partition distribution."
+mgmt_zone_present "${FAILED_ZONE}"
+case $? in
+  0) err "Zone ${FAILED_ZONE} is still in the partition distribution — removal incomplete."
+     exit 1 ;;
+  2) err "Could not read the partition distribution, so the removal cannot be confirmed."
+     err "Check manually: GET /actuator/cluster"
+     exit 1 ;;
+  *) log "  Zone ${FAILED_ZONE} is gone from the partition distribution." ;;
+esac
 
 mgmt_tunnel_close
 

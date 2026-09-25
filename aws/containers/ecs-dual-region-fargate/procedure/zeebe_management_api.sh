@@ -44,7 +44,6 @@ mgmt_tunnel_close() {
         mgmt_log "Closed management tunnel (pid ${MGMT_SESSION_PID})."
     fi
     MGMT_SESSION_PID=""
-    rm -f "${MGMT_CODE_FILE}" 2>/dev/null || true
 }
 
 # mgmt_tunnel_open <aws_region> <ecs_cluster> <prefix> [aws_profile]
@@ -151,30 +150,57 @@ mgmt_tunnel_reopen() {
 
 # mgmt_request <method> <path> [json_body]
 #
-# Prints the response body. The HTTP status goes to a temp file rather than a
-# shell variable: callers use it as BODY=$(mgmt_request ...), which runs in a
-# subshell, so an assignment here would never reach them. Read the status with
-# mgmt_last_code. Never fails the caller on a non-2xx, so the caller can report
-# the body itself.
-# mktemp rather than a $$-derived name: the fallback temp directory is shared,
-# and mgmt_request opens this path with ">", which would follow a symlink
-# planted at a predictable location.
-MGMT_CODE_FILE="$(mktemp "${TMPDIR:-/tmp}/zeebe-mgmt-code.XXXXXX")"
+# Prints the response body on stdout and returns non-zero on a non-2xx, echoing
+# the status and body to stderr. Same contract as camunda::_request in the
+# Kubernetes sibling (eks-multi-region-rdbms/procedure/lib-management-api.sh):
+# every caller only ever wanted "did this work", so returning the status through
+# the exit code removes the side channel a command substitution would otherwise
+# need — and with it the shared-directory temp file it used to require.
 mgmt_request() {
     local method="$1" path="$2" body="${3:-}"
     local args=(-s -w '\n%{http_code}' -X "${method}" --max-time 60
                 -H 'Accept: application/json')
     [ -n "${body}" ] && args+=(-H 'Content-Type: application/json' -d "${body}")
 
-    local out
+    local out code
     out=$(curl "${args[@]}" "${MGMT_URL}${path}" 2>/dev/null || true)
-    printf '%s' "$(echo "${out}" | tail -1)" > "${MGMT_CODE_FILE}"
-    echo "${out}" | sed '$d'
+    code=$(echo "${out}" | tail -1)
+    out=$(echo "${out}" | sed '$d')
+
+    echo "${out}"
+
+    if [[ ! "${code}" =~ ^2[0-9][0-9]$ ]]; then
+        mgmt_err "${method} ${path} returned HTTP ${code:-<none>}"
+        echo "${out}" | jq . >&2 2>/dev/null || echo "${out}" >&2
+        return 1
+    fi
+    return 0
 }
 
-# mgmt_last_code — HTTP status of the most recent mgmt_request.
-mgmt_last_code() {
-    cat "${MGMT_CODE_FILE}" 2>/dev/null || echo ""
+# mgmt_zone_present <zone_id>
+#
+# 0 = the zone is in the persisted distribution, 1 = it is not, 2 = the response
+# could not be read. Failing closed matters: mgmt_get collapses every error into
+# an empty string and jq's "?" swallows a missing field, so without the explicit
+# unreadable case a dropped tunnel is indistinguishable from a removed zone and
+# every post-operation check passes.
+#
+# Both spellings are accepted. The 8.10 engine answers with .partitioning, but
+# 8.10.0-alpha5 still answers with .partitionDistribution, which is the same
+# trap camunda::partitioning guards against on the Kubernetes side.
+# TODO [release-duty]: drop .partitionDistribution once no supported engine
+# emits it.
+mgmt_zone_present() {
+    local zone="$1" body
+    body=$(mgmt_get /actuator/cluster)
+    [ -n "${body}" ] || return 2
+
+    local names
+    names=$(echo "${body}" \
+        | jq -r '(.partitioning // .partitionDistribution).zones[]?.name' 2>/dev/null) || return 2
+    [ -n "${names}" ] || return 2
+
+    echo "${names}" | grep -qxF "${zone}"
 }
 
 # mgmt_wait_change <change_id> [timeout_seconds]

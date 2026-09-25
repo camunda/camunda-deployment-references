@@ -277,8 +277,13 @@ if ! mgmt_tunnel_open "${SURVIVING_AWS_REGION}" "${SURVIVING_CLUSTER}" \
     exit 1
 fi
 
-if mgmt_get /actuator/cluster | jq -e --arg z "${RECOVERED_ZONE}" \
-     '[.partitioning.zones[]?.name] | index($z)' > /dev/null 2>&1; then
+mgmt_zone_present "${RECOVERED_ZONE}"
+ZONE_STATE=$?
+if [ "${ZONE_STATE}" -eq 2 ]; then
+    err "Could not read the partition distribution, so it is unknown whether"
+    err "zone ${RECOVERED_ZONE} needs re-adding. Check: GET /actuator/cluster"
+    exit 1
+elif [ "${ZONE_STATE}" -eq 0 ]; then
     log "  Zone ${RECOVERED_ZONE} is already in the partition distribution — skipping."
 else
     QUERY=""
@@ -294,15 +299,11 @@ else
 
     log "  POST /actuator/cluster/zones/${RECOVERED_ZONE}${QUERY}"
     log "       ${PAYLOAD}"
-    BODY=$(mgmt_request POST "/actuator/cluster/zones/${RECOVERED_ZONE}${QUERY}" "${PAYLOAD}")
-
-    HTTP_CODE="$(mgmt_last_code)"
-    if [[ ! "${HTTP_CODE}" =~ ^2[0-9][0-9]$ ]]; then
-        err "Zone re-add rejected (HTTP ${HTTP_CODE}):"
-        echo "${BODY}" | jq . 2>/dev/null || echo "${BODY}"
+    if ! BODY=$(mgmt_request POST "/actuator/cluster/zones/${RECOVERED_ZONE}${QUERY}" "${PAYLOAD}"); then
+        err "Zone re-add rejected; see the response above."
         exit 1
     fi
-    log "  Accepted (HTTP ${HTTP_CODE})."
+    log "  Accepted."
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log ""
@@ -340,6 +341,17 @@ mgmt_tunnel_close
 
 log ""
 log "=== Step 6: Verify ==="
+
+# Reachable on a dry run when the zone was already present: nothing was scaled
+# up, so asserting the full broker count here would fail on exactly the state
+# someone runs --dry-run to inspect.
+if [ "$DRY_RUN" = true ]; then
+    mgmt_topology_summary "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
+      "current state (dry run — nothing was changed)"
+    log ""
+    log "Dry run complete — no assertions run, because nothing was scaled up."
+    exit 0
+fi
 
 mgmt_topology_summary "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
   "AFTER failback — ${RECOVERED_ZONE} restored"
