@@ -136,14 +136,20 @@ delete_role() {
   fi
 
   local policies attached
+  # `--output text` prints the literal "None" when a query matches nothing, so
+  # an unfiltered loop would call delete-role-policy --policy-name None and
+  # `set -e` would abort before either role is deleted. Both roles here carry
+  # inline policies and no managed ones, which is exactly that case.
   policies=$(aws iam list-role-policies --role-name "${role_name}" --query 'PolicyNames' --output text)
   for policy in ${policies}; do
+    [ "${policy}" = "None" ] && continue
     echo "  Deleting inline policy: ${policy}"
     aws iam delete-role-policy --role-name "${role_name}" --policy-name "${policy}"
   done
 
   attached=$(aws iam list-attached-role-policies --role-name "${role_name}" --query 'AttachedPolicies[].PolicyArn' --output text)
   for arn in ${attached}; do
+    [ "${arn}" = "None" ] && continue
     echo "  Detaching managed policy: ${arn}"
     aws iam detach-role-policy --role-name "${role_name}" --policy-arn "${arn}"
   done
