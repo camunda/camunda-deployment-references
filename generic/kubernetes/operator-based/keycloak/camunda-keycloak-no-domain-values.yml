@@ -28,7 +28,6 @@ global:
         # Keycloak configuration for external instance
         keycloak:
             # For external Keycloak managed by operator
-            internal: false # Disable internal Keycloak
             url:
                 # Configuration for external Keycloak service
                 protocol: http
