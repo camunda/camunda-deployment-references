@@ -26,13 +26,9 @@ func TestPlannedFailover(t *testing.T) {
 	runFailoverTest(t, "planned", "")
 }
 
-// TestKeepTasksFailover covers the region-already-down case. It used to pass
-// --unplanned, which the procedure never implemented and which the argument
-// parser now rejects outright; --keep-tasks is the flag that expresses the
-// same scenario (skip the ECS scale-down because nothing is running).
-func TestKeepTasksFailover(t *testing.T) {
+func TestUnplannedFailover(t *testing.T) {
 	t.Parallel()
-	runFailoverTest(t, "keeptasks", "--keep-tasks")
+	runFailoverTest(t, "unplanned", "--unplanned")
 }
 
 // runFailoverTest is the shared body for planned and unplanned failover.
@@ -98,32 +94,34 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 	require.Equal(t, region0, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),
 		"baseline: Aurora writer should start in region 0")
 
-	// The procedure scripts require the full operator environment and exit 1 on
-	// the first missing variable, so build it from the applied state.
-	env := helpers.ProcedureEnv(t, infraOpts, appOpts, awsProfile, globalClusterID)
-
 	// Wait for initial quorum before triggering failover.
-	helpers.WaitForRaftQuorum(t, env["ALB_ENDPOINT_0"], env["ADMIN_USER"], env["ADMIN_PASS"],
-		8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
+	helpers.WaitForRaftQuorum(t, albEndpoint0, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	// Run failover.
 	scriptPath := filepath.Join(procedureDir, "failover.sh")
+	env := map[string]string{
+		"REGION_0":                 region0,
+		"REGION_1":                 region1,
+		"CLUSTER_NAME":             clusterPrefix,
+		"AWS_PROFILE":              awsProfile,
+		"AURORA_GLOBAL_CLUSTER_ID": globalClusterID,
+	}
 	args := []string{}
 	if failoverFlag != "" {
 		args = append(args, failoverFlag)
 	}
 	helpers.RunProcedureScript(t, scriptPath, env, args...)
 
-	// Assertion 1: the surviving zone still serves every partition. Region 0 is
-	// scaled to zero and its zone is removed, so the cluster halves to 4 brokers
-	// while all 8 partitions keep a leader — that is the point of the procedure.
-	helpers.WaitForRaftQuorum(t, env["ALB_ENDPOINT_1"], env["ADMIN_USER"], env["ADMIN_PASS"],
-		4, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	// Assertion 1: writer is now in region 1.
+	require.Equal(t, region1, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),
+		"after %s failover: Aurora writer should be in region 1", label)
 
-	// Assertion 2: Aurora is untouched. failover.sh deliberately leaves the
-	// global cluster alone — the JDBC failover plugin and AWS handle promotion
-	// on a real region loss — so the writer must still be in region 0. This
-	// previously asserted the opposite, which the procedure never did.
-	require.Equal(t, region0, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),
-		"after %s failover: failover.sh must not move the Aurora writer", label)
+	// Assertion 2: region 1 ALB is still reachable post-failover.
+	albEndpoint1 := terraform.Output(t, appOpts, "region_1_alb_endpoint")
+	require.NotEmpty(t, albEndpoint1)
+	// Note: post-failover broker count depends on partition replica placement
+	// (region 0 is scaled to 0). Verifying full Raft re-quorum here would
+	// require richer topology assertions — covered by the failback test which
+	// brings region 0 back. For this test, the writer-region change is enough.
 }

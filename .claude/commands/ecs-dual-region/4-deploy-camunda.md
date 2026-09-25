@@ -57,25 +57,22 @@ per region, 1 connectors per region).
 
 4. **Wait for Raft quorum (~20 minutes):**
 
-Get the ALB endpoint and the admin password from the app state (it re-exports infra outputs).
-Camunda 8.10 requires basic auth on `/v2/*`, so an unauthenticated request returns 401 and
-`jq` would report zero brokers:
+Get the ALB endpoint from the app state (it re-exports infra outputs):
 ```bash
 ALB_R0=$(terraform output -raw region_0_alb_endpoint)
-ADMIN_PASS=$(terraform output -raw admin_user_password)
 ```
 
 Then poll the Zeebe topology endpoint (ALB listens on port **80**, forwards to container 8080):
 ```bash
-curl -s -u "admin:${ADMIN_PASS}" "http://${ALB_R0}/v2/topology" | jq '.brokers | length'
+curl -s "http://${ALB_R0}/v2/topology" | jq '.brokers | length'
 ```
 Wait until this returns `8` (all brokers registered).
 
 5. **Verify partition leaders:**
 ```bash
-curl -s -u "admin:${ADMIN_PASS}" "http://${ALB_R0}/v2/topology" | jq '[.brokers[].partitions[] | select(.role == "leader")] | length'
+curl -s "http://${ALB_R0}/v2/topology" | jq '[.brokers[].partitions[] | select(.role == "LEADER")] | length'
 ```
-Should return `8` (one leader per partition). Note the role is lower case in 8.10.
+Should return `8` (one leader per partition).
 
 ## Troubleshooting
 

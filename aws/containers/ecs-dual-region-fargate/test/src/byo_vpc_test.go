@@ -92,12 +92,8 @@ func TestEndToEnd_BYO_VPC_TGW_RDBMS(t *testing.T) {
 	albEndpoint := terraform.Output(t, appOpts, "region_0_alb_endpoint")
 	require.NotEmpty(t, albEndpoint)
 
-	// 8.10 requires basic auth on /v2/*; without it the topology poll gets 401.
-	adminPass := terraform.Output(t, appOpts, "admin_user_password")
-	require.NotEmpty(t, adminPass, "admin_user_password should not be empty")
-
 	t.Logf("Waiting for Raft quorum at %s ...", albEndpoint)
-	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", adminPass, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	topo := helpers.WaitForRaftQuorum(t, albEndpoint, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	require.Len(t, topo.Brokers, 8)
 	require.Equal(t, 8, topo.PartitionsCount)
