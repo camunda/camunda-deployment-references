@@ -4,7 +4,11 @@
 # - PostgreSQL: CloudNativePG operator with a dedicated cluster for Identity
 #
 # Authentication Secrets:
-# - pg-identity-secret: Contains PostgreSQL user credentials for Identity
+# - pg-identity-secret: Contains the PostgreSQL password for Identity
+#
+# The chart only reads the password from the secret; the username must be set
+# here explicitly. It has to match the owner role the CNPG cluster bootstraps
+# (see postgresql-clusters.yml, pg-identity: bootstrap.initdb.owner).
 
 identity:
     enabled: true
@@ -15,7 +19,7 @@ identity:
         host: pg-identity-rw
         port: 5432
         database: identity
-        username: '' # Will be read from secret
+        username: identity
         # Use the new secret configuration format
         secret:
             existingSecret: pg-identity-secret
