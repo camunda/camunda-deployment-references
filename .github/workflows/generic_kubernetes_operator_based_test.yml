@@ -34,6 +34,8 @@ on:
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/aws-kubernetes-ingress-setup/**
             - .github/actions/kubernetes-wildcard-certificate/**
+            - .github/actions/internal-configure-wildcard-cert/**
+            - .github/actions/kubernetes-ingress-cleanup/**
 
     workflow_dispatch:
         inputs:

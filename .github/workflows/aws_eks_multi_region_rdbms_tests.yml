@@ -19,6 +19,7 @@ on:
             - .github/actions/aws-configure-cli/**
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/internal-debug-failed-pods/**
+            - .github/actions/internal-camunda-ci-credentials/**
             - aws/kubernetes/eks-multi-region-rdbms/**
             - '!aws/kubernetes/eks-multi-region-rdbms/terraform/*/test/golden/**'
             - aws/modules/transit-gateway-hub/**

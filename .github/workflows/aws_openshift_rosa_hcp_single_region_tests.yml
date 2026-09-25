@@ -31,6 +31,11 @@ on:
             - .github/actions/internal-integration-tests/**
             - generic/kubernetes/single-region/tests/integration/**
             - .github/actions/kubernetes-restart-coredns/**
+            - .github/actions/internal-wait-oidc-issuer/**
+            - .github/actions/kubernetes-cnpg-cluster/**
+            - .github/actions/kubernetes-cnpg-cluster-cleanup/**
+            - .github/actions/kubernetes-keycloak-operator/**
+            - .github/actions/kubernetes-keycloak-operator-cleanup/**
 
     workflow_dispatch:
         inputs:

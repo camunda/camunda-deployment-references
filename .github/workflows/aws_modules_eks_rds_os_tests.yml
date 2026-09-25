@@ -20,6 +20,7 @@ on:
             - justfile
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-sanitize-tags/**
 
 # limit to a single execution per ref of this workflow
 concurrency:

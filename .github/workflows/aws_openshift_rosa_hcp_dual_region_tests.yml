@@ -28,6 +28,7 @@ on:
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/internal-multi-region-tests/**
             - .github/actions/kubernetes-eck-operator/**
+            - .github/actions/internal-camunda-ci-credentials/**
             - generic/kubernetes/operator-based/elasticsearch/**
 
     workflow_dispatch:
