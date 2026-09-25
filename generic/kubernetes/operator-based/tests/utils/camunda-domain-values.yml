@@ -8,6 +8,12 @@
 
 global:
     host: ${CAMUNDA_DOMAIN}
+    compatibility:
+        nginx:
+            # This deployment does not use ingress-nginx, so the chart's
+            # compatibility annotations are not needed. Removed in the next chart major.
+            renderAnnotations: false
+
     # Ingress configuration for external access
     ingress:
         enabled: true
