@@ -21,6 +21,7 @@ on:
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-sanitize-tags/**
+            - .github/actions/aws-eks-cleanup-resources/**
 
 # limit to a single execution per ref of this workflow
 concurrency:

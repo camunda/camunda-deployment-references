@@ -47,6 +47,7 @@ on:
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/aws-kubernetes-eks-dual-region-create/**
             - .github/actions/internal-camunda-ci-credentials/**
+            - .github/actions/aws-generic-terraform-cleanup/**
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}

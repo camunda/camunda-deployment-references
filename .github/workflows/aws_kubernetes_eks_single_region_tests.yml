@@ -39,6 +39,7 @@ on:
             - .github/actions/kubernetes-ingress-cleanup/**
             - .github/actions/kubernetes-keycloak-operator/**
             - .github/actions/kubernetes-keycloak-operator-cleanup/**
+            - .github/actions/internal-camunda-chart-tests/**
 
     workflow_dispatch:
         inputs:

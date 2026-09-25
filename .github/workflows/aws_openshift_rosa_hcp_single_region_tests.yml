@@ -36,6 +36,8 @@ on:
             - .github/actions/kubernetes-cnpg-cluster-cleanup/**
             - .github/actions/kubernetes-keycloak-operator/**
             - .github/actions/kubernetes-keycloak-operator-cleanup/**
+            - .github/actions/kubernetes-eck-operator/**
+            - .github/actions/kubernetes-eck-operator-cleanup/**
 
     workflow_dispatch:
         inputs:
