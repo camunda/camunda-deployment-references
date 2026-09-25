@@ -50,7 +50,7 @@ mgmt_tunnel_close() {
 #
 # Picks a running orchestration-cluster task and port-forwards its 9600 to
 # localhost. `prefix` is the module prefix, e.g. "<cluster_name>-r1-oc"; the
-# service is "<prefix>-orchestration-cluster" (modules/ecs/fargate/
+# service is "<prefix>-orchestration-cluster" (aws/modules/ecs/fargate/
 # orchestration-cluster/ecs.tf:214).
 mgmt_tunnel_open() {
     local region="$1" cluster="$2" prefix="$3" profile="${4:-}"
