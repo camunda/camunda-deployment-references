@@ -36,8 +36,9 @@ on:
         # suite already covers a change to the reference architecture itself, and
         # running a second full ECS cluster for every such change would double the
         # bill to re-prove what it just proved. What only this suite can prove is
-        # the overlay, so it triggers on the overlay and on the CI plumbing that
-        # carries it.
+        # the overlay, so it triggers on the overlay's own files — including the
+        # cluster variables that configure it and the outputs this workflow reads
+        # — and on the CI plumbing that carries it.
         paths:
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-containers-ecs-single-region-fargate-create/**
@@ -49,6 +50,8 @@ on:
             - .github/workflows-config/aws-containers-ecs-single-region-fargate-load-tests/**
             - .tool-versions
             - aws/containers/ecs-single-region-fargate/terraform/cluster/load-tests.tf
+            - aws/containers/ecs-single-region-fargate/terraform/cluster/variables.tf
+            - aws/containers/ecs-single-region-fargate/terraform/cluster/output.tf
             - aws/modules/ecs/fargate/load-generator/**
             - aws/modules/ecs/fargate/monitoring/**
 
@@ -165,6 +168,10 @@ jobs:
               id: create_infrastructure
               uses: ./.github/actions/aws-containers-ecs-single-region-fargate-create
               if: always() && success()
+              # Neither the action nor the step bounds the apply otherwise, so a
+              # hung one would keep a cluster billing until GitHub's six-hour job
+              # limit. Matched to the cleanup step's budget.
+              timeout-minutes: 125
               with:
                   aws-region: ${{ env.AWS_REGION }}
                   tf-modules-revision: ${{ github.ref }}
