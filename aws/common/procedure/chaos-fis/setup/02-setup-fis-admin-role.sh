@@ -22,13 +22,29 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 POLICIES_DIR="${SCRIPT_DIR}/../policies"
 
-AWS_REGION="${AWS_REGION:-eu-west-2}"
 FIS_ADMIN_ROLE="${FIS_ADMIN_ROLE:-FIS-Admin}"
 FIS_EXPERIMENT_ROLE="${FIS_EXPERIMENT_ROLE:-FIS-Experiment-Role}"
 
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -h|--help)
+      echo "Usage: $0"
+      echo ""
+      echo "Creates the role team members assume to run experiments, trusting"
+      echo "whatever role you are currently logged in as. Safe to re-run: an"
+      echo "existing role has both documents refreshed."
+      echo ""
+      echo "Environment overrides:"
+      echo "  FIS_ADMIN_ROLE        Role name (default: FIS-Admin)"
+      echo "  FIS_EXPERIMENT_ROLE   Role named in the iam:PassRole grant (default: FIS-Experiment-Role)"
+      exit 0
+      ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
+  esac
+done
+
 echo "=== Setting up FIS Admin Role ==="
 echo "Role name: ${FIS_ADMIN_ROLE}"
-echo "Region:    ${AWS_REGION}"
 echo ""
 
 # Get account ID and current SSO role

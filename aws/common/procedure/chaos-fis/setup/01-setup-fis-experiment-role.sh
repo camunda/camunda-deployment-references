@@ -18,12 +18,27 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 POLICIES_DIR="${SCRIPT_DIR}/../policies"
 
-AWS_REGION="${AWS_REGION:-eu-west-2}"
 FIS_EXPERIMENT_ROLE="${FIS_EXPERIMENT_ROLE:-FIS-Experiment-Role}"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -h|--help)
+      echo "Usage: $0"
+      echo ""
+      echo "Creates the IAM role AWS FIS assumes during experiments, and applies"
+      echo "its trust and permissions policies. Safe to re-run: an existing role"
+      echo "has both documents refreshed."
+      echo ""
+      echo "Environment overrides:"
+      echo "  FIS_EXPERIMENT_ROLE   Role name (default: FIS-Experiment-Role)"
+      exit 0
+      ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
+  esac
+done
 
 echo "=== Setting up FIS Experiment Role ==="
 echo "Role name: ${FIS_EXPERIMENT_ROLE}"
-echo "Region:    ${AWS_REGION}"
 echo ""
 
 # Get account ID

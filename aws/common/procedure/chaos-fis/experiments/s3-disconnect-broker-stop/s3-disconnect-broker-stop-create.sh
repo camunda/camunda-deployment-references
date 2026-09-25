@@ -11,7 +11,7 @@
 # S3 connectivity while another broker crashes and must be replaced.
 #
 # How it works:
-#   1. Finds the ECS service for the given benchmark prefix
+#   1. Finds the ECS service for the given deployment prefix
 #   2. Lists running tasks and picks TWO in different AZs
 #   3. Broker A's subnet → S3 disconnect target
 #   4. Broker B → ECS stop-task target (via cluster/service parameters)
@@ -23,10 +23,10 @@
 #   - Benchmark ECS service is running with at least 2 tasks
 #
 # Usage:
-#   ./experiments/s3-disconnect-broker-stop/s3-disconnect-broker-stop-create.sh --prefix benchmark1 --duration PT10M
+#   ./experiments/s3-disconnect-broker-stop/s3-disconnect-broker-stop-create.sh --prefix camunda --duration PT10M
 #
 # Options:
-#   --prefix        Benchmark prefix to find ECS service (required, e.g., benchmark1)
+#   --prefix        Deployment prefix, var.prefix of the ECS reference architecture (required, e.g. camunda)
 #   --duration      S3 disruption duration in ISO 8601 (default: PT5M)
 #   --name          Experiment template name tag (default: s3-disconnect-broker-stop-<prefix>)
 #   --cluster       ECS cluster name (default: camunda-cluster)
@@ -57,10 +57,10 @@ while [[ $# -gt 0 ]]; do
     --cluster)       ECS_CLUSTER="$2";   shift 2 ;;
     --log-group)     LOG_GROUP="$2";     shift 2 ;;
     -h|--help)
-      echo "Usage: $0 --prefix <BENCHMARK_PREFIX> [OPTIONS]"
+      echo "Usage: $0 --prefix <PREFIX> [OPTIONS]"
       echo ""
       echo "Options:"
-      echo "  --prefix        Benchmark prefix (required, e.g., benchmark1)"
+      echo "  --prefix        Deployment prefix (required, e.g. camunda)"
       echo "  --duration      S3 disruption duration in ISO 8601 (default: PT5M)"
       echo "  --name          Template name tag (default: s3-disconnect-broker-stop-<prefix>)"
       echo "  --cluster       ECS cluster name (default: camunda-cluster)"
@@ -73,7 +73,7 @@ done
 
 if [[ -z "${PREFIX}" ]]; then
   echo "ERROR: --prefix is required."
-  echo "Usage: $0 --prefix benchmark1 [--duration PT5M]"
+  echo "Usage: $0 --prefix camunda [--duration PT5M]"
   exit 1
 fi
 
@@ -82,7 +82,7 @@ if [[ -z "${TEMPLATE_NAME}" ]]; then
 fi
 
 echo "=== Creating S3 Disconnect + Broker Stop Combined Experiment ==="
-echo "Benchmark prefix: ${PREFIX}"
+echo "Deployment prefix: ${PREFIX}"
 echo "ECS cluster:      ${ECS_CLUSTER}"
 echo "S3 duration:      ${DURATION}"
 echo "Template name:    ${TEMPLATE_NAME}"

@@ -25,10 +25,10 @@
 # ECS Discovery Functions
 # ============================================================
 
-# Find the ECS service matching a benchmark prefix.
+# Find the ECS service matching a deployment prefix.
 #
 # Globals: AWS_REGION, ECS_CLUSTER
-# Arguments: $1 — benchmark prefix (e.g., "benchmark1")
+# Arguments: $1 — deployment prefix (e.g. "camunda")
 # Outputs:   SERVICE_NAME (global) — the ECS service name
 # Returns:   0 on success, exits 1 on failure
 #

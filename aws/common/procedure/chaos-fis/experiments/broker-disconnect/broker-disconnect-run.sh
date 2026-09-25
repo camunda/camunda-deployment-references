@@ -18,14 +18,14 @@
 #   - ALB endpoint reachable for health checks
 #
 # Usage:
-#   ./experiments/broker-disconnect/broker-disconnect-run.sh --name broker-disconnect-benchmark1 --endpoint <ALB_DNS>
+#   ./experiments/broker-disconnect/broker-disconnect-run.sh --name broker-disconnect-camunda --endpoint <ALB_DNS>
 #   ./experiments/broker-disconnect/broker-disconnect-run.sh --id EXT123 --endpoint <ALB_DNS> --recovery-wait 120
 #
 # Options:
 #   --name           Template name (or use --id)
 #   --id             Template ID (or use --name)
 #   --endpoint       ALB DNS name for Camunda management API (required)
-#   --prefix         Benchmark prefix for ECS service health check (optional)
+#   --prefix         Deployment prefix for the ECS service health check (optional)
 #   --recovery-wait  Seconds to wait for post-experiment recovery (default: 120)
 #   --cluster        ECS cluster name (default: camunda-cluster)
 #   --skip-pre-check Skip the pre-experiment health check
@@ -66,7 +66,7 @@ while [[ $# -gt 0 ]]; do
       echo "Options:"
       echo "  --name           Template name (or use --id)"
       echo "  --id             Template ID (or use --name)"
-      echo "  --prefix         Benchmark prefix for ECS service health check (optional)"
+      echo "  --prefix         Deployment prefix for the ECS service health check (optional)"
       echo "  --endpoint       ALB DNS name for health checks (required)"
       echo "  --recovery-wait  Seconds to wait for recovery (default: 120)"
       echo "  --cluster        ECS cluster name (default: camunda-cluster)"

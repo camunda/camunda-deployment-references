@@ -6,7 +6,7 @@
 # Camunda broker (ECS task) by disrupting the S3 prefix-list routes on its subnet.
 #
 # How it works:
-#   1. Finds the ECS service for the given benchmark prefix
+#   1. Finds the ECS service for the given deployment prefix
 #   2. Lists running tasks and picks one randomly (or in a specified AZ)
 #   3. Resolves the task's ENI and subnet
 #   4. Creates an FIS experiment template using aws:network:disrupt-connectivity
@@ -23,11 +23,11 @@
 #   - Benchmark ECS service is running
 #
 # Usage:
-#   ./experiments/s3-disconnect/s3-disconnect-create.sh --prefix benchmark1 --duration PT10M
-#   ./experiments/s3-disconnect/s3-disconnect-create.sh --prefix benchmark1 --az eu-west-2b --duration PT5M
+#   ./experiments/s3-disconnect/s3-disconnect-create.sh --prefix camunda --duration PT10M
+#   ./experiments/s3-disconnect/s3-disconnect-create.sh --prefix camunda --az eu-west-2b --duration PT5M
 #
 # Options:
-#   --prefix        Benchmark prefix to find ECS service (required, e.g., benchmark1)
+#   --prefix        Deployment prefix, var.prefix of the ECS reference architecture (required, e.g. camunda)
 #   --az            Target a broker in this AZ (default: random task)
 #   --duration      Disruption duration in ISO 8601 (default: PT1M = 1 minute)
 #   --name          Experiment template name tag (default: s3-disconnect-<prefix>)
@@ -61,10 +61,10 @@ while [[ $# -gt 0 ]]; do
     --cluster)       ECS_CLUSTER="$2";   shift 2 ;;
     --log-group)     LOG_GROUP="$2";     shift 2 ;;
     -h|--help)
-      echo "Usage: $0 --prefix <BENCHMARK_PREFIX> [OPTIONS]"
+      echo "Usage: $0 --prefix <PREFIX> [OPTIONS]"
       echo ""
       echo "Options:"
-      echo "  --prefix        Benchmark prefix (required, e.g., benchmark1)"
+      echo "  --prefix        Deployment prefix (required, e.g. camunda)"
       echo "  --az            Target a broker in this AZ (default: random task)"
       echo "  --duration      Disruption duration in ISO 8601 (default: PT1M)"
       echo "  --name          Template name tag (default: s3-disconnect-<prefix>)"
@@ -78,7 +78,7 @@ done
 
 if [[ -z "${PREFIX}" ]]; then
   echo "ERROR: --prefix is required."
-  echo "Usage: $0 --prefix benchmark1 [--duration PT10M]"
+  echo "Usage: $0 --prefix camunda [--duration PT10M]"
   exit 1
 fi
 
@@ -87,7 +87,7 @@ if [[ -z "${TEMPLATE_NAME}" ]]; then
 fi
 
 echo "=== Creating S3 Disconnect Experiment Template ==="
-echo "Benchmark prefix: ${PREFIX}"
+echo "Deployment prefix: ${PREFIX}"
 echo "ECS cluster:      ${ECS_CLUSTER}"
 echo "Duration:         ${DURATION}"
 echo "Template name:    ${TEMPLATE_NAME}"

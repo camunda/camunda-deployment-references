@@ -147,14 +147,14 @@ source ./experiments/assume-fis-role.sh
 
 # 3. Create an experiment template targeting a single broker
 #    A random broker is selected by default.
-#    --prefix: the benchmark prefix (e.g., benchmark1)
-./experiments/broker-stop/broker-stop-create.sh --prefix benchmark1
+#    --prefix: the deployment prefix (e.g. camunda)
+./experiments/broker-stop/broker-stop-create.sh --prefix camunda
 
 # You can also target a broker in a specific AZ:
-./experiments/broker-stop/broker-stop-create.sh --prefix benchmark1 --az eu-west-2b
+./experiments/broker-stop/broker-stop-create.sh --prefix camunda --az eu-west-2b
 
 # 4. Run the experiment (includes pre/post health checks)
-./experiments/broker-stop/broker-stop-run.sh --name broker-stop-benchmark1 --endpoint <ALB_DNS> --prefix benchmark1
+./experiments/broker-stop/broker-stop-run.sh --name broker-stop-camunda --endpoint <ALB_DNS> --prefix camunda
 
 # The script will:
 #   - Verify the cluster is healthy (pre-check)
@@ -180,15 +180,15 @@ source ./experiments/assume-fis-role.sh
 
 # 3. Create an experiment template targeting a single broker
 #    A random broker is selected by default.
-#    --prefix:  the benchmark prefix (e.g., benchmark1)
+#    --prefix:  the deployment prefix (e.g. camunda)
 #    --duration: how long the disruption lasts (ISO 8601, e.g., PT10M for 10 minutes)
-./experiments/broker-disconnect/broker-disconnect-create.sh --prefix benchmark1 --duration PT10M
+./experiments/broker-disconnect/broker-disconnect-create.sh --prefix camunda --duration PT10M
 
 # You can also target a broker in a specific AZ:
-./experiments/broker-disconnect/broker-disconnect-create.sh --prefix benchmark1 --az eu-west-2b --duration PT10M
+./experiments/broker-disconnect/broker-disconnect-create.sh --prefix camunda --az eu-west-2b --duration PT10M
 
 # 4. Run the experiment (includes pre/post health checks)
-./experiments/broker-disconnect/broker-disconnect-run.sh --name broker-disconnect-benchmark1 --endpoint <ALB_DNS>
+./experiments/broker-disconnect/broker-disconnect-run.sh --name broker-disconnect-camunda --endpoint <ALB_DNS>
 
 # The script will:
 #   - Verify the cluster is healthy (pre-check)
@@ -213,15 +213,15 @@ source ./experiments/assume-fis-role.sh
 
 # 3. Create an experiment template targeting a single broker's S3 access
 #    A random broker is selected by default.
-#    --prefix:  the benchmark prefix (e.g., benchmark1)
+#    --prefix:  the deployment prefix (e.g. camunda)
 #    --duration: how long S3 is blocked (ISO 8601, e.g., PT10M for 10 minutes)
-./experiments/s3-disconnect/s3-disconnect-create.sh --prefix benchmark1 --duration PT10M
+./experiments/s3-disconnect/s3-disconnect-create.sh --prefix camunda --duration PT10M
 
 # You can also target a broker in a specific AZ:
-./experiments/s3-disconnect/s3-disconnect-create.sh --prefix benchmark1 --az eu-west-2b --duration PT10M
+./experiments/s3-disconnect/s3-disconnect-create.sh --prefix camunda --az eu-west-2b --duration PT10M
 
 # 4. Run the experiment (includes pre/post health checks)
-./experiments/s3-disconnect/s3-disconnect-run.sh --name s3-disconnect-benchmark1 --endpoint <ALB_DNS>
+./experiments/s3-disconnect/s3-disconnect-run.sh --name s3-disconnect-camunda --endpoint <ALB_DNS>
 
 # The script will:
 #   - Verify the cluster is healthy (pre-check)
@@ -249,12 +249,12 @@ source ./experiments/assume-fis-role.sh
 #    The script automatically picks two brokers (in different AZs if possible):
 #    - Broker A's subnet gets S3 traffic blocked
 #    - Broker B gets stopped via aws:ecs:stop-task
-#    --prefix:   the benchmark prefix (e.g., benchmark1)
+#    --prefix:   the deployment prefix (e.g. camunda)
 #    --duration: how long the S3 disruption lasts (ISO 8601, e.g., PT10M)
-./experiments/s3-disconnect-broker-stop/s3-disconnect-broker-stop-create.sh --prefix benchmark1 --duration PT10M
+./experiments/s3-disconnect-broker-stop/s3-disconnect-broker-stop-create.sh --prefix camunda --duration PT10M
 
 # 4. Run the experiment (includes pre/post health checks)
-./experiments/s3-disconnect-broker-stop/s3-disconnect-broker-stop-run.sh --name s3-disconnect-broker-stop-benchmark1 --endpoint <ALB_DNS>
+./experiments/s3-disconnect-broker-stop/s3-disconnect-broker-stop-run.sh --name s3-disconnect-broker-stop-camunda --endpoint <ALB_DNS>
 
 # The script will:
 #   - Verify the cluster is healthy (pre-check)
@@ -297,10 +297,10 @@ You can check cluster health at any time:
 ./experiments/verify-cluster-health.sh --endpoint <ALB_DNS>
 
 # Include ECS service check (desired tasks == running tasks) before topology check
-./experiments/verify-cluster-health.sh --endpoint <ALB_DNS> --prefix benchmark1
+./experiments/verify-cluster-health.sh --endpoint <ALB_DNS> --prefix camunda
 
 # Wait up to 120s for the cluster to become healthy
-./experiments/verify-cluster-health.sh --endpoint <ALB_DNS> --prefix benchmark1 --wait 120
+./experiments/verify-cluster-health.sh --endpoint <ALB_DNS> --prefix camunda --wait 120
 ```
 
 ### Return to SSO role
@@ -327,16 +327,22 @@ the trust policy rather than adding to it.
 
 ## Configuration
 
-All scripts use these defaults (override via environment variables):
+The experiment scripts read these environment variables; each one also has a
+matching flag, and `--help` on any script lists the flags it accepts.
 
 | Variable | Default | Description |
 |---|---|---|
-| `AWS_REGION` | `eu-west-2` | AWS region |
-| `VPC_NAME` | `camunda-vpc` | VPC name tag to find subnets (AZ disconnect) |
-| `ECS_CLUSTER` | `camunda-cluster` | ECS cluster name (broker disconnect) |
+| `AWS_REGION` | `eu-west-2` | Region the experiments run in. One of the regions the account sweep covers — see [Cleanup](#cleanup). |
+| `VPC_NAME` | `camunda-vpc` | VPC name tag used to find subnets (AZ disconnect) |
+| `ECS_CLUSTER` | `camunda-cluster` | ECS cluster name, `<prefix>-cluster` in the reference architecture |
 | `FIS_EXPERIMENT_ROLE` | `FIS-Experiment-Role` | IAM role FIS assumes |
-| `FIS_ADMIN_ROLE` | `FIS-Admin` | IAM role SSO users assume |
+| `FIS_ADMIN_ROLE` | `FIS-Admin` | IAM role team members assume |
 | `FIS_LOG_GROUP` | `/fis/chaos-tests` | CloudWatch log group for experiment logs |
+
+The `--prefix` every experiment takes is the reference architecture's
+`var.prefix`, `camunda` by default. It is what the scripts match the
+Orchestration Cluster's ECS service on, so passing anything else finds nothing.
+The two `setup/` scripts take no region: IAM roles are global.
 
 ## Cleanup
 

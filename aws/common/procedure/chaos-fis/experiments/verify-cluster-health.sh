@@ -48,11 +48,11 @@
 # Usage:
 #   ./experiments/verify-cluster-health.sh --endpoint <ALB_DNS>
 #   ./experiments/verify-cluster-health.sh --endpoint my-alb.eu-west-2.elb.amazonaws.com --wait 60
-#   ./experiments/verify-cluster-health.sh --endpoint <ALB_DNS> --prefix benchmark1
+#   ./experiments/verify-cluster-health.sh --endpoint <ALB_DNS> --prefix camunda
 #
 # Options:
 #   --endpoint   ALB DNS name (required, port 8080 is appended automatically)
-#   --prefix     Benchmark prefix (optional, e.g., benchmark1). When provided,
+#   --prefix     Deployment prefix (optional, e.g. camunda). When provided,
 #                the script first checks that the ECS service has the desired
 #                number of tasks running before checking the v2 topology.
 #   --cluster    ECS cluster name (default: camunda-cluster)
@@ -93,7 +93,7 @@ while [[ $# -gt 0 ]]; do
     --wait)     WAIT_SECONDS="$2";   shift 2 ;;
     --quiet)    QUIET=true;          shift ;;
     -h|--help)
-      echo "Usage: $0 --endpoint <ALB_DNS> [--prefix <BENCHMARK_PREFIX>] [--cluster <ECS_CLUSTER>] [--wait <SECONDS>] [--quiet]"
+      echo "Usage: $0 --endpoint <ALB_DNS> [--prefix <PREFIX>] [--cluster <ECS_CLUSTER>] [--wait <SECONDS>] [--quiet]"
       exit 0
       ;;
     *) echo "Unknown option: $1"; exit 1 ;;

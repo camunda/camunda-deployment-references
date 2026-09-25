@@ -6,7 +6,7 @@
 # using the aws:ecs:stop-task action.
 #
 # How it works:
-#   1. Finds the ECS service for the given benchmark prefix
+#   1. Finds the ECS service for the given deployment prefix
 #   2. Lists running tasks and picks one randomly (or in a specified AZ)
 #   3. Creates an FIS experiment template using aws:ecs:stop-task,
 #      targeting the selected task by ARN
@@ -21,11 +21,11 @@
 #   - Benchmark ECS service is running
 #
 # Usage:
-#   ./experiments/broker-stop/broker-stop-create.sh --prefix benchmark1
-#   ./experiments/broker-stop/broker-stop-create.sh --prefix benchmark1 --az eu-west-2b
+#   ./experiments/broker-stop/broker-stop-create.sh --prefix camunda
+#   ./experiments/broker-stop/broker-stop-create.sh --prefix camunda --az eu-west-2b
 #
 # Options:
-#   --prefix        Benchmark prefix to find ECS service (required, e.g., benchmark1)
+#   --prefix        Deployment prefix, var.prefix of the ECS reference architecture (required, e.g. camunda)
 #   --az            Target a broker in this AZ (default: random task)
 #   --name          Experiment template name tag (default: broker-stop-<prefix>)
 #   --cluster       ECS cluster name (default: camunda-cluster)
@@ -56,10 +56,10 @@ while [[ $# -gt 0 ]]; do
     --cluster)       ECS_CLUSTER="$2";   shift 2 ;;
     --log-group)     LOG_GROUP="$2";     shift 2 ;;
     -h|--help)
-      echo "Usage: $0 --prefix <BENCHMARK_PREFIX> [OPTIONS]"
+      echo "Usage: $0 --prefix <PREFIX> [OPTIONS]"
       echo ""
       echo "Options:"
-      echo "  --prefix        Benchmark prefix (required, e.g., benchmark1)"
+      echo "  --prefix        Deployment prefix (required, e.g. camunda)"
       echo "  --az            Target a broker in this AZ (default: random task)"
       echo "  --name          Template name tag (default: broker-stop-<prefix>)"
       echo "  --cluster       ECS cluster name (default: camunda-cluster)"
@@ -72,7 +72,7 @@ done
 
 if [[ -z "${PREFIX}" ]]; then
   echo "ERROR: --prefix is required."
-  echo "Usage: $0 --prefix benchmark1"
+  echo "Usage: $0 --prefix camunda"
   exit 1
 fi
 
@@ -81,7 +81,7 @@ if [[ -z "${TEMPLATE_NAME}" ]]; then
 fi
 
 echo "=== Creating Broker Stop Experiment Template ==="
-echo "Benchmark prefix: ${PREFIX}"
+echo "Deployment prefix: ${PREFIX}"
 echo "ECS cluster:      ${ECS_CLUSTER}"
 echo "Template name:    ${TEMPLATE_NAME}"
 echo "Region:           ${AWS_REGION}"
