@@ -24,7 +24,10 @@ export CAMUNDA_HELM_CHART_VERSION="${CAMUNDA_HELM_CHART_VERSION:-14.10.0}"
 # Leave empty or "localhost" for port-forward setups.
 export CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN:-}"
 
-# ---[ Database names (must match source installation) ]-----------------------
+# ---[ Target database names ]-------------------------------------------------
+# These name the databases and roles the migration writes INTO. The source names
+# are read off the Bitnami StatefulSet at run time, so they do not have to match;
+# override them only via the *_SOURCE_DB_* variables at the bottom of this file.
 export IDENTITY_DB_NAME="${IDENTITY_DB_NAME:-identity}"
 export IDENTITY_DB_USER="${IDENTITY_DB_USER:-identity}"
 export KEYCLOAK_DB_NAME="${KEYCLOAK_DB_NAME:-keycloak}"

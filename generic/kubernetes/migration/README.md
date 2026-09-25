@@ -145,9 +145,9 @@ Edit `env.sh` before starting. The file is organized into 4 sections — see com
 | `CAMUNDA_RELEASE_NAME`       | `camunda`       | Helm release name                            |
 | `CAMUNDA_HELM_CHART_VERSION` | (chart version) | Target Helm chart version                    |
 | `CAMUNDA_DOMAIN`             | (empty)         | Domain for Keycloak Ingress (empty = no TLS) |
-| `IDENTITY_DB_NAME`           | `identity`      | Identity database name (must match source)   |
-| `KEYCLOAK_DB_NAME`           | `keycloak`      | Keycloak database name (must match source)   |
-| `WEBMODELER_DB_NAME`         | `webmodeler`    | WebModeler database name (must match source) |
+| `IDENTITY_DB_NAME`           | `identity`      | Identity database name on the **target**. The source name is detected, not assumed — see [Source database names are detected, not guessed](#source-database-names-are-detected-not-guessed) |
+| `KEYCLOAK_DB_NAME`           | `keycloak`      | Keycloak database name on the **target**     |
+| `WEBMODELER_DB_NAME`         | `webmodeler`    | WebModeler database name on the **target**   |
 | `BACKUP_PVC`                 | `migration-backup-pvc` | PVC name for backup data              |
 | `BACKUP_STORAGE_SIZE`        | `50Gi`          | Backup PVC size (must fit all dumps)         |
 | `MIGRATE_IDENTITY`           | `true`          | Migrate Identity PostgreSQL                  |
