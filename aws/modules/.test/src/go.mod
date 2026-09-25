@@ -5,7 +5,7 @@ go 1.26.3
 require (
 	github.com/aws/aws-sdk-go-v2 v1.44.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.40
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.316.0
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.316.1
 	github.com/aws/aws-sdk-go-v2/service/eks v1.74.10
 	github.com/aws/aws-sdk-go-v2/service/iam v1.47.8
 	github.com/aws/aws-sdk-go-v2/service/kms v1.45.6
