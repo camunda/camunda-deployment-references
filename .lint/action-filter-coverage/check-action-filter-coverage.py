@@ -27,6 +27,13 @@ Remote `uses:` are versioned by ref, not by path, so no filter applies. A
 workflow with no path filter at all is not reported: it already runs on every
 pull request, so nothing can be missing from a filter it does not have.
 
+Known limits, in the same spirit as check-path-filters.py being deliberately
+more permissive than GitHub: a positive pattern cancelled by a later `!` of
+the same path reads as covered, and a `paths` block is trusted over a sibling
+`paths-ignore` that re-excludes the action. Neither shape exists in this
+repository, and both would need real glob-order semantics to decide. The
+check is a drift guard, not a reimplementation of GitHub's matcher.
+
 Stdlib only, and only the `uses:` and filter shapes this repository writes.
 """
 
