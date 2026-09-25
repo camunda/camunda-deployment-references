@@ -1052,9 +1052,10 @@ validate_pg_version() {
 }
 
 # Validate ES version compatibility.
-# The source and target must share the same major.minor version; patch differences are OK.
-# Downgrades are never allowed.
-# e.g., 8.15.0 → 8.15.3 ✓, 8.15.0 → 8.16.0 ✗, 8.x → 7.x ✗
+# Reindex-from-remote reads an older source into a newer target, so the target
+# may be ahead of the source within the same major. Downgrades and major changes
+# are never allowed.
+# e.g., 8.18.0 → 8.18.3 ✓, 8.18.0 → 8.19.20 ✓, 8.19.0 → 8.18.0 ✗, 8.x → 7.x ✗
 validate_es_version() {
     local issues=0
 
@@ -1092,16 +1093,22 @@ validate_es_version() {
     src_major=$(_major_version "$source_version")
     tgt_major=$(_major_version "$target_version")
 
-    # Block any downgrade (major or minor)
-    if [[ $tgt_major -lt $src_major ]] || { [[ $tgt_major -eq $src_major ]] && [[ "$tgt_minor" < "$src_minor" ]]; }; then
+    # Compare the minor component numerically: "8.9" sorts above "8.19" as a string.
+    local src_minor_num="${src_minor##*.}" tgt_minor_num="${tgt_minor##*.}"
+
+    if [[ $tgt_major -ne $src_major ]]; then
+        log_error "  ES: major version mismatch (source=${source_version} → target=${target_version})"
+        log_error "    Reindex-from-remote is only supported within the same major version."
+        log_error "    Update the ECK manifest (operator-based/elasticsearch/elasticsearch-cluster.yml) to major ${src_major}"
+        issues=1
+    elif [[ $tgt_minor_num -lt $src_minor_num ]]; then
         log_error "  ES: version DOWNGRADE (source=${source_version} → target=${target_version})"
         log_error "    Downgrades are not supported. Target must be >= source version."
         issues=1
-    elif [[ "$src_minor" != "$tgt_minor" ]]; then
-        log_error "  ES: minor version MISMATCH (source=${source_version} → target=${target_version})"
-        log_error "    Source and target must share the same major.minor version (patch differences are OK)"
-        log_error "    Update the ECK manifest (operator-based/elasticsearch/elasticsearch-cluster.yml) to use version ${src_minor}.x"
-        issues=1
+    elif [[ $tgt_minor_num -gt $src_minor_num ]]; then
+        log_warn "  ES: version UPGRADE (source=${source_version} → target=${target_version})"
+        log_warn "    Supported — reindex-from-remote reads an older ${src_major}.x source into a newer ${tgt_major}.x target."
+        log_warn "    Expected when the Camunda Helm chart pins an older Elasticsearch than the ECK manifest."
     elif [[ "$source_version" != "$target_version" ]]; then
         log_success "  ES: version OK (source=${source_version}, target=${target_version} — same minor, patch differs)"
     else
@@ -1543,7 +1550,8 @@ get_helm_values() {
 # Introspect a Bitnami PostgreSQL StatefulSet.
 # Usage: introspect_pg <sts-name>
 # Exports: PG_IMAGE, PG_STORAGE_SIZE, PG_REPLICAS, PG_VERSION,
-#          PG_SECRET_NAME, PG_SECRET_KEY, IMAGE_PULL_SECRET
+#          PG_SECRET_NAME, PG_SECRET_KEY, IMAGE_PULL_SECRET,
+#          PG_DETECTED_DATABASE, PG_DETECTED_USER
 introspect_pg() {
     local sts_name="$1"
     log_info "Introspecting StatefulSet ${sts_name} ..."
@@ -1610,12 +1618,53 @@ introspect_pg() {
     pull_secret=$(echo "$json" | jq -r '.spec.template.spec.imagePullSecrets[0].name // empty')
     export IMAGE_PULL_SECRET="${pull_secret:-}"
 
+    # Auto-detect the database and role the source actually serves. The Camunda
+    # sub-charts disagree on both the values (Identity uses "identity", WebModeler
+    # "web-modeler", the bundled Keycloak "bitnami_keycloak"/"bn_keycloak") and on
+    # the env var names (identity-postgresql-16 emits POSTGRES_DATABASE, the newer
+    # web-modeler-postgresql emits POSTGRES_DB), so probe every known spelling
+    # rather than guessing from the target names.
+    export PG_DETECTED_USER
+    PG_DETECTED_USER=$(echo "$json" | jq -r '
+        [.spec.template.spec.containers[0].env[]?
+         | select(.name == "POSTGRES_USER" or .name == "POSTGRESQL_USERNAME")
+         | .value // empty
+        ] | map(select(. != "")) | first // empty
+    ')
+    export PG_DETECTED_DATABASE
+    PG_DETECTED_DATABASE=$(echo "$json" | jq -r '
+        [.spec.template.spec.containers[0].env[]?
+         | select(.name == "POSTGRES_DATABASE" or .name == "POSTGRES_DB" or .name == "POSTGRESQL_DATABASE")
+         | .value // empty
+        ] | map(select(. != "")) | first // empty
+    ')
+
     log_success "Image: ${PG_IMAGE}"
     log_success "Storage: ${PG_STORAGE_SIZE}, Replicas: ${PG_REPLICAS}, Version: ${PG_VERSION}"
     log_success "Secret: ${PG_SECRET_NAME} (key: ${PG_SECRET_KEY})"
+    if [[ -n "$PG_DETECTED_DATABASE" ]] || [[ -n "$PG_DETECTED_USER" ]]; then
+        log_success "Source database: ${PG_DETECTED_DATABASE:-<undetected>} (user: ${PG_DETECTED_USER:-<undetected>})"
+    fi
     if [[ -n "$IMAGE_PULL_SECRET" ]]; then
         log_success "Image pull secret: ${IMAGE_PULL_SECRET}"
     fi
+}
+
+# Resolve the source database name or role for a component, in precedence order:
+# an explicit <COMPONENT>_SOURCE_DB_NAME/_USER override, then what introspect_pg
+# read off the source StatefulSet, then the target name as a last resort.
+# Usage: resolve_source_db <component> <name|user> <fallback>
+resolve_source_db() {
+    local component="$1" field="$2" fallback="$3"
+    local override_var detected
+
+    case "$field" in
+        name) override_var="${component^^}_SOURCE_DB_NAME"; detected="${PG_DETECTED_DATABASE:-}" ;;
+        user) override_var="${component^^}_SOURCE_DB_USER"; detected="${PG_DETECTED_USER:-}" ;;
+        *) log_error "resolve_source_db: unknown field '${field}'"; return 1 ;;
+    esac
+
+    echo "${!override_var:-${detected:-$fallback}}"
 }
 
 # Detect the Bitnami PG StatefulSet name for a component.

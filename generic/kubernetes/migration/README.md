@@ -195,12 +195,55 @@ Set any `MIGRATE_*` to `false` to skip a component (e.g. if it's not deployed or
 | `EXTERNAL_KEYCLOAK_PORT`        | `80`                     | External Keycloak port                       |
 | `EXTERNAL_KEYCLOAK_CONTEXT_PATH`| `/auth`                  | External Keycloak context path               |
 | `EXTERNAL_KEYCLOAK_REALM`       | `/realms/camunda-platform`| External Keycloak realm path                |
-| `IDENTITY_SOURCE_DB_NAME`       | `identity`               | Bitnami source DB name for Identity (override when Bitnami uses a different name) |
-| `IDENTITY_SOURCE_DB_USER`       | `identity`               | Bitnami source DB user for Identity          |
-| `KEYCLOAK_SOURCE_DB_NAME`       | `keycloak`               | Bitnami source DB name for Keycloak. Bitnami default: `bitnami_keycloak` |
-| `KEYCLOAK_SOURCE_DB_USER`       | `keycloak`               | Bitnami source DB user for Keycloak. Bitnami default: `bn_keycloak` |
-| `WEBMODELER_SOURCE_DB_NAME`     | `webmodeler`             | Bitnami source DB name for WebModeler        |
-| `WEBMODELER_SOURCE_DB_USER`     | `webmodeler`             | Bitnami source DB user for WebModeler        |
+| `IDENTITY_SOURCE_DB_NAME`       | (auto-detected)          | Force the source DB name for Identity (normally read from the source StatefulSet) |
+| `IDENTITY_SOURCE_DB_USER`       | (auto-detected)          | Force the source DB user for Identity        |
+| `KEYCLOAK_SOURCE_DB_NAME`       | (auto-detected)          | Force the source DB name for Keycloak. Chart default: `bitnami_keycloak` |
+| `KEYCLOAK_SOURCE_DB_USER`       | (auto-detected)          | Force the source DB user for Keycloak. Chart default: `bn_keycloak` |
+| `WEBMODELER_SOURCE_DB_NAME`     | (auto-detected)          | Force the source DB name for WebModeler. Chart default: `web-modeler` |
+| `WEBMODELER_SOURCE_DB_USER`     | (auto-detected)          | Force the source DB user for WebModeler. Chart default: `web-modeler` |
+
+### Source database names are detected, not guessed
+
+The Bitnami sub-charts do not name their databases the way the migration target
+does. A stock `camunda-platform` installation serves WebModeler from a database
+and role called `web-modeler`, and the bundled Keycloak from
+`bitnami_keycloak`/`bn_keycloak`, while the operator-managed targets use
+`webmodeler` and `keycloak`.
+
+Phases 2 and 3 therefore read the real names off the source StatefulSet
+(`POSTGRES_USER`, `POSTGRES_DATABASE`/`POSTGRES_DB`) rather than assuming they
+match the target. You only need the `*_SOURCE_DB_NAME`/`*_SOURCE_DB_USER`
+variables to override that detection — for example when the source was renamed,
+or to back up a different database entirely:
+
+```bash
+WEBMODELER_SOURCE_DB_NAME=my-legacy-modeler
+WEBMODELER_SOURCE_DB_USER=my-legacy-modeler
+```
+
+The restore always writes to the target names (`WEBMODELER_DB_NAME`, …); dumps
+are restored with `--no-owner --no-privileges`, so a differing source role is
+not a problem.
+
+### Elasticsearch version compatibility
+
+Phase 1 compares the source Elasticsearch version against `spec.version` in
+`operator-based/elasticsearch/elasticsearch-cluster.yml`:
+
+| Source → Target | Result |
+| --- | --- |
+| Same version | OK |
+| Same minor, different patch (`8.18.0` → `8.18.3`) | OK |
+| Newer minor, same major (`8.18.0` → `8.19.20`) | OK, logged as an upgrade |
+| Older minor (`8.19.0` → `8.18.0`) | **Blocked** — downgrade |
+| Different major (`8.x` → `7.x`, `8.x` → `9.x`) | **Blocked** |
+
+Reindex-from-remote reads an older source into a newer target, so the ECK
+manifest is allowed to be ahead of the source. This matters in practice: the
+Camunda Helm chart still pins Elasticsearch `8.18.0` (`elasticsearch-21`), and
+no `8.19` image was ever published to the archived `bitnamilegacy` registry, so
+a stock source cannot be raised to match a `8.19.x` target. Migrating up is the
+supported path.
 
 ### When to use `external` target mode
 
@@ -210,6 +253,7 @@ Set `PG_TARGET_MODE=external` or `ES_TARGET_MODE=external` when the migration **
 | --- | --- | --- |
 | Fresh cluster, no operators installed | `operator` (default) | Scripts install CNPG/ECK + create clusters |
 | Operators already installed by a platform team | `external` | Avoids overwriting the operator version (scripts apply a pinned version via `kubectl apply --server-side`) |
+| You run a different PostgreSQL operator (StackGres, Crunchy, Zalando, …) | `PG_TARGET_MODE=external` | CNPG is never installed. Create the databases with your own operator and point the migration at them — CloudNativePG is the example, not a requirement |
 | Target is a managed service (RDS, OpenSearch, …) | `external` | No operator needed — data migrates directly to the managed endpoint |
 | Keycloak runs as a managed/standalone/Helm instance (not the operator) | `KEYCLOAK_TARGET_MODE=external` | Migrates the realm into the external Keycloak database and points Camunda at the existing instance |
 
@@ -223,7 +267,10 @@ automatically when you `source env.sh` (a `[auto]` line is logged for each):
 - `PG_TARGET_MODE=external` — the external Keycloak serves the migrated realm from the external Keycloak database.
 - `SKIP_HELM_UPGRADE=true` — **external Keycloak mode is data-only**. The scripts migrate the realm database and then exit; the caller performs the Helm upgrade, wiring Camunda at the external Keycloak (`global.identity.keycloak.url` + auth credentials). The scripts do not wire Keycloak admin credentials into the Helm values.
 
-If your Bitnami installation uses non-standard database or user names (common with the Bitnami Keycloak chart, which defaults to `bitnami_keycloak`/`bn_keycloak`), set the `*_SOURCE_DB_NAME`/`*_SOURCE_DB_USER` overrides accordingly:
+If your Bitnami installation was renamed away from the chart defaults, or
+detection cannot read the source StatefulSet, set the
+`*_SOURCE_DB_NAME`/`*_SOURCE_DB_USER` overrides explicitly (see "Source database
+names are detected, not guessed" above):
 
 ```bash
 KEYCLOAK_SOURCE_DB_NAME=bitnami_keycloak
@@ -255,7 +302,7 @@ Delegates to the `operator-based/` deploy scripts to install operators and creat
 Before deploying, the script:
 1. Displays a customization warning reminding you to review operator-based manifests
 2. Validates target resource allocations (CPU, memory, PVC sizes) against your current Bitnami StatefulSets
-3. Validates version compatibility (PG major downgrades blocked, ES major.minor must match)
+3. Validates version compatibility (PG major downgrades blocked, ES downgrades and major changes blocked — see [Elasticsearch version compatibility](#elasticsearch-version-compatibility))
 
 All targets are created empty and idle — no traffic is routed to them yet.
 

@@ -59,8 +59,8 @@ do_pg_backup() {
     export COMPONENT="$component"
     export PG_HOST="${sts_name}.${NAMESPACE}.svc.cluster.local"
     export PG_PORT="5432"
-    export PG_DATABASE="$db_name"
-    export PG_USERNAME="$db_user"
+    export PG_DATABASE; PG_DATABASE=$(resolve_source_db "$component" name "$db_name")
+    export PG_USERNAME; PG_USERNAME=$(resolve_source_db "$component" user "$db_user")
     # PG_SECRET_NAME and PG_SECRET_KEY are auto-detected by introspect_pg
 
     backup_pg
@@ -72,22 +72,21 @@ do_pg_backup() {
     save_state "${component^^}_BACKUP_TIMESTAMP" "$TIMESTAMP"
 }
 
-# The backup reads the SOURCE database, which may use different database/user
-# names than the migration target (e.g. the Camunda bundled Bitnami Keycloak
-# uses db "bitnami_keycloak"/user "bn_keycloak", while the target uses
-# "keycloak"/"keycloak"). The *_SOURCE_DB_NAME/_USER overrides decouple the
-# source names from the target names (which Phase 3 restore uses); they default
-# to the target names for the common same-name case.
+# The backup reads the SOURCE database, whose name and role differ from the
+# migration target (the bundled Keycloak serves "bitnami_keycloak"/"bn_keycloak",
+# WebModeler "web-modeler", while the targets are "keycloak" and "webmodeler").
+# resolve_source_db reads what the source StatefulSet actually declares; the
+# target names passed here are only the last-resort fallback.
 if [[ "${MIGRATE_IDENTITY}" == "true" ]]; then
-    do_pg_backup identity "${IDENTITY_SOURCE_DB_NAME:-${IDENTITY_DB_NAME}}" "${IDENTITY_SOURCE_DB_USER:-${IDENTITY_DB_USER}}"
+    do_pg_backup identity "${IDENTITY_DB_NAME}" "${IDENTITY_DB_USER}"
 fi
 
 if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-    do_pg_backup keycloak "${KEYCLOAK_SOURCE_DB_NAME:-${KEYCLOAK_DB_NAME}}" "${KEYCLOAK_SOURCE_DB_USER:-${KEYCLOAK_DB_USER}}"
+    do_pg_backup keycloak "${KEYCLOAK_DB_NAME}" "${KEYCLOAK_DB_USER}"
 fi
 
 if [[ "${MIGRATE_WEBMODELER}" == "true" ]]; then
-    do_pg_backup webmodeler "${WEBMODELER_SOURCE_DB_NAME:-${WEBMODELER_DB_NAME}}" "${WEBMODELER_SOURCE_DB_USER:-${WEBMODELER_DB_USER}}"
+    do_pg_backup webmodeler "${WEBMODELER_DB_NAME}" "${WEBMODELER_DB_USER}"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
