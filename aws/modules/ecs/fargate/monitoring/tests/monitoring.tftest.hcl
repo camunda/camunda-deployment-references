@@ -113,6 +113,15 @@ run "alb_rule_created_when_listener_supplied" {
     condition     = aws_lb_target_group.prometheus[0].health_check[0].path == "/prometheus/-/healthy"
     error_message = "The health check must be probed under the route prefix, not at the root"
   }
+
+  # The listener this is meant to be attached to is the ECS reference's shared
+  # web listener, where the orchestration-cluster module pins its own rule at
+  # priority 100 (orchestration-cluster/lb.tf). A default of 100 here means the
+  # documented way of exposing Prometheus fails on a duplicate priority.
+  assert {
+    condition     = aws_lb_listener_rule.prometheus[0].priority != 100
+    error_message = "The default listener rule priority must not be the one orchestration-cluster already takes"
+  }
 }
 
 run "route_prefix_not_applied_without_a_listener" {

@@ -90,7 +90,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_alb_listener_http_arn"></a> [alb\_listener\_http\_arn](#input\_alb\_listener\_http\_arn) | The ARN of the ALB listener to attach the Prometheus rule to. Required when enable\_alb\_http\_listener\_rule is true. | `string` | `""` | no |
-| <a name="input_alb_listener_rule_priority"></a> [alb\_listener\_rule\_priority](#input\_alb\_listener\_rule\_priority) | The priority of the ALB listener rule created for Prometheus. | `number` | `100` | no |
+| <a name="input_alb_listener_rule_priority"></a> [alb\_listener\_rule\_priority](#input\_alb\_listener\_rule\_priority) | The priority of the ALB listener rule created for Prometheus. Not 100: the listener this is normally attached to is the ECS reference's shared web listener, where the orchestration-cluster module pins its own rule at 100, and a duplicate priority is rejected by the provider. | `number` | `200` | no |
 | <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | The AWS region to deploy resources in | `string` | n/a | yes |
 | <a name="input_discovery_image"></a> [discovery\_image](#input\_discovery\_image) | The container image used by the Cloud Map discovery sidecar. It only needs the AWS CLI. | `string` | `"amazon/aws-cli:2.32.7"` | no |
 | <a name="input_discovery_namespace_suffix"></a> [discovery\_namespace\_suffix](#input\_discovery\_namespace\_suffix) | Only Cloud Map private DNS namespaces whose name ends with this suffix are scraped. The orchestration-cluster module registers '<prefix>.service.local'. | `string` | `".service.local"` | no |

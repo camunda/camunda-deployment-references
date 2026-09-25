@@ -238,9 +238,9 @@ variable "alb_listener_http_arn" {
 }
 
 variable "alb_listener_rule_priority" {
-  description = "The priority of the ALB listener rule created for Prometheus."
+  description = "The priority of the ALB listener rule created for Prometheus. Not 100: the listener this is normally attached to is the ECS reference's shared web listener, where the orchestration-cluster module pins its own rule at 100, and a duplicate priority is rejected by the provider."
   type        = number
-  default     = 100
+  default     = 200
 }
 
 variable "web_route_prefix" {

@@ -38,7 +38,14 @@ while true; do
     if ! aws servicediscovery list-namespaces \
         --filters Name=TYPE,Values=DNS_PRIVATE \
         --query 'Namespaces[].[Id,Name]' --output text > "$NS_FILE" 2> "${TMPDIR}/ns-error.txt"; then
+        # Carrying on would rebuild the accumulator from an empty namespace
+        # list and publish "[]", so one throttled API call blanks every target
+        # Prometheus has -- exactly during the incident the scrape exists for.
+        # Leave the previous file in place and try again next cycle.
         echo "ERROR: list-namespaces failed: $(cat "${TMPDIR}/ns-error.txt")"
+        echo "Keeping the previous target list rather than publishing an empty one"
+        sleep "$REFRESH_INTERVAL"
+        continue
     fi
 
     # The AWS CLI prints "None" when a query matches nothing.
