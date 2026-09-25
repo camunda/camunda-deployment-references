@@ -15,7 +15,9 @@ identity:
         host: pg-identity-rw
         port: 5432
         database: identity
-        username: '' # Will be read from secret
+        # Rendered into spring.datasource.username; the secret carries only the
+        # password. Must match the database owner in postgresql-clusters.yml.
+        username: identity
         # Use the new secret configuration format
         secret:
             existingSecret: pg-identity-secret
