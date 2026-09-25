@@ -7,7 +7,7 @@ export MAIL=admin@camunda.example.com
 # Helm chart versions for Ingress components
 
 # renovate: datasource=helm depName=contour registryUrl=https://projectcontour.github.io/helm-charts/
-export CONTOUR_HELM_CHART_VERSION="0.6.0"
+export CONTOUR_HELM_CHART_VERSION="0.8.0"
 # renovate: datasource=helm depName=external-dns registryUrl=https://kubernetes-sigs.github.io/external-dns/
 export EXTERNAL_DNS_HELM_CHART_VERSION="1.21.1"
 # renovate: datasource=helm depName=cert-manager registryUrl=https://charts.jetstack.io
