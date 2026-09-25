@@ -21,6 +21,8 @@ on:
             - .github/actions/internal-debug-failed-pods/**
             - .github/actions/internal-camunda-ci-credentials/**
             - .github/actions/camunda-smoke-test/**
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/internal-terraform-drift-detect/**
             - aws/kubernetes/eks-multi-region-rdbms/**
             - '!aws/kubernetes/eks-multi-region-rdbms/terraform/*/test/golden/**'
             - aws/modules/transit-gateway-hub/**

@@ -115,7 +115,7 @@ class CheckFileTest(unittest.TestCase):
         )
         self.assertEqual(mod.check_file(path), [])
 
-    def test_negated_filter_still_counts_as_filtering(self) -> None:
+    def test_negated_filter_does_not_count_as_filtering(self) -> None:
         path = self.write(
             "on:\n"
             "    pull_request:\n"
@@ -126,7 +126,9 @@ class CheckFileTest(unittest.TestCase):
             "        steps:\n"
             "            - uses: ./.github/actions/beta\n"
         )
-        self.assertEqual(mod.check_file(path), [])
+        problems = mod.check_file(path)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("beta", problems[0])
 
     def test_shared_plumbing_is_exempt(self) -> None:
         (self.root / ".github" / "actions" / "internal-triage-skip").mkdir()
@@ -157,6 +159,47 @@ class CheckFileTest(unittest.TestCase):
         problems = mod.check_file(path)
         self.assertEqual(len(problems), 1)
         self.assertIn("kubernetes-eck-operator", problems[0])
+
+    def test_transitive_dependency_must_be_filtered(self) -> None:
+        (self.root / ".github" / "actions" / "alpha" / "action.yml").write_text(
+            "runs:\n"
+            "    using: composite\n"
+            "    steps:\n"
+            "        - uses: ./.github/actions/beta\n"
+        )
+        path = self.write(
+            "on:\n"
+            "    pull_request:\n"
+            "        paths:\n"
+            "            - .github/actions/alpha/**\n"
+            "jobs:\n"
+            "    a:\n"
+            "        steps:\n"
+            "            - uses: ./.github/actions/alpha\n"
+        )
+        problems = mod.check_file(path)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("beta", problems[0])
+
+    def test_transitive_dependency_that_is_filtered_passes(self) -> None:
+        (self.root / ".github" / "actions" / "alpha" / "action.yml").write_text(
+            "runs:\n"
+            "    using: composite\n"
+            "    steps:\n"
+            "        - uses: ./.github/actions/beta\n"
+        )
+        path = self.write(
+            "on:\n"
+            "    pull_request:\n"
+            "        paths:\n"
+            "            - .github/actions/alpha/**\n"
+            "            - .github/actions/beta/**\n"
+            "jobs:\n"
+            "    a:\n"
+            "        steps:\n"
+            "            - uses: ./.github/actions/alpha\n"
+        )
+        self.assertEqual(mod.check_file(path), [])
 
 
 if __name__ == "__main__":

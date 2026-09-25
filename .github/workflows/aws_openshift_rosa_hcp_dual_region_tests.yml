@@ -29,6 +29,7 @@ on:
             - .github/actions/internal-multi-region-tests/**
             - .github/actions/kubernetes-eck-operator/**
             - .github/actions/internal-camunda-ci-credentials/**
+            - .github/actions/internal-sanitize-tags/**
             - generic/kubernetes/operator-based/elasticsearch/**
 
     workflow_dispatch:

@@ -40,6 +40,9 @@ on:
             - .github/actions/kubernetes-keycloak-operator/**
             - .github/actions/kubernetes-keycloak-operator-cleanup/**
             - .github/actions/internal-camunda-chart-tests/**
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/kubernetes-cnpg-cluster/**
+            - .github/actions/kubernetes-cnpg-cluster-cleanup/**
 
     workflow_dispatch:
         inputs:

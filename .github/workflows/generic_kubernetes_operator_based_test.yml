@@ -36,6 +36,8 @@ on:
             - .github/actions/kubernetes-wildcard-certificate/**
             - .github/actions/internal-configure-wildcard-cert/**
             - .github/actions/kubernetes-ingress-cleanup/**
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/internal-terraform-drift-detect/**
 
     workflow_dispatch:
         inputs:

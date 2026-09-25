@@ -36,6 +36,7 @@ on:
             - .github/actions/internal-generic-terraform-outputs/**
             - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-terraform-drift-detect/**
+            - .github/actions/internal-sanitize-tags/**
             - .github/workflows/aws_compute_ec2_single_region_tests.yml
             - .tool-versions
             - aws/compute/ec2-single-region/**

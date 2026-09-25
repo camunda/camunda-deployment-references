@@ -37,6 +37,9 @@ on:
             - .github/actions/kubernetes-ingress-cleanup/**
             - .github/actions/kubernetes-keycloak-operator/**
             - .github/actions/kubernetes-keycloak-operator-cleanup/**
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/kubernetes-cnpg-cluster/**
+            - .github/actions/kubernetes-cnpg-cluster-cleanup/**
             - generic/kubernetes/operator-based/elasticsearch/**
 
     workflow_dispatch:

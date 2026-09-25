@@ -17,6 +17,11 @@ one asks whether each pattern still matches something, this one asks whether
 the pattern set is complete. Both are decidable from the tree; neither implies
 the other.
 
+A workflow reaches an action transitively too: a create action that calls
+`internal-terraform-drift-detect` puts that action on the workflow's real
+dependency set, and an edit to it must queue the same suites. The closure is
+followed through each action's own `uses:`.
+
 Scope: local composite actions only (`uses: ./.github/actions/<name>`).
 Remote `uses:` are versioned by ref, not by path, so no filter applies. A
 workflow with no path filter at all is not reported: it already runs on every
@@ -37,8 +42,9 @@ ACTIONS = Path(".github/actions")
 # `            - uses: ./.github/actions/internal-clean-namespace` and the
 # `              uses: ./.github/actions/...` step form.
 USES = re.compile(r"^\s*(?:- )?uses:\s*['\"]?\./\.github/actions/(?P<name>[A-Za-z0-9._-]+)")
-# `            - .github/actions/internal-clean-namespace/**`
-FILTERED = re.compile(r"^\s*- ['\"]?!?\.github/actions/(?P<name>[A-Za-z0-9._-]+)/\*\*")
+# `            - .github/actions/internal-clean-namespace/**`. A leading `!`
+# excludes the path from the trigger, so it gates nothing and must not match.
+FILTERED = re.compile(r"^\s*- ['\"]?\.github/actions/(?P<name>[A-Za-z0-9._-]+)/\*\*")
 # A workflow gates on paths only under these events.
 HAS_FILTER = re.compile(r"^\s*paths(?:-ignore)?:\s*$")
 
@@ -69,6 +75,35 @@ SHARED_PLUMBING = frozenset(
 )
 
 
+def action_dependencies() -> dict[str, set[str]]:
+    """Map each local action to the local actions its own `uses:` names."""
+    graph: dict[str, set[str]] = {}
+    for directory in sorted(p for p in ACTIONS.iterdir() if p.is_dir()):
+        manifest = directory / "action.yml"
+        if not manifest.is_file():
+            graph[directory.name] = set()
+            continue
+        graph[directory.name] = {
+            m.group("name")
+            for line in manifest.read_text().splitlines()
+            if (m := USES.match(line))
+        }
+    return graph
+
+
+def reachable(roots: set[str], graph: dict[str, set[str]]) -> set[str]:
+    """Every local action a workflow runs, directly or through another action."""
+    seen: set[str] = set()
+    stack = list(roots)
+    while stack:
+        name = stack.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        stack.extend(graph.get(name, ()))
+    return seen
+
+
 def scan(path: Path) -> tuple[set[str], set[str], bool]:
     """Return (actions used, actions filtered, workflow has any path filter)."""
     used: set[str] = set()
@@ -92,10 +127,13 @@ def scan(path: Path) -> tuple[set[str], set[str], bool]:
     return used, filtered, has_filter
 
 
-def check_file(path: Path) -> list[str]:
+def check_file(path: Path, graph: dict[str, set[str]] | None = None) -> list[str]:
     used, filtered, has_filter = scan(path)
     if not has_filter:
         return []
+    if graph is None:
+        graph = action_dependencies()
+    used = reachable(used, graph)
     candidates = used - filtered - SHARED_PLUMBING
     missing = sorted(n for n in candidates if (ACTIONS / n).is_dir())
     return [
@@ -107,8 +145,9 @@ def check_file(path: Path) -> list[str]:
 
 def main() -> int:
     problems: list[str] = []
+    graph = action_dependencies()
     for path in sorted(WORKFLOWS.glob("*.yml")) + sorted(WORKFLOWS.glob("*.yaml")):
-        problems.extend(check_file(path))
+        problems.extend(check_file(path, graph))
     if problems:
         for problem in problems:
             print(problem, file=sys.stderr)

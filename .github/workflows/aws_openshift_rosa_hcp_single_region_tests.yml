@@ -38,6 +38,7 @@ on:
             - .github/actions/kubernetes-keycloak-operator-cleanup/**
             - .github/actions/kubernetes-eck-operator/**
             - .github/actions/kubernetes-eck-operator-cleanup/**
+            - .github/actions/internal-sanitize-tags/**
 
     workflow_dispatch:
         inputs:
