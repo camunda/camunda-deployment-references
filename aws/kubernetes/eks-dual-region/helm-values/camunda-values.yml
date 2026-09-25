@@ -11,8 +11,6 @@
 #
 
 global:
-    # Multiregion options for the Orchestration Cluster
-    #
     ## WARNING: In order to get your multi-region setup covered by Camunda enterprise support
     # you MUST get your configuration and run books reviewed by Camunda before going to production.
     # This is necessary for us to be able to help you in case of outages,
@@ -20,9 +18,11 @@ global:
     # If you operate this in the wrong way you risk corruption and complete loss of all data especially in the dual-region case.
     # If you can, consider three regions. Please, contact your customer success manager as soon as you start planning a multi-region setup.
     # Camunda reserves the right to limit support if no review was done prior to launch or the review showed significant risks.
-    multiregion:
-        # number of regions that this Camunda Platform instance is stretched across
-        regions: 2
+    #
+    # The broker numbering itself lives in the per-region overlay under
+    # `orchestration.partitioning`: `numberOfZones` and `zoneIndex` must be set
+    # together, and the chart refuses a release that configures both that block
+    # and the deprecated `global.multiregion`.
     security:
         authentication:
             # Use basic auth for inter-component communication (demo/demo)

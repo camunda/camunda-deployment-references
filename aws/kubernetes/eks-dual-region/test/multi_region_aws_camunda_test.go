@@ -268,6 +268,7 @@ func initKubernetesHelpers(t *testing.T) {
 
 func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
+	require.NoError(t, validatePartitioningChart(remoteChartName))
 
 	setStringValues := map[string]string{}
 
@@ -512,6 +513,7 @@ func syncElasticsearchPasswords(t *testing.T) {
 // For secondary cluster, it also disables schema creation to prevent conflicts during DB restore.
 func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disableSchemaCreation bool) {
 	t.Logf("[C8 HELM] Redeploying Camunda Platform Helm Chart in %s 🚀", cluster.ClusterName)
+	require.NoError(t, validatePartitioningChart(remoteChartName))
 
 	region := 0
 
