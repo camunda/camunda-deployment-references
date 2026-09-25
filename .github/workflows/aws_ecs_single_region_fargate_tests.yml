@@ -36,6 +36,7 @@ on:
             - .github/actions/internal-generic-terraform-outputs/**
             - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-terraform-drift-detect/**
+            - .github/actions/internal-sanitize-tags/**
             - .github/workflows/aws_ecs_single_region_fargate_tests.yml
             - .tool-versions
             - aws/containers/ecs-single-region-fargate/**

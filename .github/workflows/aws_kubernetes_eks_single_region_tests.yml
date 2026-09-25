@@ -34,6 +34,15 @@ on:
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/aws-kubernetes-ingress-setup/**
             - .github/actions/kubernetes-wildcard-certificate/**
+            - .github/actions/internal-configure-wildcard-cert/**
+            - .github/actions/internal-wait-oidc-issuer/**
+            - .github/actions/kubernetes-ingress-cleanup/**
+            - .github/actions/kubernetes-keycloak-operator/**
+            - .github/actions/kubernetes-keycloak-operator-cleanup/**
+            - .github/actions/internal-camunda-chart-tests/**
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/kubernetes-cnpg-cluster/**
+            - .github/actions/kubernetes-cnpg-cluster-cleanup/**
 
     workflow_dispatch:
         inputs:
