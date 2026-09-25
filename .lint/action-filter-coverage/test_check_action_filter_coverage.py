@@ -201,6 +201,46 @@ class CheckFileTest(unittest.TestCase):
         )
         self.assertEqual(mod.check_file(path), [])
 
+    def test_step_input_named_paths_is_not_a_filter(self) -> None:
+        path = self.write(
+            "on:\n"
+            "    workflow_dispatch:\n"
+            "jobs:\n"
+            "    a:\n"
+            "        steps:\n"
+            "            - uses: ./.github/actions/beta\n"
+            "            - uses: some/reporter@v1\n"
+            "              with:\n"
+            "                  paths: /tmp/testreports/**/*.xml\n"
+        )
+        self.assertEqual(mod.check_file(path), [])
+
+    def test_paths_ignore_only_is_not_a_positive_filter(self) -> None:
+        path = self.write(
+            "on:\n"
+            "    pull_request:\n"
+            "        paths-ignore:\n"
+            "            - docs/**\n"
+            "jobs:\n"
+            "    a:\n"
+            "        steps:\n"
+            "            - uses: ./.github/actions/beta\n"
+        )
+        self.assertEqual(mod.check_file(path), [])
+
+    def test_paths_under_a_non_filter_event_is_ignored(self) -> None:
+        path = self.write(
+            "on:\n"
+            "    workflow_call:\n"
+            "        paths:\n"
+            "            - .github/actions/alpha/**\n"
+            "jobs:\n"
+            "    a:\n"
+            "        steps:\n"
+            "            - uses: ./.github/actions/beta\n"
+        )
+        self.assertEqual(mod.check_file(path), [])
+
 
 if __name__ == "__main__":
     unittest.main()

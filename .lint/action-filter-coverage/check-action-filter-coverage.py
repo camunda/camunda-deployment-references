@@ -45,8 +45,12 @@ USES = re.compile(r"^\s*(?:- )?uses:\s*['\"]?\./\.github/actions/(?P<name>[A-Za-
 # `            - .github/actions/internal-clean-namespace/**`. A leading `!`
 # excludes the path from the trigger, so it gates nothing and must not match.
 FILTERED = re.compile(r"^\s*- ['\"]?\.github/actions/(?P<name>[A-Za-z0-9._-]+)/\*\*")
-# A workflow gates on paths only under these events.
-HAS_FILTER = re.compile(r"^\s*paths(?:-ignore)?:\s*$")
+# `on:` / `    pull_request:` / `        paths:`
+MAPPING_KEY = re.compile(r"^(?P<indent> *)(?P<name>[A-Za-z_][A-Za-z0-9_-]*):(?P<rest>.*)$")
+# Only `paths` under one of these gates the workflow. `paths` under a step's
+# `with:` is an action input, and `paths-ignore` is a blocklist: a workflow
+# carrying only that one already triggers on paths it does not name.
+FILTER_EVENTS = ("pull_request", "pull_request_target", "push")
 
 # An action a workflow uses but deliberately does not gate on.
 ESCAPE = "lint: unfiltered-action"
@@ -105,21 +109,53 @@ def reachable(roots: set[str], graph: dict[str, set[str]]) -> set[str]:
 
 
 def scan(path: Path) -> tuple[set[str], set[str], bool]:
-    """Return (actions used, actions filtered, workflow has any path filter)."""
+    """Return (actions used, actions gated on, workflow has a positive filter).
+
+    `paths` is only a trigger filter directly under `on.<event>` for one of
+    FILTER_EVENTS. The same key under a step's `with:` is an action input.
+    """
     used: set[str] = set()
     filtered: set[str] = set()
     has_filter = False
+
+    on_indent: int | None = None
+    event_indent: int | None = None
+    in_event = False
+    paths_indent: int | None = None
+
     for line in path.read_text().splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        key = MAPPING_KEY.match(line)
+        indent = len(line) - len(line.lstrip())
+
+        if key:
+            name, ind = key.group("name"), len(key.group("indent"))
+            if name == "on" and ind == 0:
+                on_indent, event_indent, in_event, paths_indent = 0, None, False, None
+                continue
+            if on_indent is not None and ind == 0 and name != "on":
+                on_indent, in_event, paths_indent = None, False, None
+            if on_indent is not None and event_indent is None and ind > on_indent:
+                event_indent = ind
+            if on_indent is not None and ind == event_indent:
+                in_event = name in FILTER_EVENTS
+                paths_indent = None
+            elif in_event and event_indent is not None and ind > event_indent:
+                paths_indent = ind if name == "paths" else None
+                if name == "paths":
+                    has_filter = True
+
+        if paths_indent is not None and indent > paths_indent:
+            m = FILTERED.match(line)
+            if m:
+                filtered.add(m.group("name"))
+                continue
+
         if ESCAPE in line:
             m = USES.match(line)
             if m:
                 filtered.add(m.group("name"))
-            continue
-        if HAS_FILTER.match(line):
-            has_filter = True
-        m = FILTERED.match(line)
-        if m:
-            filtered.add(m.group("name"))
             continue
         m = USES.match(line)
         if m:
