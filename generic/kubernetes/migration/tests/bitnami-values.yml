@@ -97,7 +97,10 @@ identityPostgresql:
 identity:
     enabled: true
 
-# Keycloak — vendor-ee image, pinned to match Keycloak Operator target
+# Keycloak — vendor-ee image, pinned to match Keycloak Operator target.
+# The database and user names are deliberately left at the subchart defaults
+# ("bitnami_keycloak" / "bn_keycloak"), so the suite exercises the source naming
+# a stock installation produces instead of bending it to match the target.
 identityKeycloak:
     enabled: true
     image:
@@ -116,9 +119,6 @@ identityKeycloak:
             tag: 15.17.0
             pullSecrets:
                 - name: registry-camunda-cloud
-        auth:
-            username: keycloak
-            database: keycloak
 
 # WebModeler with SMTP stub (required for Camunda 8.8+)
 webModeler:
