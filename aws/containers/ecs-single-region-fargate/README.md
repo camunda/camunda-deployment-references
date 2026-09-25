@@ -142,6 +142,15 @@ and the generator has no endpoint at all. Pair it with the
 [FIS chaos experiments](../../common/procedure/chaos-fis/README.md) to see what
 a broker restart or a lost Availability Zone does to the throughput number.
 
+### Continuous integration
+
+`.github/workflows/aws_ecs_single_region_fargate_load_tests.yml` runs this
+overlay every Friday and on any pull request that touches it. It deploys the
+cluster with `enable_load_tests = true` at a reduced rate, then fails unless
+the number of benchmark instances the cluster itself reports keeps rising —
+which is what separates a generator that is running from one that is running
+and being ignored.
+
 ### Where this came from
 
 The overlay is the part of
@@ -161,6 +170,17 @@ What came across, and what did not:
 | `aws/chaos-tests` | [`common/procedure/chaos-fis`](../../common/procedure/chaos-fis/README.md) | Portable as-is once the account-specific defaults were parameterised |
 | `aws/benchmark` | — | An ECS Camunda cluster with Aurora, which is what this reference architecture already is |
 | `aws/stable` | — | A shared VPC, ECR and registry credentials read from Camunda's internal Vault, tied to one AWS account and to CIDRs coordinated with a private repository |
+
+The fold tracks upstream `main` at `07888c16`. The only commit there since the
+content was taken moves the benchmark workflows' Vault authentication from
+AppRole to JWT, and touches neither directory above. One pull request is still
+open upstream,
+[#6](https://github.com/camunda/camunda-load-tests-ecs/pull/6): it adds a
+dual-region stack, and what it changes in `aws/load_test` and `aws/monitoring`
+is basic auth, REST addressing and cross-region Prometheus federation. The
+first two are already here; the third belongs to a dual-region topology, which
+this repository covers with
+[`ecs-dual-region-fargate`](../ecs-dual-region-fargate/README.md).
 
 The two dropped states are the ones that only made sense inside Camunda's own
 account. `aws/benchmark` would have been a second, worse copy of this state, and

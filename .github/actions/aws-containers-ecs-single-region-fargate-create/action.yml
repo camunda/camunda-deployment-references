@@ -42,6 +42,19 @@ inputs:
         description: "Platform authentication mode to deploy: 'basic' (built-in users) or 'oidc' (bundled Keycloak)."
         default: basic
         required: false
+    enable-load-tests:
+        description: >
+            Deploy the load test overlay next to the cluster: a Prometheus that discovers it through Cloud Map, and a
+            load generator driving process instances at it. The generator wires basic auth only, so this requires
+            authentication-mode 'basic'; the reference architecture fails the plan otherwise.
+        default: 'false'
+        required: false
+    load-tests-start-rate:
+        description: >
+            Process instances per second the load generator starts, when enable-load-tests is true. Empty keeps the
+            reference architecture's own default, which is the rate the absorbed benchmark ran at.
+        default: ''
+        required: false
 
 outputs:
     terraform-state-url:
@@ -162,9 +175,27 @@ runs:
               enable_camunda_hub_authorization = true
               EOF
               fi
+
+              # The overlay is off in the reference architecture, so a lane that does
+              # not ask for it plans exactly what it planned before. The rate is an
+              # input rather than the reference default because CI proves the overlay
+              # is wired, not that a runner-sized cluster holds a benchmark rate.
+              if [ "${INPUTS_ENABLE_LOAD_TESTS}" = "true" ]; then
+                cat >> terraform.tfvars <<EOF
+              enable_load_tests = true
+              EOF
+
+                if [ -n "${INPUTS_LOAD_TESTS_START_RATE}" ]; then
+                  cat >> terraform.tfvars <<EOF
+              load_tests_start_rate = ${INPUTS_LOAD_TESTS_START_RATE}
+              EOF
+                fi
+              fi
           env:
               INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
               INPUTS_AUTHENTICATION_MODE: ${{ inputs.authentication-mode }}
+              INPUTS_ENABLE_LOAD_TESTS: ${{ inputs.enable-load-tests }}
+              INPUTS_LOAD_TESTS_START_RATE: ${{ inputs.load-tests-start-rate }}
 
         - name: Terraform Plan
           id: plan
