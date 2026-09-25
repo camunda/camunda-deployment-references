@@ -47,7 +47,7 @@
 #
 # Usage:
 #   ./experiments/verify-cluster-health.sh --endpoint <ALB_DNS>
-#   ./experiments/verify-cluster-health.sh --endpoint my-alb.eu-west-1.elb.amazonaws.com --wait 60
+#   ./experiments/verify-cluster-health.sh --endpoint my-alb.eu-west-2.elb.amazonaws.com --wait 60
 #   ./experiments/verify-cluster-health.sh --endpoint <ALB_DNS> --prefix benchmark1
 #
 # Options:
@@ -78,7 +78,7 @@ set -euo pipefail
 ENDPOINT=""
 PREFIX=""
 ECS_CLUSTER="${ECS_CLUSTER:-camunda-cluster}"
-AWS_REGION="${AWS_REGION:-eu-west-1}"
+AWS_REGION="${AWS_REGION:-eu-west-2}"
 CAMUNDA_AUTH_USERNAME="${CAMUNDA_AUTH_USERNAME:-}"
 CAMUNDA_AUTH_PASSWORD="${CAMUNDA_AUTH_PASSWORD:-}"
 WAIT_SECONDS=0

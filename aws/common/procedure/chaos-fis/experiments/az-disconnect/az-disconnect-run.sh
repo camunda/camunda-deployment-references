@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=SCRIPTDIR/../lib/common.sh
 source "${SCRIPT_DIR}/../lib/common.sh"
 
-AWS_REGION="${AWS_REGION:-eu-west-1}"
+AWS_REGION="${AWS_REGION:-eu-west-2}"
 TEMPLATE_ID=""
 TEMPLATE_NAME=""
 AUTO_YES=false

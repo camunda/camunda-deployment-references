@@ -12,11 +12,11 @@
 #   - Setup scripts have been run
 #
 # Usage:
-#   ./experiments/az-disconnect/az-disconnect-create.sh --az eu-west-1b --duration PT10M
-#   ./experiments/az-disconnect/az-disconnect-create.sh --az eu-west-1a --duration PT30M --name my-test
+#   ./experiments/az-disconnect/az-disconnect-create.sh --az eu-west-2b --duration PT10M
+#   ./experiments/az-disconnect/az-disconnect-create.sh --az eu-west-2a --duration PT30M --name my-test
 #
 # Options:
-#   --az        Target AZ to disconnect (required, e.g., eu-west-1a)
+#   --az        Target AZ to disconnect (required, e.g., eu-west-2a)
 #   --duration  Disruption duration in ISO 8601 (default: PT10M = 10 minutes)
 #   --name      Experiment template name tag (default: az-disconnect-dev)
 #   --vpc       VPC name tag to find subnets (default: camunda-vpc)
@@ -29,7 +29,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/common.sh"
 
 # --- Defaults ---
-AWS_REGION="${AWS_REGION:-eu-west-1}"
+AWS_REGION="${AWS_REGION:-eu-west-2}"
 FIS_EXPERIMENT_ROLE="${FIS_EXPERIMENT_ROLE:-FIS-Experiment-Role}"
 VPC_NAME="${VPC_NAME:-camunda-vpc}"
 DURATION="PT10M"
@@ -49,7 +49,7 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: $0 --az <AZ_NAME> [--duration <ISO8601>] [--name <NAME>] [--vpc <VPC_NAME>]"
       echo ""
       echo "Options:"
-      echo "  --az        Target AZ to disconnect (required, e.g., eu-west-1a)"
+      echo "  --az        Target AZ to disconnect (required, e.g., eu-west-2a)"
       echo "  --duration  Disruption duration in ISO 8601 (default: PT10M)"
       echo "  --name      Experiment template name tag (default: az-disconnect-dev)"
       echo "  --vpc       VPC name tag (default: camunda-vpc)"
@@ -61,7 +61,7 @@ done
 
 if [[ -z "${TARGET_AZ}" ]]; then
   echo "ERROR: --az is required."
-  echo "Usage: $0 --az eu-west-1b [--duration PT10M]"
+  echo "Usage: $0 --az eu-west-2b [--duration PT10M]"
   exit 1
 fi
 

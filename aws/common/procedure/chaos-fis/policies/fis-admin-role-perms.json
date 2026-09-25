@@ -2,26 +2,50 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "FISFullAccess",
+      "Sid": "ManageExperimentTemplates",
       "Effect": "Allow",
       "Action": [
         "fis:CreateExperimentTemplate",
         "fis:DeleteExperimentTemplate",
-        "fis:GetExperimentTemplate",
-        "fis:ListExperimentTemplates",
-        "fis:UpdateExperimentTemplate",
+        "fis:GetExperimentTemplate"
+      ],
+      "Resource": [
+        "arn:aws:fis:*:*:experiment-template/*",
+        "arn:aws:fis:*:*:action/*"
+      ]
+    },
+    {
+      "Sid": "RunExperiments",
+      "Effect": "Allow",
+      "Action": [
         "fis:StartExperiment",
         "fis:StopExperiment",
-        "fis:GetExperiment",
-        "fis:ListExperiments",
-        "fis:TagResource",
-        "fis:UntagResource",
-        "fis:ListActions",
-        "fis:GetAction",
-        "fis:ListTargetResourceTypes",
-        "fis:GetTargetResourceType"
+        "fis:GetExperiment"
+      ],
+      "Resource": [
+        "arn:aws:fis:*:*:experiment/*",
+        "arn:aws:fis:*:*:experiment-template/*"
+      ]
+    },
+    {
+      "Sid": "ListExperimentsAndTemplatesNoResourceLevelSupport",
+      "Effect": "Allow",
+      "Action": [
+        "fis:ListExperimentTemplates",
+        "fis:ListExperiments"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "LetFISCreateItsServiceLinkedRoleOnFirstStart",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "arn:aws:iam::*:role/aws-service-role/fis.amazonaws.com/*",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": "fis.amazonaws.com"
+        }
+      }
     },
     {
       "Sid": "PassRoleToFIS",
@@ -35,37 +59,37 @@
       }
     },
     {
-      "Sid": "DescribeSubnetsForTargetSelection",
+      "Sid": "DiscoverTargetsNoResourceLevelSupport",
       "Effect": "Allow",
       "Action": [
         "ec2:DescribeSubnets",
         "ec2:DescribeVpcs",
-        "ec2:DescribeNetworkInterfaces"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "ECSDiscoverTasksForBrokerDisconnect",
-      "Effect": "Allow",
-      "Action": [
+        "ec2:DescribeNetworkInterfaces",
         "ecs:ListServices",
         "ecs:DescribeServices",
         "ecs:ListTasks",
-        "ecs:DescribeTasks",
-        "ecs:StopTask"
+        "ecs:DescribeTasks"
       ],
       "Resource": "*"
     },
     {
-      "Sid": "CloudWatchLogsForExperiments",
+      "Sid": "ListLogGroupsNoResourceLevelSupport",
+      "Effect": "Allow",
+      "Action": "logs:DescribeLogGroups",
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadOnlyFisExperimentLogs",
       "Effect": "Allow",
       "Action": [
         "logs:CreateLogGroup",
-        "logs:DescribeLogGroups",
         "logs:DescribeLogStreams",
         "logs:GetLogEvents"
       ],
-      "Resource": "*"
+      "Resource": [
+        "arn:aws:logs:*:*:log-group:/fis/*",
+        "arn:aws:logs:*:*:log-group:/fis/*:*"
+      ]
     }
   ]
 }

@@ -40,7 +40,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/common.sh"
 
 # --- Defaults ---
-AWS_REGION="${AWS_REGION:-eu-west-1}"
+AWS_REGION="${AWS_REGION:-eu-west-2}"
 FIS_EXPERIMENT_ROLE="${FIS_EXPERIMENT_ROLE:-FIS-Experiment-Role}"
 ECS_CLUSTER="${ECS_CLUSTER:-camunda-cluster}"
 DURATION="PT5M"

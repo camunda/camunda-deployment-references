@@ -21,7 +21,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 fi
 
 FIS_ADMIN_ROLE="${FIS_ADMIN_ROLE:-FIS-Admin}"
-AWS_REGION="${AWS_REGION:-eu-west-1}"
+AWS_REGION="${AWS_REGION:-eu-west-2}"
 
 # Clear any previously assumed role credentials first
 unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN

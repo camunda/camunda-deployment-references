@@ -10,6 +10,9 @@
       "Condition": {
         "StringEquals": {
           "aws:SourceAccount": "ACCOUNT_ID_PLACEHOLDER"
+        },
+        "ArnLike": {
+          "aws:SourceArn": "arn:aws:fis:*:ACCOUNT_ID_PLACEHOLDER:experiment/*"
         }
       }
     }

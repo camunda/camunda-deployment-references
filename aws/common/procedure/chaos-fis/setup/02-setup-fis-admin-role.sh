@@ -5,11 +5,11 @@
 # One-time setup: Creates the FIS-Admin IAM role that SSO users assume
 # to create and run FIS experiments.
 #
-# This role's trust policy allows ANY user assuming the SystemAdministrator
-# SSO role to assume it, so multiple team members can use it.
+# The trust policy names whatever role you are logged in as, so every team
+# member sharing that role can assume FIS-Admin with no per-user setup.
 #
 # Prerequisites:
-#   - Logged in via AWS SSO as SystemAdministrator
+#   - Logged in with a role allowed to create IAM roles
 #   - AWS CLI v2, jq
 #   - 01-setup-fis-experiment-role.sh has been run
 #
@@ -22,7 +22,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 POLICIES_DIR="${SCRIPT_DIR}/../policies"
 
-AWS_REGION="${AWS_REGION:-eu-west-1}"
+AWS_REGION="${AWS_REGION:-eu-west-2}"
 FIS_ADMIN_ROLE="${FIS_ADMIN_ROLE:-FIS-Admin}"
 FIS_EXPERIMENT_ROLE="${FIS_EXPERIMENT_ROLE:-FIS-Experiment-Role}"
 
@@ -37,39 +37,26 @@ CALLER_ARN=$(aws sts get-caller-identity --query Arn --output text)
 echo "Account ID:  ${ACCOUNT_ID}"
 echo "Caller ARN:  ${CALLER_ARN}"
 
-# Extract the SSO role name from the caller ARN
-# e.g., arn:aws:sts::123456:assumed-role/AWSReservedSSO_SystemAdministrator_abc123/user@email
-SSO_ROLE_NAME=$(echo "${CALLER_ARN}" | grep -oP 'assumed-role/\K[^/]+')
-echo "SSO Role:    ${SSO_ROLE_NAME}"
+# Extract the role name out of the caller ARN, which for an assumed role looks
+# like arn:aws:sts::<account>:assumed-role/<role-name>/<session-name>. Done with
+# sed rather than `grep -oP`, whose \K is a GNU extension the BSD grep on macOS
+# does not have.
+SSO_ROLE_NAME=$(printf '%s' "${CALLER_ARN}" | sed -n 's|.*:assumed-role/\([^/]*\)/.*|\1|p')
+
+if [ -z "${SSO_ROLE_NAME}" ]; then
+  echo "ERROR: ${CALLER_ARN} is not an assumed role, so there is no role to trust." >&2
+  echo "Log in with the role you want to grant (for example 'aws sso login --profile <profile>')." >&2
+  exit 1
+fi
+
+echo "Caller role: ${SSO_ROLE_NAME}"
 
 # Get the actual IAM role ARN (SSO roles live under aws-reserved path)
 SSO_ROLE_ARN=$(aws iam get-role --role-name "${SSO_ROLE_NAME}" --query 'Role.Arn' --output text)
-echo "SSO Role ARN: ${SSO_ROLE_ARN}"
+echo "Caller role ARN: ${SSO_ROLE_ARN}"
 
-# Build the trust policy — allows the SSO SystemAdministrator role to assume FIS-Admin
-# Uses a wildcard on the session name so any SSO user with this role can assume it
-TRUST_POLICY=$(cat <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "${SSO_ROLE_ARN}"
-      },
-      "Action": "sts:AssumeRole",
-      "Condition": {
-        "StringEquals": {
-          "aws:PrincipalTag/department": []
-        }
-      }
-    }
-  ]
-}
-EOF
-)
-
-# Simplified trust policy without conditions (the principal ARN is sufficient)
+# Anyone who can assume the caller's own role can assume FIS-Admin. That is the
+# point: the team shares one role rather than one grant per person.
 TRUST_POLICY=$(cat <<EOF
 {
   "Version": "2012-10-17",

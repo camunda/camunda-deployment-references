@@ -15,7 +15,7 @@
 #     source "${SCRIPT_DIR}/../lib/common.sh"
 #
 # All functions expect the following globals to be set by the caller:
-#   AWS_REGION        — AWS region (default: eu-west-1)
+#   AWS_REGION        — AWS region (default: eu-west-2)
 #   ECS_CLUSTER       — ECS cluster name
 #
 # Some functions require additional globals — see each function's doc comment.

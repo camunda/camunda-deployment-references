@@ -2,35 +2,88 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "FISNetworkDisruptConnectivity",
+      "Sid": "CreateTheClonedNetworkAclItWillManage",
+      "Effect": "Allow",
+      "Action": "ec2:CreateNetworkAcl",
+      "Resource": "arn:aws:ec2:*:*:network-acl/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/managedByFIS": "true"
+        }
+      }
+    },
+    {
+      "Sid": "NameTheVpcTheCloneIsCreatedIn",
+      "Effect": "Allow",
+      "Action": "ec2:CreateNetworkAcl",
+      "Resource": "arn:aws:ec2:*:*:vpc/*"
+    },
+    {
+      "Sid": "TagTheCloneAtCreationOnly",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "arn:aws:ec2:*:*:network-acl/*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:CreateAction": "CreateNetworkAcl",
+          "aws:RequestTag/managedByFIS": "true"
+        }
+      }
+    },
+    {
+      "Sid": "MutateAndDeleteOnlyItsOwnClone",
       "Effect": "Allow",
       "Action": [
-        "ec2:CreateNetworkAcl",
         "ec2:CreateNetworkAclEntry",
-        "ec2:CreateTags",
-        "ec2:DeleteNetworkAcl",
+        "ec2:DeleteNetworkAcl"
+      ],
+      "Resource": [
+        "arn:aws:ec2:*:*:network-acl/*",
+        "arn:aws:ec2:*:*:vpc/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "ec2:ResourceTag/managedByFIS": "true"
+        }
+      }
+    },
+    {
+      "Sid": "SwapTheSubnetAssociationAndRestoreIt",
+      "Effect": "Allow",
+      "Action": "ec2:ReplaceNetworkAclAssociation",
+      "Resource": [
+        "arn:aws:ec2:*:*:subnet/*",
+        "arn:aws:ec2:*:*:network-acl/*"
+      ]
+    },
+    {
+      "Sid": "ReadPrefixListEntriesForScopedDisruption",
+      "Effect": "Allow",
+      "Action": "ec2:GetManagedPrefixListEntries",
+      "Resource": "arn:aws:ec2:*:*:prefix-list/*"
+    },
+    {
+      "Sid": "DescribeTargetsNoResourceLevelSupport",
+      "Effect": "Allow",
+      "Action": [
         "ec2:DescribeManagedPrefixLists",
         "ec2:DescribeNetworkAcls",
         "ec2:DescribeSubnets",
         "ec2:DescribeVpcs",
-        "ec2:GetManagedPrefixListEntries",
-        "ec2:ReplaceNetworkAclAssociation"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "FISECSStopTask",
-      "Effect": "Allow",
-      "Action": [
         "ecs:DescribeTasks",
         "ecs:ListTasks",
-        "ecs:StopTask",
         "tag:GetResources"
       ],
       "Resource": "*"
     },
     {
-      "Sid": "FISLogging",
+      "Sid": "StopOnlyEcsTasks",
+      "Effect": "Allow",
+      "Action": "ecs:StopTask",
+      "Resource": "arn:aws:ecs:*:*:task/*"
+    },
+    {
+      "Sid": "DeliverExperimentLogsNoResourceLevelSupport",
       "Effect": "Allow",
       "Action": [
         "logs:CreateLogDelivery",
@@ -38,14 +91,24 @@
         "logs:UpdateLogDelivery",
         "logs:DeleteLogDelivery",
         "logs:ListLogDeliveries",
-        "logs:PutLogEvents",
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
         "logs:PutResourcePolicy",
         "logs:DescribeResourcePolicies",
         "logs:DescribeLogGroups"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "WriteOnlyToFisLogGroups",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:*:*:log-group:/fis/*",
+        "arn:aws:logs:*:*:log-group:/fis/*:*"
+      ]
     }
   ]
 }

@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-AWS_REGION="${AWS_REGION:-eu-west-1}"
+AWS_REGION="${AWS_REGION:-eu-west-2}"
 EXPERIMENT_ID=""
 
 # --- Parse arguments ---

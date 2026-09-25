@@ -151,7 +151,7 @@ source ./experiments/assume-fis-role.sh
 ./experiments/broker-stop/broker-stop-create.sh --prefix benchmark1
 
 # You can also target a broker in a specific AZ:
-./experiments/broker-stop/broker-stop-create.sh --prefix benchmark1 --az eu-west-1b
+./experiments/broker-stop/broker-stop-create.sh --prefix benchmark1 --az eu-west-2b
 
 # 4. Run the experiment (includes pre/post health checks)
 ./experiments/broker-stop/broker-stop-run.sh --name broker-stop-benchmark1 --endpoint <ALB_DNS> --prefix benchmark1
@@ -185,7 +185,7 @@ source ./experiments/assume-fis-role.sh
 ./experiments/broker-disconnect/broker-disconnect-create.sh --prefix benchmark1 --duration PT10M
 
 # You can also target a broker in a specific AZ:
-./experiments/broker-disconnect/broker-disconnect-create.sh --prefix benchmark1 --az eu-west-1b --duration PT10M
+./experiments/broker-disconnect/broker-disconnect-create.sh --prefix benchmark1 --az eu-west-2b --duration PT10M
 
 # 4. Run the experiment (includes pre/post health checks)
 ./experiments/broker-disconnect/broker-disconnect-run.sh --name broker-disconnect-benchmark1 --endpoint <ALB_DNS>
@@ -218,7 +218,7 @@ source ./experiments/assume-fis-role.sh
 ./experiments/s3-disconnect/s3-disconnect-create.sh --prefix benchmark1 --duration PT10M
 
 # You can also target a broker in a specific AZ:
-./experiments/s3-disconnect/s3-disconnect-create.sh --prefix benchmark1 --az eu-west-1b --duration PT10M
+./experiments/s3-disconnect/s3-disconnect-create.sh --prefix benchmark1 --az eu-west-2b --duration PT10M
 
 # 4. Run the experiment (includes pre/post health checks)
 ./experiments/s3-disconnect/s3-disconnect-run.sh --name s3-disconnect-benchmark1 --endpoint <ALB_DNS>
@@ -276,7 +276,7 @@ This disconnects an entire AZ — use with caution as it affects all services in
 source ./experiments/assume-fis-role.sh
 
 # 2. Create an experiment template
-./experiments/az-disconnect/az-disconnect-create.sh --az eu-west-1b --duration PT10M
+./experiments/az-disconnect/az-disconnect-create.sh --az eu-west-2b --duration PT10M
 
 # 3. Run the experiment
 ./experiments/az-disconnect/az-disconnect-run.sh --name 1-az-disconnect-dev
@@ -313,13 +313,17 @@ unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 
 ## Multi-user Support
 
-The setup creates a `FIS-Admin` IAM role with a trust policy that allows **any** `SystemAdministrator` SSO user to assume it. Any team member logged in via SSO as `SystemAdministrator` can:
+`02-setup-fis-admin-role.sh` reads the role you are logged in as and writes it
+into the `FIS-Admin` trust policy, so everyone who shares that role can assume
+it with no per-user setup:
 
 ```bash
 source ./experiments/assume-fis-role.sh
 ```
 
-and then create/run experiments. No per-user setup is required.
+Run the setup as the role the team actually shares. Running it as a personal
+role grants only that role, and running it again as a different one replaces
+the trust policy rather than adding to it.
 
 ## Configuration
 
@@ -327,7 +331,7 @@ All scripts use these defaults (override via environment variables):
 
 | Variable | Default | Description |
 |---|---|---|
-| `AWS_REGION` | `eu-west-1` | AWS region |
+| `AWS_REGION` | `eu-west-2` | AWS region |
 | `VPC_NAME` | `camunda-vpc` | VPC name tag to find subnets (AZ disconnect) |
 | `ECS_CLUSTER` | `camunda-cluster` | ECS cluster name (broker disconnect) |
 | `FIS_EXPERIMENT_ROLE` | `FIS-Experiment-Role` | IAM role FIS assumes |
@@ -336,18 +340,43 @@ All scripts use these defaults (override via environment variables):
 
 ## Cleanup
 
-To remove all FIS-related IAM resources:
-
 ```bash
-./setup/teardown.sh
+./setup/teardown.sh                 # eu-west-2 by default
+./setup/teardown.sh --region eu-west-3 --yes
 ```
 
-> **Note:** This does not delete experiment templates. Delete those first via:
-> ```bash
-> source ./experiments/assume-fis-role.sh
-> ./experiments/experiment-list.sh
-> aws fis delete-experiment-template --id <TEMPLATE_ID> --region eu-west-1
-> ```
+It removes, in that order, the experiment templates tagged
+`managed_by=chaos-tests`, the `/fis/chaos-tests` log group, and the two IAM
+roles. The order matters: deleting a template needs `fis:DeleteExperimentTemplate`,
+so removing the roles first would strand every template it left behind.
+
+Running experiments are **not** stopped. Stop them with `experiment-stop.sh`
+first, or the network disruption outlives the template that described it.
+
+The script also reports any network ACL still tagged `managedByFIS=true`. FIS
+restores the original association when an action ends, but an experiment killed
+rather than stopped can leave its clone attached — and the deny rules with it.
+Nothing else reclaims those, so a subnet stays cut off until someone looks.
+
+### What the account sweep does and does not reclaim
+
+The CI account is swept by
+[`infraex-common-config`](https://github.com/camunda/infraex-common-config):
+nightly per region, plus a weekly pass that deletes IAM roles. Two consequences
+worth knowing before you rely on either:
+
+- **The roles are not permanent.** `FIS-Admin` and `FIS-Experiment-Role` match
+  none of the sweep's keep-patterns (`AWS*`, `AmazonEKS*`, `ManagedOpenShift*`,
+  `ref-arch-*`, `Wiz*`, …), so the weekly pass deletes them and the next
+  experiment fails with `AccessDenied`. Re-run the two setup scripts. If your
+  account needs them to survive, name them with the `ref-arch-` prefix:
+  `FIS_ADMIN_ROLE=ref-arch-fis-admin ./setup/02-setup-fis-admin-role.sh`.
+- **Only the swept regions are covered.** The nightly sweep runs in
+  `eu-west-2`, `eu-west-3` and `eu-central-2` daily, and in `eu-north-1`,
+  `eu-south-1`, `us-east-1` and `us-east-2` on Saturdays. Anything these
+  scripts leave in another region — templates, the log group, a leaked network
+  ACL — stays there. That is why the default region is `eu-west-2`, which is
+  also where the ECS reference architecture runs its own tests.
 
 ## Investigated but not implemented: EFS Disconnect
 

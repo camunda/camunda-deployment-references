@@ -6,7 +6,7 @@
 # network disruptions (modify NACLs, etc.) during experiments.
 #
 # Prerequisites:
-#   - Logged in via AWS SSO as SystemAdministrator
+#   - Logged in with a role allowed to create IAM roles
 #   - AWS CLI v2, jq
 #
 # Usage:
@@ -18,7 +18,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 POLICIES_DIR="${SCRIPT_DIR}/../policies"
 
-AWS_REGION="${AWS_REGION:-eu-west-1}"
+AWS_REGION="${AWS_REGION:-eu-west-2}"
 FIS_EXPERIMENT_ROLE="${FIS_EXPERIMENT_ROLE:-FIS-Experiment-Role}"
 
 echo "=== Setting up FIS Experiment Role ==="
@@ -30,16 +30,23 @@ echo ""
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 echo "Account ID: ${ACCOUNT_ID}"
 
-# Check if role already exists
+# The confused-deputy conditions live in this document, so it has to be applied
+# on every run and not only at creation: a role created before they were added
+# would otherwise keep trusting fis.amazonaws.com unconditionally forever.
+TRUST_POLICY=$(sed "s/ACCOUNT_ID_PLACEHOLDER/${ACCOUNT_ID}/" "${POLICIES_DIR}/fis-experiment-role-trust.json")
+
 if aws iam get-role --role-name "${FIS_EXPERIMENT_ROLE}" &>/dev/null; then
   echo ""
   echo "Role '${FIS_EXPERIMENT_ROLE}' already exists. Updating policies..."
+
+  aws iam update-assume-role-policy \
+    --role-name "${FIS_EXPERIMENT_ROLE}" \
+    --policy-document "${TRUST_POLICY}"
+
+  echo "Trust policy updated."
 else
   echo ""
   echo "Creating role '${FIS_EXPERIMENT_ROLE}'..."
-
-  # Build trust policy with actual account ID
-  TRUST_POLICY=$(sed "s/ACCOUNT_ID_PLACEHOLDER/${ACCOUNT_ID}/" "${POLICIES_DIR}/fis-experiment-role-trust.json")
 
   aws iam create-role \
     --role-name "${FIS_EXPERIMENT_ROLE}" \

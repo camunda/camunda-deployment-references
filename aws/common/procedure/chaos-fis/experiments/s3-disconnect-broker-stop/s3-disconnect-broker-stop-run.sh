@@ -45,7 +45,7 @@ EXPERIMENTS_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck source=SCRIPTDIR/../lib/common.sh
 source "${EXPERIMENTS_DIR}/lib/common.sh"
 
-AWS_REGION="${AWS_REGION:-eu-west-1}"
+AWS_REGION="${AWS_REGION:-eu-west-2}"
 ECS_CLUSTER="${ECS_CLUSTER:-camunda-cluster}"
 TEMPLATE_ID=""
 TEMPLATE_NAME=""
