@@ -1000,6 +1000,18 @@ _minor_version() {
     echo "$1" | grep -oE '^[0-9]+\.[0-9]+' | head -1
 }
 
+# Extract the patch number from a version string, 0 when it carries none.
+# Usage: _patch_version "8.15.3" → 3, _patch_version "8.15" → 0
+_patch_version() {
+    local full
+    full=$(echo "$1" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    if [[ -z "$full" ]]; then
+        echo 0
+    else
+        echo "${full##*.}"
+    fi
+}
+
 # Validate PG version compatibility for a component.
 # pg_restore can restore dumps from older PG versions to newer ones, NOT the reverse.
 # Downgrades are blocked (error); upgrades are allowed with a warning.
@@ -1110,7 +1122,16 @@ validate_es_version() {
         log_warn "    Supported — reindex-from-remote reads an older ${src_major}.x source into a newer ${tgt_major}.x target."
         log_warn "    Expected when the Camunda Helm chart pins an older Elasticsearch than the ECK manifest."
     elif [[ "$source_version" != "$target_version" ]]; then
-        log_success "  ES: version OK (source=${source_version}, target=${target_version} — same minor, patch differs)"
+        local src_patch tgt_patch
+        src_patch=$(_patch_version "$source_version")
+        tgt_patch=$(_patch_version "$target_version")
+        if [[ $tgt_patch -lt $src_patch ]]; then
+            log_error "  ES: version DOWNGRADE (source=${source_version} → target=${target_version})"
+            log_error "    Downgrades are not supported. Target must be >= source version."
+            issues=1
+        else
+            log_success "  ES: version OK (source=${source_version}, target=${target_version} — same minor, patch differs)"
+        fi
     else
         log_success "  ES: version OK (source=${source_version}, target=${target_version})"
     fi
