@@ -203,7 +203,7 @@ delete_template_by_name() {
   existing_id=$(aws fis list-experiment-templates \
     --query "experimentTemplates[?tags.Name=='${template_name}'].id | [0]" \
     --output text \
-    --region "${AWS_REGION}" 2>/dev/null) || true
+    --region "${AWS_REGION}")
 
   if [[ -n "${existing_id}" && "${existing_id}" != "None" ]]; then
     echo "Deleting existing template '${template_name}' (${existing_id})..."
