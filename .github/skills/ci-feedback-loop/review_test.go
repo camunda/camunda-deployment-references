@@ -167,3 +167,17 @@ func TestRepoFromRefs(t *testing.T) {
 		}
 	}
 }
+
+func TestCurrentRepoRouting(t *testing.T) {
+	t.Setenv("GH_REPO", "camunda/from-env")
+
+	got, err := currentRepo([]string{"https://github.com/camunda/c8-sm-checks/pull/357"})
+	if err != nil || got != "camunda/c8-sm-checks" {
+		t.Errorf("PR URL must override GH_REPO: got %q, %v", got, err)
+	}
+
+	got, err = currentRepo([]string{"357"})
+	if err != nil || got != "camunda/from-env" {
+		t.Errorf("GH_REPO must be used without a PR URL: got %q, %v", got, err)
+	}
+}
