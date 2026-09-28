@@ -99,8 +99,12 @@ var prURLRepoPattern = regexp.MustCompile(`(?i)^https?://(?:www\.)?github\.com/(
 func repoFromRefs(args []string) (string, error) {
 	repo := ""
 	for _, a := range args {
-		m := prURLRepoPattern.FindStringSubmatch(strings.TrimSpace(a))
+		a = strings.TrimSpace(a)
+		m := prURLRepoPattern.FindStringSubmatch(a)
 		if m == nil {
+			if strings.Contains(a, "/pull/") {
+				return "", fmt.Errorf("not a github.com PR URL: %s", a)
+			}
 			continue
 		}
 		if repo != "" && !strings.EqualFold(repo, m[1]) {
