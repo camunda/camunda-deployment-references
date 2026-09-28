@@ -90,7 +90,42 @@ func withoutReadyTag(title string) string {
 // gh-backed helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-func currentRepo() (string, error) {
+// prURLRepoPattern captures `<owner>/<repo>` from a GitHub PR URL.
+var prURLRepoPattern = regexp.MustCompile(`(?i)^https?://(?:www\.)?github\.com/([\w.-]+/[\w.-]+)/pull/\d+(?:[/?#].*)?$`)
+
+// repoFromRefs returns the repository named by PR URLs in args, or "" when
+// none is a URL. URLs spanning several repositories are an error: every
+// subcommand drives one repository at a time.
+func repoFromRefs(args []string) (string, error) {
+	repo := ""
+	for _, a := range args {
+		a = strings.TrimSpace(a)
+		m := prURLRepoPattern.FindStringSubmatch(a)
+		if m == nil {
+			if strings.Contains(a, "/pull/") {
+				return "", fmt.Errorf("not a github.com PR URL: %s", a)
+			}
+			continue
+		}
+		if repo != "" && !strings.EqualFold(repo, m[1]) {
+			return "", fmt.Errorf("PR URLs span several repositories (%s, %s)", repo, m[1])
+		}
+		repo = m[1]
+	}
+	return repo, nil
+}
+
+// currentRepo resolves the target repository. A PR URL wins, then GH_REPO,
+// then the checkout's remote. `gh repo view` ignores GH_REPO, so without the
+// first two a URL for another repository would silently drive the PR with the
+// same number in this one.
+func currentRepo(args []string) (string, error) {
+	if repo, err := repoFromRefs(args); err != nil || repo != "" {
+		return repo, err
+	}
+	if repo := strings.TrimSpace(os.Getenv("GH_REPO")); repo != "" {
+		return repo, nil
+	}
 	out, err := gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner")
 	if err != nil {
 		return "", err
@@ -224,7 +259,7 @@ func reviewCmd() *cobra.Command {
 
 // withPRSet resolves the repo and the PR set once, then hands them to fn.
 func withPRSet(args []string, fn func(repo string, prs []int) error) error {
-	repo, err := currentRepo()
+	repo, err := currentRepo(args)
 	if err != nil {
 		return err
 	}
