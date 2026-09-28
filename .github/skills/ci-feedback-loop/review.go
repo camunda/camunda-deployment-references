@@ -243,6 +243,45 @@ func runIDs(repo, headRef, status string, limit int) ([]string, error) {
 	return strings.Fields(string(out)), nil
 }
 
+type workflowRun struct {
+	ID       int64  `json:"databaseId"`
+	Event    string `json:"event"`
+	Workflow string `json:"workflowName"`
+}
+
+// rerunTargets keeps the newest run of each workflow (input is newest-first, as
+// `gh run list` returns it). `dynamic` runs — Copilot review, Dependabot —
+// are GitHub-managed and cannot be re-run, so they are dropped.
+func rerunTargets(runs []workflowRun) []int64 {
+	seen := map[string]bool{}
+	var ids []int64
+	for _, r := range runs {
+		if r.Event == "dynamic" || seen[r.Workflow] {
+			continue
+		}
+		seen[r.Workflow] = true
+		ids = append(ids, r.ID)
+	}
+	return ids
+}
+
+// completedHeadRuns lists the completed runs of the PR's current head commit.
+func completedHeadRuns(repo string, pr int) ([]workflowRun, error) {
+	out, err := gh("pr", "view", strconv.Itoa(pr), "--repo", repo,
+		"--json", "headRefOid", "-q", ".headRefOid")
+	if err != nil {
+		return nil, err
+	}
+	out, err = gh("run", "list", "--repo", repo, "--commit", strings.TrimSpace(string(out)),
+		"--status", "completed", "--limit", "100",
+		"--json", "databaseId,event,workflowName")
+	if err != nil {
+		return nil, err
+	}
+	var runs []workflowRun
+	return runs, json.Unmarshal(out, &runs)
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // commands
 // ─────────────────────────────────────────────────────────────────────────────
@@ -332,7 +371,7 @@ func reviewResumeCmd() *cobra.Command {
 	var rerun bool
 	cmd := &cobra.Command{
 		Use:   "resume [pr-number|pr-url ...]",
-		Short: "Remove skip_all and (optionally) re-run the latest completed run",
+		Short: "Remove skip_all and (optionally) re-run every workflow on the head commit",
 		Long: "Removing the label does not re-trigger anything on its own: `unlabeled` is not\n" +
 			"a workflow trigger. Use --rerun, or push a commit.",
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -346,28 +385,24 @@ func reviewResumeCmd() *cobra.Command {
 					if !rerun {
 						continue
 					}
-					headRef, err := prHeadRef(repo, n)
+					// Only a completed run can be re-run; a full re-run of every
+					// workflow is wanted because the heavy jobs were skipped, not failed.
+					runs, err := completedHeadRuns(repo, n)
 					if err != nil {
 						return err
 					}
-					// Only a completed run can be re-run; a full re-run is wanted
-					// because the heavy jobs were skipped, not failed.
-					ids, err := runIDs(repo, headRef, "completed", 1)
-					if err != nil {
-						return err
-					}
-					for _, id := range ids {
-						if _, err := gh("run", "rerun", "--repo", repo, id); err != nil {
+					for _, id := range rerunTargets(runs) {
+						if _, err := gh("run", "rerun", "--repo", repo, strconv.FormatInt(id, 10)); err != nil {
 							return err
 						}
-						fmt.Printf("PR #%d: re-ran run %s\n", n, id)
+						fmt.Printf("PR #%d: re-ran run %d\n", n, id)
 					}
 				}
 				return nil
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&rerun, "rerun", false, "re-run the latest completed run of each PR")
+	cmd.Flags().BoolVar(&rerun, "rerun", false, "re-run the latest completed run of every workflow on each PR's head commit")
 	return cmd
 }
 
