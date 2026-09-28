@@ -15,11 +15,15 @@
 # `unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN` first.
 #
 # Usage:
-#   ./setup/teardown.sh [--region <region>] [--yes]
+#   ./setup/teardown.sh [--yes]
+#   AWS_REGION=eu-west-3 ./setup/teardown.sh
 #
 # Options:
-#   --region   AWS region holding the templates and log group (default: eu-west-2)
 #   --yes      Skip the confirmation prompt
+#
+# The region comes from AWS_REGION, as it does in every script here. It is not
+# a flag, because none of the sixteen experiment scripts takes one and they all
+# reject unknown options.
 #
 
 set -euo pipefail
@@ -33,16 +37,20 @@ ASSUME_YES=false
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --region) AWS_REGION="$2"; shift 2 ;;
     --yes|-y) ASSUME_YES=true; shift ;;
     -h|--help)
-      echo "Usage: $0 [--region <region>] [--yes]"
+      echo "Usage: $0 [--yes]"
       echo ""
-      echo "  --region   AWS region holding the templates and log group (default: eu-west-2)"
       echo "  --yes      Skip the confirmation prompt"
+      echo ""
+      echo "Environment overrides:"
+      echo "  AWS_REGION            Region holding the templates and log group (default: eu-west-2)"
+      echo "  FIS_LOG_GROUP         Log group to delete (default: /fis/chaos-tests)"
+      echo "  FIS_ADMIN_ROLE        Role name (default: FIS-Admin)"
+      echo "  FIS_EXPERIMENT_ROLE   Role name (default: FIS-Experiment-Role)"
       exit 0
       ;;
-    *) echo "Unknown option: $1"; exit 1 ;;
+    *) echo "Unknown option: $1" >&2; exit 1 ;;
   esac
 done
 

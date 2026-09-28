@@ -347,8 +347,8 @@ The two `setup/` scripts take no region: IAM roles are global.
 ## Cleanup
 
 ```bash
-./setup/teardown.sh                 # eu-west-2 by default
-./setup/teardown.sh --region eu-west-3 --yes
+./setup/teardown.sh                              # eu-west-2 by default
+AWS_REGION=eu-west-3 ./setup/teardown.sh --yes
 ```
 
 It removes, in that order, the experiment templates tagged
