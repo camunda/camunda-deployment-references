@@ -55,6 +55,9 @@ while true; do
 
     TARGETS="["
     FIRST=true
+    # Set when any per-namespace API call fails, so a partial list is never
+    # published over a complete one (same reasoning as list-namespaces above).
+    CYCLE_FAILED=false
 
     # Fed by redirection rather than a pipe, so the loop body stays in this
     # shell and the TARGETS accumulator survives the iteration.
@@ -76,18 +79,26 @@ while true; do
         # namespace is backed by a Route 53 hosted zone, whose VPC associations
         # are what actually decide reachability.
         if [ -n "$VPC_ID" ]; then
-            HZ_ID=$(aws servicediscovery get-namespace --id "$NS_ID" \
+            if ! HZ_ID=$(aws servicediscovery get-namespace --id "$NS_ID" \
                 --query 'Namespace.Properties.DnsProperties.HostedZoneId' \
-                --output text 2> /dev/null || echo "None")
+                --output text 2> /dev/null); then
+                echo "    ERROR: get-namespace failed"
+                CYCLE_FAILED=true
+                continue
+            fi
 
             if [ -z "$HZ_ID" ] || [ "$HZ_ID" = "None" ]; then
                 echo "    Could not resolve the hosted zone, skipping"
                 continue
             fi
 
-            ASSOCIATED=$(aws route53 get-hosted-zone --id "$HZ_ID" \
+            if ! ASSOCIATED=$(aws route53 get-hosted-zone --id "$HZ_ID" \
                 --query "length(VPCs[?VPCId=='${VPC_ID}'])" \
-                --output text 2> /dev/null || echo "0")
+                --output text 2> /dev/null); then
+                echo "    ERROR: get-hosted-zone failed"
+                CYCLE_FAILED=true
+                continue
+            fi
 
             if [ "$ASSOCIATED" = "0" ] || [ "$ASSOCIATED" = "None" ]; then
                 echo "    Not associated with ${VPC_ID}, skipping"
@@ -95,10 +106,14 @@ while true; do
             fi
         fi
 
-        SVC_ID=$(aws servicediscovery list-services \
+        if ! SVC_ID=$(aws servicediscovery list-services \
             --filters Name=NAMESPACE_ID,Values="$NS_ID" \
             --query "Services[?Name=='${SERVICE_NAME}'].Id | [0]" \
-            --output text 2> /dev/null || echo "None")
+            --output text 2> /dev/null); then
+            echo "    ERROR: list-services failed"
+            CYCLE_FAILED=true
+            continue
+        fi
 
         if [ -z "$SVC_ID" ] || [ "$SVC_ID" = "None" ]; then
             echo "    No ${SERVICE_NAME} service found, skipping"
@@ -110,10 +125,14 @@ while true; do
         # ECS registers each task with InstanceId = task id and an
         # AWS_INSTANCE_IPV4 attribute.
         INSTANCES_FILE="${TMPDIR}/instances.txt"
-        aws servicediscovery list-instances \
+        if ! aws servicediscovery list-instances \
             --service-id "$SVC_ID" \
             --query 'Instances[].[Id,Attributes.AWS_INSTANCE_IPV4]' \
-            --output text > "$INSTANCES_FILE" 2> /dev/null || true
+            --output text > "$INSTANCES_FILE" 2> /dev/null; then
+            echo "    ERROR: list-instances failed"
+            CYCLE_FAILED=true
+            continue
+        fi
 
         INSTANCE_COUNT=$(grep -c . "$INSTANCES_FILE" 2> /dev/null || echo 0)
         if [ "$INSTANCE_COUNT" -eq 0 ] || [ "$(cat "$INSTANCES_FILE")" = "None" ]; then
@@ -156,6 +175,12 @@ while true; do
 
     TARGETS="${TARGETS}
 ]"
+
+    if [ "$CYCLE_FAILED" = true ]; then
+        echo "Keeping the previous target list: this cycle saw an API failure"
+        sleep "$REFRESH_INTERVAL"
+        continue
+    fi
 
     # Write then move, so Prometheus never reads a half-written file.
     echo "$TARGETS" > "${TARGETS_FILE}.tmp"
