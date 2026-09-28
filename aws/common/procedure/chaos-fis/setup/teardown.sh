@@ -57,7 +57,7 @@ done
 TEMPLATE_IDS=$(aws fis list-experiment-templates \
   --region "${AWS_REGION}" \
   --query "experimentTemplates[?tags.managed_by=='${MANAGED_BY}'].id" \
-  --output text 2> /dev/null || echo "")
+  --output text)
 TEMPLATE_IDS=${TEMPLATE_IDS//None/}
 
 echo "=== Tearing down the FIS chaos testing resources ==="
@@ -107,7 +107,7 @@ LEAKED_ACLS=$(aws ec2 describe-network-acls \
   --region "${AWS_REGION}" \
   --filters Name=tag:managedByFIS,Values=true \
   --query 'NetworkAcls[].NetworkAclId' \
-  --output text 2> /dev/null || echo "")
+  --output text)
 LEAKED_ACLS=${LEAKED_ACLS//None/}
 
 if [[ -n "${LEAKED_ACLS// /}" ]]; then
