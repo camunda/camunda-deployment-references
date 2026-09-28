@@ -162,6 +162,7 @@ func TestRepoFromRefs(t *testing.T) {
 		{[]string{"HTTPS://GitHub.com/camunda/c8-sm-checks/pull/357"}, "camunda/c8-sm-checks", false},
 		{[]string{"https://evilgithub.com/a/b/pull/1"}, "", true},
 		{[]string{"https://github.com/a/b/pull/1oops"}, "", true},
+		{[]string{"https://github.com/a/b?x/pull/1"}, "", true},
 		{[]string{" https://github.com/camunda/c8-sm-checks/pull/357 "}, "camunda/c8-sm-checks", false},
 	}
 	for _, c := range cases {

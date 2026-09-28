@@ -91,7 +91,7 @@ func withoutReadyTag(title string) string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // prURLRepoPattern captures `<owner>/<repo>` from a GitHub PR URL.
-var prURLRepoPattern = regexp.MustCompile(`(?i)^https?://(?:www\.)?github\.com/([^/\s]+/[^/\s]+)/pull/\d+(?:[/?#].*)?$`)
+var prURLRepoPattern = regexp.MustCompile(`(?i)^https?://(?:www\.)?github\.com/([\w.-]+/[\w.-]+)/pull/\d+(?:[/?#].*)?$`)
 
 // repoFromRefs returns the repository named by PR URLs in args, or "" when
 // none is a URL. URLs spanning several repositories are an error: every
