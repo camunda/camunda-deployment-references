@@ -54,6 +54,10 @@ mgmt_tunnel_close() {
 # orchestration-cluster/ecs.tf:214).
 mgmt_tunnel_open() {
     local region="$1" cluster="$2" prefix="$3" profile="${4:-}"
+    # Expanded as ${arr[@]+"${arr[@]}"}: an empty array under `set -u` is an
+    # "unbound variable" error on bash 3.2, which is what /usr/bin/env bash
+    # finds on a stock macOS, and profile_args is empty whenever no AWS profile
+    # is supplied.
     # Kept so mgmt_tunnel_reopen can rebuild the tunnel unattended: a zone
     # change can drop the Session Manager channel part-way through, and the
     # management API guide warns the coordinator may relocate.
@@ -73,7 +77,7 @@ mgmt_tunnel_open() {
     task_arn=$(aws ecs list-tasks \
         --region "${region}" --cluster "${cluster}" \
         --service-name "${service}" --desired-status RUNNING \
-        "${profile_args[@]}" \
+        ${profile_args[@]+"${profile_args[@]}"} \
         --query 'taskArns[0]' --output text 2>/dev/null || echo "None")
 
     if [ -z "${task_arn}" ] || [ "${task_arn}" = "None" ]; then
@@ -85,7 +89,7 @@ mgmt_tunnel_open() {
     # shellcheck disable=SC2016  # JMESPath uses literal backticks, not shell command substitution
     runtime_id=$(aws ecs describe-tasks \
         --region "${region}" --cluster "${cluster}" --tasks "${task_id}" \
-        "${profile_args[@]}" \
+        ${profile_args[@]+"${profile_args[@]}"} \
         --query 'tasks[0].containers[?name==`orchestration-cluster`].runtimeId' \
         --output text 2>/dev/null || echo "")
 
@@ -97,7 +101,7 @@ mgmt_tunnel_open() {
 
     mgmt_log "Opening management tunnel to ${task_id} (localhost:${MGMT_LOCAL_PORT} -> 9600)..."
     aws ssm start-session \
-        --region "${region}" "${profile_args[@]}" \
+        --region "${region}" ${profile_args[@]+"${profile_args[@]}"} \
         --target "ecs:${cluster}_${task_id}_${runtime_id}" \
         --document-name AWS-StartPortForwardingSession \
         --parameters "{\"portNumber\":[\"9600\"],\"localPortNumber\":[\"${MGMT_LOCAL_PORT}\"]}" \
@@ -258,6 +262,11 @@ mgmt_wait_change() {
 # One-screen view of the cluster: brokers and partition replicas per zone,
 # plus leader coverage. Printed before and after every failover step so the
 # effect of the operation is visible rather than asserted.
+#
+# Always returns 0. It is a diagnostic, and the callers invoke it bare: if it
+# could fail, a momentarily unreachable gateway would abort the script under
+# set -e — including after a zone removal that had already succeeded. The
+# assertions that decide success are separate, immediately below each call.
 mgmt_topology_summary() {
     local alb="$1" user="$2" pass="$3" label="${4:-}"
     local topo
@@ -268,7 +277,7 @@ mgmt_topology_summary() {
     if [ -z "${topo}" ]; then
         echo "  unreachable via ${alb}"
         echo "-----------------------------------------------------------------"
-        return 1
+        return 0
     fi
 
     # 8.10 reports partition roles in lower case ("leader"/"follower").
@@ -288,4 +297,5 @@ mgmt_topology_summary() {
        | .[])
     '
     echo "-----------------------------------------------------------------"
+    return 0
 }

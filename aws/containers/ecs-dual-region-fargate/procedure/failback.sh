@@ -294,8 +294,11 @@ if ! mgmt_tunnel_open "${SURVIVING_AWS_REGION}" "${SURVIVING_CLUSTER}" \
     exit 1
 fi
 
-mgmt_zone_present "${RECOVERED_ZONE}"
-ZONE_STATE=$?
+# `|| ZONE_STATE=$?` rather than a bare call: set -e would kill the script on a
+# non-zero return before $? could be read, and 1 ("zone absent") is exactly the
+# case that needs the re-add below.
+ZONE_STATE=0
+mgmt_zone_present "${RECOVERED_ZONE}" || ZONE_STATE=$?
 if [ "${ZONE_STATE}" -eq 2 ]; then
     err "Could not read the partition distribution, so it is unknown whether"
     err "zone ${RECOVERED_ZONE} needs re-adding. Check: GET /actuator/cluster"

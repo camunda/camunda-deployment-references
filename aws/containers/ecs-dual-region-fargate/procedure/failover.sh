@@ -219,8 +219,12 @@ fi
 log ""
 log "=== Step 4: Verify ==="
 
-mgmt_zone_present "${FAILED_ZONE}"
-case $? in
+# `|| ZONE_STATE=$?` rather than a bare call: set -e would kill the script on a
+# non-zero return before $? could be read, and here 1 ("zone absent") is the
+# success path.
+ZONE_STATE=0
+mgmt_zone_present "${FAILED_ZONE}" || ZONE_STATE=$?
+case "${ZONE_STATE}" in
   0) err "Zone ${FAILED_ZONE} is still in the partition distribution — removal incomplete."
      exit 1 ;;
   2) err "Could not read the partition distribution, so the removal cannot be confirmed."
