@@ -96,6 +96,9 @@ jobs:
             # Non-interactive acknowledgement of the pre-release chart build.
             # TODO: [release-duty] remove this together with the source-build (procedure/build-camunda-chart.sh).
             CAMUNDA_PRERELEASE_ACK: 'true'
+            # Kind's build-camunda-chart.sh otherwise clones beside itself, where
+            # internal-helm-deprecation-check cannot autodetect it and falls back to the registry schema.
+            CAMUNDA_HELM_CHART_CHECKOUT_DIR: ${{ github.workspace }}/.camunda-platform-helm
         permissions:
             contents: read
             pull-requests: write # internal-helm-deprecation-check upserts a comment on the pull request

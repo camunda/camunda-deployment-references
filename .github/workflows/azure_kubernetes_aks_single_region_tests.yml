@@ -32,6 +32,14 @@ on:
             - generic/kubernetes/single-region/tests/integration/**
             - .github/actions/kubernetes-eck-operator/**
             - .github/actions/kubernetes-eck-operator-cleanup/**
+            - .github/actions/internal-configure-wildcard-cert/**
+            - .github/actions/internal-wait-oidc-issuer/**
+            - .github/actions/kubernetes-ingress-cleanup/**
+            - .github/actions/kubernetes-keycloak-operator/**
+            - .github/actions/kubernetes-keycloak-operator-cleanup/**
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/kubernetes-cnpg-cluster/**
+            - .github/actions/kubernetes-cnpg-cluster-cleanup/**
             - generic/kubernetes/operator-based/elasticsearch/**
 
     workflow_dispatch:

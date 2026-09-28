@@ -162,6 +162,22 @@ repos:
             files: ^\.lint/cleanup-coverage/.*\.py$
             pass_filenames: false
 
+          - id: action-filter-coverage
+            name: Workflows trigger on the actions they run
+            entry: .lint/action-filter-coverage/check-action-filter-coverage.py
+            language: script
+            # yamllint disable-line rule:line-length
+            files: ^\.github/workflows/.*\.ya?ml$|^\.github/actions/|^\.lint/action-filter-coverage/
+            pass_filenames: false
+
+          - id: python-unittest-action-filter-coverage
+            name: Python unit tests (action filter coverage)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/action-filter-coverage -p 'test_*.py'
+            language: system
+            files: ^\.lint/action-filter-coverage/.*\.py$
+            pass_filenames: false
+
           - id: reporter-coverage
             name: The CI events reporter watches every integration suite
             entry: .lint/reporter-coverage/check-reporter-coverage.py
