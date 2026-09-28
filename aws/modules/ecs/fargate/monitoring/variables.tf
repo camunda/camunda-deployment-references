@@ -155,8 +155,8 @@ variable "scrape_interval" {
   default     = "15s"
 
   validation {
-    condition     = can(regex("^[0-9]+(ms|s|m|h|d|w|y)$", var.scrape_interval))
-    error_message = "scrape_interval must be a Prometheus duration such as 15s or 1m."
+    condition     = can(regex("^0*[1-9][0-9]*(ms|s|m|h|d|w|y)$", var.scrape_interval))
+    error_message = "scrape_interval must be a positive Prometheus duration such as 15s or 1m."
   }
 }
 
