@@ -195,6 +195,24 @@ fi
 log ""
 log "=== Step 2: Scale up ECS services in ${RECOVERED_AWS_REGION} ==="
 
+# How many brokers to expect once the zone is back. Read from the live cluster
+# rather than assuming both zones are the same size: --brokers can recover an
+# asymmetric zone, and a symmetric guess would fail an otherwise healthy
+# failback. Measured before the scale-up, while only the surviving zone is up.
+SURVIVING_TOPOLOGY=$(curl -sf --max-time 20 -u "${ADMIN_USER}:${ADMIN_PASS}" \
+    "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
+SURVIVING_BROKERS=$(echo "${SURVIVING_TOPOLOGY}" | jq --arg z "${RECOVERED_ZONE}" \
+    '[.brokers[] | select(.brokerId | startswith($z + "_") | not)] | length' 2>/dev/null || echo "")
+
+if ! [[ "${SURVIVING_BROKERS}" =~ ^[0-9]+$ ]] || [ "${SURVIVING_BROKERS}" -eq 0 ]; then
+    err "Could not read the surviving broker count from http://${SURVIVING_ALB}/v2/topology."
+    err "Failback cannot verify its own result without it; check the gateway and retry."
+    exit 1
+fi
+
+TARGET_BROKERS=$(( SURVIVING_BROKERS + ZONE_BROKERS ))
+log "  ${SURVIVING_BROKERS} broker(s) surviving, recovering ${ZONE_BROKERS} -> expecting ${TARGET_BROKERS}."
+
 # A dry run must not restart the recovered region; only the Zones API call is
 # exercised, with dryRun=true, further down.
 if [ "$DRY_RUN" = true ]; then
@@ -235,7 +253,6 @@ log ""
 log "=== Step 3: Wait for ${RECOVERED_ZONE} brokers to rejoin membership ==="
 log "  (they join as members but host no partitions until the zone is re-added)"
 
-TARGET_BROKERS=$(( ZONE_BROKERS * 2 ))
 ELAPSED=0
 MAX_WAIT=900
 if [ "$DRY_RUN" = true ]; then
