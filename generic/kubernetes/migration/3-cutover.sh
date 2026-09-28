@@ -147,8 +147,8 @@ do_final_pg_backup() {
     export COMPONENT="$component"
     export PG_HOST="${sts_name}.${NAMESPACE}.svc.cluster.local"
     export PG_PORT="5432"
-    export PG_DATABASE="$db_name"
-    export PG_USERNAME="$db_user"
+    export PG_DATABASE; PG_DATABASE=$(resolve_source_db "$component" name "$db_name")
+    export PG_USERNAME; PG_USERNAME=$(resolve_source_db "$component" user "$db_user")
     export PG_IMAGE="$pg_image"
     # PG_SECRET_NAME and PG_SECRET_KEY are set by introspect_pg above
 
@@ -161,19 +161,19 @@ do_final_pg_backup() {
     save_state "${component^^}_FINAL_BACKUP" "${component}-db-final.dump"
 }
 
-# The final backup reads the SOURCE database, so it honours the same
-# *_SOURCE_DB_NAME/_USER overrides as the Phase 2 initial backup (defaulting to
-# the target names). The restore below uses the target names.
+# The final backup reads the SOURCE database, so it resolves the source names
+# the same way as the Phase 2 initial backup. The restore below uses the target
+# names, which is what decouples the two.
 if [[ "${MIGRATE_IDENTITY}" == "true" ]]; then
-    do_final_pg_backup identity "${IDENTITY_SOURCE_DB_NAME:-${IDENTITY_DB_NAME}}" "${IDENTITY_SOURCE_DB_USER:-${IDENTITY_DB_USER}}"
+    do_final_pg_backup identity "${IDENTITY_DB_NAME}" "${IDENTITY_DB_USER}"
 fi
 
 if [[ "${MIGRATE_KEYCLOAK}" == "true" ]]; then
-    do_final_pg_backup keycloak "${KEYCLOAK_SOURCE_DB_NAME:-${KEYCLOAK_DB_NAME}}" "${KEYCLOAK_SOURCE_DB_USER:-${KEYCLOAK_DB_USER}}"
+    do_final_pg_backup keycloak "${KEYCLOAK_DB_NAME}" "${KEYCLOAK_DB_USER}"
 fi
 
 if [[ "${MIGRATE_WEBMODELER}" == "true" ]]; then
-    do_final_pg_backup webmodeler "${WEBMODELER_SOURCE_DB_NAME:-${WEBMODELER_DB_NAME}}" "${WEBMODELER_SOURCE_DB_USER:-${WEBMODELER_DB_USER}}"
+    do_final_pg_backup webmodeler "${WEBMODELER_DB_NAME}" "${WEBMODELER_DB_USER}"
 fi
 
 if [[ "${MIGRATE_ELASTICSEARCH}" == "true" ]]; then

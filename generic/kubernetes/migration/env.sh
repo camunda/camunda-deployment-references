@@ -24,7 +24,10 @@ export CAMUNDA_HELM_CHART_VERSION="${CAMUNDA_HELM_CHART_VERSION:-14.10.0}"
 # Leave empty or "localhost" for port-forward setups.
 export CAMUNDA_DOMAIN="${CAMUNDA_DOMAIN:-}"
 
-# ---[ Database names (must match source installation) ]-----------------------
+# ---[ Target database names ]-------------------------------------------------
+# These name the databases and roles the migration writes INTO. The source names
+# are read off the Bitnami StatefulSet at run time, so they do not have to match;
+# override them only via the *_SOURCE_DB_* variables at the bottom of this file.
 export IDENTITY_DB_NAME="${IDENTITY_DB_NAME:-identity}"
 export IDENTITY_DB_USER="${IDENTITY_DB_USER:-identity}"
 export KEYCLOAK_DB_NAME="${KEYCLOAK_DB_NAME:-keycloak}"
@@ -191,16 +194,18 @@ export EXTERNAL_KEYCLOAK_CONTEXT_PATH="${EXTERNAL_KEYCLOAK_CONTEXT_PATH:-/auth}"
 export EXTERNAL_KEYCLOAK_REALM="${EXTERNAL_KEYCLOAK_REALM:-/realms/camunda-platform}"
 
 # ---[ Source DB name/user overrides ]-----------------------------------------
-# Bitnami uses non-standard database and user names that differ from the target
-# (e.g. bitnami_keycloak/bn_keycloak instead of keycloak/keycloak). These
-# overrides let the backup scripts connect to the correct source database without
-# changing the target schema names. Default to the target DB_NAME/DB_USER values.
-export IDENTITY_SOURCE_DB_NAME="${IDENTITY_SOURCE_DB_NAME:-${IDENTITY_DB_NAME}}"
-export IDENTITY_SOURCE_DB_USER="${IDENTITY_SOURCE_DB_USER:-${IDENTITY_DB_USER}}"
-export KEYCLOAK_SOURCE_DB_NAME="${KEYCLOAK_SOURCE_DB_NAME:-${KEYCLOAK_DB_NAME}}"
-export KEYCLOAK_SOURCE_DB_USER="${KEYCLOAK_SOURCE_DB_USER:-${KEYCLOAK_DB_USER}}"
-export WEBMODELER_SOURCE_DB_NAME="${WEBMODELER_SOURCE_DB_NAME:-${WEBMODELER_DB_NAME}}"
-export WEBMODELER_SOURCE_DB_USER="${WEBMODELER_SOURCE_DB_USER:-${WEBMODELER_DB_USER}}"
+# The Bitnami sub-charts name their database and role differently from the
+# migration target: the bundled Keycloak serves "bitnami_keycloak"/"bn_keycloak"
+# and WebModeler "web-modeler"/"web-modeler", while the targets are
+# "keycloak" and "webmodeler". Phases 2 and 3 read the real names off the source
+# StatefulSet, so leave these empty unless detection fails or you deliberately
+# want to back up a different source database.
+export IDENTITY_SOURCE_DB_NAME="${IDENTITY_SOURCE_DB_NAME:-}"
+export IDENTITY_SOURCE_DB_USER="${IDENTITY_SOURCE_DB_USER:-}"
+export KEYCLOAK_SOURCE_DB_NAME="${KEYCLOAK_SOURCE_DB_NAME:-}"
+export KEYCLOAK_SOURCE_DB_USER="${KEYCLOAK_SOURCE_DB_USER:-}"
+export WEBMODELER_SOURCE_DB_NAME="${WEBMODELER_SOURCE_DB_NAME:-}"
+export WEBMODELER_SOURCE_DB_USER="${WEBMODELER_SOURCE_DB_USER:-}"
 
 # =============================================================================
 echo "Migration config loaded:"
