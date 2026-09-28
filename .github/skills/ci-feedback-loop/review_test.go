@@ -161,6 +161,8 @@ func TestRepoFromRefs(t *testing.T) {
 		{[]string{"https://github.com/a/x/pull/1", "https://github.com/b/y/pull/2"}, "", true},
 		{[]string{"HTTPS://GitHub.com/camunda/c8-sm-checks/pull/357"}, "camunda/c8-sm-checks", false},
 		{[]string{"https://evilgithub.com/a/b/pull/1"}, "", false},
+		{[]string{"https://github.com/a/b/pull/1oops"}, "", false},
+		{[]string{" https://github.com/camunda/c8-sm-checks/pull/357 "}, "camunda/c8-sm-checks", false},
 	}
 	for _, c := range cases {
 		got, err := repoFromRefs(c.in)
