@@ -12,11 +12,6 @@ variable "ecs_cluster_id" {
   type        = string
 }
 
-variable "vpc_id" {
-  description = "The VPC id where the ECS cluster and service are deployed"
-  type        = string
-}
-
 variable "vpc_private_subnets" {
   description = "List of private subnet IDs within the VPC"
   type        = list(string)

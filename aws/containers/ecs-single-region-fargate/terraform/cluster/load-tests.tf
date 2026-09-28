@@ -96,7 +96,6 @@ module "load_generator" {
 
   prefix              = local.load_tests_prefix
   ecs_cluster_id      = aws_ecs_cluster.ecs.id
-  vpc_id              = module.vpc.vpc_id
   vpc_private_subnets = module.vpc.private_subnets
   aws_region          = data.aws_region.current.region
 

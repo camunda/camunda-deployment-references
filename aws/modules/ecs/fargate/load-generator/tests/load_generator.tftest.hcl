@@ -13,7 +13,6 @@ mock_provider "aws" {}
 variables {
   aws_region                  = "us-east-1"
   ecs_cluster_id              = "arn:aws:ecs:us-east-1:000000000000:cluster/test"
-  vpc_id                      = "vpc-aaaaaaaa"
   vpc_private_subnets         = ["subnet-aaa1aaaa", "subnet-aaa2aaaa", "subnet-aaa3aaaa"]
   prefix                      = "test-lg"
   ecs_task_execution_role_arn = "arn:aws:iam::000000000000:role/test-exec"
