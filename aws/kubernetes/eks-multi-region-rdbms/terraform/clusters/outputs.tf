@@ -29,10 +29,9 @@ output "zone_names" {
     Zone name per slot, in slot order, for EVERY slot including ones not
     deployed yet.
 
-    Deliberately not the same set as the active regions. The Camunda zone list
-    describes the whole topology so that the replicas of an undeployed zone are
-    reserved rather than redistributed; feeding it only the active regions
-    would silently build a smaller cluster and lose the growth property.
+    Deliberately not the same set as the active regions. The procedures read the
+    name of a slot from here before its zone exists, which is how
+    activate-region.sh knows the zone it adds.
   EOT
   value       = [for r in var.regions : r.short_name]
 }

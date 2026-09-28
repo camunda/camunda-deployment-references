@@ -12,8 +12,9 @@ variable "regions" {
   description = <<-EOT
     Ordered list of region slots. Index 0 is region slot 0, index 1 is region
     slot 1, and so on. The list defines the named zones of the Camunda cluster
-    and is immutable for its lifetime; growth activates a zone declared here
-    rather than adding a new one later.
+    and is immutable for its lifetime. Camunda declares only the zones of the
+    active slots; procedure/activate-region.sh adds a spare slot's zone to the
+    running cluster once the slot is deployed.
 
     `vpc_cidr_block` and `service_cidr_block` must not overlap across regions:
     Transit Gateway cannot route duplicate prefixes, and Submariner runs
@@ -127,13 +128,13 @@ variable "regions" {
 
 variable "active_region_count" {
   description = <<-EOT
-    Number of region slots actually deployed. Must be at least
-    `length(var.regions) - 1` so that every Zeebe partition keeps a majority of
-    its replicas, and at most `length(var.regions)`.
+    Number of region slots actually deployed. At least two, and at most
+    `length(var.regions)`.
 
-    Deploying fewer regions than slots is the "growth" mode: the cluster runs
-    with one replica missing per partition and tolerates no further region
-    loss until the remaining regions are activated.
+    Deploying fewer regions than slots provisions the spare slot for later.
+    Camunda declares only the zones it runs, so the cluster is complete at every
+    size; procedure/activate-region.sh adds the spare zone once its region is
+    deployed.
   EOT
 
   type    = number

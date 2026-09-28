@@ -16,10 +16,11 @@ set -euo pipefail
 #      CLUSTER_CONTEXTS.
 #   3. CAMUNDA_ACTIVE_REGIONS already reflects the NEW number of active regions.
 #
-# The slot count, and therefore every broker's identity, was fixed at bootstrap.
-# Activating a slot only fills in the replicas that the partition layout already
-# reserved for it; no existing broker is renumbered, no partition is
-# redistributed, and the regions already running are left alone.
+# The cluster declares only the zones it runs. Activating a slot starts the
+# brokers of its zone, then adds the zone to the running cluster with POST
+# /actuator/cluster/zones/<zone>, which places the zone's replicas and raises the
+# replication factor by them. No existing broker is renumbered, and the regions
+# already running are not restarted.
 
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
@@ -39,7 +40,7 @@ camunda::require_slot "$SLOT" "the activation slot"
 
 if [ "$SLOT" -ge "$CAMUNDA_REGION_SLOTS" ]; then
     echo "ERROR: slot $SLOT is outside the provisioned slot range (0..$((CAMUNDA_REGION_SLOTS - 1)))." >&2
-    echo "       The zone list is fixed at bootstrap; only a declared zone can be activated." >&2
+    echo "       Provision the slot with Terraform before activating it." >&2
     exit 1
 fi
 
@@ -47,11 +48,11 @@ read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 new_context="${contexts[$SLOT]}"
 survivor_context="${contexts[0]}"
 
-echo "==> 1/6 Joining region slot $SLOT ($new_context) to the Submariner ClusterSet"
+echo "==> 1/7 Joining region slot $SLOT ($new_context) to the Submariner ClusterSet"
 "$SCRIPT_DIR/submariner/join-clusters.sh" "$SLOT"
 "$SCRIPT_DIR/submariner/verify-submariner.sh"
 
-echo "==> 2/6 Preparing $new_context: storage class, namespace and RDBMS secret"
+echo "==> 2/7 Preparing $new_context: storage class, namespace and RDBMS secret"
 # Scoped to the new slot: the regions already running have all of this, and a
 # recovery has no business touching clusters that still serve traffic. The
 # storage class in particular is easy to forget because the bootstrap configured
@@ -63,11 +64,11 @@ echo "==> 2/6 Preparing $new_context: storage class, namespace and RDBMS secret"
 "$SCRIPT_DIR/setup-namespaces.sh" "$SLOT"
 "$SCRIPT_DIR/create-rdbms-secret.sh" "$SLOT"
 
-echo "==> 3/6 Rendering the Helm values with the new contact point list"
+echo "==> 3/7 Rendering the Helm values with the new contact point list"
 . "$SCRIPT_DIR/generate-zeebe-helm-values.sh"
 "$SCRIPT_DIR/assemble-envsubst-values.sh"
 
-echo "==> 4/6 Installing Camunda in region slot $SLOT"
+echo "==> 4/7 Installing Camunda in region slot $SLOT"
 # Only the new region is installed. The contact point list matters at bootstrap;
 # once a cluster is formed a newcomer only has to reach one member, and the rest
 # learn about it by gossip. So the regions already running keep their shorter
@@ -75,10 +76,15 @@ echo "==> 4/6 Installing Camunda in region slot $SLOT"
 # they pick up on their next upgrade.
 "$SCRIPT_DIR/install-chart.sh" "$SLOT"
 
-echo "==> 5/6 Exporting the new region's services to the ClusterSet"
+echo "==> 5/7 Exporting the new region's services to the ClusterSet"
 "$SCRIPT_DIR/submariner/export-services.sh"
 
-echo "==> 6/6 Waiting for the new brokers to join, then verifying the topology"
+echo "==> 6/7 Adding zone $(camunda::zone_name "$SLOT") to the running cluster"
+# The new brokers are running but own no partition yet: their zone is not in the
+# cluster's partition distribution. Adding it is what gives them replicas.
+camunda::add_zone "$survivor_context" "$SLOT"
+
+echo "==> 7/7 Verifying the topology"
 # check-cluster-topology.sh already polls the gateway until the expected broker
 # count is present and then asserts the shape, so the wait and the verification
 # are the same call.

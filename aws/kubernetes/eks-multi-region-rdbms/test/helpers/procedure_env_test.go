@@ -254,6 +254,39 @@ func TestZoneReplicasHonoursAnExplicitLayout(t *testing.T) {
 	assertVar(t, vars, "CAMUNDA_REPLICATION_FACTOR", "9")
 }
 
+// A slot that is not deployed yet declares no zone, so it adds neither brokers
+// nor replicas until activate-region.sh adds it. The partition count stays sized
+// on the slots, because it cannot change after bootstrap. The harness and the
+// procedure have to agree on all three.
+func TestOnlyActiveZonesAreDeclared(t *testing.T) {
+	t.Parallel()
+
+	vars := Env{RegionSlots: 3, ActiveRegions: 2, BrokersPerRegion: 2}.Vars()
+	assertVar(t, vars, "CAMUNDA_REPLICATION_FACTOR", "4")
+	assertVar(t, vars, "CAMUNDA_CLUSTER_SIZE", "4")
+	assertVar(t, vars, "CAMUNDA_PARTITION_COUNT", "6")
+
+	cmd := exec.Command("bash", "-c", `
+set -euo pipefail
+export CAMUNDA_REGION_SLOTS=3 CAMUNDA_ACTIVE_REGIONS=2 CAMUNDA_BROKERS_PER_REGION=2
+export AWS_REGIONS="a b c" CLUSTER_CONTEXTS="a b c" SUBMARINER_CLUSTER_IDS="a b c"
+export CAMUNDA_ZONE_NAMES="a b c"
+. ./export_environment_prerequisites.sh >/dev/null
+printf '%s %s %s' "$CAMUNDA_REPLICATION_FACTOR" "$CAMUNDA_CLUSTER_SIZE" "$CAMUNDA_PARTITION_COUNT"
+`)
+	cmd.Dir = ProcedureDir(t)
+	cmd.Env = append(os.Environ(), "CAMUNDA_ZONE_REPLICAS=", "CAMUNDA_REPLICATION_FACTOR=",
+		"CAMUNDA_CLUSTER_SIZE=", "CAMUNDA_PARTITION_COUNT=")
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("sourcing the procedure environment failed: %v\n%s", err, out)
+	}
+	if got := string(out); got != "4 4 6" {
+		t.Fatalf("procedure: expected replication factor, cluster size and partition count %q, got %q", "4 4 6", got)
+	}
+}
+
 func assertVar(t *testing.T, vars []string, key, want string) {
 	t.Helper()
 

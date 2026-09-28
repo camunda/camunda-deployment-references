@@ -66,10 +66,10 @@ orchestration:
         # `numberOfZones` and `zoneIndex` are deliberately absent: they are the
         # round-robin numbering, and the chart refuses them with this scheme --
         # the zone list describes the topology instead.
-        # Every zone of the cluster, including any not deployed yet. Listing a
-        # zone before it exists is deliberate: its replicas are reserved, so
-        # each partition runs at N-1 of N until the zone is filled, which is a
-        # majority and therefore a working cluster.
+        # The zones actually deployed, and nothing more. A zone listed before it
+        # runs still receives replicas, so every partition would run one zone
+        # short. A region deployed later is added to the running cluster with
+        # the management API; see procedure/activate-region.sh.
         #
         # Priority skews Raft leadership. Zone 0 gets the highest because it
         # hosts the Aurora writer, and keeping leaders next to the writer is

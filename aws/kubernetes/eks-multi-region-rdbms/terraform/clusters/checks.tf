@@ -22,23 +22,6 @@ resource "terraform_data" "topology_guard" {
     }
 
     precondition {
-      condition     = 2 * var.active_region_count > local.region_slot_count
-      error_message = <<-EOT
-        active_region_count (${var.active_region_count}) is not a majority of the ${local.region_slot_count} region slots.
-
-        Deploying a minority of the declared zones leaves the partition replicas
-        that live in the undeployed ones unreachable, so no partition can form a
-        quorum. Bootstrap with at least ${local.region_slot_count - 1} regions,
-        then activate the remaining one.
-
-        This is the coarse check: Terraform knows the zones but not how many
-        replicas each one holds. The exact test, in replicas rather than zones,
-        runs in procedure/export_environment_prerequisites.sh, which is what
-        catches a layout whose undeployed zones hold the majority.
-      EOT
-    }
-
-    precondition {
       condition = length(local.cross_region_rules) == length(distinct([
         for rule in local.cross_region_rules :
         "${rule.ip_protocol}|${rule.from_port}|${rule.to_port}"
