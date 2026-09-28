@@ -51,6 +51,8 @@ on:
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-debug-failed-ecs-tasks/**
             - .github/actions/internal-generic-terraform-outputs/**
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/internal-terraform-drift-detect/**
             - .github/actions/internal-tests-matrix/**
             - .github/workflows/aws_ecs_single_region_fargate_load_tests.yml
             - .github/workflows-config/aws-containers-ecs-single-region-fargate-load-tests/**
