@@ -105,8 +105,8 @@ AZ_LIST=$(echo "${TASKS_DETAIL}" | jq -r '[.[].az] | unique | .[]')
 AZ_COUNT=$(echo "${AZ_LIST}" | wc -l)
 
 if [[ "${AZ_COUNT}" -ge 2 ]]; then
-  # Pick two AZs randomly
-  SELECTED_AZS=$(echo "${AZ_LIST}" | shuf | head -2)
+  # Pick two AZs randomly (awk rather than GNU-only shuf, for macOS)
+  SELECTED_AZS=$(echo "${AZ_LIST}" | awk 'BEGIN{srand()} {print rand() "\t" $0}' | sort -n | cut -f2- | head -2)
   AZ_A=$(echo "${SELECTED_AZS}" | head -1)
   AZ_B=$(echo "${SELECTED_AZS}" | tail -1)
 
