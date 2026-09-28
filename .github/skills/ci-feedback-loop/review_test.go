@@ -186,3 +186,22 @@ func TestCurrentRepoRouting(t *testing.T) {
 		t.Errorf("GH_REPO must be used without a PR URL: got %q, %v", got, err)
 	}
 }
+
+func TestRerunTargets(t *testing.T) {
+	// Newest-first, as `gh run list` returns it; mirrors PR #3518, where the
+	// newest completed run was the non-rerunnable Copilot review.
+	runs := []workflowRun{
+		{36423578228, "dynamic", "Copilot"},
+		{36398975707, "pull_request", "Lint"},
+		{36398974545, "pull_request", "Tests - Operator based"},
+		{36398971397, "push", "Check external links"},
+		{36136978857, "pull_request", "Lint"},
+	}
+	want := []int64{36398975707, 36398974545, 36398971397}
+	if got := rerunTargets(runs); !reflect.DeepEqual(got, want) {
+		t.Errorf("rerunTargets = %v, want %v", got, want)
+	}
+	if got := rerunTargets(nil); got != nil {
+		t.Errorf("rerunTargets(nil) = %v, want nil", got)
+	}
+}
