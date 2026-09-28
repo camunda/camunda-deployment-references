@@ -326,6 +326,19 @@ check_health() {
   ' 2>/dev/null || echo "0")
 
   # Evaluate health criteria
+  #
+  # This one comes first because every comparison below is guarded on a count
+  # being greater than zero, so a response carrying no topology at all -- "{}",
+  # or a 200 from something that is not the cluster -- satisfies all of them and
+  # reports "All 0 brokers healthy". A recovery check would then pass against a
+  # cluster that no longer exists, which is the opposite of what it is for. A
+  # live cluster always reports at least one broker, one partition and a
+  # cluster size of one.
+  if [[ "${cluster_size}" -le 0 || "${expected_partitions}" -le 0 || "${brokers_count}" -le 0 ]]; then
+    healthy=false
+    details="${details}Topology reports no cluster: clusterSize=${cluster_size}, partitionsCount=${expected_partitions}, brokers=${brokers_count}. "
+  fi
+
   if [[ "${brokers_count}" -lt "${cluster_size}" ]]; then
     healthy=false
     details="${details}Only ${brokers_count}/${cluster_size} brokers visible. "
