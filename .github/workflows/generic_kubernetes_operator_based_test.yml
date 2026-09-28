@@ -13,6 +13,9 @@ on:
             - .github/workflows-config/generic-kubernetes-operator-based/test_matrix.yml
             - .tool-versions
             - generic/kubernetes/operator-based/**
+            # The OpenShift leg runs procedure scripts from here, such as
+            # copy-router-tls-secret.sh, so a change to one has to retrigger this suite.
+            - generic/openshift/single-region/**
             - aws/openshift/rosa-hcp-single-region/**
             - '!aws/openshift/rosa-hcp-single-region/terraform/*/test/golden/**'
             - aws/kubernetes/eks-single-region-irsa/**
