@@ -19,6 +19,26 @@ This migration is designed to align your setup with the [operator-based referenc
 >
 > The migration performs basic validation (CPU, memory, PVC sizes) but cannot detect all configuration mismatches.
 
+## Database naming
+
+> **Note**
+> This section duplicates the official guide on purpose, and should be removed once
+> [camunda-docs#10078](https://github.com/camunda/camunda-docs/pull/10078) is published. Until then the
+> published 8.9 guide still states the older semantics, so following the link above for these variables
+> would misconfigure the migration.
+
+`IDENTITY_DB_NAME`, `KEYCLOAK_DB_NAME`, `WEBMODELER_DB_NAME` and their `_USER` counterparts name the databases and roles the migration writes **into**. They are not the source names, and they do not have to match your Bitnami installation:
+
+| Component   | Source name in a stock Helm installation | Target name created by the migration |
+| ----------- | ---------------------------------------- | ------------------------------------ |
+| Identity    | `identity`                               | `identity`                           |
+| Keycloak    | `bitnami_keycloak` / `bn_keycloak`       | `keycloak`                           |
+| Web Modeler | `web-modeler`                            | `webmodeler`                         |
+
+The scripts read the real source database and role off the Bitnami StatefulSet at runtime, so you do not configure them. Restores run with `--no-owner --no-privileges`, which is why a differing source role is not a problem.
+
+Set `IDENTITY_SOURCE_DB_NAME`, `KEYCLOAK_SOURCE_DB_NAME`, `WEBMODELER_SOURCE_DB_NAME` or their `_USER` counterparts only to override that detection, for example when your installation was renamed away from the chart defaults. Left unset, each falls back to what the source StatefulSet declares.
+
 ## Quick Start
 
 ```bash
