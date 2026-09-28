@@ -11,6 +11,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -272,14 +273,22 @@ func completedHeadRuns(repo string, pr int) ([]workflowRun, error) {
 	if err != nil {
 		return nil, err
 	}
-	out, err = gh("run", "list", "--repo", repo, "--commit", strings.TrimSpace(string(out)),
-		"--status", "completed", "--limit", "100",
-		"--json", "databaseId,event,workflowName")
+	// The REST endpoint paginates; `gh run list` only takes a fixed --limit.
+	out, err = gh("api", "--paginate",
+		"repos/"+repo+"/actions/runs?status=completed&per_page=100&head_sha="+strings.TrimSpace(string(out)),
+		"--jq", ".workflow_runs[] | {databaseId: .id, event, workflowName: .name}")
 	if err != nil {
 		return nil, err
 	}
 	var runs []workflowRun
-	return runs, json.Unmarshal(out, &runs)
+	for dec := json.NewDecoder(bytes.NewReader(out)); dec.More(); {
+		var r workflowRun
+		if err := dec.Decode(&r); err != nil {
+			return nil, err
+		}
+		runs = append(runs, r)
+	}
+	return runs, nil
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
