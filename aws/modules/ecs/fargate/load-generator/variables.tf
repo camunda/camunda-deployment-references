@@ -210,8 +210,8 @@ variable "rate_adjustment_strategy" {
   default     = "none"
 
   validation {
-    condition     = contains(["none", "backpressure", "responsetime"], var.rate_adjustment_strategy)
-    error_message = "rate_adjustment_strategy must be one of: none, backpressure, responsetime."
+    condition     = contains(["none", "backpressure", "jobRatio", "backoff", "autoTune", "autoTuneJobRatio"], var.rate_adjustment_strategy)
+    error_message = "rate_adjustment_strategy must be one of: none, backpressure, jobRatio, backoff, autoTune, autoTuneJobRatio."
   }
 }
 

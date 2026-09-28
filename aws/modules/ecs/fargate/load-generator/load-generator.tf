@@ -56,7 +56,7 @@ locals {
       { name = "BENCHMARK_TASKCOMPLETIONDELAY", value = tostring(var.task_completion_delay) },
 
       { name = "JDK_JAVA_OPTIONS", value = "-XX:+HeapDumpOnOutOfMemoryError" },
-      { name = "LOG_LEVEL", value = var.log_level },
+      { name = "LOGGING_LEVEL_ROOT", value = var.log_level },
     ],
     local.auth_environment,
     local.optional_environment,
