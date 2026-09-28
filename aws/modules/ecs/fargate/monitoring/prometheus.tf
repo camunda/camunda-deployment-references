@@ -31,7 +31,6 @@ locals {
     "exec /bin/prometheus",
     " --config.file=/etc/prometheus/prometheus.yml",
     " --storage.tsdb.retention.time=${var.retention_time}",
-    " --web.enable-lifecycle",
     " --web.listen-address=:${var.prometheus_port}",
     ], local.web_route_prefix_args
   ))
