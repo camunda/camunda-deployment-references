@@ -5,6 +5,12 @@ permissions:
     contents: read
 
 on:
+    # GitHub only fires `schedule` from the default branch, and this workflow is
+    # deliberately absent from `.github/workflows-config/workflow-scheduler.yml`, which is
+    # what gives the stable branches their scheduled runs. The load test therefore runs on
+    # `main` only: it provisions a full ECS cluster and drives load against it, so paying
+    # for that once a week is the point, and once per maintenance branch is not. Add it to
+    # the scheduler config if a stable branch ever needs its own load coverage.
     schedule:
         - cron: 0 5 * * 5 # Runs at 05:00 on Friday, outside every other suite's slot
     workflow_dispatch:
