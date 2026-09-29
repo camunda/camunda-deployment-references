@@ -57,11 +57,6 @@ run "load_tests_absent_by_default" {
     condition     = output.load_generator_target == null
     error_message = "No load generator target should be reported unless enable_load_tests is set"
   }
-
-  assert {
-    condition     = output.prometheus_service_name == null
-    error_message = "No Prometheus service should be reported unless enable_load_tests is set"
-  }
 }
 
 run "load_tests_wired_when_enabled" {
@@ -79,10 +74,6 @@ run "load_tests_wired_when_enabled" {
   assert {
     condition     = output.load_generator_log_group != null
     error_message = "The load generator should be planned when enable_load_tests is true"
-  }
-  assert {
-    condition     = output.prometheus_service_name != null
-    error_message = "The Prometheus service name should be reported so CI can export its series"
   }
 }
 
@@ -163,5 +154,34 @@ run "benchmark_cluster_profile_applies_the_absorbed_settings" {
   assert {
     condition     = strcontains(jsonencode(local.benchmark_cluster_environment), "\"CAMUNDA_PROCESSING_FLOWCONTROL_WRITE_LIMIT\",\"value\":\"10000\"")
     error_message = "The write limit should match the absorbed benchmark"
+  }
+}
+
+run "series_export_reaches_the_monitoring_module" {
+  command = plan
+
+  variables {
+    enable_load_tests                       = true
+    load_tests_export_gcs_bucket            = "results"
+    load_tests_export_namespace             = "ecs-ci-1"
+    load_tests_export_gcp_credential_config = "{\"type\":\"external_account\"}"
+  }
+
+  assert {
+    condition     = output.load_tests_series_export == "results/ecs-ci/ecs-ci-1"
+    error_message = "The overlay should forward the export settings to the monitoring module"
+  }
+}
+
+run "series_export_off_by_default" {
+  command = plan
+
+  variables {
+    enable_load_tests = true
+  }
+
+  assert {
+    condition     = output.load_tests_series_export == null
+    error_message = "No series should leave the VPC unless load_tests_export_gcs_bucket is set"
   }
 }

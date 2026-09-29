@@ -56,9 +56,9 @@ output "prometheus_endpoint" {
   description = "In-VPC base URL of the load test Prometheus, or null when enable_load_tests is false."
 }
 
-output "prometheus_service_name" {
-  value       = one(module.monitoring[*].service_name)
-  description = "ECS service running the load test Prometheus, or null when enable_load_tests is false."
+output "load_tests_series_export" {
+  value       = one(module.monitoring[*].series_export)
+  description = "Where the load test series are exported, as <bucket>/<prefix>/<namespace>, or null when the export or the overlay is off."
 }
 
 output "load_generator_log_group" {

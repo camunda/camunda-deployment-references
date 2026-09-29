@@ -134,14 +134,15 @@ The AWS credentials come from a role assumed at the start of the job. They expir
 
 ### Load test metrics export
 
-`aws_ecs_single_region_fargate_load_tests.yml` keeps the series of each run for the benchmark Grafana, without any network path between the CI clusters and the benchmark infrastructure:
+`aws_ecs_single_region_fargate_load_tests.yml` streams the series of each run to the benchmark Grafana. There is no network path between the CI clusters and the benchmark infrastructure:
 
-1. At the end of the run, the job reads the Prometheus TSDB through `aws ecs execute-command`. Prometheus stays reachable from inside the VPC only.
-2. The job writes the dump in OpenMetrics format, compresses it, and names it `ecs-ci-<run id>-<attempt>-<scenario>.om.gz`. The scrape config replaces the `instance` label, which held the task IP, with the task id.
-3. Outside pull requests, the job uploads the file to the load-test results bucket through workload identity federation. The identity can write objects but cannot read them. `camunda/infra-core` publishes its secret. When the secret is not there, the job skips the upload and the run stays green.
-4. On the benchmark cluster, an importer converts every new file into TSDB blocks labelled `namespace=<file name>`. Grafana reads these blocks from a dedicated data source.
+1. The load test Prometheus runs a background dump every five minutes. Each dump writes the series scraped since the previous one, in the Prometheus text format. The scrape config replaces the `instance` label, which held the task IP, with the task id.
+2. An `upload` sidecar in the same task moves each file to the load-test results bucket, under `ecs-ci/ecs-ci-<run id>-<attempt>/`. The sidecar authenticates with the task role through Google workload identity federation. The federation grants write-only access and uses no key. `camunda/infra-core` publishes the credential configuration to Vault.
+3. On the benchmark cluster, an importer replays every new file into the benchmark Prometheus over remote write, with `namespace` set to the directory name.
 
-The job never publishes the file as a GitHub artifact, because this repository is public. The export and upload steps use `continue-on-error`, so an export failure can neither fail the assertion nor block the teardown.
+The dump runs inside the task, so the series keep flowing for as long as the cluster runs. This includes a run that keeps its cluster with `delete_clusters: false`.
+
+Pull request runs do not export. When the Vault secret is missing, the job keeps the export off and the run stays green. The upload sidecar is not essential to the task, so an export failure cannot stop the scrape. The job never publishes series as a GitHub artifact, because this repository is public.
 
 ## CI Status Reporting
 

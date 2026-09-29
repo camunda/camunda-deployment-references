@@ -201,3 +201,48 @@ run "rejects_an_alb_rule_without_a_listener" {
 
   expect_failures = [aws_lb_listener_rule.prometheus]
 }
+
+run "series_export_off_by_default" {
+  command = plan
+
+  assert {
+    condition     = !strcontains(aws_ecs_task_definition.prometheus.container_definitions, "\"name\":\"upload\"")
+    error_message = "No upload sidecar should ship unless export_gcs_bucket is set"
+  }
+
+  assert {
+    condition     = !strcontains(aws_ecs_task_definition.prometheus.container_definitions, "export-series.sh")
+    error_message = "Prometheus should not dump its series unless export_gcs_bucket is set"
+  }
+}
+
+run "series_export_ships_dumper_and_uploader" {
+  command = plan
+
+  variables {
+    export_gcs_bucket            = "results"
+    export_namespace             = "ecs-ci-1"
+    export_gcp_credential_config = "{\"type\":\"external_account\"}"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "\"name\":\"upload\"")
+    error_message = "The upload sidecar should ship when export_gcs_bucket is set"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "export-series.sh")
+    error_message = "Prometheus should dump its series periodically when export_gcs_bucket is set"
+  }
+}
+
+run "rejects_an_export_without_a_namespace" {
+  command = plan
+
+  variables {
+    export_gcs_bucket            = "results"
+    export_gcp_credential_config = "{\"type\":\"external_account\"}"
+  }
+
+  expect_failures = [var.export_namespace]
+}

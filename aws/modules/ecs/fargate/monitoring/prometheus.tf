@@ -24,12 +24,23 @@ locals {
     " --web.route-prefix=${var.web_route_prefix}",
   ] : []
 
+  export_enabled = var.export_gcs_bucket != ""
+  export_outbox  = "/outbox"
+
+  # The dump runs in the background of the Prometheus container, the only one
+  # that holds both the TSDB and promtool.
+  export_command = local.export_enabled ? "cat <<'SCRIPT' > /tmp/export-series.sh\n${file("${path.module}/templates/export-series.sh")}\nSCRIPT\nsh /tmp/export-series.sh &\n" : ""
+
+  upload_command = "cat <<'SCRIPT' > /tmp/upload-series.sh\n${file("${path.module}/templates/upload-series.sh")}\nSCRIPT\nexec sh /tmp/upload-series.sh"
+
   prometheus_command = join("", concat([
     "cat <<'EOF' >/etc/prometheus/prometheus.yml\n",
     local.prometheus_config,
     "\nEOF\n",
+    local.export_command,
     "exec /bin/prometheus",
     " --config.file=/etc/prometheus/prometheus.yml",
+    " --storage.tsdb.path=/prometheus/data",
     " --storage.tsdb.retention.time=${var.retention_time}",
     " --web.listen-address=:${var.prometheus_port}",
     ], local.web_route_prefix_args
@@ -56,7 +67,7 @@ resource "aws_ecs_task_definition" "prometheus" {
     cpu_architecture        = var.task_cpu_architecture
   }
 
-  container_definitions = jsonencode([
+  container_definitions = jsonencode(concat([
     merge({
       name       = "discovery"
       image      = var.discovery_image
@@ -105,13 +116,19 @@ resource "aws_ecs_task_definition" "prometheus" {
       ]
       entryPoint = ["/bin/sh", "-c"]
       command    = [local.prometheus_command]
-      mountPoints = [
+      environment = local.export_enabled ? [
+        { name = "OUTBOX", value = local.export_outbox },
+        { name = "EXPORT_INTERVAL_SECONDS", value = tostring(var.export_interval_seconds) },
+      ] : []
+      mountPoints = concat([
         {
           sourceVolume  = "targets"
           containerPath = "/etc/prometheus/targets"
           readOnly      = false
         }
-      ]
+        ], local.export_enabled ? [
+        { sourceVolume = "outbox", containerPath = local.export_outbox, readOnly = false }
+      ] : [])
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -121,10 +138,46 @@ resource "aws_ecs_task_definition" "prometheus" {
         }
       }
     }, local.repository_credentials),
-  ])
+    ], local.export_enabled ? [
+    # Not essential: an export problem must never stop the scrape.
+    merge({
+      name       = "upload"
+      image      = var.export_upload_image
+      essential  = false
+      entryPoint = ["/bin/sh", "-c"]
+      command    = [local.upload_command]
+      environment = [
+        { name = "OUTBOX", value = local.export_outbox },
+        { name = "EXPORT_INTERVAL_SECONDS", value = tostring(var.export_interval_seconds) },
+        { name = "GCS_BUCKET", value = var.export_gcs_bucket },
+        { name = "GCS_PREFIX", value = var.export_gcs_prefix },
+        { name = "NAMESPACE", value = var.export_namespace },
+        { name = "GCP_CREDENTIAL_CONFIG", value = var.export_gcp_credential_config },
+        { name = "AWS_REGION", value = var.aws_region },
+      ]
+      mountPoints = [
+        { sourceVolume = "outbox", containerPath = local.export_outbox, readOnly = false }
+      ]
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = local.log_group_name
+          awslogs-region        = var.aws_region
+          awslogs-stream-prefix = "upload"
+        }
+      }
+    }, local.repository_credentials),
+  ] : []))
 
   volume {
     name = "targets"
+  }
+
+  dynamic "volume" {
+    for_each = local.export_enabled ? ["outbox"] : []
+    content {
+      name = volume.value
+    }
   }
 }
 

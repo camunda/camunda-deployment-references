@@ -253,3 +253,54 @@ variable "web_route_prefix" {
     error_message = "web_route_prefix must start with a / and must not end with one, for example /prometheus."
   }
 }
+
+################################################################
+#                        Series export                         #
+################################################################
+
+variable "export_gcs_bucket" {
+  description = "GCS bucket the scraped series are exported to while the task runs. Empty, the default, disables the export: no upload sidecar ships and nothing leaves the VPC."
+  type        = string
+  default     = ""
+}
+
+variable "export_gcs_prefix" {
+  description = "Object prefix under export_gcs_bucket. Files land under <prefix>/<export_namespace>/."
+  type        = string
+  default     = "ecs-ci"
+}
+
+variable "export_namespace" {
+  description = "Name the exported series are filed under, and the namespace label the receiving side gives them. Required when export_gcs_bucket is set."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.export_gcs_bucket == "" || can(regex("^[a-z0-9][a-z0-9-]*$", var.export_namespace))
+    error_message = "export_namespace must be set to lowercase letters, digits and dashes when export_gcs_bucket is set."
+  }
+}
+
+variable "export_gcp_credential_config" {
+  description = "Google workload identity federation credential configuration (external_account JSON, generated for an AWS provider) that lets the task role write to export_gcs_bucket. It holds no key. Required when export_gcs_bucket is set."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.export_gcs_bucket == "" || can(jsondecode(var.export_gcp_credential_config).type)
+    error_message = "export_gcp_credential_config must be an external_account JSON document when export_gcs_bucket is set."
+  }
+}
+
+variable "export_interval_seconds" {
+  description = "How often the series scraped since the previous export are dumped and uploaded."
+  type        = number
+  default     = 300
+}
+
+variable "export_upload_image" {
+  description = "Container image of the upload sidecar. It needs gcloud, curl and python3."
+  type        = string
+  # renovate: datasource=docker depName=google/cloud-sdk
+  default = "google/cloud-sdk:587.0.0-slim"
+}
