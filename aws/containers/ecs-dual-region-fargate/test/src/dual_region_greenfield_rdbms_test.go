@@ -73,6 +73,9 @@ func TestEndToEnd_Greenfield_TGW_RDBMS(t *testing.T) {
 		AppVars: map[string]interface{}{
 			"aws_profile":  awsProfile,
 			"default_tags": commonTags,
+			// Opt-in load test overlay: proves it applies and destroys cleanly
+			// on the dual-region stack.
+			"enable_load_tests": os.Getenv("TEST_ENABLE_LOAD_TESTS") == "true",
 		},
 		BackendBucket:    backendBucket,
 		BackendRegion:    backendRegion,

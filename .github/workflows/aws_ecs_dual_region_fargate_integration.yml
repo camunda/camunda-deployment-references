@@ -17,6 +17,11 @@ on:
                 required: false
                 default: ''
                 type: string
+            enable_load_tests:
+                description: Also deploy the load test overlay (greenfield RDBMS test only)
+                required: false
+                default: false
+                type: boolean
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -76,6 +81,7 @@ jobs:
                   TEST_AWS_PROFILE: ${{ env.AWS_PROFILE }}
                   TEST_REGION_0: eu-west-2
                   TEST_REGION_1: eu-west-3
+                  TEST_ENABLE_LOAD_TESTS: ${{ inputs.enable_load_tests }}
                   TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
