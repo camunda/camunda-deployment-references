@@ -82,6 +82,10 @@ module "monitoring" {
   prometheus_port = var.load_tests_prometheus_port
   retention_time  = var.load_tests_retention_time
 
+  # Lets CI read the TSDB through `aws ecs execute-command` at the end of a
+  # run. The server itself stays unreachable from outside the VPC.
+  task_enable_execute_command = true
+
   service_security_group_ids = [
     aws_security_group.allow_necessary_camunda_ports_within_vpc.id,
     aws_security_group.allow_package_80_443.id,

@@ -56,6 +56,11 @@ output "prometheus_endpoint" {
   description = "In-VPC base URL of the load test Prometheus, or null when enable_load_tests is false."
 }
 
+output "prometheus_service_name" {
+  value       = one(module.monitoring[*].service_name)
+  description = "ECS service running the load test Prometheus, or null when enable_load_tests is false."
+}
+
 output "load_generator_log_group" {
   value       = one(module.load_generator[*].log_group_name)
   description = "CloudWatch log group carrying the load generator's throughput lines, or null when enable_load_tests is false."

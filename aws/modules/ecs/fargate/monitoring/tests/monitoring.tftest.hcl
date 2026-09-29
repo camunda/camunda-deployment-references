@@ -48,6 +48,18 @@ run "discovery_sidecar_ships_with_the_server" {
   }
 }
 
+run "scraped_series_carry_no_task_ip" {
+  command = plan
+
+  # Series leave the VPC when a run exports them for later analysis. The
+  # scrape target is a task IP, so `instance` is rewritten to the task id the
+  # discovery sidecar already puts in `pod`.
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "source_labels: [pod]")
+    error_message = "The scrape config should rewrite instance from the pod label"
+  }
+}
+
 run "discovery_scope_is_configurable" {
   command = plan
 

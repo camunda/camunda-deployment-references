@@ -97,6 +97,13 @@ env:
     # Seconds between the two instance-count samples the assertion compares.
     LOAD_TESTS_OBSERVATION_SECONDS: '120'
 
+    # Where finished runs leave their series for the benchmark Grafana. The
+    # upload is write-only through workload identity, runs outside pull
+    # requests only, and nothing is published as a GitHub artifact: this
+    # repository is public. See docs/ci.md, "Load test metrics export".
+    LOAD_TEST_RESULTS_BUCKET: camunda-benchmark-load-test-results-prod
+    LOAD_TEST_RESULTS_PREFIX: ecs-ci
+
 jobs:
     triage:
         runs-on: ubuntu-slim
@@ -230,6 +237,9 @@ jobs:
     load-tests:
         name: Assert the load generator drives the cluster - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write # workload identity federation for the results bucket upload
         needs:
             - prepare-clusters
             - clusters-info
@@ -344,6 +354,82 @@ jobs:
                   fi
 
                   echo "✅ ${DELTA} new benchmark instances in ${LOAD_TESTS_OBSERVATION_SECONDS}s, total ${SECOND}"
+
+            - name: Export the load test series
+              id: export
+              if: always() && env.TESTS_ENABLED == 'true' && steps.terraform-outputs.outcome == 'success'
+              # Exporting is a by-product of the run: it must never fail the
+              # assertion above or block the cleanup.
+              continue-on-error: true
+              timeout-minutes: 15
+              env:
+                  PROMETHEUS_SERVICE: ${{ fromJson(steps.terraform-outputs.outputs.json_output).prometheus_service_name.value }}
+                  RAW_CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{ matrix.scenario.shortName }}
+                  SERIES_NAMESPACE: ${{ env.LOAD_TEST_RESULTS_PREFIX }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.scenario.shortName }}
+              run: |
+                  set -euo pipefail
+
+                  # Prometheus is reachable from inside the VPC only. ECS Exec
+                  # goes through the SSM agent over an outbound channel, so the
+                  # TSDB can be read without exposing the server.
+                  ECS_CLUSTER="ecs-$(printf '%s' "${RAW_CLUSTER_NAME}" | sha1sum | cut -c1-9)-cluster"
+                  TASK=$(aws ecs list-tasks --cluster "${ECS_CLUSTER}" --service-name "${PROMETHEUS_SERVICE}" \
+                    --desired-status RUNNING --query 'taskArns[0]' --output text)
+                  [[ "${TASK}" != "None" ]] || { echo "❌ No running Prometheus task"; exit 1; }
+
+                  # Only job="core" is scraped, so the whole TSDB is the run.
+                  # The markers separate the payload from the SSM session banner.
+                  aws ecs execute-command --cluster "${ECS_CLUSTER}" --task "${TASK}" \
+                    --container prometheus --interactive \
+                    --command "sh -c 'cd /prometheus && echo ==BEGIN== && promtool tsdb dump-openmetrics data | gzip -c | base64 && echo ==END=='" \
+                    > ./export-session.txt
+
+                  mkdir -p ./export
+                  OUT="./export/${SERIES_NAMESPACE}.om.gz"
+                  tr -d '\r' < ./export-session.txt | sed -n '/^==BEGIN==$/,/^==END==$/p' | sed '1d;$d' | base64 -d > "${OUT}"
+                  rm -f ./export-session.txt
+
+                  SAMPLES=$(gunzip -c "${OUT}" | grep -vc '^#' || true)
+                  [[ "${SAMPLES}" -gt 0 ]] || { echo "❌ The export holds no sample"; exit 1; }
+                  echo "✅ Exported ${SAMPLES} samples as ${SERIES_NAMESPACE}"
+                  echo "file=${OUT}" | tee -a "$GITHUB_OUTPUT"
+
+            # The secret is published by infra-core once this repository is
+            # allowed on the bucket. Until then this step fails quietly and the
+            # upload is skipped.
+            - name: Import the results bucket identity
+              id: results-identity
+              if: steps.export.outcome == 'success' && github.event_name != 'pull_request'
+              continue-on-error: true
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/load-test-results/ecs-load-test-results-sa SERVICE_ACCOUNT;
+                      secret/data/products/infrastructure-experience/ci/load-test-results/ecs-load-test-results-sa WORKLOAD_IDENTITY_PROVIDER;
+
+            - name: Authenticate to Google Cloud
+              if: steps.results-identity.outcome == 'success'
+              continue-on-error: true
+              id: gcp-auth
+              uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+              with:
+                  workload_identity_provider: ${{ steps.results-identity.outputs.WORKLOAD_IDENTITY_PROVIDER }}
+                  service_account: ${{ steps.results-identity.outputs.SERVICE_ACCOUNT }}
+
+            - name: Upload the series to the results bucket
+              if: steps.gcp-auth.outcome == 'success'
+              continue-on-error: true
+              env:
+                  EXPORT_FILE: ${{ steps.export.outputs.file }}
+              run: |
+                  set -euo pipefail
+                  gcloud storage cp "${EXPORT_FILE}" "gs://${LOAD_TEST_RESULTS_BUCKET}/${LOAD_TEST_RESULTS_PREFIX}/"
+                  echo "✅ Uploaded $(basename "${EXPORT_FILE}")"
 
             - name: 🔬 Load generator logs
               if: always() && env.TESTS_ENABLED == 'true'

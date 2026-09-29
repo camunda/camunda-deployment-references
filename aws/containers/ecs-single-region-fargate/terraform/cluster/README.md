@@ -168,4 +168,5 @@ This directory contains the Terraform implementation for the ECS single-region (
 | <a name="output_orchestration_oidc_client_id"></a> [orchestration\_oidc\_client\_id](#output\_orchestration\_oidc\_client\_id) | Admin OIDC client id for machine-to-machine automation (empty in basic mode). |
 | <a name="output_orchestration_oidc_client_secret"></a> [orchestration\_oidc\_client\_secret](#output\_orchestration\_oidc\_client\_secret) | OIDC client secret for the admin orchestration client (bundled Keycloak only; empty otherwise). |
 | <a name="output_prometheus_endpoint"></a> [prometheus\_endpoint](#output\_prometheus\_endpoint) | In-VPC base URL of the load test Prometheus, or null when enable\_load\_tests is false. |
+| <a name="output_prometheus_service_name"></a> [prometheus\_service\_name](#output\_prometheus\_service\_name) | ECS service running the load test Prometheus, or null when enable\_load\_tests is false. |
 <!-- END_TF_DOCS -->

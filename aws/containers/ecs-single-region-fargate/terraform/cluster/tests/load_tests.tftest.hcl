@@ -57,6 +57,11 @@ run "load_tests_absent_by_default" {
     condition     = output.load_generator_target == null
     error_message = "No load generator target should be reported unless enable_load_tests is set"
   }
+
+  assert {
+    condition     = output.prometheus_service_name == null
+    error_message = "No Prometheus service should be reported unless enable_load_tests is set"
+  }
 }
 
 run "load_tests_wired_when_enabled" {
@@ -74,6 +79,10 @@ run "load_tests_wired_when_enabled" {
   assert {
     condition     = output.load_generator_log_group != null
     error_message = "The load generator should be planned when enable_load_tests is true"
+  }
+  assert {
+    condition     = output.prometheus_service_name != null
+    error_message = "The Prometheus service name should be reported so CI can export its series"
   }
 }
 
