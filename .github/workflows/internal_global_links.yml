@@ -37,7 +37,7 @@ jobs:
                   assignees: '@camunda/infraex-medic'
 
             - name: Reopen Link Checker Report
-              if: failure() && env.IS_SCHEDULE == 'true'
+              if: failure() && env.IS_SCHEDULE == 'true' && hashFiles('lychee/out.md') != ''
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/3472" -f state=open >/dev/null
