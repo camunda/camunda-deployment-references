@@ -23,12 +23,18 @@ hcp_clusters() {
   jq -c '[.[] | select(.hypershift.enabled == true)]'
 }
 
+has_role_arn() {
+  local role_arn="$1"
+  jq -e --arg role_arn "$role_arn" 'index($role_arn) != null' >/dev/null
+}
+
 selftest() {
-  local valid broken wrong_account clusters failures=0
+  local valid broken wrong_account clusters role_arns failures=0
   valid='{"Role":{"AssumeRolePolicyDocument":{"Statement":{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::710019948333:role/RH-Managed-OpenShift-Installer"}}}}}'
   broken='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/Other"}}]}}}'
   wrong_account='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/RH-Managed-OpenShift-Installer"}}]}}}'
   clusters='[{"name":"hcp","hypershift":{"enabled":true}},{"name":"classic","hypershift":{"enabled":false}}]'
+  role_arns='["arn:aws:iam::000000000000:role/example-account-HCP-ROSA-Installer-Role"]'
 
   [[ "$(installer_role_name 'arn:aws:iam::000000000000:role/example-account-HCP-ROSA-Installer-Role')" == "example-account-HCP-ROSA-Installer-Role" ]] || failures=$((failures + 1))
   [[ -z "$(installer_role_name '')" ]] || failures=$((failures + 1))
@@ -36,6 +42,8 @@ selftest() {
   [[ "$(trust_status <<<"$broken")" == "broken" ]] || failures=$((failures + 1))
   [[ "$(trust_status <<<"$wrong_account")" == "broken" ]] || failures=$((failures + 1))
   [[ "$(hcp_clusters <<<"$clusters")" == '[{"name":"hcp","hypershift":{"enabled":true}}]' ]] || failures=$((failures + 1))
+  has_role_arn 'arn:aws:iam::000000000000:role/example-account-HCP-ROSA-Installer-Role' <<<"$role_arns" || failures=$((failures + 1))
+  ! has_role_arn 'arn:aws:iam::111111111111:role/example-account-HCP-ROSA-Installer-Role' <<<"$role_arns" || failures=$((failures + 1))
 
   if ((failures)); then
     echo "FAIL: ${failures} inventory self-test(s) failed" >&2
@@ -57,16 +65,17 @@ for command in aws jq rosa; do
 done
 
 clusters=$(rosa list cluster --output json | hcp_clusters)
-role_names=$(aws iam list-roles --query 'Roles[].RoleName' --output json)
+role_arns=$(aws iam list-roles --query 'Roles[].Arn' --output json)
 findings=0
 
 printf '%-40s %-16s %-16s\n' CLUSTER STATE INSTALLER_ROLE
 while IFS= read -r cluster; do
   name=$(jq -r '.name' <<<"$cluster")
   state=$(jq -r '.status.state // "unknown"' <<<"$cluster")
-  role_name=$(installer_role_name "$(jq -r '.aws.sts.role_arn // ""' <<<"$cluster")")
+  role_arn=$(jq -r '.aws.sts.role_arn // ""' <<<"$cluster")
+  role_name=$(installer_role_name "$role_arn")
 
-  if [[ -z "$role_name" ]] || ! jq -e --arg role "$role_name" 'index($role) != null' >/dev/null <<<"$role_names"; then
+  if [[ -z "$role_arn" ]] || ! has_role_arn "$role_arn" <<<"$role_arns"; then
     status=missing
     findings=$((findings + 1))
   elif role=$(aws iam get-role --role-name "$role_name" --output json); then
@@ -80,10 +89,10 @@ while IFS= read -r cluster; do
   printf '%-40s %-16s %-16s\n' "$name" "$state" "$status"
 done < <(jq -c '.[]' <<<"$clusters")
 
-cluster_roles=$(jq -r '.[].aws.sts.role_arn // empty | split("/")[-1]' <<<"$clusters")
-orphans=$(jq -r '.[] | select(endswith("-account-HCP-ROSA-Installer-Role"))' <<<"$role_names" |
-  while IFS= read -r role_name; do
-    grep -qxF "$role_name" <<<"$cluster_roles" || printf '%s\n' "$role_name"
+cluster_role_arns=$(jq -r '.[].aws.sts.role_arn // empty' <<<"$clusters")
+orphans=$(jq -r '.[] | select(endswith("-account-HCP-ROSA-Installer-Role"))' <<<"$role_arns" |
+  while IFS= read -r role_arn; do
+    grep -qxF "$role_arn" <<<"$cluster_role_arns" || installer_role_name "$role_arn"
   done)
 
 if [[ -n "$orphans" ]]; then
