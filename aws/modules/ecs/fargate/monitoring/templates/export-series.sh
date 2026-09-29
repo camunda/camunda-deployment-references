@@ -9,7 +9,7 @@
 set -o pipefail
 
 OUTBOX="${OUTBOX:-/outbox}"
-INTERVAL="${EXPORT_INTERVAL_SECONDS:-300}"
+INTERVAL="${EXPORT_INTERVAL_SECONDS:-900}"
 DB_PATH="${DB_PATH:-/prometheus/data}"
 WORK=/tmp/export
 mkdir -p "$WORK"
@@ -20,7 +20,9 @@ while true; do
 
     # Leave the last minute out: it may still be appended to.
     MAX=$(( $(date +%s) * 1000 - 60000 ))
-    FILE="${WORK}/${MAX}.prom.gz"
+    # Written next to its final name and renamed on the same volume, so the
+    # uploader, which only picks up *.prom.gz, never sees a partial file.
+    FILE="${OUTBOX}/.${MAX}.prom.gz.tmp"
 
     if promtool tsdb dump-openmetrics --sandbox-dir-root="$WORK" \
         --min-time=$(( LAST + 1 )) --max-time="$MAX" "$DB_PATH" |
@@ -28,7 +30,7 @@ while true; do
         gzip -c > "$FILE"; then
         LAST="$MAX"
         if [ -n "$(gunzip -c "$FILE" | head -c 1)" ]; then
-            mv "$FILE" "${OUTBOX}/"
+            mv "$FILE" "${OUTBOX}/${MAX}.prom.gz"
             echo "exported series up to ${MAX}"
         else
             rm -f "$FILE"

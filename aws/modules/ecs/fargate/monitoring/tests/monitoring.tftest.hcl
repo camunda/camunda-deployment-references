@@ -234,6 +234,18 @@ run "series_export_ships_dumper_and_uploader" {
     condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "export-series.sh")
     error_message = "Prometheus should dump its series periodically when export_gcs_bucket is set"
   }
+
+  # A long-running load test must reach the dashboard while it runs: one batch
+  # every 15 minutes, uploaded as soon as it is dumped.
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "{\"name\":\"EXPORT_INTERVAL_SECONDS\",\"value\":\"900\"}")
+    error_message = "The series should be dumped every 15 minutes by default"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "{\"name\":\"UPLOAD_POLL_SECONDS\",\"value\":\"60\"}")
+    error_message = "The upload sidecar should poll every minute, so a batch does not wait for the next dump"
+  }
 }
 
 run "rejects_an_export_without_a_namespace" {

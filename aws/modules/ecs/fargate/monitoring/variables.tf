@@ -293,9 +293,9 @@ variable "export_gcp_credential_config" {
 }
 
 variable "export_interval_seconds" {
-  description = "How often the series scraped since the previous export are dumped and uploaded."
+  description = "How often the series scraped since the previous dump are written out. Each batch is uploaded within a minute, so a long-running load test reaches the bucket in steps of this size while it runs."
   type        = number
-  default     = 300
+  default     = 900
 }
 
 variable "export_upload_image" {

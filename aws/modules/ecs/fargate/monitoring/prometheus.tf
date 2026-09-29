@@ -148,7 +148,7 @@ resource "aws_ecs_task_definition" "prometheus" {
       command    = [local.upload_command]
       environment = [
         { name = "OUTBOX", value = local.export_outbox },
-        { name = "EXPORT_INTERVAL_SECONDS", value = tostring(var.export_interval_seconds) },
+        { name = "UPLOAD_POLL_SECONDS", value = "60" },
         { name = "GCS_BUCKET", value = var.export_gcs_bucket },
         { name = "GCS_PREFIX", value = var.export_gcs_prefix },
         { name = "NAMESPACE", value = var.export_namespace },

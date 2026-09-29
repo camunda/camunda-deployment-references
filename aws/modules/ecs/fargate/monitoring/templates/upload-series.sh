@@ -8,7 +8,7 @@
 # variables it does read before each cycle.
 
 OUTBOX="${OUTBOX:-/outbox}"
-INTERVAL="${EXPORT_INTERVAL_SECONDS:-300}"
+POLL="${UPLOAD_POLL_SECONDS:-60}"
 
 # The volume is created root-owned; Prometheus runs as nobody and writes here.
 mkdir -p "$OUTBOX" && chmod 1777 "$OUTBOX"
@@ -17,7 +17,7 @@ printf '%s' "$GCP_CREDENTIAL_CONFIG" > /tmp/gcp-credential-config.json
 export CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE=/tmp/gcp-credential-config.json
 
 while true; do
-    sleep "$INTERVAL"
+    sleep "$POLL"
 
     set -- "$OUTBOX"/*.prom.gz
     [ -e "$1" ] || continue

@@ -136,11 +136,11 @@ The AWS credentials come from a role assumed at the start of the job. They expir
 
 `aws_ecs_single_region_fargate_load_tests.yml` streams the series of each run to the benchmark Grafana. There is no network path between the CI clusters and the benchmark infrastructure:
 
-1. The load test Prometheus runs a background dump every five minutes. Each dump writes the series scraped since the previous one, in the Prometheus text format. The scrape config replaces the `instance` label, which held the task IP, with the task id.
+1. The load test Prometheus runs a background dump every 15 minutes. Each dump writes the series scraped since the previous one, in the Prometheus text format. The scrape config replaces the `instance` label, which held the task IP, with the task id.
 2. An `upload` sidecar in the same task moves each file to the load-test results bucket, under `ecs-ci/ecs-ci-<run id>-<attempt>/`. The sidecar authenticates with the task role through Google workload identity federation. The federation grants write-only access and uses no key. `camunda/infra-core` publishes the credential configuration to Vault.
 3. On the benchmark cluster, an importer replays every new file into the benchmark Prometheus over remote write, with `namespace` set to the directory name.
 
-The dump runs inside the task, so the series keep flowing for as long as the cluster runs. This includes a run that keeps its cluster with `delete_clusters: false`.
+The dump runs inside the task, so the series keep flowing for as long as the cluster runs. This includes a run that keeps its cluster with `delete_clusters: false`. A long-running load test reaches the dashboard in 15-minute steps while it still runs: the sidecar uploads each batch within a minute of the dump.
 
 Pull request runs do not export. When the Vault secret is missing, the job keeps the export off and the run stays green. The upload sidecar is not essential to the task, so an export failure cannot stop the scrape. The job never publishes series as a GitHub artifact, because this repository is public.
 
