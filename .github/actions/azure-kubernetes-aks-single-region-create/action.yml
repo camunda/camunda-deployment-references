@@ -265,8 +265,46 @@ runs:
           id: apply
           working-directory: ${{ inputs.tf-modules-path }}/azure/kubernetes/${{ inputs.ref-arch }}/
           shell: bash
+          env:
+              INPUTS_RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
+              INPUTS_TFVARS: ${{ inputs.tfvars }}
           run: |
               set -euo pipefail
+
+              set +e
+              terraform apply -no-color tf.plan 2>&1 | tee apply.log
+              apply_rc="${PIPESTATUS[0]}"
+              set -e
+
+              if [ "$apply_rc" -eq 0 ]; then
+                exit 0
+              fi
+
+              # Azure accepted both PostgreSQL creates in #3354, then failed them
+              # internally after about 42 minutes and rolled them back. Retry only
+              # that provider-side failure; configuration, quota, capacity, and
+              # zone failures must remain immediately visible.
+              activity_log=$(az monitor activity-log list \
+                --resource-group "$INPUTS_RESOURCE_GROUP_NAME" \
+                --offset 3h \
+                --max-events 500 \
+                --output json 2>/dev/null || true)
+
+              if ! jq -e 'any(.[];
+                .operationName.value == "Microsoft.DBforPostgreSQL/flexibleServers/write" and
+                (.properties.statusMessage | tostring | contains("InternalServerError")))' \
+                <<< "$activity_log" >/dev/null; then
+                echo "::error::Terraform apply failed without the known transient Azure PostgreSQL InternalServerError."
+                exit "$apply_rc"
+              fi
+
+              echo "::warning::Azure PostgreSQL creation failed with InternalServerError; waiting five minutes for rollback, then retrying once."
+              sleep 300
+              terraform plan \
+                -no-color \
+                -out tf.plan \
+                -var-file=terraform.tfvars \
+                -var-file="$INPUTS_TFVARS"
               terraform apply -no-color tf.plan
 
         - name: Terraform Drift Detection
