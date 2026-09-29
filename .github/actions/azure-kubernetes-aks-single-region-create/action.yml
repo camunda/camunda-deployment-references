@@ -286,7 +286,8 @@ runs:
               tenant-id: ${{ inputs.azure-tenant-id }}
               subscription-id: ${{ inputs.azure-subscription-id }}
 
-        - name: Retry transient PostgreSQL create
+        - name: Classify transient PostgreSQL create failure
+          id: classify-apply-failure
           if: steps.apply.outputs.apply-rc != '0'
           working-directory: ${{ env.TF_MODULE_DIR }}
           shell: bash
@@ -294,7 +295,6 @@ runs:
               APPLY_RC: ${{ steps.apply.outputs.apply-rc }}
               APPLY_START: ${{ steps.apply.outputs.apply-start }}
               INPUTS_RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
-              INPUTS_TFVARS: ${{ inputs.tfvars }}
           run: |
               set -euo pipefail
 
@@ -338,6 +338,24 @@ runs:
 
               echo "::warning::Azure PostgreSQL creation failed with InternalServerError; waiting five minutes for rollback, then retrying once."
               sleep 300
+              echo "retry=true" >> "$GITHUB_OUTPUT"
+
+        - name: Refresh Azure login before retry
+          if: steps.classify-apply-failure.outputs.retry == 'true'
+          uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
+          with:
+              client-id: ${{ inputs.azure-client-id }}
+              tenant-id: ${{ inputs.azure-tenant-id }}
+              subscription-id: ${{ inputs.azure-subscription-id }}
+
+        - name: Retry transient PostgreSQL create
+          if: steps.classify-apply-failure.outputs.retry == 'true'
+          working-directory: ${{ env.TF_MODULE_DIR }}
+          shell: bash
+          env:
+              INPUTS_TFVARS: ${{ inputs.tfvars }}
+          run: |
+              set -euo pipefail
               terraform plan \
                 -no-color \
                 -out tf.plan \
