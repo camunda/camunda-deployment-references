@@ -10,7 +10,7 @@ installer_role_name() {
 
 trust_status() {
   jq -r '
-    [.Role.AssumeRolePolicyDocument.Statement[]?
+    [(.Role.AssumeRolePolicyDocument.Statement | if type == "array" then . else [.] end)[]?
       | select(.Effect == "Allow")
       | (.Action | if type == "array" then . else [.] end) as $actions
       | (.Principal.AWS? | if type == "array" then . else [.] end) as $principals
@@ -21,7 +21,7 @@ trust_status() {
 
 selftest() {
   local valid broken wrong_account failures=0
-  valid='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::710019948333:role/RH-Managed-OpenShift-Installer"}}]}}}'
+  valid='{"Role":{"AssumeRolePolicyDocument":{"Statement":{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::710019948333:role/RH-Managed-OpenShift-Installer"}}}}}'
   broken='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/Other"}}]}}}'
   wrong_account='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/RH-Managed-OpenShift-Installer"}}]}}}'
 
