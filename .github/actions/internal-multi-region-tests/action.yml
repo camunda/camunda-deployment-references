@@ -64,7 +64,10 @@ inputs:
             Newline-separated list of fixed strings to exclude from deprecation warnings.
             Passed through to internal-helm-deprecation-check using grep -F (fixed-string) semantics.
         required: false
-        default: ''
+        # The chart emits this warning solely from the failure-domain count and
+        # does not inspect orchestration.env. Both dual-region references set
+        # CAMUNDA_CLUSTER_INITIALCONTACTPOINTS before deployment.
+        default: This deployment spans more than one failure domain
     check-unknown-keys:
         description: |
             Forwarded to internal-helm-deprecation-check. Set to 'false' to skip
