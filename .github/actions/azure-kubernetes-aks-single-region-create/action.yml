@@ -314,7 +314,7 @@ runs:
               # that provider-side failure; configuration, quota, capacity, and
               # zone failures must remain immediately visible.
               matched=false
-              for _ in {1..20}; do
+              for attempt in {0..20}; do
                 activity_log=$(az monitor activity-log list \
                   --resource-group "$INPUTS_RESOURCE_GROUP_NAME" \
                   --start-time "$APPLY_START" \
@@ -327,7 +327,9 @@ runs:
                   matched=true
                   break
                 fi
-                sleep 60
+                if [ "$attempt" -lt 20 ]; then
+                  sleep 60
+                fi
               done
 
               if [ "$matched" != true ]; then
