@@ -28,7 +28,7 @@ type StatePaths struct {
 // Tests in src/ call this with their package directory; the relative climb is
 // two levels: src/ → test/ → ecs-dual-region-fargate/ → terraform/{vpc,infra,app}.
 func DefaultStatePaths(packageDir string) StatePaths {
-	root := filepath.Join(packageDir, "..", "..", "..", "terraform")
+	root := filepath.Join(packageDir, "..", "..", "terraform")
 	return StatePaths{
 		VPC:   filepath.Join(root, "vpc"),
 		Infra: filepath.Join(root, "infra"),
@@ -63,7 +63,9 @@ func mergeMap(base, extra map[string]interface{}) map[string]interface{} {
 
 // ApplyAllThreeStates applies vpc/ then infra/ then app/ in sequence. Returns
 // the three terraform.Options so tests can read outputs (e.g. ALB endpoints
-// from app/). Caller MUST `defer DestroyAllThreeStates(t, opts)` to clean up.
+// from app/). Each state registers its destroy with t.Cleanup before it is
+// applied, so a failure partway through still tears down what was created;
+// cleanups run last-in first-out, which is app/, infra/, vpc/.
 func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpcOpts, infraOpts, appOpts *terraform.Options) {
 	t.Helper()
 
@@ -97,6 +99,7 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 		MaxRetries:         2,
 		TimeBetweenRetries: 5,
 	}
+	destroyOnCleanup(t, "vpc", vpcOpts)
 	t.Logf("Applying vpc/ state at %s", paths.VPC)
 	terraform.InitAndApply(t, vpcOpts)
 
@@ -108,6 +111,7 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 		MaxRetries:         2,
 		TimeBetweenRetries: 5,
 	}
+	destroyOnCleanup(t, "infra", infraOpts)
 	t.Logf("Applying infra/ state at %s", paths.Infra)
 	terraform.InitAndApply(t, infraOpts)
 
@@ -119,34 +123,19 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 		MaxRetries:         2,
 		TimeBetweenRetries: 5,
 	}
+	destroyOnCleanup(t, "app", appOpts)
 	t.Logf("Applying app/ state at %s", paths.App)
 	terraform.InitAndApply(t, appOpts)
 
 	return vpcOpts, infraOpts, appOpts
 }
 
-// DestroyAllThreeStates destroys app/ then infra/ then vpc/ in reverse-apply
-// order. Safe to call as a defer even if Apply failed partway — each Destroy
-// is best-effort and logs without failing the test (the deferred destroy is
-// cleanup, not assertion).
-func DestroyAllThreeStates(t *testing.T, appOpts, infraOpts, vpcOpts *terraform.Options) {
+func destroyOnCleanup(t *testing.T, name string, opts *terraform.Options) {
 	t.Helper()
-
-	for _, step := range []struct {
-		name string
-		opts *terraform.Options
-	}{
-		{"app", appOpts},
-		{"infra", infraOpts},
-		{"vpc", vpcOpts},
-	} {
-		if step.opts == nil {
-			t.Logf("Skipping %s destroy (state was not applied)", step.name)
-			continue
+	t.Cleanup(func() {
+		t.Logf("Destroying %s state at %s", name, opts.TerraformDir)
+		if _, err := terraform.DestroyE(t, opts); err != nil {
+			t.Errorf("destroy of %s failed: %v — manual cleanup may be required", name, err)
 		}
-		t.Logf("Destroying %s state at %s", step.name, step.opts.TerraformDir)
-		if _, err := terraform.DestroyE(t, step.opts); err != nil {
-			t.Errorf("destroy of %s failed: %v — manual cleanup may be required", step.name, err)
-		}
-	}
+	})
 }

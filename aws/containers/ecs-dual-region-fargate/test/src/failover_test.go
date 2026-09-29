@@ -83,10 +83,7 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
 	}
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, paths, opts)
+	_, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
 
 	// Baseline assertion: writer in region 0.
 	globalClusterID := terraform.Output(t, infraOpts, "aurora_global_cluster_id")

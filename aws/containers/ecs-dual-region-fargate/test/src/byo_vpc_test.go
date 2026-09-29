@@ -84,10 +84,7 @@ func TestEndToEnd_BYO_VPC_TGW_RDBMS(t *testing.T) {
 		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
 	}
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, paths, opts)
+	vpcOpts, _, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
 
 	albEndpoint := terraform.Output(t, appOpts, "region_0_alb_endpoint")
 	require.NotEmpty(t, albEndpoint)
