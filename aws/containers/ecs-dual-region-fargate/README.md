@@ -283,9 +283,10 @@ leadership; driving load from region 1 would measure the cross-region link
 rather than the engine.
 
 It is off by default and leaves the plan unchanged while off. Both Prometheus
-instances are private: reach them from inside the VPCs through the
-`region_0_prometheus_endpoint` and `region_1_prometheus_endpoint` outputs, or
-with the Session Manager port-forward described above. The generator's
+instances are private: the `region_0_prometheus_endpoint` and
+`region_1_prometheus_endpoint` outputs resolve only from inside the matching
+VPC, so query them from a host or task running there. The Session Manager
+port-forward above reaches the Orchestration Cluster, not Prometheus. The generator's
 throughput lines are in the `load_generator_log_group` CloudWatch log group.
 
 This is the dual-region load test from
