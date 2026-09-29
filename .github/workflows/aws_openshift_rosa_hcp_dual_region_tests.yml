@@ -25,6 +25,7 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/actions/internal-camunda-chart-tests/**
+            - .github/actions/internal-debug-failed-pods/**
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/internal-multi-region-tests/**
             - .github/actions/kubernetes-eck-operator/**
