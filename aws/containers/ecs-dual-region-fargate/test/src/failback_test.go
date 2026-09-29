@@ -88,7 +88,7 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 
 	// Initial quorum.
 	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
-	helpers.WaitForRaftQuorum(t, albEndpoint0, "admin", terraform.Output(t, appOpts, "admin_user_password"), 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	helpers.WaitForRaftQuorum(t, albEndpoint0, "admin", helpers.SensitiveOutput(t, appOpts, "admin_user_password"), 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	// Step 1: planned failover to region 1.
 	env := map[string]string{

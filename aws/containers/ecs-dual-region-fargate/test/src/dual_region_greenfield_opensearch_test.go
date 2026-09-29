@@ -75,7 +75,7 @@ func TestEndToEnd_Greenfield_VpcPeering_OpenSearch(t *testing.T) {
 	require.NotEmpty(t, albEndpoint, "region_0_alb_endpoint should be a non-empty DNS name")
 
 	t.Logf("Waiting for Raft quorum at %s ...", albEndpoint)
-	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", terraform.Output(t, appOpts, "admin_user_password"), 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", helpers.SensitiveOutput(t, appOpts, "admin_user_password"), 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	require.Len(t, topo.Brokers, 8, "expected 8 Zeebe brokers (4 per region)")
 	require.Equal(t, 8, topo.PartitionsCount, "expected 8 partitions")

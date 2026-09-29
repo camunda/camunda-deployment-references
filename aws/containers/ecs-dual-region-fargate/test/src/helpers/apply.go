@@ -6,6 +6,7 @@
 package helpers
 
 import (
+	"github.com/gruntwork-io/terratest/modules/logger"
 	"path/filepath"
 	"testing"
 
@@ -138,4 +139,14 @@ func destroyOnCleanup(t *testing.T, name string, opts *terraform.Options) {
 			t.Errorf("destroy of %s failed: %v — manual cleanup may be required", name, err)
 		}
 	})
+}
+
+// SensitiveOutput reads a sensitive output without Terratest echoing its value
+// into the test log, which CI publishes.
+func SensitiveOutput(t *testing.T, opts *terraform.Options, name string) string {
+	t.Helper()
+	previous := opts.Logger
+	opts.Logger = logger.Discard
+	defer func() { opts.Logger = previous }()
+	return terraform.Output(t, opts, name)
 }
