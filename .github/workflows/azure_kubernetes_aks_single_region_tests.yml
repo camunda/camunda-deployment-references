@@ -223,7 +223,7 @@ jobs:
               id: create_cluster
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
-              timeout-minutes: 120
+              timeout-minutes: 180
               with:
                   resource-prefix: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-aks
