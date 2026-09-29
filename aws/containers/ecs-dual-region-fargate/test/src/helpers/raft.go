@@ -24,7 +24,7 @@ type Topology struct {
 		NodeID     int `json:"nodeId"`
 		Partitions []struct {
 			PartitionID int    `json:"partitionId"`
-			Role        string `json:"role"` // "LEADER" | "FOLLOWER" | "INACTIVE"
+			Role        string `json:"role"` // "leader" | "follower" | "inactive" (lowercase in /v2/topology)
 		} `json:"partitions"`
 	} `json:"brokers"`
 	ClusterSize       int `json:"clusterSize"`
@@ -111,7 +111,7 @@ func countLeaders(topo Topology) int {
 	leaders := 0
 	for _, b := range topo.Brokers {
 		for _, p := range b.Partitions {
-			if p.Role == "LEADER" {
+			if strings.EqualFold(p.Role, "leader") {
 				leaders++
 			}
 		}
