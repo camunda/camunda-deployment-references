@@ -280,7 +280,7 @@ runs:
               apply_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)
               echo "apply-start=$apply_start" >> "$GITHUB_OUTPUT"
               set +e
-              terraform apply -no-color tf.plan 2>&1 | tee apply.log
+              terraform apply -json tf.plan 2>&1 | tee apply.log
               apply_rc="${PIPESTATUS[0]}"
               set -e
               echo "apply-rc=$apply_rc" >> "$GITHUB_OUTPUT"
@@ -313,8 +313,12 @@ runs:
               # internally after about 42 minutes and rolled them back. Retry only
               # that provider-side failure; configuration, quota, capacity, and
               # zone failures must remain immediately visible.
-              if ! grep -q 'ServerDropping' apply.log; then
-                echo "::error::Terraform apply failed without the PostgreSQL ServerDropping rollback state."
+              if ! jq -se '
+                [.[] | select(.type == "diagnostic" and .diagnostic.severity == "error")] as $errors |
+                ($errors | length) > 0 and all($errors[];
+                  (.diagnostic.address // "" | startswith("module.postgres_db.azurerm_postgresql_flexible_server.")) and
+                  (.diagnostic.detail // "" | contains("ServerDropping")))' apply.log >/dev/null; then
+                echo "::error::Terraform apply had an error outside the PostgreSQL ServerDropping rollback state."
                 exit "$APPLY_RC"
               fi
 
