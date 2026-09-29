@@ -8,6 +8,9 @@ orchestration:
         - file: orchestration-multitenancy.yaml
           content: |
               camunda:
+                data:
+                  secondary-storage:
+                    autoconfigure-camunda-exporter: false
                 security:
                   multiTenancy:
                     checksEnabled: true
