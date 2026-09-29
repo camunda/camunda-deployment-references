@@ -229,6 +229,9 @@ jobs:
                   resource-prefix: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-aks
                   resource-group-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-rg
+                  azure-client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  azure-tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
                   location: ${{ env.AZURE_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
