@@ -48,7 +48,9 @@ func TestEndToEnd_BYO_VPC_TGW_RDBMS(t *testing.T) {
 
 	// Step 1: Spin up the throwaway VPCs that simulate a customer-owned VPC pair.
 	fixture := helpers.SetupBYOVPCs(t, thisDir, clusterPrefix, awsProfile, region0, region1, commonTags)
-	defer fixture.DestroyBYOVPCs(t)
+	// Registered before the stack applies, so LIFO cleanup tears down app/,
+	// infra/ and vpc/ first and the BYO VPCs they depend on last.
+	t.Cleanup(func() { fixture.DestroyBYOVPCs(t) })
 
 	// Build the vpc/ tfvars: byo_vpc = true + the fixture outputs.
 	vpcVars := map[string]interface{}{
@@ -90,7 +92,7 @@ func TestEndToEnd_BYO_VPC_TGW_RDBMS(t *testing.T) {
 	require.NotEmpty(t, albEndpoint)
 
 	t.Logf("Waiting for Raft quorum at %s ...", albEndpoint)
-	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", terraform.Output(t, appOpts, "admin_user_password"), 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", helpers.SensitiveOutput(t, appOpts, "admin_user_password"), 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	require.Len(t, topo.Brokers, 8)
 	require.Equal(t, 8, topo.PartitionsCount)
