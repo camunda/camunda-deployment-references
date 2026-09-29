@@ -435,6 +435,9 @@ jobs:
                   region-1-values-yaml: ${{ github.workspace }}/aws/kubernetes/eks-dual-region/helm-values/region1/camunda-values.yml
                   extra-values-yaml: ${{ steps.camunda-ci-credentials.outputs.values-file }}
                   skip-cleanup: 'true'
+                  # The chart does not inspect orchestration.env before emitting this warning.
+                  # camunda-values.yml already sets CAMUNDA_CLUSTER_INITIALCONTACTPOINTS.
+                  exclude-deprecation-patterns: This deployment spans more than one failure domain
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
