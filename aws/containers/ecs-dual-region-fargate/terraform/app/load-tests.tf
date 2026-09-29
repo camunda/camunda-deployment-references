@@ -7,8 +7,7 @@
 # two modules rather than a parallel stack:
 #
 # - one Prometheus per region, each discovering only its own region's brokers
-#   through Cloud Map (the module filters namespaces by the hosted zone's VPC
-#   association), so a region outage does not also blind the other side;
+#   through Cloud Map, so a region outage does not also blind the other side;
 # - one load generator in region 0, the region that holds partition leadership
 #   (ZONE_AWARE priority 1000, see locals.tf). Driving load from region 1 would
 #   add a cross-region round trip to every command and measure the link, not
@@ -94,6 +93,10 @@ module "monitoring_region_0" {
 
   ecs_task_execution_role_arn = local.infra.ecs_task_execution_role_region_0_arn
 
+  # The VPC filter separates the regions, not deployments: in a shared BYO VPC
+  # another Camunda namespace would match the module's generic default too.
+  discovery_namespace_suffix = "${local.infra.cluster_name}-r0-oc.service.local"
+
   prometheus_port = var.load_tests_prometheus_port
   retention_time  = var.load_tests_retention_time
 
@@ -120,6 +123,10 @@ module "monitoring_region_1" {
   aws_region          = data.aws_region.region_1.region
 
   ecs_task_execution_role_arn = local.infra.ecs_task_execution_role_region_1_arn
+
+  # The VPC filter separates the regions, not deployments: in a shared BYO VPC
+  # another Camunda namespace would match the module's generic default too.
+  discovery_namespace_suffix = "${local.infra.cluster_name}-r1-oc.service.local"
 
   prometheus_port = var.load_tests_prometheus_port
   retention_time  = var.load_tests_retention_time
