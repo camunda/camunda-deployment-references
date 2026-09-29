@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+SELF=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+
 installer_role_name() {
   local role_arn="$1"
   [[ "$role_arn" == */* ]] || return 0
@@ -29,7 +31,7 @@ has_role_arn() {
 }
 
 selftest() {
-  local valid broken wrong_account clusters role_arns failures=0
+  local valid broken wrong_account clusters role_arns tmp out rc failures=0
   valid='{"Role":{"AssumeRolePolicyDocument":{"Statement":{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::710019948333:role/RH-Managed-OpenShift-Installer"}}}}}'
   broken='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/Other"}}]}}}'
   wrong_account='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/RH-Managed-OpenShift-Installer"}}]}}}'
@@ -44,6 +46,52 @@ selftest() {
   [[ "$(hcp_clusters <<<"$clusters")" == '[{"name":"hcp","hypershift":{"enabled":true}}]' ]] || failures=$((failures + 1))
   has_role_arn 'arn:aws:iam::000000000000:role/example-account-HCP-ROSA-Installer-Role' <<<"$role_arns" || failures=$((failures + 1))
   ! has_role_arn 'arn:aws:iam::111111111111:role/example-account-HCP-ROSA-Installer-Role' <<<"$role_arns" || failures=$((failures + 1))
+
+  mkdir -p "$(dirname "$SELF")/../debug"
+  tmp=$(mktemp -d "$(dirname "$SELF")/../debug/inventory-rosa.XXXXXX")
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmp'" EXIT
+  mkdir "$tmp/bin"
+
+  cat >"$tmp/bin/rosa" <<'STUB'
+#!/usr/bin/env bash
+cat <<'JSON'
+[{"name":"healthy","hypershift":{"enabled":true},"status":{"state":"ready"},"aws":{"sts":{"role_arn":"arn:aws:iam::000000000000:role/healthy-account-HCP-ROSA-Installer-Role"}}},
+ {"name":"missing","hypershift":{"enabled":true},"status":{"state":"error"}},
+ {"name":"unreadable","hypershift":{"enabled":true},"status":{"state":"error"},"aws":{"sts":{"role_arn":"arn:aws:iam::000000000000:role/unreadable-account-HCP-ROSA-Installer-Role"}}},
+ {"name":"classic","hypershift":{"enabled":false},"status":{"state":"ready"}}]
+JSON
+STUB
+  cat >"$tmp/bin/aws" <<'STUB'
+#!/usr/bin/env bash
+case "$*" in
+  "iam list-roles --query Roles[].Arn --output json")
+    cat <<'JSON'
+["arn:aws:iam::000000000000:role/healthy-account-HCP-ROSA-Installer-Role",
+ "arn:aws:iam::000000000000:role/unreadable-account-HCP-ROSA-Installer-Role",
+ "arn:aws:iam::000000000000:role/orphan-account-HCP-ROSA-Installer-Role"]
+JSON
+    ;;
+  *"get-role --role-name healthy-account-HCP-ROSA-Installer-Role"*)
+    echo '{"Role":{"AssumeRolePolicyDocument":{"Statement":{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::710019948333:role/RH-Managed-OpenShift-Installer"}}}}}'
+    ;;
+  *"get-role --role-name unreadable-account-HCP-ROSA-Installer-Role"*)
+    echo "AccessDenied" >&2
+    exit 1
+    ;;
+esac
+STUB
+  chmod +x "$tmp/bin/rosa" "$tmp/bin/aws"
+
+  rc=0
+  out=$(PATH="$tmp/bin:$PATH" bash "$SELF" 2>&1) || rc=$?
+  [[ "$rc" == 1 ]] || failures=$((failures + 1))
+  grep -Eq '^healthy[[:space:]]+ready[[:space:]]+ok[[:space:]]*$' <<<"$out" || failures=$((failures + 1))
+  grep -Eq '^missing[[:space:]]+error[[:space:]]+missing[[:space:]]*$' <<<"$out" || failures=$((failures + 1))
+  grep -Eq '^unreadable[[:space:]]+error[[:space:]]+unreadable[[:space:]]*$' <<<"$out" || failures=$((failures + 1))
+  grep -q '^  orphan-account-HCP-ROSA-Installer-Role$' <<<"$out" || failures=$((failures + 1))
+  grep -q '^FAIL: found 3 missing, unreadable, broken-trust, or orphan installer role(s).$' <<<"$out" || failures=$((failures + 1))
+  ! grep -q '^classic ' <<<"$out" || failures=$((failures + 1))
 
   if ((failures)); then
     echo "FAIL: ${failures} inventory self-test(s) failed" >&2
