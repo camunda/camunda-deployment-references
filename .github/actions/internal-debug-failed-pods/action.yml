@@ -238,7 +238,7 @@ runs:
                         --tail="$ARTIFACT_TAIL" > "${DUMP_DIR}/${file_name}-logs.txt" 2>&1 || true
                       kubectl "${CTX_ARGS[@]}" -n "$csi_namespace" logs "$pod_name" --all-containers --prefix --previous \
                         --tail="$ARTIFACT_TAIL" > "${DUMP_DIR}/${file_name}-logs-previous.txt" 2>&1 || true
-                    done
+                    done || true
               fi
 
               # Dump info for ALL pods (incl. Completed init/setup jobs) — per container
