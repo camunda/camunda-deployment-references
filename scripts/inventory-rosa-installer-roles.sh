@@ -15,19 +15,21 @@ trust_status() {
       | (.Action | if type == "array" then . else [.] end) as $actions
       | (.Principal.AWS? | if type == "array" then . else [.] end) as $principals
       | select(any($actions[]; . == "sts:AssumeRole"))
-      | select(any($principals[]; type == "string" and endswith(":role/RH-Managed-OpenShift-Installer")))]
+      | select(any($principals[]; . == "arn:aws:iam::710019948333:role/RH-Managed-OpenShift-Installer"))]
     | if length > 0 then "ok" else "broken" end'
 }
 
 selftest() {
-  local valid broken failures=0
-  valid='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/RH-Managed-OpenShift-Installer"}}]}}}'
+  local valid broken wrong_account failures=0
+  valid='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::710019948333:role/RH-Managed-OpenShift-Installer"}}]}}}'
   broken='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/Other"}}]}}}'
+  wrong_account='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/RH-Managed-OpenShift-Installer"}}]}}}'
 
   [[ "$(installer_role_name 'arn:aws:iam::000000000000:role/example-account-HCP-ROSA-Installer-Role')" == "example-account-HCP-ROSA-Installer-Role" ]] || failures=$((failures + 1))
   [[ -z "$(installer_role_name '')" ]] || failures=$((failures + 1))
   [[ "$(trust_status <<<"$valid")" == "ok" ]] || failures=$((failures + 1))
   [[ "$(trust_status <<<"$broken")" == "broken" ]] || failures=$((failures + 1))
+  [[ "$(trust_status <<<"$wrong_account")" == "broken" ]] || failures=$((failures + 1))
 
   if ((failures)); then
     echo "FAIL: ${failures} inventory self-test(s) failed" >&2
@@ -61,7 +63,7 @@ while IFS= read -r cluster; do
   if [[ -z "$role_name" ]] || ! jq -e --arg role "$role_name" 'index($role) != null' >/dev/null <<<"$role_names"; then
     status=missing
     findings=$((findings + 1))
-  elif role=$(aws iam get-role --role-name "$role_name" --output json 2>&1); then
+  elif role=$(aws iam get-role --role-name "$role_name" --output json); then
     status=$(trust_status <<<"$role")
     [[ "$status" == "ok" ]] || findings=$((findings + 1))
   else
