@@ -19,17 +19,23 @@ trust_status() {
     | if length > 0 then "ok" else "broken" end'
 }
 
+hcp_clusters() {
+  jq -c '[.[] | select(.hypershift.enabled == true)]'
+}
+
 selftest() {
-  local valid broken wrong_account failures=0
+  local valid broken wrong_account clusters failures=0
   valid='{"Role":{"AssumeRolePolicyDocument":{"Statement":{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::710019948333:role/RH-Managed-OpenShift-Installer"}}}}}'
   broken='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/Other"}}]}}}'
   wrong_account='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/RH-Managed-OpenShift-Installer"}}]}}}'
+  clusters='[{"name":"hcp","hypershift":{"enabled":true}},{"name":"classic","hypershift":{"enabled":false}}]'
 
   [[ "$(installer_role_name 'arn:aws:iam::000000000000:role/example-account-HCP-ROSA-Installer-Role')" == "example-account-HCP-ROSA-Installer-Role" ]] || failures=$((failures + 1))
   [[ -z "$(installer_role_name '')" ]] || failures=$((failures + 1))
   [[ "$(trust_status <<<"$valid")" == "ok" ]] || failures=$((failures + 1))
   [[ "$(trust_status <<<"$broken")" == "broken" ]] || failures=$((failures + 1))
   [[ "$(trust_status <<<"$wrong_account")" == "broken" ]] || failures=$((failures + 1))
+  [[ "$(hcp_clusters <<<"$clusters")" == '[{"name":"hcp","hypershift":{"enabled":true}}]' ]] || failures=$((failures + 1))
 
   if ((failures)); then
     echo "FAIL: ${failures} inventory self-test(s) failed" >&2
@@ -50,7 +56,7 @@ for command in aws jq rosa; do
   }
 done
 
-clusters=$(rosa list cluster --output json)
+clusters=$(rosa list cluster --output json | hcp_clusters)
 role_names=$(aws iam list-roles --query 'Roles[].RoleName' --output json)
 findings=0
 
