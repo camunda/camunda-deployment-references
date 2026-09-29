@@ -4,7 +4,8 @@ set -euo pipefail
 
 installer_role_name() {
   local role_arn="$1"
-  [[ "$role_arn" == */* ]] && printf '%s\n' "${role_arn##*/}"
+  [[ "$role_arn" == */* ]] || return 0
+  printf '%s\n' "${role_arn##*/}"
 }
 
 trust_status() {
@@ -24,6 +25,7 @@ selftest() {
   broken='{"Role":{"AssumeRolePolicyDocument":{"Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Principal":{"AWS":"arn:aws:iam::000000000000:role/Other"}}]}}}'
 
   [[ "$(installer_role_name 'arn:aws:iam::000000000000:role/example-account-HCP-ROSA-Installer-Role')" == "example-account-HCP-ROSA-Installer-Role" ]] || failures=$((failures + 1))
+  [[ -z "$(installer_role_name '')" ]] || failures=$((failures + 1))
   [[ "$(trust_status <<<"$valid")" == "ok" ]] || failures=$((failures + 1))
   [[ "$(trust_status <<<"$broken")" == "broken" ]] || failures=$((failures + 1))
 
