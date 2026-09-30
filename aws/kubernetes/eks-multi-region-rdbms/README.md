@@ -11,3 +11,10 @@ secondary-storage replication and writer failover.
 Instructions can be found on the official documentation: https://docs.camunda.io/docs/next/self-managed/deployment/helm/cloud-providers/amazon/amazon-eks/multi-region-rdbms/
 
 Day-2 operations, failover and failback are documented in [multi-region RDBMS operations](https://docs.camunda.io/docs/next/self-managed/deployment/helm/operational-tasks/multi-region-rdbms-ops/).
+
+## Growth mode
+
+Growth mode deploys the first `active_region_count` slots and reserves the
+remaining zone. The alphabetically first `short_name` must belong to an active
+slot. Camunda selects broker 0 in that zone as the initial configuration
+coordinator. Bootstrap cannot complete if that zone is not deployed.
