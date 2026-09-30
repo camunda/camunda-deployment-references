@@ -1,0 +1,41 @@
+# Not called `.tf`, so terraform-docs and the tflint hooks leave it alone.
+
+# Provider set for destroying the vpc/, infra/ and app/ states of this
+# architecture with aws-generic-terraform-cleanup.
+#
+# `terraform destroy` runs against an otherwise empty configuration, so every
+# resource in the state is an orphan that Terraform resolves to the provider
+# recorded in the state. All three layers use the default provider for region 0
+# and the `accepter` alias for region 1; a missing alias fails the destroy with
+# "Provider configuration not present" and leaks region 1.
+#
+# Regions are variables: export TF_VAR_region_0 and TF_VAR_region_1 from the
+# workflow to match the regions the tests deploy to.
+
+terraform {
+
+  backend "s3" {
+    encrypt = true
+  }
+
+  required_version = ">= 1.3.0"
+}
+
+provider "aws" {
+  region = var.region_0
+}
+
+provider "aws" {
+  region = var.region_1
+  alias  = "accepter"
+}
+
+variable "region_0" {
+  description = "Region 0, also the default provider"
+  type        = string
+}
+
+variable "region_1" {
+  description = "Region 1, the accepter provider"
+  type        = string
+}

@@ -6,10 +6,13 @@
 package helpers
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/files"
+	"github.com/gruntwork-io/terratest/modules/random"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 )
 
@@ -19,6 +22,26 @@ type StatePaths struct {
 	VPC   string
 	Infra string
 	App   string
+}
+
+// RunTag names the resources of one test run. CI sets TEST_RUN_TAG so that the
+// workflow's always-run cleanup step can target exactly this run's states;
+// locally it falls back to a random ID.
+func RunTag() string {
+	if tag := os.Getenv("TEST_RUN_TAG"); tag != "" {
+		return strings.ToLower(tag)
+	}
+	return strings.ToLower(random.UniqueId())
+}
+
+// BackendKeyPrefix is the S3 key prefix of a test's three states. The
+// `tfstate-<id>/` segment is the layout aws-generic-terraform-cleanup groups
+// by, so the daily cleanup and the workflows' cleanup step can reclaim the
+// states of a run that was killed before its own t.Cleanup ran. With it, each
+// state lives at `tfstate-<id>/<layer>/terraform.tfstate`, which the action
+// reaches with `modules-order: app/terraform,infra/terraform,vpc/terraform`.
+func BackendKeyPrefix(clusterPrefix string) string {
+	return "aws/containers/ecs-dual-region-fargate/tfstate-" + clusterPrefix + "/"
 }
 
 // IsolatedStatePaths copies the Terraform code to a per-test temp directory
