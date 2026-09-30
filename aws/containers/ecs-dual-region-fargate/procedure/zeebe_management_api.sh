@@ -307,17 +307,18 @@ mgmt_topology_summary() {
 # before the writer moves. Poll the global
 # cluster until the target is the writer and no FailoverState is left.
 aurora_wait_writer() {
-    local target_arn=$1 max_wait=${2:-1200} poll=${AURORA_WRITER_POLL_SECONDS:-15} elapsed=0 global_json writer state
+    local target_arn=$1 max_wait=${2:-1200} global_json writer state
+    local deadline=$((SECONDS + max_wait))
     mgmt_log "Waiting for the Aurora switchover to ${target_arn} (timeout ${max_wait}s)..."
-    while [ "${elapsed}" -lt "${max_wait}" ]; do
+    while [ "${SECONDS}" -lt "${deadline}" ]; do
         global_json=$(aws rds describe-global-clusters \
             --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
             --query 'GlobalClusters[0]' --output json 2>/dev/null || echo '{}')
         writer=$(echo "${global_json}" | jq -r '.GlobalClusterMembers[]? | select(.IsWriter == true) | .DBClusterArn')
         state=$(echo "${global_json}" | jq -r '.FailoverState.Status // ""')
         [ "${writer}" = "${target_arn}" ] && [ -z "${state}" ] && { mgmt_log "Aurora switchover finished."; return 0; }
-        mgmt_log "  Writer: ${writer:-none}, failover state: ${state:-none} (${elapsed}s elapsed)"
-        sleep "${poll}"; elapsed=$((elapsed + 15))
+        mgmt_log "  Writer: ${writer:-none}, failover state: ${state:-none} ($((max_wait - deadline + SECONDS))s elapsed)"
+        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
     done
     mgmt_err "Timed out waiting for the Aurora switchover to ${target_arn}."
     return 1

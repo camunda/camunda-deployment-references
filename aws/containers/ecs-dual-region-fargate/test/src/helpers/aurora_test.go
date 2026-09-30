@@ -79,3 +79,22 @@ func TestWriterMovesWaitForTheGlobalCluster(t *testing.T) {
 		}
 	}
 }
+
+func TestAuroraWaitWriterFailsOnTimeout(t *testing.T) {
+	t.Parallel()
+
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(fakeAWS), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", "-c", `set -euo pipefail
+. ./zeebe_management_api.sh
+aurora_wait_writer arn:aws:rds:eu-west-3:1:cluster:b 0`)
+	cmd.Dir = filepath.Join("..", "..", "..", "procedure")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"AURORA_GLOBAL_CLUSTER_ID=g", "AURORA_WRITER_POLL_SECONDS=0")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "Timed out") {
+		t.Fatalf("expected a timeout, got %v\n%s", err, out)
+	}
+}
