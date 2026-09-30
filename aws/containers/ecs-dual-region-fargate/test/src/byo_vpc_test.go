@@ -86,13 +86,14 @@ func TestEndToEnd_BYO_VPC_TGW_RDBMS(t *testing.T) {
 		BackendKeyPrefix: helpers.BackendKeyPrefix(clusterPrefix),
 	}
 
-	vpcOpts, _, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
+	vpcOpts, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
+	adminPassword := helpers.AdminPassword(t, infraOpts)
 
 	albEndpoint := terraform.Output(t, appOpts, "region_0_alb_endpoint")
 	require.NotEmpty(t, albEndpoint)
 
 	t.Logf("Waiting for Raft quorum at %s ...", albEndpoint)
-	topo := helpers.WaitForRaftQuorum(t, albEndpoint, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	topo := helpers.WaitForRaftQuorum(t, albEndpoint, adminPassword, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	require.Len(t, topo.Brokers, 8)
 	require.Equal(t, 8, topo.PartitionsCount)

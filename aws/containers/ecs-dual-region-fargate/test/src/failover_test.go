@@ -85,6 +85,7 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 	}
 
 	_, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
+	adminPassword := helpers.AdminPassword(t, infraOpts)
 
 	// Baseline assertion: writer in region 0.
 	globalClusterID := terraform.Output(t, infraOpts, "aurora_global_cluster_id")
@@ -94,7 +95,7 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 
 	// Wait for initial quorum before triggering failover.
 	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
-	helpers.WaitForRaftQuorum(t, albEndpoint0, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	helpers.WaitForRaftQuorum(t, albEndpoint0, adminPassword, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	// Run failover.
 	scriptPath := filepath.Join(procedureDir, "failover.sh")

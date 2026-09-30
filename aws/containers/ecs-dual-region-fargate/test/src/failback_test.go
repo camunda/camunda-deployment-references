@@ -80,13 +80,14 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 	}
 
 	_, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
+	adminPassword := helpers.AdminPassword(t, infraOpts)
 
 	globalClusterID := terraform.Output(t, infraOpts, "aurora_global_cluster_id")
 	require.NotEmpty(t, globalClusterID)
 
 	// Initial quorum.
 	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
-	helpers.WaitForRaftQuorum(t, albEndpoint0, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	helpers.WaitForRaftQuorum(t, albEndpoint0, adminPassword, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	// Step 1: planned failover to region 1.
 	env := map[string]string{
@@ -110,7 +111,7 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 
 	// failback.sh reports the zone re-added; every broker and partition must
 	// be back, not only the Aurora writer.
-	helpers.WaitForRaftQuorum(t, albEndpoint0, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	helpers.WaitForRaftQuorum(t, albEndpoint0, adminPassword, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	finalWriter := helpers.AuroraWriterRegion(t, awsProfile, globalClusterID)
 	if expectWriterMovesBack {
