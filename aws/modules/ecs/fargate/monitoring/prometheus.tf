@@ -88,7 +88,7 @@ resource "aws_ecs_task_definition" "prometheus" {
           awslogs-stream-prefix = "discovery"
         }
       }
-    }, local.repository_credentials),
+    }),
 
     merge({
       name      = "prometheus"

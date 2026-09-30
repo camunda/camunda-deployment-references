@@ -106,7 +106,7 @@ No modules.
 | <a name="input_metrics_port"></a> [metrics\_port](#input\_metrics\_port) | The port the discovered targets expose their metrics on. Matches the Camunda management port. | `number` | `9600` | no |
 | <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for naming resources | `string` | n/a | yes |
 | <a name="input_prometheus_port"></a> [prometheus\_port](#input\_prometheus\_port) | The port Prometheus listens on | `number` | `9090` | no |
-| <a name="input_registry_credentials_arn"></a> [registry\_credentials\_arn](#input\_registry\_credentials\_arn) | The ARN of the Secrets Manager secret containing registry credentials, when the images are pulled from a private registry | `string` | `""` | no |
+| <a name="input_registry_credentials_arn"></a> [registry\_credentials\_arn](#input\_registry\_credentials\_arn) | The ARN of the Secrets Manager secret containing registry credentials for a private Prometheus image. Applied to the Prometheus container only: the discovery sidecar pulls the public AWS CLI image and must not be handed private-registry credentials. | `string` | `""` | no |
 | <a name="input_retention_time"></a> [retention\_time](#input\_retention\_time) | How long Prometheus keeps samples on local storage, as a Prometheus duration (for example 168h, 15d, 4w). | `string` | `"168h"` | no |
 | <a name="input_scrape_interval"></a> [scrape\_interval](#input\_scrape\_interval) | The global Prometheus scrape interval, as a Prometheus duration. | `string` | `"15s"` | no |
 | <a name="input_service_force_new_deployment"></a> [service\_force\_new\_deployment](#input\_service\_force\_new\_deployment) | Whether to force a new deployment of the ECS service | `bool` | `false` | no |
