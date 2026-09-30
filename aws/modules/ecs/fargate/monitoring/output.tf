@@ -4,7 +4,7 @@ output "dns_a_record" {
 }
 
 output "prometheus_endpoint" {
-  value       = "http://prometheus.${var.prefix}.service.local:${var.prometheus_port}"
+  value       = "http://prometheus.${var.prefix}.service.local:${var.prometheus_port}${var.enable_alb_http_listener_rule ? var.web_route_prefix : ""}"
   description = "The in-VPC base URL of the Prometheus server"
 }
 
