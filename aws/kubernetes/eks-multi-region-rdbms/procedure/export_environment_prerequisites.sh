@@ -92,23 +92,6 @@ if [ -z "${CAMUNDA_ZONE_REPLICAS:-}" ]; then
 fi
 export CAMUNDA_ZONE_REPLICAS
 
-# Derived from the layout above rather than configured on its own, so the two
-# can never disagree. Only the running zones count: they are the ones declared,
-# and adding a zone raises the factor by that zone's replicas. With zone
-# awareness the chart computes the placement from the zone list; this value is
-# what check-cluster-topology.sh asserts against.
-if [ -z "${CAMUNDA_REPLICATION_FACTOR:-}" ]; then
-    _rf=0
-    _slot=0
-    for _r in $CAMUNDA_ZONE_REPLICAS; do
-        [ "$_slot" -lt "$CAMUNDA_ACTIVE_REGIONS" ] && _rf=$((_rf + _r))
-        _slot=$((_slot + 1))
-    done
-    CAMUNDA_REPLICATION_FACTOR="$_rf"
-    unset _r _rf _slot
-fi
-export CAMUNDA_REPLICATION_FACTOR
-
 # Consume the rolling chart from the camunda-platform-helm main branch, like the
 # other architectures. The pin below is a commit on that branch, bumped by
 # Renovate as main moves; zone awareness is in no released chart, so a tag pin
@@ -198,6 +181,7 @@ if [ "$_zone_replica_count" -ne "$CAMUNDA_REGION_SLOTS" ]; then
 fi
 
 _slot=0
+_rf=0
 for _replicas in $CAMUNDA_ZONE_REPLICAS; do
     if ! [[ "$_replicas" =~ ^[0-9]+$ ]] || [ "$_replicas" -lt 1 ]; then
         echo "ERROR: zone slot $_slot has numberOfReplicas '$_replicas'; every zone needs at least 1." >&2
@@ -208,9 +192,17 @@ for _replicas in $CAMUNDA_ZONE_REPLICAS; do
         echo "       A zone cannot hold more replicas of a partition than it has brokers." >&2
         return 1 2>/dev/null || exit 1
     fi
+    [ "$_slot" -lt "$CAMUNDA_ACTIVE_REGIONS" ] && _rf=$((_rf + _replicas))
     _slot=$((_slot + 1))
 done
-unset _slot _replicas _zone_replica_count
+
+# Only declared, active zones contribute to the replication factor. The chart
+# derives placement from the zone list, and check-cluster-topology.sh checks it.
+if [ -z "${CAMUNDA_REPLICATION_FACTOR:-}" ]; then
+    CAMUNDA_REPLICATION_FACTOR="$_rf"
+fi
+export CAMUNDA_REPLICATION_FACTOR
+unset _slot _replicas _zone_replica_count _rf
 
 # No clusterSize/slots divisibility check any more: with the zone-aware scheme the chart
 # derives the StatefulSet replica count from the zone's own numberOfBrokers, and
