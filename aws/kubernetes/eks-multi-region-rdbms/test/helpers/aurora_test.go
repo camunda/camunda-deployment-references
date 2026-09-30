@@ -1,0 +1,120 @@
+package helpers
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+const (
+	london = "arn:aws:rds:eu-west-2:1:cluster:london"
+	paris  = "arn:aws:rds:eu-west-3:1:cluster:paris"
+)
+
+func TestParseAuroraGlobal(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name, raw, writer, failover string
+	}{
+		{"settled", `{"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":false},{"DBClusterArn":"` + paris + `","IsWriter":true}]}`, "eu-west-3", ""},
+		{"switching", `{"FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":true}]}`, "eu-west-2", "switching-over"},
+	}
+	for _, c := range cases {
+		got, err := ParseAuroraGlobal([]byte(c.raw))
+		if err != nil || got.WriterRegion != c.writer || got.FailoverState != c.failover {
+			t.Errorf("%s: got %+v, %v", c.name, got, err)
+		}
+	}
+
+	// The AWS field is IsWriter; IsClusterWriter does not exist and must not
+	// silently count as a writer.
+	if _, err := ParseAuroraGlobal([]byte(`{"GlobalClusterMembers":[{"DBClusterArn":"` + paris + `","IsClusterWriter":true}]}`)); err == nil {
+		t.Error("IsClusterWriter was accepted as the writer flag")
+	}
+}
+
+// fakeAWS replays #3572: describe-global-clusters keeps reporting the old
+// writer and a FailoverState for a few polls after failover-global-cluster.
+const fakeAWS = `#!/usr/bin/env bash
+calls="$FAKE_DIR/calls"
+case "$*" in
+  *describe-global-clusters*)
+    n=$(( $(cat "$calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$calls"
+    if [ "$n" -le 2 ]; then
+      echo '{"FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":true},{"DBClusterArn":"` + paris + `","IsWriter":false}]}'
+    else
+      echo '{"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":false},{"DBClusterArn":"` + paris + `","IsWriter":true}]}'
+    fi ;;
+esac
+`
+
+func runWaitAuroraWriter(t *testing.T, timeout string) (string, error) {
+	t.Helper()
+
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(fakeAWS), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", "-c", `set -euo pipefail
+source ./lib-management-api.sh
+camunda::wait_aurora_writer global "$TARGET" "$TIMEOUT"
+aws rds describe-global-clusters`)
+	cmd.Dir = ProcedureDir(t)
+	cmd.Env = append(os.Environ(),
+		"PATH="+fake+":"+os.Getenv("PATH"),
+		"FAKE_DIR="+fake,
+		"TARGET="+paris,
+		"TIMEOUT="+timeout,
+		"AURORA_WRITER_POLL_SECONDS=0")
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+func TestWaitAuroraWriterReturnsOnlyOnceSwitchoverFinished(t *testing.T) {
+	t.Parallel()
+
+	out, err := runWaitAuroraWriter(t, "60")
+	if err != nil {
+		t.Fatalf("wait failed: %v\n%s", err, out)
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	state, err := ParseAuroraGlobal([]byte(lines[len(lines)-1]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.WriterRegion != "eu-west-3" || state.FailoverState != "" {
+		t.Fatalf("returned while the switchover was running: %+v\n%s", state, out)
+	}
+}
+
+func TestWaitAuroraWriterFailsOnTimeout(t *testing.T) {
+	t.Parallel()
+
+	out, err := runWaitAuroraWriter(t, "0")
+	if err == nil || !strings.Contains(out, "did not finish within 0s") {
+		t.Fatalf("expected a timeout error, got %v\n%s", err, out)
+	}
+}
+
+// Every procedure that moves the Aurora writer must wait for the global
+// cluster, not for the target cluster alone (#3572).
+func TestWriterMovesWaitForTheGlobalCluster(t *testing.T) {
+	t.Parallel()
+
+	for _, script := range []string{"failover.sh", "failback.sh"} {
+		body, err := os.ReadFile(filepath.Join(ProcedureDir(t), script))
+		if err != nil {
+			t.Fatal(err)
+		}
+		src := string(body)
+		if strings.Contains(src, "failover-global-cluster") && !strings.Contains(src, "camunda::wait_aurora_writer") {
+			t.Errorf("%s moves the writer without camunda::wait_aurora_writer", script)
+		}
+		if strings.Contains(src, "wait db-cluster-available") {
+			t.Errorf("%s waits on db-cluster-available, which returns before the switchover ends", script)
+		}
+	}
+}
