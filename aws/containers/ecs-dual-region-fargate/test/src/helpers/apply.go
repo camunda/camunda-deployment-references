@@ -24,24 +24,34 @@ type StatePaths struct {
 	App   string
 }
 
-// RunTag names the resources of one test run. CI sets TEST_RUN_TAG so that the
-// workflow's always-run cleanup step can target exactly this run's states;
-// locally it falls back to a random ID.
+// RunTag names the resources of one test run: the last six digits of
+// TEST_RUN_ID when CI sets it, which keeps names within AWS length limits, or a
+// random ID locally.
 func RunTag() string {
-	if tag := os.Getenv("TEST_RUN_TAG"); tag != "" {
-		return strings.ToLower(tag)
+	if id := os.Getenv("TEST_RUN_ID"); len(id) >= 6 {
+		return id[len(id)-6:]
 	}
 	return strings.ToLower(random.UniqueId())
 }
 
-// BackendKeyPrefix is the S3 key prefix of a test's three states. The
-// `tfstate-<id>/` segment is the layout aws-generic-terraform-cleanup groups
-// by, so the daily cleanup and the workflows' cleanup step can reclaim the
-// states of a run that was killed before its own t.Cleanup ran. With it, each
-// state lives at `tfstate-<id>/<layer>/terraform.tfstate`, which the action
-// reaches with `modules-order: app/terraform,infra/terraform,vpc/terraform`.
+// BackendKeyPrefix is the S3 key prefix of a test's states.
+//
+// The `tfstate-<id>/` segment is the layout aws-generic-terraform-cleanup
+// groups by, so the daily cleanup and the workflows' cleanup step can reclaim
+// the states of a run killed before its own t.Cleanup ran. Each state lives at
+// `tfstate-<id>/<layer>/terraform.tfstate`, which the action reaches with
+// `modules-order: app/terraform,infra/terraform,vpc/terraform,fixture/terraform`.
+//
+// In CI the group ends in `-run<TEST_RUN_ID>`, and the workflow targets
+// `run<TEST_RUN_ID>/`. The action matches its target anywhere in an `aws s3
+// ls` line, and this token cannot occur in another run's key, a timestamp or
+// a size.
 func BackendKeyPrefix(clusterPrefix string) string {
-	return "aws/containers/ecs-dual-region-fargate/tfstate-" + clusterPrefix + "/"
+	group := clusterPrefix
+	if id := os.Getenv("TEST_RUN_ID"); id != "" {
+		group += "-run" + id
+	}
+	return "aws/containers/ecs-dual-region-fargate/tfstate-" + group + "/"
 }
 
 // IsolatedStatePaths copies the Terraform code to a per-test temp directory

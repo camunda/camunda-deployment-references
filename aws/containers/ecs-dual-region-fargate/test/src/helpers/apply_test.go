@@ -3,6 +3,7 @@ package helpers
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -27,5 +28,19 @@ func TestBackendKeyPrefixMatchesTheCleanupLayout(t *testing.T) {
 		if written != rebuilt {
 			t.Errorf("state key %q, cleanup looks for %q", written, rebuilt)
 		}
+	}
+}
+
+func TestBackendKeyPrefixCarriesTheRunID(t *testing.T) {
+	t.Setenv("TEST_RUN_ID", "36689383933")
+	got := BackendKeyPrefix("e2e-fo-planned-383933")
+	if want := "aws/containers/ecs-dual-region-fargate/tfstate-e2e-fo-planned-383933-run36689383933/"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	if !strings.Contains(got+"app/terraform.tfstate", "run36689383933/") {
+		t.Fatal("the workflow's cleanup target run<id>/ does not match the key")
+	}
+	if tag := RunTag(); tag != "383933" {
+		t.Fatalf("RunTag() = %q, want the last six digits", tag)
 	}
 }

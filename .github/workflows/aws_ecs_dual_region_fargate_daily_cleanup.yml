@@ -4,7 +4,8 @@ name: Tests - Daily Cleanup - AWS Containers ECS Dual Region Fargate
 # Reclaims the vpc/, infra/ and app/ states the ECS dual-region test suites
 # (integration, BYO VPC, failover) leave behind when a run is killed before its
 # own cleanup step. Each test writes its states under
-# aws/containers/ecs-dual-region-fargate/tfstate-<id>/<layer>/terraform.tfstate.
+# aws/containers/ecs-dual-region-fargate/tfstate-<id>/<layer>/terraform.tfstate,
+# <layer> being app, infra, vpc, or the BYO VPC test's fixture.
 
 on:
     workflow_dispatch:
@@ -29,8 +30,6 @@ concurrency:
     cancel-in-progress: false
 
 env:
-    IS_SCHEDULE: ${{ (contains(github.head_ref, 'schedules/') || github.event_name == 'schedule') && 'true' || 'false' }}
-
     MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
 
     AWS_PROFILE: infraex
@@ -62,12 +61,6 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-            - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
-
-            - name: Use repo .tool-version as global version
-              run: cp .tool-versions ~/.tool-versions
-
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -85,7 +78,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
                   tf-bucket-key-prefix: aws/containers/ecs-dual-region-fargate/
-                  modules-order: app/terraform,infra/terraform,vpc/terraform
+                  modules-order: app/terraform,infra/terraform,vpc/terraform,fixture/terraform
                   tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate
 
     report-failure:

@@ -46,7 +46,7 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        timeout-minutes: 210
+        timeout-minutes: 240
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -70,13 +70,6 @@ jobs:
                       ~/.cache/go-build
                   key: go-${{ runner.os }}-${{ hashFiles('aws/containers/ecs-dual-region-fargate/test/src/go.sum') }}
 
-            # Names every stack of this run, so the cleanup step below can target
-            # them. Six digits keep the resource names within AWS length limits.
-            - name: Compute the run tag
-              id: run_tag
-              run: |
-                  echo "tag=${GITHUB_RUN_ID: -6}" | tee -a "$GITHUB_OUTPUT"
-
             - name: Run Terratest
               working-directory: ${{ env.TEST_DIR }}
               env:
@@ -85,7 +78,8 @@ jobs:
                   TEST_REGION_1: eu-west-3
                   TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
-                  TEST_RUN_TAG: ${{ steps.run_tag.outputs.tag }}
+                  # Suffixes every state group of this run, and names its stacks.
+                  TEST_RUN_ID: ${{ github.run_id }}
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
               run: |
                   set -e
@@ -100,8 +94,8 @@ jobs:
             # when go test times out or the job is cancelled, so reclaim this run's
             # states here too. The daily cleanup catches what this step cannot reach.
             - name: Destroy the states of this run
-              if: always() && steps.run_tag.outputs.tag != ''
-              timeout-minutes: 90
+              if: always()
+              timeout-minutes: 130
               uses: ./.github/actions/aws-generic-terraform-cleanup
               env:
                   TF_VAR_region_0: eu-west-2
@@ -111,7 +105,9 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BACKEND_REGION }}
                   tf-bucket-key-prefix: aws/containers/ecs-dual-region-fargate/
                   max-age-hours: '0'
-                  target: ${{ steps.run_tag.outputs.tag }}
+                  target: run${{ github.run_id }}/
                   fail-on-not-found: 'false'
-                  modules-order: app/terraform,infra/terraform,vpc/terraform
+                  modules-order: app/terraform,infra/terraform,vpc/terraform,fixture/terraform
+                  destroy-pass-timeout-minutes: '60'
+                  retry-destroy-pass-timeout-minutes: '60'
                   tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate

@@ -45,8 +45,12 @@ func TestEndToEnd_BYO_VPC_TGW_RDBMS(t *testing.T) {
 	}
 
 	// Step 1: Spin up the throwaway VPCs that simulate a customer-owned VPC pair.
-	fixture := helpers.SetupBYOVPCs(t, thisDir, clusterPrefix, awsProfile, region0, region1, commonTags)
-	defer fixture.DestroyBYOVPCs(t)
+	fixture := helpers.SetupBYOVPCs(t, thisDir, clusterPrefix, awsProfile, region0, region1, commonTags,
+		map[string]interface{}{
+			"bucket": backendBucket,
+			"region": backendRegion,
+			"key":    helpers.BackendKeyPrefix(clusterPrefix) + "fixture/terraform.tfstate",
+		})
 
 	// Build the vpc/ tfvars: byo_vpc = true + the fixture outputs.
 	vpcVars := map[string]interface{}{
