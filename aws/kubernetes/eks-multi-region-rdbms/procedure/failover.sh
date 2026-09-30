@@ -196,8 +196,9 @@ if [ "$DRAIN_BROKERS" = true ]; then
             DELETE "/actuator/cluster/zones/${lost_zone}?force=true&dryRun=true" |
             jq '{plannedChanges, expectedBrokers: [.expectedTopology[]?.id]}'
     else
-        camunda::management "$survivor_context" DELETE "/actuator/cluster/zones/${lost_zone}?force=true"
-        camunda::wait_for_cluster_change "$survivor_context"
+        response="$(camunda::management "$survivor_context" DELETE "/actuator/cluster/zones/${lost_zone}?force=true")"
+        echo "$response"
+        camunda::wait_for_cluster_change "$survivor_context" "$(echo "$response" | jq -r '.changeId // .pendingChange.id // empty')"
     fi
 fi
 

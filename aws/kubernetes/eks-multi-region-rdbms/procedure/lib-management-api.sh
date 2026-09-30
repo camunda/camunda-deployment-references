@@ -313,13 +313,16 @@ camunda::gateway_upload() {
         POST "$path" "" "$file"
 }
 
-# camunda::wait_for_cluster_change <context> [timeout_seconds]
+# camunda::wait_for_cluster_change <context> <change-id> [timeout_seconds]
 #
-# Polls GET /actuator/cluster until no change is pending and the last change
-# reports COMPLETED.
+# Polls GET /actuator/cluster until the change the caller just requested is the
+# last change, reports COMPLETED, and nothing is pending. Matching the ID
+# matters: right after the request the new change may not be visible yet, and
+# the previous change's COMPLETED status would otherwise end the wait at once.
 camunda::wait_for_cluster_change() {
     local context="$1"
-    local timeout="${2:-900}"
+    local change_id="${2:?camunda::wait_for_cluster_change needs the changeId of the request}"
+    local timeout="${3:-900}"
     local deadline=$((SECONDS + timeout))
 
     while true; do
@@ -332,7 +335,14 @@ camunda::wait_for_cluster_change() {
         local pending
         pending="$(echo "$cluster" | jq -r '.pendingChange // empty' 2>/dev/null || true)"
         local status
-        status="$(echo "$cluster" | jq -r '.lastChange.status // empty' 2>/dev/null || true)"
+        status="$(echo "$cluster" | jq -r --arg id "$change_id" \
+            'select((.lastChange.id | tostring) == $id) | .lastChange.status // empty' 2>/dev/null || true)"
+
+        if [ "$status" = "FAILED" ] || [ "$status" = "CANCELLED" ]; then
+            echo "ERROR: cluster change $change_id ended as $status." >&2
+            echo "$cluster" >&2
+            return 1
+        fi
 
         if [ -z "$pending" ] && [ "$status" = "COMPLETED" ]; then
             echo "Cluster change completed."
@@ -346,7 +356,7 @@ camunda::wait_for_cluster_change() {
         fi
 
         echo "  waiting for the cluster change to complete (last status: ${status:-unknown}) ..."
-        sleep 15
+        sleep "${CLUSTER_CHANGE_POLL_SECONDS:-15}"
     done
 }
 

@@ -116,8 +116,9 @@ else
     # Printed before it is sent, so the exact request can be replayed by hand
     # against `?dryRun=true` before committing to it.
     echo "    POST /actuator/cluster/zones/$recovered_zone $body"
-    camunda::management "$survivor_context" POST "/actuator/cluster/zones/$recovered_zone" "$body"
-    camunda::wait_for_cluster_change "$survivor_context"
+    response="$(camunda::management "$survivor_context" POST "/actuator/cluster/zones/$recovered_zone" "$body")"
+    echo "$response"
+    camunda::wait_for_cluster_change "$survivor_context" "$(echo "$response" | jq -r '.changeId // .pendingChange.id // empty')"
 fi
 
 ###############################################################################
