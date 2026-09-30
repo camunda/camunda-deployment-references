@@ -9,7 +9,9 @@ name: Tests - Failover - AWS Containers ECS Dual Region Fargate
 # across Camunda versions is intentional — fewer concurrent deploys, lower
 # AWS spend. Schedule added once the suite passes against the sandbox.
 #
-# NOT yet scheduled. Invoke via workflow_dispatch until validated.
+# NOT yet scheduled. Runs on pull requests that touch the stack, its
+# procedures or its tests (skip with the `skip_<workflow>` label), and via
+# workflow_dispatch.
 
 on:
     workflow_dispatch:
@@ -19,6 +21,18 @@ on:
                 required: false
                 default: ''
                 type: string
+    pull_request:
+        paths:
+            - .github/workflows/aws_ecs_dual_region_fargate_failover.yml
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .tool-versions
+            - aws/containers/ecs-dual-region-fargate/procedure/**
+            - aws/containers/ecs-dual-region-fargate/terraform/**
+            - '!aws/containers/ecs-dual-region-fargate/terraform/*/test/golden/**'
+            - aws/containers/ecs-dual-region-fargate/test/**
+            - aws/modules/ecs/**
+            - aws/modules/aurora-global/**
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
