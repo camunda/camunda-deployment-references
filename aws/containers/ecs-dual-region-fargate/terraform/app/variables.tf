@@ -121,3 +121,31 @@ variable "connectors_image" {
   default     = "camunda/connectors-bundle:8.10-SNAPSHOT" # alpha-availability-check:ignore
   description = "Container image for the Camunda connectors-bundle tasks. Separate from camunda_image because connectors ship as a distinct artifact from the orchestration cluster."
 }
+
+################################################################
+#                     Load test overlay                        #
+################################################################
+
+variable "enable_load_tests" {
+  description = "Deploy the load test overlay: one Prometheus per region discovering that region's brokers through Cloud Map, and a load generator in region 0 driving process instances at the cluster. Off by default; the plan is unchanged while it is false."
+  type        = bool
+  default     = false
+}
+
+variable "load_tests_prometheus_port" {
+  description = "Port the load test Prometheus instances listen on."
+  type        = number
+  default     = 9090
+}
+
+variable "load_tests_retention_time" {
+  description = "How long the load test Prometheus instances keep samples, as a Prometheus duration."
+  type        = string
+  default     = "168h"
+}
+
+variable "load_tests_start_rate" {
+  description = "Process instances started per second by the load generator. Defaults to the rate the absorbed camunda-load-tests-ecs dual-region test ran at."
+  type        = number
+  default     = 150
+}
