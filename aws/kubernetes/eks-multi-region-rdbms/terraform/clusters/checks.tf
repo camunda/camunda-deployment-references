@@ -39,6 +39,22 @@ resource "terraform_data" "topology_guard" {
     }
 
     precondition {
+      condition = contains(
+        [for r in slice(var.regions, 0, min(var.active_region_count, local.region_slot_count)) : r.short_name],
+        sort([for r in var.regions : r.short_name])[0],
+      )
+      error_message = <<-EOT
+        The alphabetically first region short_name, ${sort([for r in var.regions : r.short_name])[0]}, belongs to a slot that is not deployed.
+
+        Camunda orders brokers by their index in the zone, then by zone name, and
+        broker 0 of the first zone generates the initial cluster configuration.
+        If that zone is not deployed, every other broker waits for a
+        configuration nobody creates, and the cluster never starts. Rename or
+        reorder the slots so an active slot's short_name sorts first.
+      EOT
+    }
+
+    precondition {
       condition = length(local.cross_region_rules) == length(distinct([
         for rule in local.cross_region_rules :
         "${rule.ip_protocol}|${rule.from_port}|${rule.to_port}"

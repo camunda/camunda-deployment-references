@@ -126,3 +126,36 @@ run "a_topology_without_a_quorum_fails_the_plan" {
 run "the_default_topology_is_accepted" {
   command = plan
 }
+
+run "a_spare_zone_that_sorts_first_fails_the_plan" {
+  command = plan
+
+  variables {
+    # Growth mode with a majority of zones active, so only the coordinator rule
+    # can fail: frankfurt sorts before london and paris, and broker 0 of the
+    # first zone generates the initial cluster configuration (#3573).
+    regions = [
+      {
+        region             = "eu-west-2"
+        short_name         = "london"
+        vpc_cidr_block     = "10.192.0.0/16"
+        service_cidr_block = "10.190.0.0/16"
+      },
+      {
+        region             = "eu-west-3"
+        short_name         = "paris"
+        vpc_cidr_block     = "10.202.0.0/16"
+        service_cidr_block = "10.200.0.0/16"
+      },
+      {
+        region             = "eu-central-1"
+        short_name         = "frankfurt"
+        vpc_cidr_block     = "10.212.0.0/16"
+        service_cidr_block = "10.210.0.0/16"
+      },
+    ]
+    active_region_count = 2
+  }
+
+  expect_failures = [terraform_data.topology_guard]
+}
