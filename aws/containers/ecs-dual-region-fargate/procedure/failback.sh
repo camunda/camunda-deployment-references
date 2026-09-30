@@ -109,6 +109,26 @@ wait_aurora_available() {
     return 1
 }
 
+# failover-global-cluster returns while the switchover is still pending, and the
+# target cluster reports "available" before the writer moves. Poll the global
+# cluster until the target is the writer and no FailoverState is left.
+wait_aurora_writer() {
+    local target_arn=$1 max_wait=${2:-1200} elapsed=0 global_json writer state
+    log "Waiting for the Aurora switchover to ${target_arn} (timeout ${max_wait}s)..."
+    while [ "${elapsed}" -lt "${max_wait}" ]; do
+        global_json=$(aws rds describe-global-clusters \
+            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+            --query 'GlobalClusters[0]' --output json 2>/dev/null || echo '{}')
+        writer=$(echo "${global_json}" | jq -r '.GlobalClusterMembers[]? | select(.IsWriter == true) | .DBClusterArn')
+        state=$(echo "${global_json}" | jq -r '.FailoverState.Status // ""')
+        [ "${writer}" = "${target_arn}" ] && [ -z "${state}" ] && { log "Aurora switchover finished."; return 0; }
+        log "  Writer: ${writer:-none}, failover state: ${state:-none} (${elapsed}s elapsed)"
+        sleep 15; elapsed=$((elapsed + 15))
+    done
+    err "Timed out waiting for the Aurora switchover to ${target_arn}."
+    return 1
+}
+
 get_global_cluster_members() {
     aws rds describe-global-clusters \
         --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
@@ -423,8 +443,7 @@ if [ "${SWITCH_WRITER}" = "true" ]; then
             --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
             --target-db-cluster-identifier "${MEMBER_ARN}" \
             --no-cli-pager
-        sleep 15
-        wait_aurora_available "$(echo "${MEMBER_ARN}" | awk -F':' '{print $7}')" "${RECOVERED_AWS_REGION}"
+        wait_aurora_writer "${MEMBER_ARN}"
         log "Aurora writer moved to ${RECOVERED_AWS_REGION}."
     fi
 else

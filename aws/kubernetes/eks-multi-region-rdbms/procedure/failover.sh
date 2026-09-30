@@ -163,13 +163,8 @@ else
                 --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
                 --target-db-cluster-identifier "$target_arn"
 
-            echo "    Waiting for the promoted cluster to become available ..."
-            # An Aurora cluster ARN has no slashes, so there is no identifier to cut
-            # out of it. `--db-cluster-identifier` takes the ARN as it stands.
-            target_region="$(echo "$target_arn" | cut -d: -f4)"
-            aws rds wait db-cluster-available \
-                --region "$target_region" \
-                --db-cluster-identifier "$target_arn"
+            echo "    Waiting for the switchover to finish ..."
+            camunda::wait_aurora_writer "$AURORA_GLOBAL_CLUSTER_ID" "$target_arn"
 
             echo "    Promotion complete."
             echo

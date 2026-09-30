@@ -154,9 +154,7 @@ else
                 --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
                 --target-db-cluster-identifier "$target_arn"
 
-            aws rds wait db-cluster-available \
-                --region "$recovered_region" \
-                --db-cluster-identifier "$target_arn"
+            camunda::wait_aurora_writer "$AURORA_GLOBAL_CLUSTER_ID" "$target_arn"
             echo "    Writer is back in $recovered_region."
         fi
     else

@@ -349,3 +349,38 @@ camunda::wait_for_cluster_change() {
         sleep 15
     done
 }
+
+# camunda::wait_aurora_writer <global-cluster-id> <target-cluster-arn> [timeout]
+#
+# `failover-global-cluster` returns while the switchover is still pending, and
+# `aws rds wait db-cluster-available` only checks the target cluster's own
+# status, so it returns before the writer moves. Poll the global cluster until
+# the target member is the writer and no FailoverState is reported.
+camunda::wait_aurora_writer() {
+    local global_id="$1"
+    local target_arn="$2"
+    local timeout="${3:-1200}"
+    local deadline=$((SECONDS + timeout))
+
+    while true; do
+        local global_json writer state
+        global_json="$(aws rds describe-global-clusters \
+            --global-cluster-identifier "$global_id" \
+            --query 'GlobalClusters[0]' --output json 2>/dev/null)" || global_json="{}"
+        writer="$(echo "$global_json" | jq -r '.GlobalClusterMembers[]? | select(.IsWriter == true) | .DBClusterArn')"
+        state="$(echo "$global_json" | jq -r '.FailoverState.Status // ""')"
+
+        if [ "$writer" = "$target_arn" ] && [ -z "$state" ]; then
+            return 0
+        fi
+
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "ERROR: Aurora switchover to $target_arn did not finish within ${timeout}s" \
+                "(writer: ${writer:-none}, failover state: ${state:-none})." >&2
+            return 1
+        fi
+
+        echo "    waiting for the Aurora switchover (writer: $(echo "$writer" | cut -d: -f4), state: ${state:-none}) ..."
+        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+    done
+}
