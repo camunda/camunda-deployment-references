@@ -8,8 +8,8 @@
 
 output "region_slot_count" {
   description = <<-EOT
-    Number of region slots in the fixed zone topology. The deployment can
-    activate a zone declared up front, but does not add zones later.
+    Number of region slots available for Camunda zones. Camunda declares only
+    active zones at bootstrap. activate-region.sh adds a spare slot's zone later.
   EOT
   value       = local.region_slot_count
 }
