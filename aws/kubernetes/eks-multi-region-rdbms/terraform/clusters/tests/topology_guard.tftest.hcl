@@ -1,10 +1,10 @@
 # Guard tests for the region topology.
 #
-# The invariants live in a precondition rather than a `check` block so that they
-# fail a plan instead of warning through it. These tests assert that the
-# topologies the procedures support still plan.
+# The active region count must not exceed the available slots. VPC and service
+# CIDRs must not overlap. Preconditions and variable validation reject invalid
+# topology instead of merely warning. This test checks that spare slots plan.
 #
-# mock_provider keeps this offline; no AWS call is made.
+# mock_provider keeps this offline. No AWS call is made.
 
 mock_provider "aws" {}
 mock_provider "aws" {

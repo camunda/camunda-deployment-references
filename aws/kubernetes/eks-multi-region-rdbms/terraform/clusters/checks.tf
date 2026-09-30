@@ -4,8 +4,9 @@
 # Terraform variable validation cannot reference another variable, and it also  #
 # runs on destroy: an invalid value would lock the state in place, which is the #
 # opposite of what a reference architecture needs when a topology has to be     #
-# torn down. `check` blocks avoid that, but they only ever warn, so a plan that #
-# violates a quorum invariant still provisions a cluster that cannot form one.  #
+# torn down. `check` blocks avoid that, but they only warn about invalid         #
+# topology, such as an active count that exceeds the available region slots.    #
+# Variable validation also rejects overlapping VPC and service CIDRs.           #
 #                                                                              #
 # A precondition on a resource is evaluated when that resource is created or    #
 # updated and skipped when it is destroyed, which is exactly the asymmetry      #
