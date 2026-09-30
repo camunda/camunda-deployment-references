@@ -156,6 +156,10 @@ brew install --cask session-manager-plugin   # macOS
 # The region is already down, so skip the ECS scale-down
 ./procedure/failover.sh --failed-region 0 --keep-tasks
 
+# The region is gone, Aurora included: also leave the writer alone, then
+# follow the AWS unplanned recovery procedure for Aurora
+./procedure/failover.sh --failed-region 0 --keep-tasks --keep-writer
+
 # Restore region 0: scale it up, then re-add the zone
 ./procedure/failback.sh --failed-region 0
 
@@ -276,7 +280,9 @@ Aurora Global Database never moves its writer across regions on its own.
 and `failback.sh --switch-writer` moves it back. Both run a planned switchover,
 which needs the current Aurora primary to still be healthy: if the failed
 region's Aurora cluster is down too, `failover.sh` stops and points to the
-[Aurora Global Database unplanned recovery procedure](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html). While the writer is away from
+[Aurora Global Database unplanned recovery procedure](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html).
+Pass `--keep-writer` in that case to skip the switchover and let the script
+finish. While the writer is away from
 region 0, Terraform still expects the original topology and `terraform destroy`
 may hang on the Aurora resources. To work around this:
 
