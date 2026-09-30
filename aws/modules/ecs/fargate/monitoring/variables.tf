@@ -287,7 +287,7 @@ variable "export_gcp_credential_config" {
   default     = ""
 
   validation {
-    condition     = var.export_gcs_bucket == "" || can(jsondecode(var.export_gcp_credential_config).type)
+    condition     = var.export_gcs_bucket == "" || try(jsondecode(var.export_gcp_credential_config).type == "external_account", false)
     error_message = "export_gcp_credential_config must be an external_account JSON document when export_gcs_bucket is set."
   }
 }
@@ -296,6 +296,10 @@ variable "export_interval_seconds" {
   description = "How often the series scraped since the previous dump are written out. Each batch is uploaded within a minute, so a long-running load test reaches the bucket in steps of this size while it runs."
   type        = number
   default     = 900
+  validation {
+    condition     = var.export_interval_seconds >= 60
+    error_message = "export_interval_seconds must be at least 60: the dump leaves the last minute out, and a shorter cycle only spins promtool."
+  }
 }
 
 variable "export_upload_image" {

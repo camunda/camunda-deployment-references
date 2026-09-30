@@ -216,13 +216,6 @@ jobs:
                   authentication-mode: ${{ matrix.scenario.authentication_mode }}
                   enable-load-tests: 'true'
                   load-tests-start-rate: ${{ env.LOAD_TESTS_START_RATE }}
-              # Read by terraform in the action's plan step. Empty values keep the
-              # export off.
-              env:
-                  TF_VAR_load_tests_export_gcs_bucket: ${{ steps.results-identity.outcome == 'success' && env.LOAD_TEST_RESULTS_BUCKET || '' }}
-                  TF_VAR_load_tests_export_namespace: ${{ steps.results-identity.outcome == 'success' && format('ecs-ci-{0}-{1}', github.run_id, github.run_attempt)
-                      || '' }}
-                  TF_VAR_load_tests_export_gcp_credential_config: ${{ steps.results-identity.outputs.CREDENTIAL_CONFIG }}
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -235,6 +228,13 @@ jobs:
                         "ci-event": "${{ github.event_name }}",
                         "map-migrated": "migARUADZHVWZ"
                       }
+              # Read by terraform in the action's plan step. Empty values keep the
+              # export off.
+              env:
+                  TF_VAR_load_tests_export_gcs_bucket: ${{ steps.results-identity.outcome == 'success' && env.LOAD_TEST_RESULTS_BUCKET || '' }}
+                  TF_VAR_load_tests_export_namespace: ${{ steps.results-identity.outcome == 'success' && format('ecs-ci-{0}-{1}', github.run_id, github.run_attempt)
+                      || '' }}
+                  TF_VAR_load_tests_export_gcp_credential_config: ${{ steps.results-identity.outputs.CREDENTIAL_CONFIG }}
 
             - name: Compute ECS cluster name on failure
               id: compute_cluster_name

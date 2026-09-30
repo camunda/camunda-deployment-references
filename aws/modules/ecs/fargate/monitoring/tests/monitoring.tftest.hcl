@@ -258,3 +258,25 @@ run "rejects_an_export_without_a_namespace" {
 
   expect_failures = [var.export_namespace]
 }
+
+run "rejects_a_credential_config_that_is_not_external_account" {
+  command = plan
+
+  variables {
+    export_gcs_bucket            = "results"
+    export_namespace             = "ecs-ci-1"
+    export_gcp_credential_config = "{\"type\":\"service_account\"}"
+  }
+
+  expect_failures = [var.export_gcp_credential_config]
+}
+
+run "rejects_an_export_interval_under_a_minute" {
+  command = plan
+
+  variables {
+    export_interval_seconds = 0
+  }
+
+  expect_failures = [var.export_interval_seconds]
+}
