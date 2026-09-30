@@ -216,7 +216,25 @@ if [ "$((2 * _active_replicas))" -le "$CAMUNDA_REPLICATION_FACTOR" ]; then
     echo "       move replicas onto the ones you do deploy." >&2
     return 1 2>/dev/null || exit 1
 fi
-unset _slot _replicas _active_replicas _zone_replica_count
+
+# MemberId ordering compares the per-zone node index first, then the zone name.
+# Every zone has node 0, so the alphabetically first zone supplies the initial
+# configuration coordinator. That zone must exist when growth mode starts.
+_lowest_zone="$(printf '%s\n' "$CAMUNDA_ZONE_NAMES" | tr ' ' '\n' | LC_ALL=C sort | head -n 1)"
+_slot=0
+_coordinator_active=false
+for _zone in $CAMUNDA_ZONE_NAMES; do
+    if [ "$_zone" = "$_lowest_zone" ] && [ "$_slot" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
+        _coordinator_active=true
+    fi
+    _slot=$((_slot + 1))
+done
+if [ "$_coordinator_active" != true ]; then
+    echo "ERROR: zone '$_lowest_zone' sorts first but belongs to an undeployed slot, so its broker 0 would be the configuration coordinator." >&2
+    echo "       Rename or reorder slots so an active slot's short_name sorts first." >&2
+    return 1 2>/dev/null || exit 1
+fi
+unset _slot _zone _replicas _active_replicas _zone_replica_count _lowest_zone _coordinator_active
 
 # No clusterSize/slots divisibility check any more: with the zone-aware scheme the chart
 # derives the StatefulSet replica count from the zone's own numberOfBrokers, and

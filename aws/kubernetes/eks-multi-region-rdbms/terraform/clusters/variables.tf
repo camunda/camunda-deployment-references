@@ -143,10 +143,18 @@ variable "active_region_count" {
     condition     = var.active_region_count >= 2
     error_message = "At least two regions must be active."
   }
+
+  validation {
+    condition = !can(var.regions[var.active_region_count]) || contains(
+      [for r in slice(var.regions, 0, var.active_region_count) : r.short_name],
+      sort([for r in var.regions : r.short_name])[0],
+    )
+    error_message = "The alphabetically first region short_name must belong to an active slot. Rename or reorder slots so the initial Camunda configuration coordinator is deployed."
+  }
 }
 
-# Cross-validation between the two variables above lives in checks.tf, because
-# a variable validation block cannot reference another variable.
+# Other cross-validation between these variables lives in checks.tf so that an
+# invalid topology does not prevent its own destruction.
 
 ################################
 # Variables                    #
