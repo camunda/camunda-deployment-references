@@ -35,9 +35,15 @@ func IsolatedStatePaths(t *testing.T, packageDir string) StatePaths {
 	t.Helper()
 
 	awsRoot := filepath.Join(packageDir, "..", "..", "..", "..")
-	copied, err := files.CopyTerraformFolderToDest(awsRoot, t.TempDir(), "aws")
+	dest := t.TempDir()
+	copied, err := files.CopyTerraformFolderToDest(awsRoot, dest, "aws")
 	if err != nil {
 		t.Fatalf("copy the Terraform code: %v", err)
+	}
+	// asdf resolves the terraform version from .tool-versions in a parent
+	// directory, which the temp copy is otherwise outside of.
+	if err := files.CopyFile(filepath.Join(awsRoot, "..", ".tool-versions"), filepath.Join(dest, ".tool-versions")); err != nil {
+		t.Fatalf("copy .tool-versions: %v", err)
 	}
 	root := filepath.Join(copied, "containers", "ecs-dual-region-fargate", "terraform")
 	vpc := filepath.Join(root, "vpc")
