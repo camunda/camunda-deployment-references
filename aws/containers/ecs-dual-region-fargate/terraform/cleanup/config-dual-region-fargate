@@ -25,12 +25,20 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
-    # Default-configured providers the states also reference.
+    # Default-configured providers the states also reference: random for
+    # passwords and suffixes, time for the Aurora waits, null for the db seed
+    # task. Bounded so every cleanup run installs a compatible release.
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
     random = {
-      source = "hashicorp/random"
+      source  = "hashicorp/random"
+      version = "~> 3.0"
     }
     time = {
-      source = "hashicorp/time"
+      source  = "hashicorp/time"
+      version = "~> 0.9"
     }
   }
 }

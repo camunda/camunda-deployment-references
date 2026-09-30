@@ -31,13 +31,16 @@ func TestParseAuroraWriterRegion(t *testing.T) {
 	}
 }
 
-// fakeAWS replays #3572: describe-global-clusters keeps reporting the old
-// writer and a FailoverState for two polls after failover-global-cluster.
+// fakeAWS replays #3572: after failover-global-cluster, describe-global-clusters
+// reports the old writer with a FailoverState for two polls, then the new
+// writer while FailoverState is still set, and only then the settled cluster.
 const fakeAWS = `#!/usr/bin/env bash
 calls="$FAKE_DIR/calls"
 n=$(( $(cat "$calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$calls"
 if [ "$n" -le 2 ]; then
   echo '{"FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true}]}'
+elif [ "$n" -eq 3 ]; then
+  echo '{"FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}'
 else
   echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}'
 fi
@@ -58,7 +61,7 @@ cat "$FAKE_DIR/calls"`)
 	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
 		"AURORA_GLOBAL_CLUSTER_ID=g", "AURORA_WRITER_POLL_SECONDS=0")
 	out, err := cmd.CombinedOutput()
-	if err != nil || !strings.HasSuffix(strings.TrimSpace(string(out)), "3") {
+	if err != nil || !strings.HasSuffix(strings.TrimSpace(string(out)), "4") {
 		t.Fatalf("returned before the switchover finished: %v\n%s", err, out)
 	}
 }

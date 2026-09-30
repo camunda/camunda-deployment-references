@@ -266,11 +266,28 @@ else
   MEMBERS=$(aws rds describe-global-clusters \
     --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
     --query 'GlobalClusters[0].GlobalClusterMembers' --output json)
-  WRITER_REGION=$(echo "${MEMBERS}" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn | split(":")[3]')
+  WRITER_ARN=$(echo "${MEMBERS}" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')
+  WRITER_REGION=$(echo "${WRITER_ARN}" | cut -d: -f4)
   if [[ "${WRITER_REGION}" != "${FAILED_AWS_REGION}" ]]; then
-    log "  Writer is in ${WRITER_REGION}, not in the failed region: nothing to do."
+    log "  Writer is in ${WRITER_REGION}, not in the failed region."
+    # An earlier run may have started a switchover whose writer flag already
+    # moved while FailoverState is still set: wait for it to settle as well.
+    aurora_wait_writer "${WRITER_ARN}"
     AURORA_SUMMARY="writer in ${WRITER_REGION}"
   else
+    # A planned switchover needs the current primary to be healthy. If the
+    # failed region's Aurora cluster is down too, only AWS's unplanned
+    # recovery can move the writer, and that can lose data.
+    WRITER_STATUS=$(aws rds describe-db-clusters --region "${FAILED_AWS_REGION}" \
+      --db-cluster-identifier "${WRITER_ARN}" \
+      --query 'DBClusters[0].Status' --output text 2>/dev/null || echo unreachable)
+    if [[ "${WRITER_STATUS}" != "available" ]]; then
+      err "The Aurora writer in ${FAILED_AWS_REGION} is ${WRITER_STATUS}, so a planned switchover cannot run."
+      err "Follow the Aurora Global Database unplanned recovery procedure:"
+      err "  https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html"
+      err "The zone was already removed; Camunda keeps processing, but exporting waits for a writer."
+      exit 1
+    fi
     TARGET_ARN=$(echo "${MEMBERS}" | jq -r --arg r "${SURVIVING_AWS_REGION}" \
       '[.[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
     if [[ -z "${TARGET_ARN}" ]]; then

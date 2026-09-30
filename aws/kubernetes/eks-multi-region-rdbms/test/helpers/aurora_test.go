@@ -36,8 +36,9 @@ func TestParseAuroraGlobal(t *testing.T) {
 	}
 }
 
-// fakeAWS replays #3572: describe-global-clusters keeps reporting the old
-// writer and a FailoverState for a few polls after failover-global-cluster.
+// fakeAWS replays #3572: after failover-global-cluster, describe-global-clusters
+// reports the old writer with a FailoverState for two polls, then the new
+// writer while FailoverState is still set, and only then the settled cluster.
 const fakeAWS = `#!/usr/bin/env bash
 calls="$FAKE_DIR/calls"
 case "$*" in
@@ -45,6 +46,8 @@ case "$*" in
     n=$(( $(cat "$calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$calls"
     if [ "$n" -le 2 ]; then
       echo '{"FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":true},{"DBClusterArn":"` + paris + `","IsWriter":false}]}'
+    elif [ "$n" -eq 3 ]; then
+      echo '{"FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":false},{"DBClusterArn":"` + paris + `","IsWriter":true}]}'
     else
       echo '{"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":false},{"DBClusterArn":"` + paris + `","IsWriter":true}]}'
     fi ;;

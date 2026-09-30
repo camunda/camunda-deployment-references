@@ -273,7 +273,10 @@ open http://localhost:8080
 
 Aurora Global Database never moves its writer across regions on its own.
 `failover.sh` moves it to the surviving region when it was in the failed one,
-and `failback.sh --switch-writer` moves it back. While the writer is away from
+and `failback.sh --switch-writer` moves it back. Both run a planned switchover,
+which needs the current Aurora primary to still be healthy: if the failed
+region's Aurora cluster is down too, `failover.sh` stops and points to the
+[Aurora Global Database unplanned recovery procedure](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html). While the writer is away from
 region 0, Terraform still expects the original topology and `terraform destroy`
 may hang on the Aurora resources. To work around this:
 

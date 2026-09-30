@@ -128,9 +128,17 @@ func ScaleDownRegion(t *testing.T, awsProfile, region, cluster string) {
 		}
 		return string(out)
 	}
-	for _, service := range strings.Fields(aws("ecs", "list-services", "--cluster", cluster,
-		"--query", "serviceArns[]", "--output", "text")) {
+	services := strings.Fields(aws("ecs", "list-services", "--cluster", cluster,
+		"--query", "serviceArns[]", "--output", "text"))
+	for _, service := range services {
 		aws("ecs", "update-service", "--cluster", cluster, "--service", service,
 			"--desired-count", "0", "--no-cli-pager")
+	}
+	// update-service returns before the tasks stop. Wait until they have, so the
+	// brokers are really gone when failover.sh --keep-tasks removes the zone.
+	// services-stable takes at most 10 services per call.
+	for i := 0; i < len(services); i += 10 {
+		aws(append([]string{"ecs", "wait", "services-stable", "--cluster", cluster, "--services"},
+			services[i:min(i+10, len(services))]...)...)
 	}
 }

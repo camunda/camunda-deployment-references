@@ -146,6 +146,11 @@ else
 
     if [ "$writer_region" != "$lost_region" ]; then
         echo "    The writer is not in the lost region: no database action required."
+        # An earlier run may have started a switchover whose writer flag already
+        # moved while FailoverState is still set: wait for it to settle as well.
+        if [ "$DRY_RUN" != true ]; then
+            camunda::wait_aurora_writer "$AURORA_GLOBAL_CLUSTER_ID" "$writer_arn"
+        fi
     else
         target_arn="$(echo "$members_json" | jq -r --arg lost "$lost_region" \
             '[.[] | select(.IsWriter != true) | select((.DBClusterArn | split(":")[3]) != $lost)][0].DBClusterArn')"
