@@ -172,11 +172,12 @@ camunda::region_node_ids() {
 # list generate-zeebe-helm-values.sh rendered for the deployment, so the request
 # cannot drift from what the chart installed.
 camunda::add_zone() {
+    : "${CAMUNDA_MULTIREGION_ZONES:?CAMUNDA_MULTIREGION_ZONES must be set, source generate-zeebe-helm-values.sh}"
     local context="$1" slot="$2"
     local zone zone_spec brokers_json body
     zone="$(camunda::zone_name "$slot")" || return 1
 
-    zone_spec="$(echo "${CAMUNDA_MULTIREGION_ZONES:?CAMUNDA_MULTIREGION_ZONES must be set, source generate-zeebe-helm-values.sh}" |
+    zone_spec="$(echo "$CAMUNDA_MULTIREGION_ZONES" |
         jq -c --arg zone "$zone" '.[] | select(.name == $zone)')"
     if [ -z "$zone_spec" ]; then
         echo "ERROR: zone $zone is not in CAMUNDA_MULTIREGION_ZONES." >&2
