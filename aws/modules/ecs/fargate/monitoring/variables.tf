@@ -265,7 +265,7 @@ variable "export_gcs_bucket" {
 }
 
 variable "export_gcs_prefix" {
-  description = "Object prefix under export_gcs_bucket. Files land under <prefix>/<export_namespace>/."
+  description = "Object prefix under export_gcs_bucket. Files land under <prefix>/<UTC date>/<export_namespace>/."
   type        = string
   default     = "ecs-ci"
 }

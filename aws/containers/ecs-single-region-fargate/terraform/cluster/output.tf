@@ -58,7 +58,7 @@ output "prometheus_endpoint" {
 
 output "load_tests_series_export" {
   value       = one(module.monitoring[*].series_export)
-  description = "Where the load test series are exported, as <bucket>/<prefix>/<namespace>, or null when the export or the overlay is off."
+  description = "Where the load test series are exported, as <bucket>/<prefix>/<namespace>, with a UTC date directory inserted before <namespace>, or null when the export or the overlay is off."
 }
 
 output "load_generator_log_group" {
