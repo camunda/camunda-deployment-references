@@ -830,9 +830,6 @@ jobs:
                   # Re-export services after Failback since the test recreates the Helm release without ServiceExports
                   post-failback-script: ./generic/openshift/dual-region/procedure/export-services-submariner.sh
                   distribution: OpenShift
-                  # The chart does not inspect orchestration.env before emitting this warning.
-                  # values-base.yml already sets CAMUNDA_CLUSTER_INITIALCONTACTPOINTS.
-                  exclude-deprecation-patterns: This deployment spans more than one failure domain
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
