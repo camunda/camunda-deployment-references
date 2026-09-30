@@ -95,9 +95,6 @@ if echo "$partitioning" | jq -e --arg zone "$recovered_zone" \
 else
     echo "    Zone $recovered_zone was force-removed during failover; adding it back."
 
-    # The zone is gone from the cluster, so its replica count and priority cannot
-    # be read back from there. They come from the zone list that step 1 rendered,
-    # which is also the one the chart just deployed, so the two cannot drift.
     camunda::add_zone "$survivor_context" "$RECOVERED_SLOT"
 fi
 
