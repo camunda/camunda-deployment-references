@@ -26,9 +26,11 @@ func TestPlannedFailover(t *testing.T) {
 	runFailoverTest(t, "planned", "")
 }
 
+// TestUnplannedFailover takes region 0's tasks down first, as an outage would,
+// and runs failover.sh with --keep-tasks.
 func TestUnplannedFailover(t *testing.T) {
 	t.Parallel()
-	runFailoverTest(t, "unplanned", "--unplanned")
+	runFailoverTest(t, "unplanned", "--keep-tasks")
 }
 
 // runFailoverTest is the shared body for planned and unplanned failover.
@@ -45,7 +47,7 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 
 	_, thisFile, _, _ := runtime.Caller(0)
 	thisDir := filepath.Dir(thisFile)
-	paths := helpers.DefaultStatePaths(thisDir)
+	paths := helpers.IsolatedStatePaths(t, thisDir)
 	procedureDir := filepath.Join(thisDir, "..", "..", "procedure")
 
 	commonTags := map[string]interface{}{
@@ -83,10 +85,7 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
 	}
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, paths, opts)
+	_, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
 
 	// Baseline assertion: writer in region 0.
 	globalClusterID := terraform.Output(t, infraOpts, "aurora_global_cluster_id")
@@ -106,10 +105,15 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 		"CLUSTER_NAME":             clusterPrefix,
 		"AWS_PROFILE":              awsProfile,
 		"AURORA_GLOBAL_CLUSTER_ID": globalClusterID,
+		"TF_DIR":                   infraOpts.TerraformDir,
 	}
 	args := []string{}
 	if failoverFlag != "" {
 		args = append(args, failoverFlag)
+	}
+	if failoverFlag == "--keep-tasks" {
+		cluster0 := terraform.Output(t, infraOpts, "ecs_cluster_region_0_id")
+		helpers.ScaleDownRegion(t, awsProfile, region0, cluster0[strings.LastIndex(cluster0, "/")+1:])
 	}
 	helpers.RunProcedureScript(t, scriptPath, env, args...)
 

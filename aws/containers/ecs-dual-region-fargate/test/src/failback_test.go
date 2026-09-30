@@ -43,7 +43,7 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 
 	_, thisFile, _, _ := runtime.Caller(0)
 	thisDir := filepath.Dir(thisFile)
-	paths := helpers.DefaultStatePaths(thisDir)
+	paths := helpers.IsolatedStatePaths(t, thisDir)
 	procedureDir := filepath.Join(thisDir, "..", "..", "procedure")
 
 	commonTags := map[string]interface{}{
@@ -81,10 +81,7 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
 	}
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, paths, opts)
+	_, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
 
 	globalClusterID := terraform.Output(t, infraOpts, "aurora_global_cluster_id")
 	require.NotEmpty(t, globalClusterID)
@@ -100,6 +97,7 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 		"CLUSTER_NAME":             clusterPrefix,
 		"AWS_PROFILE":              awsProfile,
 		"AURORA_GLOBAL_CLUSTER_ID": globalClusterID,
+		"TF_DIR":                   infraOpts.TerraformDir,
 	}
 	helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failover.sh"), env)
 	require.Equal(t, region1, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),
@@ -111,6 +109,10 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 		args = append(args, failbackFlag)
 	}
 	helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failback.sh"), env, args...)
+
+	// failback.sh reports the zone re-added; every broker and partition must
+	// be back, not only the Aurora writer.
+	helpers.WaitForRaftQuorum(t, albEndpoint0, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	finalWriter := helpers.AuroraWriterRegion(t, awsProfile, globalClusterID)
 	if expectWriterMovesBack {

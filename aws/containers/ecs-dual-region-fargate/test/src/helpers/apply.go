@@ -2,13 +2,14 @@
 //
 // ApplyAllThreeStates wraps terraform init && apply for vpc/ → infra/ → app/ in
 // sequence, returns the three terraform.Options so tests can read outputs, and
-// is paired with DestroyAllThreeStates for orderly teardown in reverse order.
+// registers the destroy of each state with t.Cleanup before applying it.
 package helpers
 
 import (
 	"path/filepath"
 	"testing"
 
+	"github.com/gruntwork-io/terratest/modules/files"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 )
 
@@ -20,17 +21,28 @@ type StatePaths struct {
 	App   string
 }
 
-// DefaultStatePaths returns paths anchored at the standard layout:
+// IsolatedStatePaths copies the Terraform code to a per-test temp directory
+// and returns the three state directories inside it.
 //
-//	aws/containers/ecs-dual-region-fargate/test/src/<helpers>
-//	                                              └── terraform/{vpc,infra,app}/
+// The tests run in parallel. Sharing terraform/{vpc,infra,app} would make them
+// share one .terraform directory, so each `terraform init` would repoint the
+// others at its own backend key. The whole aws/ tree is copied because the
+// states reference ../../../../modules.
 //
-// Tests in src/ call this with their package directory; the relative climb is
-// two levels: src/ → test/ → ecs-dual-region-fargate/ → terraform/{vpc,infra,app}.
-func DefaultStatePaths(packageDir string) StatePaths {
-	root := filepath.Join(packageDir, "..", "..", "..", "terraform")
+// Tests in src/ call this with their package directory: src/ → test/ →
+// ecs-dual-region-fargate/ → containers/ → aws/.
+func IsolatedStatePaths(t *testing.T, packageDir string) StatePaths {
+	t.Helper()
+
+	awsRoot := filepath.Join(packageDir, "..", "..", "..", "..")
+	copied, err := files.CopyTerraformFolderToDest(awsRoot, t.TempDir(), "aws")
+	if err != nil {
+		t.Fatalf("copy the Terraform code: %v", err)
+	}
+	root := filepath.Join(copied, "containers", "ecs-dual-region-fargate", "terraform")
+	vpc := filepath.Join(root, "vpc")
 	return StatePaths{
-		VPC:   filepath.Join(root, "vpc"),
+		VPC:   vpc,
 		Infra: filepath.Join(root, "infra"),
 		App:   filepath.Join(root, "app"),
 	}
@@ -63,7 +75,12 @@ func mergeMap(base, extra map[string]interface{}) map[string]interface{} {
 
 // ApplyAllThreeStates applies vpc/ then infra/ then app/ in sequence. Returns
 // the three terraform.Options so tests can read outputs (e.g. ALB endpoints
-// from app/). Caller MUST `defer DestroyAllThreeStates(t, opts)` to clean up.
+// from app/).
+//
+// Each state's destroy is registered with t.Cleanup before its apply, so a
+// failed or partial apply is still torn down, in reverse order (t.Cleanup is
+// LIFO). A deferred call taking the options as arguments would capture them
+// before they are assigned, and destroy nothing.
 func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpcOpts, infraOpts, appOpts *terraform.Options) {
 	t.Helper()
 
@@ -97,6 +114,7 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 		MaxRetries:         2,
 		TimeBetweenRetries: 5,
 	}
+	destroyOnCleanup(t, "vpc", vpcOpts)
 	t.Logf("Applying vpc/ state at %s", paths.VPC)
 	terraform.InitAndApply(t, vpcOpts)
 
@@ -108,6 +126,7 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 		MaxRetries:         2,
 		TimeBetweenRetries: 5,
 	}
+	destroyOnCleanup(t, "infra", infraOpts)
 	t.Logf("Applying infra/ state at %s", paths.Infra)
 	terraform.InitAndApply(t, infraOpts)
 
@@ -119,34 +138,22 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 		MaxRetries:         2,
 		TimeBetweenRetries: 5,
 	}
+	destroyOnCleanup(t, "app", appOpts)
 	t.Logf("Applying app/ state at %s", paths.App)
 	terraform.InitAndApply(t, appOpts)
 
 	return vpcOpts, infraOpts, appOpts
 }
 
-// DestroyAllThreeStates destroys app/ then infra/ then vpc/ in reverse-apply
-// order. Safe to call as a defer even if Apply failed partway — each Destroy
-// is best-effort and logs without failing the test (the deferred destroy is
-// cleanup, not assertion).
-func DestroyAllThreeStates(t *testing.T, appOpts, infraOpts, vpcOpts *terraform.Options) {
+// destroyOnCleanup destroys one state at the end of the test. The destroy is
+// best effort: it reports a failure without stopping the remaining cleanups.
+func destroyOnCleanup(t *testing.T, name string, opts *terraform.Options) {
 	t.Helper()
 
-	for _, step := range []struct {
-		name string
-		opts *terraform.Options
-	}{
-		{"app", appOpts},
-		{"infra", infraOpts},
-		{"vpc", vpcOpts},
-	} {
-		if step.opts == nil {
-			t.Logf("Skipping %s destroy (state was not applied)", step.name)
-			continue
+	t.Cleanup(func() {
+		t.Logf("Destroying %s state at %s", name, opts.TerraformDir)
+		if _, err := terraform.DestroyE(t, opts); err != nil {
+			t.Errorf("destroy of %s failed: %v — manual cleanup may be required", name, err)
 		}
-		t.Logf("Destroying %s state at %s", step.name, step.opts.TerraformDir)
-		if _, err := terraform.DestroyE(t, step.opts); err != nil {
-			t.Errorf("destroy of %s failed: %v — manual cleanup may be required", step.name, err)
-		}
-	}
+	})
 }

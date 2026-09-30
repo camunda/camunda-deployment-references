@@ -42,7 +42,7 @@ func TestEndToEnd_Greenfield_TGW_RDBMS(t *testing.T) {
 
 	// Resolve state paths relative to THIS test file's directory.
 	_, thisFile, _, _ := runtime.Caller(0)
-	paths := helpers.DefaultStatePaths(filepath.Dir(thisFile))
+	paths := helpers.IsolatedStatePaths(t, filepath.Dir(thisFile))
 
 	commonTags := map[string]interface{}{
 		"Test":    "true",
@@ -79,10 +79,7 @@ func TestEndToEnd_Greenfield_TGW_RDBMS(t *testing.T) {
 		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
 	}
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, paths, opts)
+	_, _, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
 
 	// Read region 0 ALB endpoint from the app state (it re-exports infra outputs).
 	albEndpoint := terraform.Output(t, appOpts, "region_0_alb_endpoint")

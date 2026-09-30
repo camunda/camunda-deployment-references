@@ -28,8 +28,10 @@
 #   partitions have no quorum until the zone is removed. Removing it is what   #
 #   restores availability; there is nothing to wait for first.                 #
 #                                                                             #
-# Aurora Global Database is NOT touched — the JDBC failover plugin and AWS    #
-# handle writer promotion automatically via the global cluster endpoint.       #
+# Aurora Global Database does not move its writer on its own. When the writer  #
+# is in the failed region, Step 5 runs a planned switchover to the surviving   #
+# region and waits until the global cluster reports it finished. The JDBC      #
+# failover plugin then follows the new writer.                                 #
 #                                                                             #
 # Usage:                                                                      #
 #   ./failover.sh [--failed-region 0|1] [--dry-run] [--keep-tasks]            #
@@ -252,6 +254,40 @@ else
 fi
 
 ###############################################################################
+# Step 5: Aurora writer                                                       #
+###############################################################################
+
+log ""
+log "=== Step 5: Aurora writer ==="
+AURORA_SUMMARY="not managed (AURORA_GLOBAL_CLUSTER_ID unset)"
+if [[ -z "${AURORA_GLOBAL_CLUSTER_ID:-}" ]]; then
+  log "  AURORA_GLOBAL_CLUSTER_ID is not set, skipping."
+else
+  MEMBERS=$(aws rds describe-global-clusters \
+    --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+    --query 'GlobalClusters[0].GlobalClusterMembers' --output json)
+  WRITER_REGION=$(echo "${MEMBERS}" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn | split(":")[3]')
+  if [[ "${WRITER_REGION}" != "${FAILED_AWS_REGION}" ]]; then
+    log "  Writer is in ${WRITER_REGION}, not in the failed region: nothing to do."
+    AURORA_SUMMARY="writer in ${WRITER_REGION}"
+  else
+    TARGET_ARN=$(echo "${MEMBERS}" | jq -r --arg r "${SURVIVING_AWS_REGION}" \
+      '[.[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
+    if [[ -z "${TARGET_ARN}" ]]; then
+      err "No Aurora member in ${SURVIVING_AWS_REGION} to promote."
+      exit 1
+    fi
+    log "  Planned switchover to ${TARGET_ARN}"
+    aws rds failover-global-cluster \
+      --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+      --target-db-cluster-identifier "${TARGET_ARN}" \
+      --no-cli-pager > /dev/null
+    aurora_wait_writer "${TARGET_ARN}"
+    AURORA_SUMMARY="writer moved to ${SURVIVING_AWS_REGION}"
+  fi
+fi
+
+###############################################################################
 # Summary                                                                     #
 ###############################################################################
 
@@ -261,7 +297,7 @@ log "Failover complete — zone ${FAILED_ZONE} force-removed."
 log ""
 log "Failed region ${FAILED_REGION}:  ECS scaled to 0, zone dropped from the distribution"
 log "Surviving zone:         ${SURVIVING_AWS_REGION}, ${LEADERS}/${PARTITIONS} partitions led"
-log "Aurora:                 handled automatically by AWS / JDBC failover plugin"
+log "Aurora:                 ${AURORA_SUMMARY}"
 log ""
 log "Next steps:"
 log "  1. Create work:  curl -u ${ADMIN_USER}:<pass> http://${SURVIVING_ALB}/v2/topology"
