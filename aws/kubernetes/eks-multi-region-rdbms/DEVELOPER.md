@@ -55,10 +55,9 @@ terraform apply \
   -var np_desired_node_count=2
 ```
 
-`active_region_count=2` with 3 slots is a valid, supported state: every
-partition holds 2 of its 3 replicas. It halves the cost while still exercising
-the cross-region code paths, and it is the starting point of the
-`activate-region.sh` flow.
+With `active_region_count=2` and 3 slots, Camunda declares 2 zones.
+The cluster is complete at that size and exercises the cross-region code paths.
+`activate-region.sh` adds the third zone when its slot is ready.
 
 Then:
 
