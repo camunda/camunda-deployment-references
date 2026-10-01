@@ -166,7 +166,7 @@ resource "aws_ecs_task_definition" "prometheus" {
           awslogs-stream-prefix = "upload"
         }
       }
-    }, local.repository_credentials),
+    }),
   ] : []))
 
   volume {

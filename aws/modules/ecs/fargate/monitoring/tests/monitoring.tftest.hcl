@@ -280,3 +280,21 @@ run "rejects_an_export_interval_under_a_minute" {
 
   expect_failures = [var.export_interval_seconds]
 }
+
+run "registry_credentials_stay_off_the_upload_sidecar" {
+  command = plan
+
+  # The credentials are for a private Prometheus mirror; the upload sidecar
+  # pulls a public image and must not need them.
+  variables {
+    registry_credentials_arn     = "arn:aws:secretsmanager:us-east-1:000000000000:secret:reg"
+    export_gcs_bucket            = "results"
+    export_namespace             = "ecs-ci-1"
+    export_gcp_credential_config = "{\"type\":\"external_account\"}"
+  }
+
+  assert {
+    condition     = length([for c in jsondecode(aws_ecs_task_definition.prometheus.container_definitions) : c if c.name == "upload" && can(c.repositoryCredentials)]) == 0
+    error_message = "The upload sidecar should not carry the Prometheus registry credentials"
+  }
+}
