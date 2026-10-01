@@ -81,17 +81,14 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
 	}
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, paths, opts)
+	_, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
 
 	globalClusterID := terraform.Output(t, infraOpts, "aurora_global_cluster_id")
 	require.NotEmpty(t, globalClusterID)
 
 	// Initial quorum.
 	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
-	helpers.WaitForRaftQuorum(t, albEndpoint0, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	helpers.WaitForRaftQuorum(t, albEndpoint0, "admin", helpers.SensitiveOutput(t, appOpts, "admin_user_password"), 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	// Step 1: planned failover to region 1.
 	env := map[string]string{

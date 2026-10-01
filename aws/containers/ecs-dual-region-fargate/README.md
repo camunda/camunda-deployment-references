@@ -271,6 +271,31 @@ terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_globa
 terraform -chdir=terraform/infra destroy -auto-approve
 ```
 
+## Load test overlay (optional)
+
+Set `enable_load_tests = true` in `terraform/app/terraform.tfvars` to deploy,
+next to the cluster, the same overlay as the
+[single-region reference](../ecs-single-region-fargate/README.md): one
+Prometheus per region, each scraping only that region's brokers, and a load
+generator in region 0 that starts `load_tests_start_rate` process instances per
+second. The generator runs in region 0 because that region holds partition
+leadership; driving load from region 1 would measure the cross-region link
+rather than the engine.
+
+It is off by default and leaves the plan unchanged while off. Both Prometheus
+instances are private: the `region_0_prometheus_endpoint` and
+`region_1_prometheus_endpoint` outputs resolve only from inside the matching
+VPC, so query them from a host or task running there. The Session Manager
+port-forward above reaches the Orchestration Cluster, not Prometheus. The generator's
+throughput lines are in the `load_generator_log_group` CloudWatch log group.
+
+This is the dual-region load test from
+[camunda-load-tests-ecs#6](https://github.com/camunda/camunda-load-tests-ecs/pull/6),
+built on this reference instead of a parallel stack. Not carried over:
+cross-region Prometheus federation and dashboards, which are left for a later
+decision, and the Lambda that periodically re-runs priority election to pull
+partition leadership back to region 0.
+
 ## Known limitations
 
 - **No Identity / Keycloak** — authentication is not included in this reference

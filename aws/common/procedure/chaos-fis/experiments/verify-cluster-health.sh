@@ -373,6 +373,19 @@ check_health() {
     details="${details}Only ${total_partitions}/${expected_partitions} partitions are present in the topology. "
   fi
 
+  # Every partition also needs its full replica set back. A leader plus
+  # healthy-but-missing followers would otherwise read as recovered while the
+  # cluster is still under-replicated.
+  local replication_factor under_replicated
+  replication_factor=$(echo "${topology_response}" | jq '.replicationFactor // 0')
+  under_replicated=$(echo "${topology_response}" | jq --argjson rf "${replication_factor}" '
+    [.brokers // [] | .[].partitions // [] | .[] | select(.health == "healthy") | .partitionId]
+    | group_by(.) | map(select(length < $rf)) | length')
+  if [[ "${replication_factor}" -gt 0 && "${under_replicated}" -gt 0 ]]; then
+    healthy=false
+    details="${details}${under_replicated} partition(s) have fewer than ${replication_factor} healthy replicas. "
+  fi
+
   # Trim trailing space
   details="${details% }"
 

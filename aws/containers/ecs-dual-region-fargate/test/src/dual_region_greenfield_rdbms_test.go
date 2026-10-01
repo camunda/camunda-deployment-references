@@ -73,23 +73,23 @@ func TestEndToEnd_Greenfield_TGW_RDBMS(t *testing.T) {
 		AppVars: map[string]interface{}{
 			"aws_profile":  awsProfile,
 			"default_tags": commonTags,
+			// Opt-in load test overlay: proves it applies and destroys cleanly
+			// on the dual-region stack.
+			"enable_load_tests": os.Getenv("TEST_ENABLE_LOAD_TESTS") == "true",
 		},
 		BackendBucket:    backendBucket,
 		BackendRegion:    backendRegion,
 		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
 	}
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, paths, opts)
+	_, _, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
 
 	// Read region 0 ALB endpoint from the app state (it re-exports infra outputs).
 	albEndpoint := terraform.Output(t, appOpts, "region_0_alb_endpoint")
 	require.NotEmpty(t, albEndpoint, "region_0_alb_endpoint should be a non-empty DNS name")
 
 	t.Logf("Waiting for Raft quorum at %s ...", albEndpoint)
-	topo := helpers.WaitForRaftQuorum(t, albEndpoint, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", helpers.SensitiveOutput(t, appOpts, "admin_user_password"), 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	require.Len(t, topo.Brokers, 8, "expected 8 Zeebe brokers (4 per region)")
 	require.Equal(t, 8, topo.PartitionsCount, "expected 8 partitions")

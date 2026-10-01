@@ -178,9 +178,9 @@ open upstream,
 [#6](https://github.com/camunda/camunda-load-tests-ecs/pull/6): it adds a
 dual-region stack, and what it changes in `aws/load_test` and `aws/monitoring`
 is basic auth, REST addressing and cross-region Prometheus federation. The
-first two are already here; the third belongs to a dual-region topology, which
-this repository covers with
-[`ecs-dual-region-fargate`](../ecs-dual-region-fargate/README.md).
+first two are already here. The dual-region load test itself is the opt-in
+overlay of [`ecs-dual-region-fargate`](../ecs-dual-region-fargate/README.md#load-test-overlay-optional),
+without the federation.
 
 The two dropped states are the ones that only made sense inside Camunda's own
 account. `aws/benchmark` would have been a second, worse copy of this state, and

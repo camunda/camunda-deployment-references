@@ -55,7 +55,9 @@ locals {
       { name = "BENCHMARK_MULTIPLEJOBTYPES", value = tostring(var.multiple_job_types) },
       { name = "BENCHMARK_TASKCOMPLETIONDELAY", value = tostring(var.task_completion_delay) },
 
-      { name = "JDK_JAVA_OPTIONS", value = "-XX:+HeapDumpOnOutOfMemoryError" },
+      # JAVA_TOOL_OPTIONS, not JDK_JAVA_OPTIONS: the image sets the latter to
+      # -XX:MaxRAMPercentage=75.0, and overriding it drops the heap to 25%.
+      { name = "JAVA_TOOL_OPTIONS", value = "-XX:+HeapDumpOnOutOfMemoryError" },
       { name = "LOGGING_LEVEL_ROOT", value = var.log_level },
     ],
     local.auth_environment,

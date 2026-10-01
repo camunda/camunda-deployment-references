@@ -186,9 +186,17 @@ select_task_by_az_or_random() {
 ensure_log_group() {
   local log_group="$1"
   echo "Ensuring CloudWatch log group '${log_group}' exists..."
-  aws logs create-log-group \
+  local err
+  if ! err=$(aws logs create-log-group \
     --log-group-name "${log_group}" \
-    --region "${AWS_REGION}" 2>/dev/null || true
+    --region "${AWS_REGION}" 2>&1); then
+    # Only "already exists" is expected; anything else (credentials, IAM,
+    # an API outage) would otherwise surface later as a confusing FIS error.
+    if [[ "${err}" != *ResourceAlreadyExistsException* ]]; then
+      echo "${err}" >&2
+      return 1
+    fi
+  fi
 }
 
 # Delete an existing FIS experiment template by name tag.

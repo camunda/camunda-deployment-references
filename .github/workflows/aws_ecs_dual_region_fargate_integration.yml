@@ -17,6 +17,11 @@ on:
                 required: false
                 default: ''
                 type: string
+            enable_load_tests:
+                description: Also deploy the load test overlay (greenfield RDBMS test only)
+                required: false
+                default: false
+                type: boolean
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -46,7 +51,7 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        timeout-minutes: 120
+        timeout-minutes: 180
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -76,6 +81,7 @@ jobs:
                   TEST_AWS_PROFILE: ${{ env.AWS_PROFILE }}
                   TEST_REGION_0: eu-west-2
                   TEST_REGION_1: eu-west-3
+                  TEST_ENABLE_LOAD_TESTS: ${{ inputs.enable_load_tests }}
                   TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
@@ -83,7 +89,7 @@ jobs:
                   set -e
                   TEST_FILTER="${INPUTS_TEST_NAME}"
                   if [[ -z "$TEST_FILTER" ]]; then
-                      go test -v -timeout 90m ./...
+                      go test -v -timeout 150m ./...
                   else
-                      go test -v -timeout 90m -run "$TEST_FILTER" ./...
+                      go test -v -timeout 150m -run "$TEST_FILTER" ./...
                   fi

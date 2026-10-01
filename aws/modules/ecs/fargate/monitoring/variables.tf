@@ -95,7 +95,7 @@ variable "service_timeouts" {
 }
 
 variable "registry_credentials_arn" {
-  description = "The ARN of the Secrets Manager secret containing registry credentials, when the images are pulled from a private registry"
+  description = "The ARN of the Secrets Manager secret containing registry credentials for a private Prometheus image. Applied to the Prometheus container only: the discovery sidecar pulls the public AWS CLI image and must not be handed private-registry credentials."
   type        = string
   default     = ""
 }
