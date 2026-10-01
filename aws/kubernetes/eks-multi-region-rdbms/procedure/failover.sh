@@ -198,10 +198,10 @@ if [ "$DRAIN_BROKERS" = true ]; then
     if [ "$DRY_RUN" = true ]; then
         echo "    --dry-run: asking the API for the plan, changing nothing."
         camunda::management "$survivor_context" \
-            DELETE "/actuator/cluster/zones/${lost_zone}?dryRun=true" |
+            DELETE "/actuator/cluster/zones/${lost_zone}?force=true&dryRun=true" |
             jq '{plannedChanges, expectedBrokers: [.expectedTopology[]?.id]}'
     else
-        camunda::management "$survivor_context" DELETE "/actuator/cluster/zones/$lost_zone"
+        camunda::management "$survivor_context" DELETE "/actuator/cluster/zones/${lost_zone}?force=true"
         camunda::wait_for_cluster_change "$survivor_context"
     fi
 fi

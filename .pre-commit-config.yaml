@@ -137,6 +137,13 @@ repos:
             files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/cleanup-ghost-rosa-clusters\.sh$
             pass_filenames: false
 
+          - id: rosa-installer-role-inventory-selftest
+            name: ROSA installer-role inventory self-test
+            entry: bash scripts/inventory-rosa-installer-roles.sh selftest
+            language: system
+            files: ^scripts/inventory-rosa-installer-roles\.sh$
+            pass_filenames: false
+
           - id: skip-decision-selftest
             name: Skip-label decision self-test
             # yamllint disable-line rule:line-length
@@ -160,6 +167,22 @@ repos:
             entry: python3 -m unittest discover -s .lint/cleanup-coverage -p 'test_*.py'
             language: system
             files: ^\.lint/cleanup-coverage/.*\.py$
+            pass_filenames: false
+
+          - id: action-filter-coverage
+            name: Workflows trigger on the actions they run
+            entry: .lint/action-filter-coverage/check-action-filter-coverage.py
+            language: script
+            # yamllint disable-line rule:line-length
+            files: ^\.github/workflows/.*\.ya?ml$|^\.github/actions/|^\.lint/action-filter-coverage/
+            pass_filenames: false
+
+          - id: python-unittest-action-filter-coverage
+            name: Python unit tests (action filter coverage)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/action-filter-coverage -p 'test_*.py'
+            language: system
+            files: ^\.lint/action-filter-coverage/.*\.py$
             pass_filenames: false
 
           - id: reporter-coverage
