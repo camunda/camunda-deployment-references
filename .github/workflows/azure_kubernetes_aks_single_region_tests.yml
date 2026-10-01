@@ -224,11 +224,14 @@ jobs:
               id: create_cluster
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
-              timeout-minutes: 120
+              timeout-minutes: 180
               with:
                   resource-prefix: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-aks
                   resource-group-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-rg
+                  azure-client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  azure-tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
                   location: ${{ env.AZURE_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -255,7 +258,7 @@ jobs:
             # cleanup-clusters needs: prepare-clusters, so dumping here is always
             # before teardown. See #3354.
             # The OIDC assertion minted at job start lives five minutes, but the create
-            # step is allowed two hours before it fails, so by the time the dump runs the
+            # step is allowed three hours before it fails, so by the time the dump runs the
             # session is long dead and every az call returns AADSTS700024. Re-authenticate
             # first, best effort: this exists to explain a failure, never to add one.
             - name: 🔐 Refresh the Azure login before dumping diagnostics
@@ -298,7 +301,7 @@ jobs:
                   # attempt without needing a start timestamp threaded through.
                   az monitor activity-log list \
                     --resource-group "$RESOURCE_GROUP_NAME" \
-                    --offset 3h \
+                    --offset 4h \
                     --max-events 500 \
                     --output json \
                     > "${DUMP_DIR}/activity-log-full.json" 2>"${DUMP_DIR}/activity-log-full.err" || rc_activity=$?
