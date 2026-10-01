@@ -179,7 +179,9 @@ func TestMultiTenancyDualReg(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml, multiTenancyValuesYaml}) }},
+		{"TestDeployC8Helm", func(t *testing.T) {
+			deployC8HelmWithFinalValues(t, []string{defaultValuesYaml}, multiTenancyValuesYaml)
+		}},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 24, "default", "<default>") }}, // assumes previous tests to be executed
 		{"TestCreateTestTenant", createTestTenant},
@@ -261,6 +263,10 @@ func initKubernetesHelpers(t *testing.T) {
 }
 
 func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
+	deployC8HelmWithFinalValues(t, valuesYamlFiles, "")
+}
+
+func deployC8HelmWithFinalValues(t *testing.T, valuesYamlFiles []string, finalValuesYaml string) {
 	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
 
 	setStringValues := map[string]string{}
@@ -277,9 +283,9 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	}
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesYamlFiles, region0ValuesYaml), 0, baseHelmVars, setStringValues)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, helmValuesFiles(valuesYamlFiles, region0ValuesYaml, finalValuesYaml), 0, baseHelmVars, setStringValues)
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesYamlFiles, region1ValuesYaml), 1, baseHelmVars, setStringValues)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, helmValuesFiles(valuesYamlFiles, region1ValuesYaml, finalValuesYaml), 1, baseHelmVars, setStringValues)
 
 	// Check that all deployments and Statefulsets are available
 	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
@@ -300,6 +306,14 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 
 	// connectors last as they depend on the Orchestration Cluster
 	waitForConnectorsAvailable(t)
+}
+
+func helmValuesFiles(valuesYamlFiles []string, regionValuesYaml, finalValuesYaml string) []string {
+	valuesYamlFiles = append(valuesYamlFiles, regionValuesYaml)
+	if finalValuesYaml != "" {
+		valuesYamlFiles = append(valuesYamlFiles, finalValuesYaml)
+	}
+	return valuesYamlFiles
 }
 
 // waitForConnectorsAvailable waits for the connectors deployment of both regions.

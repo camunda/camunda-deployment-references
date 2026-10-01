@@ -1,7 +1,28 @@
 ---
+# Scoped to `orchestration` on purpose: `global.multitenancy.enabled` also
+# turns on Identity multi-tenancy, which the chart refuses unless Identity runs
+# against an external database. The dual-region suite only needs the
+# orchestration-side checks.
 orchestration:
-    multitenancy:
-        checks:
-            enabled: true
-        api:
-            enabled: true
+    extraConfiguration:
+        - file: orchestration-multitenancy.yaml
+          content: |
+              camunda:
+                data:
+                  secondary-storage:
+                    autoconfigure-camunda-exporter: false
+                security:
+                  multiTenancy:
+                    checksEnabled: true
+                    apiEnabled: true
+                operate:
+                  multiTenancy:
+                    enabled: true
+                tasklist:
+                  multiTenancy:
+                    enabled: true
+              zeebe:
+                broker:
+                  gateway:
+                    multitenancy:
+                      enabled: true
