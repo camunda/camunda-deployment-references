@@ -97,6 +97,12 @@ env:
     # Seconds between the two instance-count samples the assertion compares.
     LOAD_TESTS_OBSERVATION_SECONDS: '120'
 
+    # The load test Prometheus exports its series to this bucket every few
+    # minutes while it runs, and the benchmark Grafana reads them from there:
+    # no network path between the two sides. Outside pull requests only. See
+    # docs/ci.md, "Load test metrics export".
+    LOAD_TEST_RESULTS_BUCKET: camunda-benchmark-load-test-results-prod
+
 jobs:
     triage:
         runs-on: ubuntu-slim
@@ -172,6 +178,23 @@ jobs:
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
 
+            # Published by camunda/infra-core once the task role is trusted on
+            # the bucket. Until then this step fails quietly and the series stay
+            # inside the VPC.
+            - name: Import the results bucket credential configuration
+              id: results-identity
+              if: github.event_name != 'pull_request'
+              continue-on-error: true
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/load-test-results/ecs-load-test-results CREDENTIAL_CONFIG;
+
             - name: Create Infrastructure with the load test overlay
               id: create_infrastructure
               uses: ./.github/actions/aws-containers-ecs-single-region-fargate-create
@@ -205,6 +228,13 @@ jobs:
                         "ci-event": "${{ github.event_name }}",
                         "map-migrated": "migARUADZHVWZ"
                       }
+              # Read by terraform in the action's plan step. Empty values keep the
+              # export off.
+              env:
+                  TF_VAR_load_tests_export_gcs_bucket: ${{ steps.results-identity.outcome == 'success' && env.LOAD_TEST_RESULTS_BUCKET || '' }}
+                  TF_VAR_load_tests_export_namespace: ${{ steps.results-identity.outcome == 'success' && format('ecs-ci-{0}-{1}', github.run_id, github.run_attempt)
+                      || '' }}
+                  TF_VAR_load_tests_export_gcp_credential_config: ${{ steps.results-identity.outputs.CREDENTIAL_CONFIG }}
 
             - name: Compute ECS cluster name on failure
               id: compute_cluster_name

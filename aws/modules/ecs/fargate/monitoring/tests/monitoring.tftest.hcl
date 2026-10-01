@@ -48,6 +48,18 @@ run "discovery_sidecar_ships_with_the_server" {
   }
 }
 
+run "scraped_series_carry_no_task_ip" {
+  command = plan
+
+  # Series leave the VPC when a run exports them for later analysis. The
+  # scrape target is a task IP, so `instance` is rewritten to the task id the
+  # discovery sidecar already puts in `pod`.
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "source_labels: [pod]")
+    error_message = "The scrape config should rewrite instance from the pod label"
+  }
+}
+
 run "discovery_scope_is_configurable" {
   command = plan
 
@@ -188,4 +200,101 @@ run "rejects_an_alb_rule_without_a_listener" {
   }
 
   expect_failures = [aws_lb_listener_rule.prometheus]
+}
+
+run "series_export_off_by_default" {
+  command = plan
+
+  assert {
+    condition     = !strcontains(aws_ecs_task_definition.prometheus.container_definitions, "\"name\":\"upload\"")
+    error_message = "No upload sidecar should ship unless export_gcs_bucket is set"
+  }
+
+  assert {
+    condition     = !strcontains(aws_ecs_task_definition.prometheus.container_definitions, "export-series.sh")
+    error_message = "Prometheus should not dump its series unless export_gcs_bucket is set"
+  }
+}
+
+run "series_export_ships_dumper_and_uploader" {
+  command = plan
+
+  variables {
+    export_gcs_bucket            = "results"
+    export_namespace             = "ecs-ci-1"
+    export_gcp_credential_config = "{\"type\":\"external_account\"}"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "\"name\":\"upload\"")
+    error_message = "The upload sidecar should ship when export_gcs_bucket is set"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "export-series.sh")
+    error_message = "Prometheus should dump its series periodically when export_gcs_bucket is set"
+  }
+
+  # A long-running load test must reach the dashboard while it runs: one batch
+  # every 15 minutes, uploaded as soon as it is dumped.
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "{\"name\":\"EXPORT_INTERVAL_SECONDS\",\"value\":\"900\"}")
+    error_message = "The series should be dumped every 15 minutes by default"
+  }
+
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.prometheus.container_definitions, "{\"name\":\"UPLOAD_POLL_SECONDS\",\"value\":\"60\"}")
+    error_message = "The upload sidecar should poll every minute, so a batch does not wait for the next dump"
+  }
+}
+
+run "rejects_an_export_without_a_namespace" {
+  command = plan
+
+  variables {
+    export_gcs_bucket            = "results"
+    export_gcp_credential_config = "{\"type\":\"external_account\"}"
+  }
+
+  expect_failures = [var.export_namespace]
+}
+
+run "rejects_a_credential_config_that_is_not_external_account" {
+  command = plan
+
+  variables {
+    export_gcs_bucket            = "results"
+    export_namespace             = "ecs-ci-1"
+    export_gcp_credential_config = "{\"type\":\"service_account\"}"
+  }
+
+  expect_failures = [var.export_gcp_credential_config]
+}
+
+run "rejects_an_export_interval_under_a_minute" {
+  command = plan
+
+  variables {
+    export_interval_seconds = 0
+  }
+
+  expect_failures = [var.export_interval_seconds]
+}
+
+run "registry_credentials_stay_off_the_upload_sidecar" {
+  command = plan
+
+  # The credentials are for a private Prometheus mirror; the upload sidecar
+  # pulls a public image and must not need them.
+  variables {
+    registry_credentials_arn     = "arn:aws:secretsmanager:us-east-1:000000000000:secret:reg"
+    export_gcs_bucket            = "results"
+    export_namespace             = "ecs-ci-1"
+    export_gcp_credential_config = "{\"type\":\"external_account\"}"
+  }
+
+  assert {
+    condition     = length([for c in jsondecode(aws_ecs_task_definition.prometheus.container_definitions) : c if c.name == "upload" && can(c.repositoryCredentials)]) == 0
+    error_message = "The upload sidecar should not carry the Prometheus registry credentials"
+  }
 }

@@ -298,6 +298,25 @@ variable "load_tests_retention_time" {
   default     = "168h"
 }
 
+variable "load_tests_export_gcs_bucket" {
+  description = "GCS bucket the load test Prometheus exports its series to while it runs, for a dashboard outside this VPC. Empty, the default, keeps every series inside the VPC. See the monitoring module's export_* variables."
+  type        = string
+  default     = ""
+}
+
+variable "load_tests_export_namespace" {
+  description = "Name the exported series are filed under and labelled with. Required when load_tests_export_gcs_bucket is set."
+  type        = string
+  default     = ""
+}
+
+variable "load_tests_export_gcp_credential_config" {
+  description = "Google workload identity federation credential configuration (external_account JSON for an AWS provider) that lets the Prometheus task role write to load_tests_export_gcs_bucket. Required when load_tests_export_gcs_bucket is set."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "load_tests_start_rate" {
   description = "Process instances started per second by the load generator. Defaults to the rate the absorbed camunda-load-tests-ecs benchmark ran at, so a run here is comparable with one from there."
   type        = number

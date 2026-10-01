@@ -32,3 +32,8 @@ output "target_group_arn" {
   value       = one(aws_lb_target_group.prometheus[*].arn)
   description = "The ARN of the ALB target group, when Prometheus is exposed through a listener"
 }
+
+output "series_export" {
+  value       = var.export_gcs_bucket != "" ? "${var.export_gcs_bucket}/${var.export_gcs_prefix}/${var.export_namespace}" : null
+  description = "Where the scraped series are exported, as <bucket>/<prefix>/<namespace>, with a UTC date directory inserted before <namespace>, or null when the export is off"
+}
