@@ -2,8 +2,8 @@
 //
 // SetupBYOVPCs applies the aws/test-fixtures/byo-vpcs/ Terraform config and
 // returns its outputs as a map ready to merge into the ecs-dual-region-fargate
-// vpc/ state's BYO tfvars. Caller is responsible for calling DestroyBYOVPCs
-// (typically as a deferred cleanup AFTER the consuming states are destroyed).
+// vpc/ state's BYO tfvars. The fixture is destroyed through t.Cleanup, after
+// the states built on it.
 package helpers
 
 import (
@@ -23,14 +23,12 @@ type BYOVPCFixture struct {
 // a fixture handle. The handle's Outputs map is keyed by the same field
 // names the consuming BYO tfvars expect (region_0_vpc_id, region_0_vpc_cidr,
 // region_0_private_subnet_ids, ...).
-func SetupBYOVPCs(t *testing.T, packageDir, prefix, awsProfile, region0, region1 string, tags map[string]interface{}) *BYOVPCFixture {
+func SetupBYOVPCs(t *testing.T, packageDir, prefix, awsProfile, region0, region1 string, tags map[string]interface{}, backend map[string]interface{}) *BYOVPCFixture {
 	t.Helper()
 
-	// packageDir is test/src/helpers/ (one dir below test/src/).
-	// Fixture path: ../../../../../test-fixtures/byo-vpcs/
-	// climb: helpers -> src -> test -> ecs-dual-region-fargate -> containers -> aws -> repo
-	// then descend: test-fixtures/byo-vpcs/
-	fixtureDir := filepath.Join(packageDir, "..", "..", "..", "..", "..", "test-fixtures", "byo-vpcs")
+	// packageDir is test/src/: src -> test -> ecs-dual-region-fargate ->
+	// containers -> aws, then aws/test-fixtures/byo-vpcs/.
+	fixtureDir := filepath.Join(packageDir, "..", "..", "..", "..", "test-fixtures", "byo-vpcs")
 
 	opts := &terraform.Options{
 		TerraformDir: fixtureDir,
@@ -41,10 +39,17 @@ func SetupBYOVPCs(t *testing.T, packageDir, prefix, awsProfile, region0, region1
 			"region_1":    region1,
 			"tags":        tags,
 		},
+		BackendConfig:      backend,
 		NoColor:            true,
 		MaxRetries:         2,
 		TimeBetweenRetries: 5,
 	}
+
+	// Registered first, so it runs after the destroys ApplyAllThreeStates
+	// registers later (t.Cleanup is LIFO): the stacks built on these VPCs go
+	// before the VPCs themselves. Registered before the apply, so a partial
+	// apply is torn down too.
+	destroyOnCleanup(t, "byo-vpc fixture", opts)
 
 	t.Logf("Applying BYO-VPC fixture at %s", fixtureDir)
 	terraform.InitAndApply(t, opts)
@@ -67,17 +72,5 @@ func (f *BYOVPCFixture) ToTFVars(t *testing.T) map[string]interface{} {
 		"region_1_private_subnet_ids":      terraform.OutputList(t, f.opts, "region_1_private_subnet_ids"),
 		"region_1_public_subnet_ids":       terraform.OutputList(t, f.opts, "region_1_public_subnet_ids"),
 		"region_1_private_route_table_ids": terraform.OutputList(t, f.opts, "region_1_private_route_table_ids"),
-	}
-}
-
-// DestroyBYOVPCs tears down the throwaway VPCs. Best-effort.
-func (f *BYOVPCFixture) DestroyBYOVPCs(t *testing.T) {
-	t.Helper()
-	if f == nil || f.opts == nil {
-		return
-	}
-	t.Logf("Destroying BYO-VPC fixture")
-	if _, err := terraform.DestroyE(t, f.opts); err != nil {
-		t.Errorf("BYO-VPC fixture destroy failed: %v — manual cleanup may be required", err)
 	}
 }

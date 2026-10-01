@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gruntwork-io/terratest/modules/random"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
 
@@ -26,9 +25,11 @@ func TestPlannedFailover(t *testing.T) {
 	runFailoverTest(t, "planned", "")
 }
 
+// TestUnplannedFailover takes region 0's tasks down first, as an outage would,
+// and runs failover.sh with --keep-tasks.
 func TestUnplannedFailover(t *testing.T) {
 	t.Parallel()
-	runFailoverTest(t, "unplanned", "--unplanned")
+	runFailoverTest(t, "unplanned", "--keep-tasks")
 }
 
 // runFailoverTest is the shared body for planned and unplanned failover.
@@ -38,14 +39,14 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 	awsProfile := envOrDefault("TEST_AWS_PROFILE", "infraex")
 	region0 := envOrDefault("TEST_REGION_0", "eu-west-2")
 	region1 := envOrDefault("TEST_REGION_1", "eu-west-3")
-	clusterPrefix := envOrDefault("TEST_CLUSTER_PREFIX", fmt.Sprintf("e2e-fo-%s-%s", label, strings.ToLower(random.UniqueId())))
+	clusterPrefix := envOrDefault("TEST_CLUSTER_PREFIX", fmt.Sprintf("e2e-fo-%s-%s", label, helpers.RunTag()))
 	raftTimeoutMin := envIntOrDefault(t, "TEST_RAFT_TIMEOUT_MIN", 30)
 	backendBucket := envOrDefault("TEST_BACKEND_BUCKET", "tests-ra-aws-rosa-hcp-tf-state-eu-central-1")
 	backendRegion := envOrDefault("TEST_BACKEND_REGION", "eu-central-1")
 
 	_, thisFile, _, _ := runtime.Caller(0)
 	thisDir := filepath.Dir(thisFile)
-	paths := helpers.DefaultStatePaths(thisDir)
+	paths := helpers.IsolatedStatePaths(t, thisDir)
 	procedureDir := filepath.Join(thisDir, "..", "..", "procedure")
 
 	commonTags := map[string]interface{}{
@@ -80,13 +81,11 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 		},
 		BackendBucket:    backendBucket,
 		BackendRegion:    backendRegion,
-		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
+		BackendKeyPrefix: helpers.BackendKeyPrefix(clusterPrefix),
 	}
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, paths, opts)
+	_, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
+	adminPassword := helpers.AdminPassword(t, infraOpts)
 
 	// Baseline assertion: writer in region 0.
 	globalClusterID := terraform.Output(t, infraOpts, "aurora_global_cluster_id")
@@ -96,7 +95,7 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 
 	// Wait for initial quorum before triggering failover.
 	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
-	helpers.WaitForRaftQuorum(t, albEndpoint0, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	helpers.WaitForRaftQuorum(t, albEndpoint0, adminPassword, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	// Run failover.
 	scriptPath := filepath.Join(procedureDir, "failover.sh")
@@ -106,10 +105,15 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 		"CLUSTER_NAME":             clusterPrefix,
 		"AWS_PROFILE":              awsProfile,
 		"AURORA_GLOBAL_CLUSTER_ID": globalClusterID,
+		"TF_DIR":                   infraOpts.TerraformDir,
 	}
 	args := []string{}
 	if failoverFlag != "" {
 		args = append(args, failoverFlag)
+	}
+	if failoverFlag == "--keep-tasks" {
+		cluster0 := terraform.Output(t, infraOpts, "ecs_cluster_region_0_id")
+		helpers.ScaleDownRegion(t, awsProfile, region0, cluster0[strings.LastIndex(cluster0, "/")+1:])
 	}
 	helpers.RunProcedureScript(t, scriptPath, env, args...)
 

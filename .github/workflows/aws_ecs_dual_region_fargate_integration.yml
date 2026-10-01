@@ -5,9 +5,10 @@ name: Tests - Integration - AWS Containers ECS Dual Region Fargate
 # against the sandbox AWS account, waits for Raft quorum, asserts on Zeebe
 # topology, then destroys.
 #
-# NOT yet enabled on a schedule: invoke via workflow_dispatch until the
-# sandbox-account smoke run validates the suite end-to-end. After that, add
-# a row to .github/workflows-config/workflow-scheduler.yml.
+# NOT yet enabled on a schedule. Runs on pull requests that touch the stack,
+# its procedures or its tests (skip with the `skip_<workflow>` label), and via
+# workflow_dispatch. To schedule it, add a row to
+# .github/workflows-config/workflow-scheduler.yml.
 
 on:
     workflow_dispatch:
@@ -17,6 +18,18 @@ on:
                 required: false
                 default: ''
                 type: string
+    pull_request:
+        paths:
+            - .github/workflows/aws_ecs_dual_region_fargate_integration.yml
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .tool-versions
+            - aws/containers/ecs-dual-region-fargate/procedure/**
+            - aws/containers/ecs-dual-region-fargate/terraform/**
+            - '!aws/containers/ecs-dual-region-fargate/terraform/*/test/golden/**'
+            - aws/containers/ecs-dual-region-fargate/test/**
+            - aws/modules/ecs/**
+            - aws/modules/aurora-global/**
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -46,7 +59,7 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        timeout-minutes: 120
+        timeout-minutes: 240
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -78,12 +91,36 @@ jobs:
                   TEST_REGION_1: eu-west-3
                   TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
+                  # Suffixes every state group of this run, and names its stacks.
+                  TEST_RUN_ID: ${{ github.run_id }}
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
               run: |
                   set -e
                   TEST_FILTER="${INPUTS_TEST_NAME}"
                   if [[ -z "$TEST_FILTER" ]]; then
-                      go test -v -timeout 90m ./...
+                      go test -v -timeout 90m -run 'TestEndToEnd_Greenfield_' ./...
                   else
                       go test -v -timeout 90m -run "$TEST_FILTER" ./...
                   fi
+
+            # t.Cleanup destroys each stack when the tests end normally. It does not run
+            # when go test times out or the job is cancelled, so reclaim this run's
+            # states here too. The daily cleanup catches what this step cannot reach.
+            - name: Destroy the states of this run
+              if: always()
+              timeout-minutes: 130
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              env:
+                  TF_VAR_region_0: eu-west-2
+                  TF_VAR_region_1: eu-west-3
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BACKEND_REGION }}
+                  tf-bucket-key-prefix: aws/containers/ecs-dual-region-fargate/
+                  max-age-hours: '0'
+                  target: run${{ github.run_id }}/
+                  fail-on-not-found: 'false'
+                  modules-order: app/terraform,infra/terraform,vpc/terraform,fixture/terraform
+                  destroy-pass-timeout-minutes: '60'
+                  retry-destroy-pass-timeout-minutes: '60'
+                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate

@@ -9,11 +9,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/gruntwork-io/terratest/modules/random"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
 
@@ -36,14 +34,14 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 	awsProfile := envOrDefault("TEST_AWS_PROFILE", "infraex")
 	region0 := envOrDefault("TEST_REGION_0", "eu-west-2")
 	region1 := envOrDefault("TEST_REGION_1", "eu-west-3")
-	clusterPrefix := envOrDefault("TEST_CLUSTER_PREFIX", fmt.Sprintf("e2e-fb-%s-%s", label, strings.ToLower(random.UniqueId())))
+	clusterPrefix := envOrDefault("TEST_CLUSTER_PREFIX", fmt.Sprintf("e2e-fb-%s-%s", label, helpers.RunTag()))
 	raftTimeoutMin := envIntOrDefault(t, "TEST_RAFT_TIMEOUT_MIN", 30)
 	backendBucket := envOrDefault("TEST_BACKEND_BUCKET", "tests-ra-aws-rosa-hcp-tf-state-eu-central-1")
 	backendRegion := envOrDefault("TEST_BACKEND_REGION", "eu-central-1")
 
 	_, thisFile, _, _ := runtime.Caller(0)
 	thisDir := filepath.Dir(thisFile)
-	paths := helpers.DefaultStatePaths(thisDir)
+	paths := helpers.IsolatedStatePaths(t, thisDir)
 	procedureDir := filepath.Join(thisDir, "..", "..", "procedure")
 
 	commonTags := map[string]interface{}{
@@ -78,20 +76,18 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 		},
 		BackendBucket:    backendBucket,
 		BackendRegion:    backendRegion,
-		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
+		BackendKeyPrefix: helpers.BackendKeyPrefix(clusterPrefix),
 	}
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, paths, opts)
+	_, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
+	adminPassword := helpers.AdminPassword(t, infraOpts)
 
 	globalClusterID := terraform.Output(t, infraOpts, "aurora_global_cluster_id")
 	require.NotEmpty(t, globalClusterID)
 
 	// Initial quorum.
 	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
-	helpers.WaitForRaftQuorum(t, albEndpoint0, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	helpers.WaitForRaftQuorum(t, albEndpoint0, adminPassword, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	// Step 1: planned failover to region 1.
 	env := map[string]string{
@@ -100,6 +96,7 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 		"CLUSTER_NAME":             clusterPrefix,
 		"AWS_PROFILE":              awsProfile,
 		"AURORA_GLOBAL_CLUSTER_ID": globalClusterID,
+		"TF_DIR":                   infraOpts.TerraformDir,
 	}
 	helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failover.sh"), env)
 	require.Equal(t, region1, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),
@@ -111,6 +108,10 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 		args = append(args, failbackFlag)
 	}
 	helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failback.sh"), env, args...)
+
+	// failback.sh reports the zone re-added; every broker and partition must
+	// be back, not only the Aurora writer.
+	helpers.WaitForRaftQuorum(t, albEndpoint0, adminPassword, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	finalWriter := helpers.AuroraWriterRegion(t, awsProfile, globalClusterID)
 	if expectWriterMovesBack {

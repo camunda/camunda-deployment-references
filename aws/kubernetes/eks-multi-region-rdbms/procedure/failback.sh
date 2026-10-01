@@ -116,8 +116,9 @@ else
     # Printed before it is sent, so the exact request can be replayed by hand
     # against `?dryRun=true` before committing to it.
     echo "    POST /actuator/cluster/zones/$recovered_zone $body"
-    camunda::management "$survivor_context" POST "/actuator/cluster/zones/$recovered_zone" "$body"
-    camunda::wait_for_cluster_change "$survivor_context"
+    response="$(camunda::management "$survivor_context" POST "/actuator/cluster/zones/$recovered_zone" "$body")"
+    echo "$response"
+    camunda::wait_for_cluster_change "$survivor_context" "$(echo "$response" | jq -r '.changeId // .pendingChange.id // empty')"
 fi
 
 ###############################################################################
@@ -154,9 +155,7 @@ else
                 --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
                 --target-db-cluster-identifier "$target_arn"
 
-            aws rds wait db-cluster-available \
-                --region "$recovered_region" \
-                --db-cluster-identifier "$target_arn"
+            camunda::wait_aurora_writer "$AURORA_GLOBAL_CLUSTER_ID" "$target_arn"
             echo "    Writer is back in $recovered_region."
         fi
     else

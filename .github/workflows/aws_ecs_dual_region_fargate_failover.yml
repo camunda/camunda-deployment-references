@@ -9,7 +9,9 @@ name: Tests - Failover - AWS Containers ECS Dual Region Fargate
 # across Camunda versions is intentional — fewer concurrent deploys, lower
 # AWS spend. Schedule added once the suite passes against the sandbox.
 #
-# NOT yet scheduled. Invoke via workflow_dispatch until validated.
+# NOT yet scheduled. Runs on pull requests that touch the stack, its
+# procedures or its tests (skip with the `skip_<workflow>` label), and via
+# workflow_dispatch.
 
 on:
     workflow_dispatch:
@@ -19,6 +21,18 @@ on:
                 required: false
                 default: ''
                 type: string
+    pull_request:
+        paths:
+            - .github/workflows/aws_ecs_dual_region_fargate_failover.yml
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .tool-versions
+            - aws/containers/ecs-dual-region-fargate/procedure/**
+            - aws/containers/ecs-dual-region-fargate/terraform/**
+            - '!aws/containers/ecs-dual-region-fargate/terraform/*/test/golden/**'
+            - aws/containers/ecs-dual-region-fargate/test/**
+            - aws/modules/ecs/**
+            - aws/modules/aurora-global/**
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -47,7 +61,7 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        timeout-minutes: 150
+        timeout-minutes: 270
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -79,6 +93,8 @@ jobs:
                   TEST_REGION_1: eu-west-3
                   TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
+                  # Suffixes every state group of this run, and names its stacks.
+                  TEST_RUN_ID: ${{ github.run_id }}
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
               run: |
                   set -e
@@ -88,3 +104,25 @@ jobs:
                   else
                       go test -v -timeout 120m -run "$TEST_FILTER" ./...
                   fi
+
+            # t.Cleanup destroys each stack when the tests end normally. It does not run
+            # when go test times out or the job is cancelled, so reclaim this run's
+            # states here too. The daily cleanup catches what this step cannot reach.
+            - name: Destroy the states of this run
+              if: always()
+              timeout-minutes: 130
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              env:
+                  TF_VAR_region_0: eu-west-2
+                  TF_VAR_region_1: eu-west-3
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BACKEND_REGION }}
+                  tf-bucket-key-prefix: aws/containers/ecs-dual-region-fargate/
+                  max-age-hours: '0'
+                  target: run${{ github.run_id }}/
+                  fail-on-not-found: 'false'
+                  modules-order: app/terraform,infra/terraform,vpc/terraform,fixture/terraform
+                  destroy-pass-timeout-minutes: '60'
+                  retry-destroy-pass-timeout-minutes: '60'
+                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate

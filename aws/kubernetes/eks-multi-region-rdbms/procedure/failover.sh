@@ -146,6 +146,11 @@ else
 
     if [ "$writer_region" != "$lost_region" ]; then
         echo "    The writer is not in the lost region: no database action required."
+        # An earlier run may have started a switchover whose writer flag already
+        # moved while FailoverState is still set: wait for it to settle as well.
+        if [ "$DRY_RUN" != true ]; then
+            camunda::wait_aurora_writer "$AURORA_GLOBAL_CLUSTER_ID" "$writer_arn"
+        fi
     else
         target_arn="$(echo "$members_json" | jq -r --arg lost "$lost_region" \
             '[.[] | select(.IsWriter != true) | select((.DBClusterArn | split(":")[3]) != $lost)][0].DBClusterArn')"
@@ -163,13 +168,8 @@ else
                 --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
                 --target-db-cluster-identifier "$target_arn"
 
-            echo "    Waiting for the promoted cluster to become available ..."
-            # An Aurora cluster ARN has no slashes, so there is no identifier to cut
-            # out of it. `--db-cluster-identifier` takes the ARN as it stands.
-            target_region="$(echo "$target_arn" | cut -d: -f4)"
-            aws rds wait db-cluster-available \
-                --region "$target_region" \
-                --db-cluster-identifier "$target_arn"
+            echo "    Waiting for the switchover to finish ..."
+            camunda::wait_aurora_writer "$AURORA_GLOBAL_CLUSTER_ID" "$target_arn"
 
             echo "    Promotion complete."
             echo
@@ -201,8 +201,9 @@ if [ "$DRAIN_BROKERS" = true ]; then
             DELETE "/actuator/cluster/zones/${lost_zone}?force=true&dryRun=true" |
             jq '{plannedChanges, expectedBrokers: [.expectedTopology[]?.id]}'
     else
-        camunda::management "$survivor_context" DELETE "/actuator/cluster/zones/${lost_zone}?force=true"
-        camunda::wait_for_cluster_change "$survivor_context"
+        response="$(camunda::management "$survivor_context" DELETE "/actuator/cluster/zones/${lost_zone}?force=true")"
+        echo "$response"
+        camunda::wait_for_cluster_change "$survivor_context" "$(echo "$response" | jq -r '.changeId // .pendingChange.id // empty')"
     fi
 fi
 
