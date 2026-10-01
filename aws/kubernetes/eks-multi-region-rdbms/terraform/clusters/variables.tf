@@ -11,10 +11,10 @@
 variable "regions" {
   description = <<-EOT
     Ordered list of region slots. Index 0 is region slot 0, index 1 is region
-    slot 1, and so on. The list defines the named zones of the Camunda cluster
-    and is immutable for its lifetime. Camunda declares only the zones of the
-    active slots; procedure/activate-region.sh adds a spare slot's zone to the
-    running cluster once the slot is deployed.
+    slot 1, and so on. The list defines the named zones of the Camunda cluster.
+    It is immutable for the lifetime of the cluster. Camunda declares only the
+    zones of the active slots. procedure/activate-region.sh adds the zone of a
+    spare slot to the running cluster after the slot is deployed.
 
     `vpc_cidr_block` and `service_cidr_block` must not overlap across regions:
     Transit Gateway cannot route duplicate prefixes, and Submariner runs
@@ -131,10 +131,10 @@ variable "active_region_count" {
     Number of region slots actually deployed. At least two, and at most
     `length(var.regions)`.
 
-    Deploying fewer regions than slots provisions the spare slot for later.
-    Camunda declares only the zones it runs, so the cluster is complete at every
-    size; procedure/activate-region.sh adds the spare zone once its region is
-    deployed.
+    If you deploy fewer regions than slots, the spare slots stay provisioned
+    for later. Camunda declares only the zones it runs, so the cluster is
+    complete at every size. procedure/activate-region.sh adds the zone of a
+    spare slot after its region is deployed.
   EOT
 
   type    = number

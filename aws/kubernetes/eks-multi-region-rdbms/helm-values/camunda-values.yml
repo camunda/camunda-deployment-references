@@ -77,14 +77,15 @@ orchestration:
         # Rendered as a JSON flow sequence, which is valid YAML, so this file
         # stays lintable as a template instead of only after substitution.
         zones: ${CAMUNDA_MULTIREGION_ZONES}
-    # clusterSize spans ALL region slots: brokersPerRegion * regionSlots.
+    # clusterSize counts the brokers of the active zones only. Adding a zone
+    # through the management API raises it at runtime.
     clusterSize: '${CAMUNDA_CLUSTER_SIZE}'
     partitionCount: '${CAMUNDA_PARTITION_COUNT}'
-    # Sum of numberOfReplicas across the zones above. The default layout is 2 in
-    # each database zone and 1 in the tie-breaker, so three zones give 5. Any
-    # layout works as long as no single zone holds half the replicas: the
-    # cluster then keeps its quorum when a whole region is lost, which is the
-    # property this architecture exists for.
+    # Sum of numberOfReplicas across the active zones above. The default layout
+    # is 2 in each database zone and 1 in the tie-breaker. Two active zones
+    # give 4, and three give 5 after the third zone is added. With three or more
+    # zones, and no zone holding half the replicas, the cluster keeps its quorum
+    # when a whole region is lost.
     replicationFactor: '${CAMUNDA_REPLICATION_FACTOR}'
 
     ###########################################################################
