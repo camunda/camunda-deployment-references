@@ -13,6 +13,15 @@ inputs:
     resource-group-name:
         description: Name of the resource group
         required: true
+    azure-client-id:
+        description: Azure client ID used to refresh OIDC authentication after a long-running apply
+        required: true
+    azure-tenant-id:
+        description: Azure tenant ID used to refresh OIDC authentication after a long-running apply
+        required: true
+    azure-subscription-id:
+        description: Azure subscription ID used to refresh OIDC authentication after a long-running apply
+        required: true
     cluster-name:
         description: Name of the AKS cluster to deploy
         required: true
@@ -256,6 +265,106 @@ runs:
           shell: bash
           run: |
               set -euo pipefail
+
+              apply_start=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+              echo "apply-start=$apply_start" >> "$GITHUB_OUTPUT"
+              set +e
+              terraform apply -json tf.plan 2>&1 | tee apply.log
+              apply_rc="${PIPESTATUS[0]}"
+              set -e
+              echo "apply-rc=$apply_rc" >> "$GITHUB_OUTPUT"
+
+              if [ "$apply_rc" -eq 0 ]; then
+                exit 0
+              fi
+
+        - name: Refresh Azure login after failed apply
+          if: steps.apply.outputs.apply-rc != '0'
+          uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+          with:
+              client-id: ${{ inputs.azure-client-id }}
+              tenant-id: ${{ inputs.azure-tenant-id }}
+              subscription-id: ${{ inputs.azure-subscription-id }}
+
+        - name: Classify transient PostgreSQL create failure
+          id: classify-apply-failure
+          if: steps.apply.outputs.apply-rc != '0'
+          working-directory: ${{ env.TF_MODULE_DIR }}
+          shell: bash
+          env:
+              APPLY_RC: ${{ steps.apply.outputs.apply-rc }}
+              APPLY_START: ${{ steps.apply.outputs.apply-start }}
+              INPUTS_RESOURCE_GROUP_NAME: ${{ inputs.resource-group-name }}
+          run: |
+              set -euo pipefail
+
+              # Azure accepted both PostgreSQL creates in #3354, then failed them
+              # internally after about 42 minutes and rolled them back. Retry only
+              # that provider-side failure; configuration, quota, capacity, and
+              # zone failures must remain immediately visible.
+              if ! jq -se '
+                [.[] | select(.type == "diagnostic" and .diagnostic.severity == "error")] as $errors |
+                ($errors | length) > 0 and all($errors[];
+                  (.diagnostic.address // "" | startswith("module.postgres_db.azurerm_postgresql_flexible_server.")) and
+                  (.diagnostic.detail // "" | contains("ServerDropping")))' apply.log >/dev/null; then
+                echo "::error::Terraform apply had an error outside the PostgreSQL ServerDropping rollback state."
+                exit "$APPLY_RC"
+              fi
+
+              matched=false
+              for attempt in {0..20}; do
+                activity_log=$(az monitor activity-log list \
+                  --resource-group "$INPUTS_RESOURCE_GROUP_NAME" \
+                  --start-time "$APPLY_START" \
+                  --max-events 500 \
+                  --output json 2>/dev/null || true)
+                if jq -e 'any(.[];
+                  .operationName.value == "Microsoft.DBforPostgreSQL/flexibleServers/write" and
+                  (.properties.statusMessage | tostring | contains("InternalServerError")))' \
+                  <<< "$activity_log" >/dev/null; then
+                  matched=true
+                  break
+                fi
+                if jq -e 'any(.[];
+                  .operationName.value == "Microsoft.DBforPostgreSQL/flexibleServers/write" and
+                  .status.value == "Failed")' <<< "$activity_log" >/dev/null; then
+                  break
+                fi
+                if [ "$attempt" -lt 20 ]; then
+                  sleep 60
+                fi
+              done
+
+              if [ "$matched" != true ]; then
+                echo "::error::Terraform apply failed without the known transient Azure PostgreSQL InternalServerError."
+                exit "$APPLY_RC"
+              fi
+
+              echo "::warning::Azure PostgreSQL creation failed with InternalServerError; waiting five minutes for rollback, then retrying once."
+              sleep 300
+              echo "retry=true" >> "$GITHUB_OUTPUT"
+
+        - name: Refresh Azure login before retry
+          if: steps.classify-apply-failure.outputs.retry == 'true'
+          uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+          with:
+              client-id: ${{ inputs.azure-client-id }}
+              tenant-id: ${{ inputs.azure-tenant-id }}
+              subscription-id: ${{ inputs.azure-subscription-id }}
+
+        - name: Retry transient PostgreSQL create
+          if: steps.classify-apply-failure.outputs.retry == 'true'
+          working-directory: ${{ env.TF_MODULE_DIR }}
+          shell: bash
+          env:
+              INPUTS_TFVARS: ${{ inputs.tfvars }}
+          run: |
+              set -euo pipefail
+              terraform plan \
+                -no-color \
+                -out tf.plan \
+                -var-file=terraform.tfvars \
+                -var-file="$INPUTS_TFVARS"
               terraform apply -no-color tf.plan
 
         - name: Terraform Drift Detection
