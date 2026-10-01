@@ -26,6 +26,15 @@ set -euo pipefail
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_REGION_SLOTS:?CAMUNDA_REGION_SLOTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_BROKERS_PER_REGION:?CAMUNDA_BROKERS_PER_REGION must be set, source export_environment_prerequisites.sh}"
+: "${CAMUNDA_CLUSTER_SIZE:?CAMUNDA_CLUSTER_SIZE must be set, source export_environment_prerequisites.sh}"
+
+# export_environment_prerequisites.sh keeps a value that is already set, so a
+# shell that bootstrapped with fewer regions still holds the old cluster size.
+if [ "$CAMUNDA_CLUSTER_SIZE" -ne $((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_ACTIVE_REGIONS)) ]; then
+    echo "CAMUNDA_CLUSTER_SIZE=$CAMUNDA_CLUSTER_SIZE does not match $CAMUNDA_ACTIVE_REGIONS active regions." >&2
+    echo "Unset CAMUNDA_CLUSTER_SIZE and CAMUNDA_REPLICATION_FACTOR, then source export_environment_prerequisites.sh again." >&2
+    exit 1
+fi
 
 if [ $# -ne 1 ]; then
     echo "usage: $0 <region-slot>" >&2

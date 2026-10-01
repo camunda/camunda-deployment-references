@@ -166,7 +166,10 @@ Common causes:
 cd terraform/clusters && terraform apply -var active_region_count=3 && cd -
 . ./export-terraform-outputs.sh   # refreshes the slot-indexed lists, keeps the Camunda count
 ./register-kubecontexts.sh
+# The size and replication factor derive from the active count, so drop the old ones
+unset CAMUNDA_CLUSTER_SIZE CAMUNDA_REPLICATION_FACTOR
 export CAMUNDA_ACTIVE_REGIONS=3
+. ./export_environment_prerequisites.sh
 ./activate-region.sh 2
 
 # Lose a region and observe that nothing stops
