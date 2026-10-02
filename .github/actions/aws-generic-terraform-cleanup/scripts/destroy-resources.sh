@@ -298,6 +298,8 @@ classify_destroy_error() {
     echo remediate_broken_trust_policy
   elif [[ "$output" == *"DeleteConflict"* && "$output" == *"policy attached to entities"* ]]; then
     echo remediate_iam_attachments
+  elif [[ "$output" == *"InvalidGlobalClusterStateFault"* ]]; then
+    echo remediate_aurora_global
   fi
 }
 
@@ -315,7 +317,21 @@ remediate_vpc_dependencies() {
 
   echo "[$group_id][$module_name] Re-running VPC dependency cleanup before retry..."
 
-  if [[ "$module_name" == "cluster" ]]; then
+  # A caller that declared the regions to sweep has told us everything we need,
+  # whatever its modules are named. Checking that first means an architecture
+  # does not have to call its module "clusters" to get its VPCs unblocked --
+  # the ECS dual-region states are named after their layers (app/terraform,
+  # infra/terraform, vpc/terraform), and used to fall through to no sweep at
+  # all. Existing `clusters` callers that set cleanup-regions already took this
+  # exact path.
+  if [[ -n "${CLEANUP_REGIONS:-}" ]]; then
+    local region retry_vpc
+    for region in $CLEANUP_REGIONS; do
+      retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
+                  --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
+      [[ -n "$retry_vpc" && "$retry_vpc" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc" "$region"
+    done
+  elif [[ "$module_name" == "cluster" ]]; then
     local retry_vpc
     retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
                 --query "Vpcs[0].VpcId" --output text --region "$AWS_REGION" 2>/dev/null)
@@ -323,14 +339,7 @@ remediate_vpc_dependencies() {
       cleanup_vpc_dependencies "$retry_vpc" "$AWS_REGION"
     fi
   elif [[ "$module_name" == "clusters" ]]; then
-    if [[ -n "${CLEANUP_REGIONS:-}" ]]; then
-      local region retry_vpc
-      for region in $CLEANUP_REGIONS; do
-        retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
-                    --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
-        [[ -n "$retry_vpc" && "$retry_vpc" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc" "$region"
-      done
-    elif [[ -z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION" ]]; then
+    if [[ -z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION" ]]; then
       echo "[$group_id][$module_name] Warning: CLUSTER_0_AWS_REGION or CLUSTER_1_AWS_REGION not set, skipping VPC cleanup retry"
     else
       local retry_vpc1 retry_vpc2 retry_c1 retry_c2
@@ -445,33 +454,7 @@ destroy_module() {
 
     tf_config_file="$SCRIPT_DIR/config-dual-region"
 
-    # Cloud-nuke is a second-pass fallback only. The first Terraform destroy
-    # must retain ownership of its VPC resources and delete them in dependency
-    # order; removing tracked subnets or ENIs up front corrupts that plan.
-    if [[ "$module_name" == "clusters" && -n "${CLEANUP_REGIONS:-}" ]]; then
-      if [[ "$RETRY_DESTROY" == "true" ]]; then
-        echo "[$group_id][$module_name] Retry: running cloud-nuke on multi-region VPCs as fallback..."
-        local region vpc_check
-        local nuke_config="${temp_dir}/matching-vpc.yml"
-        mkdir -p "$temp_dir"
-        cp "$SCRIPT_DIR/matching-vpc.yml" "$nuke_config"
-        local safe_id
-        safe_id=$(printf '%s' "$group_id" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
-        NAME_REGEX="^${safe_id}.*" yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX)] | .EKSCluster.include.names_regex = [strenv(NAME_REGEX)]' -i "$nuke_config"
-        for region in $CLEANUP_REGIONS; do
-          vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
-                      --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
-          if [[ -n "$vpc_check" && "$vpc_check" != "None" ]]; then
-            # EKS first, VPC second. A run that dies mid-apply leaves clusters
-            # whose node groups never reached the state: terraform destroy then
-            # fails with "Cluster has nodegroups attached" while the cluster's
-            # ENIs keep the VPC alive, so nuking VPCs alone loops on that pair.
-            cloud-nuke aws --config "$nuke_config" --resource-type eks-cluster --region "$region" --force
-            cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$region" --force
-          fi
-        done
-      fi
-    elif [[ "$module_name" == "clusters" ]]; then
+    if [[ "$module_name" == "clusters" && -z "${CLEANUP_REGIONS:-}" ]]; then
       local vpc1_check vpc2_check
       vpc1_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_0_name}*" \
                    --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_0_AWS_REGION" 2>/dev/null)
@@ -545,6 +528,10 @@ destroy_module() {
     echo "[$group_id][$module_name] Using the provider configuration $TF_CONFIG_PATH"
     tf_config_file="$resolved"
   fi
+
+  # Last-resort VPC sweep before a retry pass, for any architecture that
+  # declared its regions. No-op on the first pass.
+  nuke_vpcs_in_cleanup_regions "$group_id" "$module_name" "$temp_dir"
 
   mkdir -p "$temp_dir"
   cp "$tf_config_file" "$temp_dir/config.tf" || return 1
@@ -709,6 +696,101 @@ EOF
 }
 
 
+# cloud-nuke is the last resort when a Terraform destroy has already failed
+# once and something in the VPC is still holding it. It is a second-pass
+# fallback only: the first destroy must retain ownership of its VPC resources
+# and delete them in dependency order, and removing tracked subnets or ENIs up
+# front corrupts that plan.
+#
+# Driven by CLEANUP_REGIONS rather than by the module name. It used to sit
+# inside the branch that also picks the dual-region provider config, which
+# meant only a module literally named "clusters" could ever reach it — an
+# architecture whose states are named after their layers got no fallback at
+# all, however many regions it spanned.
+nuke_vpcs_in_cleanup_regions() {
+  local group_id="$1" module_name="$2" temp_dir="$3"
+
+  [[ "$RETRY_DESTROY" == "true" && -n "${CLEANUP_REGIONS:-}" ]] || return 0
+
+  echo "[$group_id][$module_name] Retry: running cloud-nuke on the declared regions as fallback..."
+
+  local region vpc_check safe_id
+  local nuke_config="${temp_dir}/matching-vpc.yml"
+  mkdir -p "$temp_dir"
+  cp "$SCRIPT_DIR/matching-vpc.yml" "$nuke_config"
+
+  # cloud-nuke deletes whatever its config matches, so the regex is anchored to
+  # this group and every regex metacharacter in the id is escaped.
+  safe_id=$(printf '%s' "$group_id" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
+  NAME_REGEX="^${safe_id}.*" yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX)] | .EKSCluster.include.names_regex = [strenv(NAME_REGEX)]' -i "$nuke_config"
+
+  for region in $CLEANUP_REGIONS; do
+    vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
+                --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
+    if [[ -n "$vpc_check" && "$vpc_check" != "None" ]]; then
+      # EKS first, VPC second. A run that dies mid-apply leaves clusters whose
+      # node groups never reached the state: terraform destroy then fails with
+      # "Cluster has nodegroups attached" while the cluster's ENIs keep the VPC
+      # alive, so nuking VPCs alone loops on that pair.
+      cloud-nuke aws --config "$nuke_config" --resource-type eks-cluster --region "$region" --force
+      cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$region" --force
+    fi
+  done
+}
+
+# An Aurora Global cluster cannot be deleted while it still has members.
+# `force_destroy` on aws_rds_global_cluster is the real fix and every
+# architecture here sets it, but a member promoted out of band -- AWS during a
+# region loss, or an operator mid-teardown -- can still leave the global
+# cluster in a state the provider will not delete from. Detach what is left so
+# the next attempt has nothing holding it.
+#
+# Deliberately does not delete the DB clusters: they are in the Terraform
+# state, and the retry destroys them. Removing them here would strand the
+# state instead.
+#
+# Invoked indirectly, by name, from the retry loop's dispatch -- shellcheck
+# cannot see that call site.
+# shellcheck disable=SC2329,SC2317
+remediate_aurora_global() {
+  local group_id="$1" module_name="$2" output="$3"
+
+  echo "[$group_id][$module_name] Detaching Aurora Global cluster members before retry..."
+
+  # The identifier is in the error text; there is no other handle on it here,
+  # because the state that named it is the one failing to destroy. Terraform
+  # prints the resource name in parentheses -- "deleting RDS Global Cluster
+  # (my-global-db)" -- which is name-agnostic, unlike matching a naming
+  # convention such as a "-global-db" suffix.
+  local global_ids
+  global_ids=$(grep -oE 'RDS Global Cluster \(([^)]+)\)' <<<"$output" |
+    sed -E 's/.*\((.*)\)/\1/' | sort -u)
+
+  if [[ -z "$global_ids" ]]; then
+    echo "[$group_id][$module_name] No global cluster identifier in the error text; nothing to detach."
+    return 0
+  fi
+
+  local global_id members arn
+  for global_id in $global_ids; do
+    members=$(aws rds describe-global-clusters \
+      --global-cluster-identifier "$global_id" \
+      --query 'GlobalClusters[0].GlobalClusterMembers[].DBClusterArn' \
+      --output text 2>/dev/null) || continue
+
+    for arn in $members; do
+      echo "[$group_id][$module_name] Detaching $arn from $global_id"
+      aws rds remove-from-global-cluster \
+        --global-cluster-identifier "$global_id" \
+        --db-cluster-identifier "$arn" --no-cli-pager >/dev/null 2>&1 || true
+    done
+  done
+
+  # Detaching is asynchronous; the next destroy attempt starts immediately
+  # otherwise and sees the same state.
+  sleep 30
+}
+
 # Fetch all group IDs
 # destroy_selftest checks classify_destroy_error against the verbatim error text
 # each case was written for, and that every handler it can name exists.
@@ -736,6 +818,7 @@ destroy_selftest() {
   local gone="Error: status is 404, identifier is '404', code is 'CLUSTERS-MGMT-404'"
   local delete_conflict="Error: deleting IAM Policy (arn:aws:iam::000000000000:policy/EXAMPLE-external-dns-policy): DeleteConflict: Cannot delete a policy attached to entities."
   local unknown="Error: Invalid provider configuration"
+  local global_state="Error: deleting RDS Global Cluster (ecsdr-1234-global-db): operation error RDS: DeleteGlobalCluster, https response error StatusCode: 400, api error InvalidGlobalClusterStateFault: Global Cluster ecsdr-1234-global-db is not empty"
 
   _expect "DependencyViolation -> vpc dependencies" \
     "$(classify_destroy_error "$dep_violation" clusters)" "remediate_vpc_dependencies"
@@ -747,6 +830,8 @@ destroy_selftest() {
     "$(classify_destroy_error "$delete_conflict" cluster)" "remediate_iam_attachments"
   _expect "CLUSTERS-MGMT-404 -> already gone" \
     "$(classify_destroy_error "$gone" cluster)" "already_gone"
+  _expect "InvalidGlobalClusterStateFault -> detach Aurora members" \
+    "$(classify_destroy_error "$global_state" infra/terraform)" "remediate_aurora_global"
 
   # A 404 only means "already gone" for a cluster module; anywhere else it is
   # an unclassified failure and must not be swallowed as success.
@@ -758,7 +843,8 @@ destroy_selftest() {
   # Every handler the classifier can name has to be callable, or the loop would
   # dispatch into nothing and the error would look recovered.
   for got in remediate_vpc_dependencies remediate_orphaned_oidc \
-             remediate_broken_trust_policy remediate_iam_attachments; do
+             remediate_broken_trust_policy remediate_iam_attachments \
+             remediate_aurora_global; do
     if declare -F "$got" >/dev/null; then
       echo "ok   handler $got is defined"
     else

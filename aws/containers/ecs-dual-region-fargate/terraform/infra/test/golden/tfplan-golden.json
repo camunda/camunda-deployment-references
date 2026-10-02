@@ -3102,7 +3102,7 @@
             "deletion_protection": false,
             "engine": "aurora-postgresql",
             "engine_version": "18.4",
-            "force_destroy": null,
+            "force_destroy": true,
             "global_cluster_identifier": "camunda-global-db",
             "region": "eu-west-2",
             "storage_encrypted": true,

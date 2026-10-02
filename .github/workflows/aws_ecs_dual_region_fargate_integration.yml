@@ -1,13 +1,15 @@
 ---
-name: Tests - Integration - AWS Containers ECS Dual Region Fargate
+name: Tests - Terratest - AWS Containers ECS Dual Region Fargate
 
-# End-to-end Terratest suite. Applies the full vpc/ → infra/ → app/ stack
-# against the sandbox AWS account, waits for Raft quorum, asserts on Zeebe
-# topology, then destroys.
+# The full Terratest sweep: every test in
+# aws/containers/ecs-dual-region-fargate/test/src, each applying its own
+# vpc/ → infra/ → app/ stack against the sandbox AWS account, waiting for
+# Raft quorum, asserting, then destroying.
 #
-# NOT yet enabled on a schedule: invoke via workflow_dispatch until the
-# sandbox-account smoke run validates the suite end-to-end. After that, add
-# a row to .github/workflows-config/workflow-scheduler.yml.
+# Dispatch-only, and deliberately so: the suite is several clusters' worth of
+# spend per run. The pull-request lane is
+# aws_ecs_dual_region_fargate_tests.yml, which covers one combination on one
+# cluster — that workflow owns the "Tests - Integration - ..." display name.
 
 on:
     workflow_dispatch:
@@ -61,6 +63,12 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # The failover/failback tests shell out to procedure/failover.sh
+            # and procedure/failback.sh, which reach the Zeebe management API
+            # over ECS Exec.
+            - name: Install session-manager-plugin
+              uses: ./.github/actions/internal-install-session-manager-plugin
 
             - name: Cache Go modules
               uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6

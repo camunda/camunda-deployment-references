@@ -1,0 +1,200 @@
+---
+name: Deploy AWS Containers ECS Dual Region Fargate
+
+description: |
+    Deploys the aws/containers/ecs-dual-region-fargate reference architecture.
+
+    Unlike the single-region architecture, this one is three independent
+    Terraform states applied in order — vpc/ -> infra/ -> app/ — wired to each
+    other through terraform_remote_state over S3. The action applies all three
+    and returns the outputs the procedure scripts and the smoke test need, so
+    callers never have to re-init the state to read an endpoint.
+
+inputs:
+    cluster-name:
+        description: |
+            Name prefixing every created resource, as <cluster-name>-r0-* and
+            <cluster-name>-r1-*. Keep it short — several AWS resource names cap
+            at 32 characters and the modules add their own suffixes.
+        required: true
+    aws-profile:
+        description: AWS CLI profile the Terraform providers should use
+        default: infraex
+    region-0:
+        description: Primary region (Aurora Global writer, Zeebe zone priority 1000)
+        required: true
+    region-1:
+        description: Secondary region
+        required: true
+    networking-mode:
+        description: How the two VPCs are connected — vpc_peering or transit_gateway
+        default: vpc_peering
+    secondary-storage-type:
+        description: Camunda secondary storage — rdbms (Aurora Global) or opensearch
+        default: rdbms
+    single-nat-gateway:
+        description: |
+            Share one NAT gateway per VPC instead of one per AZ. Cheaper and
+            adequate for a test cluster; not a production shape.
+        default: 'true'
+    tags:
+        description: Tags to apply to all resources, in JSON format
+        default: '{}'
+    s3-backend-bucket:
+        description: Name of the S3 bucket storing Terraform state
+        required: true
+    s3-bucket-region:
+        description: Region of the S3 bucket holding the state
+        default: eu-central-1
+    s3-bucket-key-prefix:
+        description: Key prefix inside the bucket. Must end with a '/'.
+        default: ''
+    tf-modules-revision:
+        description: Git revision of the reference architecture to deploy
+        default: main
+    tf-modules-path:
+        description: Path the reference architecture is cloned into
+        default: ./.action-tf-modules/aws-containers-ecs-dual-region-fargate-create/
+
+outputs:
+    terraform-state-url-prefix:
+        description: s3:// prefix under which the three layer states live
+        value: ${{ steps.set-terraform-variables.outputs.terraform_state_url_prefix }}
+
+runs:
+    using: composite
+    steps:
+        - name: Checkout the reference architecture
+          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+          with:
+              repository: camunda/camunda-deployment-references
+              ref: ${{ inputs.tf-modules-revision }}
+              path: ${{ inputs.tf-modules-path }}
+              fetch-depth: 0
+
+        - name: Install asdf tools with cache for the project
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+
+        - name: Sanitize Tags
+          id: sanitize-tags
+          uses: ./.github/actions/internal-sanitize-tags
+          with:
+              raw-tags: ${{ inputs.tags }}
+
+        - name: Set Terraform variables
+          id: set-terraform-variables
+          shell: bash
+          run: |  # zizmor: ignore[github-env]
+              set -euo pipefail
+
+              # The three layers share one key prefix. Each layer appends its own
+              # "<layer>/terraform.tfstate", which is the contract baked into
+              # terraform/{infra,app}/data.tf — do not reshape it here.
+              TFSTATE_BASE_KEY="${INPUTS_S3_BUCKET_KEY_PREFIX}tfstate-${INPUTS_CLUSTER_NAME}/"
+
+              echo "terraform_state_url_prefix=s3://${INPUTS_S3_BACKEND_BUCKET}/${TFSTATE_BASE_KEY}" >> "$GITHUB_OUTPUT"
+
+              # Every later step reads these, so they go to the environment
+              # rather than being re-plumbed through four `env:` blocks.
+              {
+                echo "TFSTATE_BUCKET=${INPUTS_S3_BACKEND_BUCKET}"
+                echo "TFSTATE_REGION=${INPUTS_S3_BUCKET_REGION}"
+                echo "TFSTATE_BASE_KEY=${TFSTATE_BASE_KEY}"
+                echo "TF_ROOT=${INPUTS_TF_MODULES_PATH}/aws/containers/ecs-dual-region-fargate/terraform"
+              } >> "$GITHUB_ENV"
+          env:
+              INPUTS_S3_BACKEND_BUCKET: ${{ inputs.s3-backend-bucket }}
+              INPUTS_S3_BUCKET_REGION: ${{ inputs.s3-bucket-region }}
+              INPUTS_S3_BUCKET_KEY_PREFIX: ${{ inputs.s3-bucket-key-prefix }}
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_TF_MODULES_PATH: ${{ inputs.tf-modules-path }}
+
+        - name: Generate tfvars for all three layers
+          shell: bash
+          run: |
+              set -euo pipefail
+
+              # NOTE: there are no test/fixtures/ci fixtures for this architecture,
+              # and the test/fixtures/golden ones must never be copied here — they
+              # set `count = 0` on the terraform_remote_state data sources, which
+              # would silently sever infra/ and app/ from the layers above.
+
+              cat > "${TF_ROOT}/vpc/terraform.tfvars" <<EOF
+              cluster_name       = "${INPUTS_CLUSTER_NAME}"
+              aws_profile        = "${INPUTS_AWS_PROFILE}"
+              region_0           = "${INPUTS_REGION_0}"
+              region_1           = "${INPUTS_REGION_1}"
+              networking_mode    = "${INPUTS_NETWORKING_MODE}"
+              single_nat_gateway = ${INPUTS_SINGLE_NAT_GATEWAY}
+              default_tags       = ${SANITIZED_TAGS}
+              EOF
+
+              cat > "${TF_ROOT}/infra/terraform.tfvars" <<EOF
+              cluster_name                 = "${INPUTS_CLUSTER_NAME}"
+              aws_profile                  = "${INPUTS_AWS_PROFILE}"
+              region_0                     = "${INPUTS_REGION_0}"
+              region_1                     = "${INPUTS_REGION_1}"
+              secondary_storage_type       = "${INPUTS_SECONDARY_STORAGE_TYPE}"
+              s3_force_destroy             = true
+              terraform_backend_bucket     = "${TFSTATE_BUCKET}"
+              terraform_backend_region     = "${TFSTATE_REGION}"
+              terraform_backend_key_prefix = "${TFSTATE_BASE_KEY}"
+              default_tags                 = ${SANITIZED_TAGS}
+              EOF
+
+              # app/ takes its regions from the infra state, so it sets neither.
+              cat > "${TF_ROOT}/app/terraform.tfvars" <<EOF
+              aws_profile                  = "${INPUTS_AWS_PROFILE}"
+              terraform_backend_bucket     = "${TFSTATE_BUCKET}"
+              terraform_backend_region     = "${TFSTATE_REGION}"
+              terraform_backend_key_prefix = "${TFSTATE_BASE_KEY}"
+              default_tags                 = ${SANITIZED_TAGS}
+              EOF
+
+              for layer in vpc infra app; do
+                echo "--- ${layer}/terraform.tfvars ---"
+                cat "${TF_ROOT}/${layer}/terraform.tfvars"
+              done
+          env:
+              INPUTS_CLUSTER_NAME: ${{ inputs.cluster-name }}
+              INPUTS_AWS_PROFILE: ${{ inputs.aws-profile }}
+              INPUTS_REGION_0: ${{ inputs.region-0 }}
+              INPUTS_REGION_1: ${{ inputs.region-1 }}
+              INPUTS_NETWORKING_MODE: ${{ inputs.networking-mode }}
+              INPUTS_SECONDARY_STORAGE_TYPE: ${{ inputs.secondary-storage-type }}
+              INPUTS_SINGLE_NAT_GATEWAY: ${{ inputs.single-nat-gateway }}
+              SANITIZED_TAGS: ${{ steps.sanitize-tags.outputs.sanitized_tags }}
+
+        # The three layers get their own steps rather than a loop: a full apply
+        # runs 35-45 minutes, and a failed run has to say which layer broke
+        # without anyone reading through a merged log.
+        - name: Apply vpc state
+          id: apply-vpc
+          shell: bash
+          working-directory: ${{ env.TF_ROOT }}/vpc
+          run: ${{ github.action_path }}/scripts/apply-layer.sh vpc
+          env:
+              AWS_REGION: ${{ inputs.region-0 }}
+
+        - name: Apply infra state
+          id: apply-infra
+          shell: bash
+          working-directory: ${{ env.TF_ROOT }}/infra
+          run: ${{ github.action_path }}/scripts/apply-layer.sh infra
+          env:
+              AWS_REGION: ${{ inputs.region-0 }}
+
+        - name: Apply app state
+          id: apply-app
+          shell: bash
+          working-directory: ${{ env.TF_ROOT }}/app
+          run: ${{ github.action_path }}/scripts/apply-layer.sh app
+          env:
+              AWS_REGION: ${{ inputs.region-0 }}
+
+        - name: Terraform Drift Detection (app)
+          uses: ./.github/actions/internal-terraform-drift-detect
+          with:
+              working-directory: ${{ env.TF_ROOT }}/app
+              plan-extra-args: |
+                  -var-file=terraform.tfvars

@@ -12,6 +12,16 @@ resource "aws_rds_global_cluster" "this" {
   engine_version            = local.engine_version
   database_name             = var.database_name
   storage_encrypted         = true
+
+  # A global cluster cannot be deleted while it still has members, and after a
+  # failover the members are no longer in the topology Terraform recorded, so a
+  # plain destroy wedges on them. force_destroy makes the provider detach every
+  # member first, in dependency order and with the state left consistent.
+  #
+  # Default false: on a real deployment the global cluster holds the data, and
+  # a destroy that quietly detaches its members is not something to opt into by
+  # accident. Test environments set it true.
+  force_destroy = var.force_destroy
 }
 
 ################################

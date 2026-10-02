@@ -39,7 +39,6 @@ fi
 
 PASS=0
 FAIL=0
-WARN=0
 
 check() {
     local description=$1
@@ -52,12 +51,6 @@ check() {
         echo "  ❌ ${description}"
         FAIL=$((FAIL + 1))
     fi
-}
-
-warn() {
-    local description=$1
-    echo "  ⚠️  ${description}"
-    WARN=$((WARN + 1))
 }
 
 ###############################################################################
@@ -217,17 +210,39 @@ echo ""
 echo "=== 4. Workflow Execution Test ==="
 echo ""
 
+HEALTH_CHECK_PROCESS_ID="dual-region-health-check"
+
+# Assert the process is deployed; do NOT deploy it here. A verification that
+# repairs what it is about to check cannot tell "the deployment is healthy"
+# from "I just made it healthy", and would no longer detect the very drift
+# this section exists to catch. deploy_health_check_process.sh is step 6 of
+# the deployment procedure — run it once, before verifying.
+DEFINITIONS=$(curl -sf --max-time 30 \
+    -u "${ADMIN_USER}:${ADMIN_PASS}" \
+    -X POST "http://${ALB_ENDPOINT_0}/v2/process-definitions/search" \
+    -H "Content-Type: application/json" \
+    -d "{\"filter\":{\"processDefinitionId\":\"${HEALTH_CHECK_PROCESS_ID}\"}}" \
+    2>/dev/null || echo "")
+
+if [ "$(echo "${DEFINITIONS}" | jq -r '.page.totalItems // 0')" -gt 0 ]; then
+    check "Health-check process '${HEALTH_CHECK_PROCESS_ID}' is deployed" 0
+else
+    check "Health-check process '${HEALTH_CHECK_PROCESS_ID}' is deployed (run ./deploy_health_check_process.sh)" 1
+fi
+
 test_workflow() {
     local alb=$1
     local label=$2
 
-    # Create a simple process instance via REST API
+    # Create a process instance via the v2 REST API. The field is
+    # processDefinitionId — bpmnProcessId is the pre-v2 spelling and is
+    # rejected.
     local response
     response=$(curl -sf --max-time 30 \
         -u "${ADMIN_USER}:${ADMIN_PASS}" \
         -X POST "http://${alb}/v2/process-instances" \
         -H "Content-Type: application/json" \
-        -d '{"bpmnProcessId":"dual-region-health-check","variables":{}}' \
+        -d "{\"processDefinitionId\":\"${HEALTH_CHECK_PROCESS_ID}\",\"variables\":{}}" \
         2>/dev/null || echo "")
 
     if echo "${response}" | jq -e '.processInstanceKey' >/dev/null 2>&1; then
@@ -235,8 +250,7 @@ test_workflow() {
         key=$(echo "${response}" | jq -r '.processInstanceKey')
         check "Region ${label}: workflow started (key: ${key})" 0
     else
-        # Process might not be deployed — that's a warning, not failure
-        warn "Region ${label}: workflow test skipped (deploy a process first or check ALB connectivity)"
+        check "Region ${label}: workflow start failed (response: ${response:-empty})" 1
     fi
 }
 
@@ -248,7 +262,7 @@ test_workflow "${ALB_ENDPOINT_1}" "1"
 ###############################################################################
 
 echo ""
-echo "=== Results: ${PASS} passed, ${FAIL} failed, ${WARN} warnings ==="
+echo "=== Results: ${PASS} passed, ${FAIL} failed ==="
 echo ""
 
 if [ "${FAIL}" -gt 0 ]; then
