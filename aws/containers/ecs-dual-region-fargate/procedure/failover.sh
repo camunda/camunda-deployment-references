@@ -416,7 +416,7 @@ fi
 log ""
 log "Next steps:"
 log "  1. Create work:  curl -u ${ADMIN_USER}:<pass> http://${SURVIVING_ALB}/v2/topology"
-log "  2. Health check: ./verify_dual_region.sh"
+log "  2. Health check: ./verify_dual_region.sh --failed-region ${FAILED_REGION}"
 # --switch-writer, because step 2 moved the writer out of the failed region:
 # failback without it restores the brokers and leaves the database where it is.
 log "  3. Restore:      ./failback.sh --failed-region ${FAILED_REGION} --switch-writer"
