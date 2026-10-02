@@ -30,7 +30,7 @@ func ParseAuroraWriterRegion(raw []byte) (string, error) {
 	if err := json.Unmarshal(raw, &global); err != nil {
 		return "", fmt.Errorf("parse describe-global-clusters JSON: %w\n%s", err, raw)
 	}
-	if global.FailoverState != nil {
+	if global.FailoverState != nil && global.FailoverState.Status != "" {
 		return "", fmt.Errorf("Aurora switchover still in progress (%s)", global.FailoverState.Status)
 	}
 	for _, m := range global.GlobalClusterMembers {
@@ -121,7 +121,10 @@ func ScaleDownRegion(t *testing.T, awsProfile, region, cluster string) {
 	t.Helper()
 
 	aws := func(args ...string) string {
-		args = append(args, "--region", region, "--profile", awsProfile)
+		args = append(args, "--region", region)
+		if awsProfile != "" {
+			args = append(args, "--profile", awsProfile)
+		}
 		out, err := exec.Command("aws", args...).CombinedOutput()
 		if err != nil {
 			t.Fatalf("aws %v failed: %v\n%s", args, err, out)

@@ -101,3 +101,65 @@ aurora_wait_writer arn:aws:rds:eu-west-3:1:cluster:b 0`)
 		t.Fatalf("expected a timeout, got %v\n%s", err, out)
 	}
 }
+
+func TestParseAuroraWriterRegionAcceptsEmptyFailoverState(t *testing.T) {
+	t.Parallel()
+	// Given: AWS reports an empty operation object and a settled writer.
+	raw := []byte(`{"FailoverState":{},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`)
+	// When
+	region, err := ParseAuroraWriterRegion(raw)
+	// Then
+	if err != nil || region != "eu-west-3" {
+		t.Fatalf("empty failover state rejected: %q, %v", region, err)
+	}
+}
+
+func TestAuroraWaitWriterRejectsEmptyTarget(t *testing.T) {
+	t.Parallel()
+	// Given: no writer exists and the caller has no target ARN.
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte("#!/usr/bin/env bash\necho '{\"GlobalClusterMembers\":[]}'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", "-c", `set -euo pipefail
+. ./zeebe_management_api.sh
+aurora_wait_writer "" 5`)
+	cmd.Dir = filepath.Join("..", "..", "..", "procedure")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "AURORA_GLOBAL_CLUSTER_ID=g", "AURORA_WRITER_POLL_SECONDS=0")
+	// When
+	out, err := cmd.CombinedOutput()
+	// Then
+	if err == nil || !strings.Contains(string(out), "no target writer ARN") {
+		t.Fatalf("expected an empty-target error, got %v\n%s", err, out)
+	}
+}
+
+func TestScaleDownRegionHonoursOptionalProfile(t *testing.T) {
+	for _, profile := range []string{"", "sandbox"} {
+		t.Run("profile="+profile, func(t *testing.T) {
+			// Given: a fake CLI rejects empty profile arguments.
+			fake := t.TempDir()
+			if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(`#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FAKE_DIR/args"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = --profile ] && [ -z "$2" ]; then exit 1; fi
+  shift
+done
+`), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("PATH", fake+":"+os.Getenv("PATH"))
+			t.Setenv("FAKE_DIR", fake)
+			// When
+			ScaleDownRegion(t, profile, "eu-west-2", "cluster")
+			// Then
+			args, err := os.ReadFile(filepath.Join(fake, "args"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(args), "--profile") != (profile != "") {
+				t.Fatalf("unexpected profile arguments: %s", args)
+			}
+		})
+	}
+}

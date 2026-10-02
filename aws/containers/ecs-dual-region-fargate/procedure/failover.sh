@@ -8,7 +8,8 @@
 #   2. Scales the failed region's ECS services to zero                        #
 #   3. Force-removes the zone via DELETE /actuator/cluster/zones/{zoneId}     #
 #   4. Polls the change to COMPLETED                                          #
-#   5. Prints the topology after, and checks every partition has a leader     #
+#   5. Moves the Aurora writer out of the failed region                        #
+#   6. Prints the topology after, and checks every partition has a leader     #
 #                                                                             #
 # Why a zone, not a broker list                                               #
 #   This reference runs a zone-aware cluster (CAMUNDA_CLUSTER_PARTITIONING_    #
@@ -105,6 +106,13 @@ SURVIVING_PREFIX="${SURVIVING_CLUSTER%-cluster}-oc"
 log() { mgmt_log "$@"; }
 err() { mgmt_err "$@"; }
 
+aurora_unplanned_hint() {
+  err "Follow the Aurora Global Database unplanned recovery procedure:"
+  err "  https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html"
+  err "The zone was already removed; Camunda keeps processing, but exporting waits for a writer."
+  err "Next time the Aurora primary is down as well, pass --keep-writer."
+}
+
 ###############################################################################
 # Step 0: Pre-flight                                                          #
 ###############################################################################
@@ -177,15 +185,25 @@ if ! mgmt_tunnel_open "${SURVIVING_AWS_REGION}" "${SURVIVING_CLUSTER}" \
   exit 1
 fi
 
-QUERY="force=true"
-[[ "$DRY_RUN" == "true" ]] && QUERY="${QUERY}&dryRun=true"
-
-log "  DELETE /actuator/cluster/zones/${FAILED_ZONE}?${QUERY}"
-if ! BODY=$(mgmt_request DELETE "/actuator/cluster/zones/${FAILED_ZONE}?${QUERY}"); then
-  err "Zone removal rejected; see the response above."
+ZONE_STATE=0
+BODY='{}'
+mgmt_zone_present "${FAILED_ZONE}" || ZONE_STATE=$?
+if [[ "${ZONE_STATE}" -eq 2 ]]; then
+  err "Could not read the partition distribution; zone removal cannot proceed."
   exit 1
+elif [[ "${ZONE_STATE}" -eq 1 ]]; then
+  log "  Zone ${FAILED_ZONE} is already absent — skipping removal."
+else
+  QUERY="force=true"
+  [[ "$DRY_RUN" == "true" ]] && QUERY="${QUERY}&dryRun=true"
+
+  log "  DELETE /actuator/cluster/zones/${FAILED_ZONE}?${QUERY}"
+  if ! BODY=$(mgmt_request DELETE "/actuator/cluster/zones/${FAILED_ZONE}?${QUERY}"); then
+    err "Zone removal rejected; see the response above."
+    exit 1
+  fi
+  log "  Accepted."
 fi
-log "  Accepted."
 
 if [[ "$DRY_RUN" == "true" ]]; then
   log ""
@@ -196,28 +214,41 @@ if [[ "$DRY_RUN" == "true" ]]; then
     ([.plannedChanges[].operation] | group_by(.)
       | map("    \(length)x \(.[0])") | .[])
   ' 2>/dev/null || echo "${BODY}"
+  if [[ -z "${AURORA_GLOBAL_CLUSTER_ID:-}" ]]; then
+    log "  Aurora: AURORA_GLOBAL_CLUSTER_ID is not set, skipping."
+  elif [[ "$KEEP_WRITER" == "true" ]]; then
+    log "  Aurora: --keep-writer given, leaving the writer in place."
+  else
+    TARGET_ARN=$(aws rds describe-global-clusters \
+      --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+      --query 'GlobalClusters[0].GlobalClusterMembers' --output json | \
+      jq -r --arg r "${SURVIVING_AWS_REGION}" '[.[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
+    log "  --dry-run: would promote ${TARGET_ARN:-no surviving Aurora member} if the writer is in ${FAILED_AWS_REGION}, doing nothing."
+  fi
   exit 0
 fi
 
-CHANGE_ID=$(echo "${BODY}" | jq -r '.changeId // .pendingChange.id // .lastChange.id // empty' 2>/dev/null)
+if [[ "${ZONE_STATE}" -eq 0 ]]; then
+  CHANGE_ID=$(echo "${BODY}" | jq -r '.changeId // .pendingChange.id // .lastChange.id // empty' 2>/dev/null)
 
 ###############################################################################
 # Step 3: Wait for the change to complete                                     #
 ###############################################################################
 
-log ""
-log "=== Step 3: Wait for the change to complete ==="
+  log ""
+  log "=== Step 3: Wait for the change to complete ==="
 
-if [[ -z "${CHANGE_ID}" ]]; then
-  err "No changeId in the response; cannot poll the change deterministically."
-  echo "${BODY}" | jq . 2>/dev/null || echo "${BODY}"
-  exit 1
-fi
+  if [[ -z "${CHANGE_ID}" ]]; then
+    err "No changeId in the response; cannot poll the change deterministically."
+    echo "${BODY}" | jq . 2>/dev/null || echo "${BODY}"
+    exit 1
+  fi
 
-log "  changeId=${CHANGE_ID}"
-if ! mgmt_wait_change "${CHANGE_ID}" 900; then
-  err "Zone removal did not complete. Inspect: GET /actuator/cluster/changes/${CHANGE_ID}"
-  exit 1
+  log "  changeId=${CHANGE_ID}"
+  if ! mgmt_wait_change "${CHANGE_ID}" 900; then
+    err "Zone removal did not complete. Inspect: GET /actuator/cluster/changes/${CHANGE_ID}"
+    exit 1
+  fi
 fi
 
 ###############################################################################
@@ -243,22 +274,6 @@ esac
 
 mgmt_tunnel_close
 
-mgmt_topology_summary "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
-  "AFTER failover — ${FAILED_ZONE} removed"
-
-TOPOLOGY=$(curl -sf --max-time 20 -u "${ADMIN_USER}:${ADMIN_PASS}" \
-  "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
-LEADERS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[] | select(.role == "leader")] | length' 2>/dev/null || echo 0)
-PARTITIONS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[].partitionId] | unique | length' 2>/dev/null || echo 0)
-
-if [[ "${LEADERS}" -eq "${PARTITIONS}" ]] && [[ "${PARTITIONS}" -gt 0 ]]; then
-  log "✓ Every partition has a leader (${LEADERS}/${PARTITIONS})."
-else
-  err "Only ${LEADERS} of ${PARTITIONS} partitions have a leader — cluster not yet settled."
-  err "Re-check with: ./verify_dual_region.sh"
-  exit 1
-fi
-
 ###############################################################################
 # Step 5: Aurora writer                                                       #
 ###############################################################################
@@ -278,6 +293,10 @@ else
     --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
     --query 'GlobalClusters[0].GlobalClusterMembers' --output json)
   WRITER_ARN=$(echo "${MEMBERS}" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')
+  if [[ -z "${WRITER_ARN}" ]]; then
+    err "No Aurora writer ARN in the global cluster."
+    exit 1
+  fi
   WRITER_REGION=$(echo "${WRITER_ARN}" | cut -d: -f4)
   if [[ "${WRITER_REGION}" != "${FAILED_AWS_REGION}" ]]; then
     log "  Writer is in ${WRITER_REGION}, not in the failed region."
@@ -294,10 +313,7 @@ else
       --query 'DBClusters[0].Status' --output text 2>/dev/null || echo unreachable)
     if [[ "${WRITER_STATUS}" != "available" ]]; then
       err "The Aurora writer in ${FAILED_AWS_REGION} is ${WRITER_STATUS}, so a planned switchover cannot run."
-      err "Follow the Aurora Global Database unplanned recovery procedure:"
-      err "  https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html"
-      err "The zone was already removed; Camunda keeps processing, but exporting waits for a writer."
-      err "Next time the Aurora primary is down as well, pass --keep-writer."
+      aurora_unplanned_hint
       exit 1
     fi
     TARGET_ARN=$(echo "${MEMBERS}" | jq -r --arg r "${SURVIVING_AWS_REGION}" \
@@ -315,10 +331,7 @@ else
         --no-cli-pager > /dev/null \
       || ! aurora_wait_writer "${TARGET_ARN}"; then
       err "The planned switchover to ${SURVIVING_AWS_REGION} did not complete."
-      err "If the Aurora primary in ${FAILED_AWS_REGION} is down, follow the Aurora Global Database"
-      err "unplanned recovery procedure:"
-      err "  https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html"
-      err "The zone was already removed; Camunda keeps processing, but exporting waits for a writer."
+      aurora_unplanned_hint
       exit 1
     fi
     AURORA_SUMMARY="writer moved to ${SURVIVING_AWS_REGION}"
@@ -326,8 +339,24 @@ else
 fi
 
 ###############################################################################
-# Summary                                                                     #
+# Step 6: Verify leaders                                                      #
 ###############################################################################
+
+mgmt_topology_summary "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
+  "AFTER failover — ${FAILED_ZONE} removed"
+
+TOPOLOGY=$(curl -sf --max-time 20 -u "${ADMIN_USER}:${ADMIN_PASS}" \
+  "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
+LEADERS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[] | select(.role == "leader")] | length' 2>/dev/null || echo 0)
+PARTITIONS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[].partitionId] | unique | length' 2>/dev/null || echo 0)
+
+if [[ "${LEADERS}" -eq "${PARTITIONS}" ]] && [[ "${PARTITIONS}" -gt 0 ]]; then
+  log "✓ Every partition has a leader (${LEADERS}/${PARTITIONS})."
+else
+  err "Only ${LEADERS} of ${PARTITIONS} partitions have a leader — cluster not yet settled."
+  err "Re-check with: ./verify_dual_region.sh"
+  exit 1
+fi
 
 log ""
 log "════════════════════════════════════════════════════════════════"

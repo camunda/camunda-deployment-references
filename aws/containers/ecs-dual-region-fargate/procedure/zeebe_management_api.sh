@@ -308,6 +308,7 @@ mgmt_topology_summary() {
 # cluster until the target is the writer and no FailoverState is left.
 aurora_wait_writer() {
     local target_arn=$1 max_wait=${2:-1200} global_json writer state
+    [ -n "${target_arn}" ] || { mgmt_err "no target writer ARN"; return 1; }
     local deadline=$((SECONDS + max_wait))
     mgmt_log "Waiting for the Aurora switchover to ${target_arn} (timeout ${max_wait}s)..."
     while [ "${SECONDS}" -lt "${deadline}" ]; do
