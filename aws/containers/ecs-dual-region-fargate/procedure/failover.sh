@@ -265,6 +265,6 @@ log "Aurora:                 handled automatically by AWS / JDBC failover plugin
 log ""
 log "Next steps:"
 log "  1. Create work:  curl -u ${ADMIN_USER}:<pass> http://${SURVIVING_ALB}/v2/topology"
-log "  2. Health check: ./verify_dual_region.sh"
+log "  2. Health check: ./verify_dual_region.sh --failed-region ${FAILED_REGION}"
 log "  3. Restore:      ./failback.sh --failed-region ${FAILED_REGION}"
 log "════════════════════════════════════════════════════════════════"
