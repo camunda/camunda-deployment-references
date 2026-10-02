@@ -155,6 +155,9 @@ brew install --cask session-manager-plugin   # macOS
 # The region is already down, so skip the ECS scale-down
 ./procedure/failover.sh --failed-region 0 --keep-tasks
 
+# Check the surviving region: 4 brokers, replicationFactor 2, all partitions led
+./procedure/verify_dual_region.sh --failed-region 0
+
 # Restore region 0: scale it up, then re-add the zone
 ./procedure/failback.sh --failed-region 0
 
