@@ -8,6 +8,7 @@
 # recorded in the state. All three layers use the default provider for region 0
 # and the `accepter` alias for region 1; a missing alias fails the destroy with
 # "Provider configuration not present" and leaks region 1.
+# The BYO fixture uses the `region_0` and `region_1` provider aliases.
 #
 # Regions are variables: export TF_VAR_region_0 and TF_VAR_region_1 from the
 # workflow to match the regions the tests deploy to.
