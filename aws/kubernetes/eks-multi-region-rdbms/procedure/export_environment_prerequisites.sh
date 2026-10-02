@@ -105,7 +105,7 @@ export CAMUNDA_ZONE_REPLICAS
 # unset. See camunda/camunda-platform-helm#6807.
 #
 # renovate-helm-main: digest tracked against camunda-platform-helm main
-export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-1225a5b7ff9d62e3db1ce005e128249197b2d339}"
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-712ca25c15dc1332526c29cd430910dfd349ccd2}"
 
 # TODO: [release-duty] drop the source build and switch HELM_CHART_REF to
 # https://helm.camunda.io once 8.10 is generally available.

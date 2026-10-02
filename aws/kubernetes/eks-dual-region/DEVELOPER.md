@@ -72,7 +72,7 @@ CHART_DIR="$(mktemp -d)"
 git init --quiet "$CHART_DIR"
 git -C "$CHART_DIR" remote add origin https://github.com/camunda/camunda-platform-helm.git
 # renovate-helm-main: digest tracked against camunda-platform-helm main
-git -C "$CHART_DIR" fetch --depth 1 origin 1225a5b7ff9d62e3db1ce005e128249197b2d339
+git -C "$CHART_DIR" fetch --depth 1 origin 712ca25c15dc1332526c29cd430910dfd349ccd2
 git -C "$CHART_DIR" checkout --detach FETCH_HEAD
 helm dependency update "$CHART_DIR/charts/camunda-platform-8.10"
 export HELM_CHART_NAME="$CHART_DIR/charts/camunda-platform-8.10"

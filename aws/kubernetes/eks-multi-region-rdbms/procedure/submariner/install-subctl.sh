@@ -16,7 +16,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
 fi
 
 # renovate: datasource=github-releases depName=submariner-io/releases
-SUBCTL_VERSION=0.24.0
+SUBCTL_VERSION=0.24.2
 
 case "$(uname -s)-$(uname -m)" in
 Darwin-x86_64) platform=darwin-amd64 ;;

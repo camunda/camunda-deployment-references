@@ -56,7 +56,7 @@ wait_cluster_ready() {
 }
 
 # renovate: datasource=github-releases depName=cloudnative-pg/cloudnative-pg
-CNPG_VERSION="1.30.0"
+CNPG_VERSION="1.30.1"
 
 # Auto-detect OpenShift by checking for the route.openshift.io API group.
 # The output has to be tested, not the exit status: `kubectl api-resources --api-group` exits

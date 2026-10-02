@@ -55,7 +55,7 @@ variable "mysql_engine_version" {
   # camunda/infraex-common-config (default.json5), so no inline `versioning=`
   # is needed here. See camunda/team-infrastructure-experience#1209.
   # renovate: datasource=custom.aurora-mysql-camunda depName=aurora-mysql
-  default     = "8.4.mysql_aurora.8.4.7"
+  default     = "8.4.mysql_aurora.8.4.8"
   description = "Aurora MySQL engine version, used when engine = aurora-mysql. Set this to pin a specific version for the MySQL path."
 
   # As above: a blank pin would only fail once AWS rejected it. Note the value
