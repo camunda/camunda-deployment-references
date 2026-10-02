@@ -83,10 +83,7 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
 	}
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, paths, opts)
+	_, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
 
 	// Baseline assertion: writer in region 0.
 	globalClusterID := terraform.Output(t, infraOpts, "aurora_global_cluster_id")
@@ -96,7 +93,7 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 
 	// Wait for initial quorum before triggering failover.
 	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
-	helpers.WaitForRaftQuorum(t, albEndpoint0, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	helpers.WaitForRaftQuorum(t, albEndpoint0, "admin", helpers.SensitiveOutput(t, appOpts, "admin_user_password"), 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
 	// Run failover.
 	scriptPath := filepath.Join(procedureDir, "failover.sh")

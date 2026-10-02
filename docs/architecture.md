@@ -80,6 +80,27 @@ Zeebe places replicas per zone, so the replication factor is the sum of the zone
 
 **Production baseline:** Minimum 3 Zeebe brokers across 3 availability zones.
 
+## Load testing and resilience
+
+Two optional pieces exist to observe a deployment under load rather than at rest,
+both folded in from [`camunda/camunda-load-tests-ecs`](https://github.com/camunda/camunda-load-tests-ecs)
+(see camunda/team-infrastructure-experience#464):
+
+| Piece | Path | Applies to |
+|---|---|---|
+| Persistent Prometheus with Cloud Map discovery | `aws/modules/ecs/fargate/monitoring` | ECS Fargate |
+| Load generator (public community benchmark) | `aws/modules/ecs/fargate/load-generator` | ECS Fargate |
+| AWS FIS chaos experiments | `aws/common/procedure/chaos-fis` | Any ECS Orchestration Cluster |
+| Load generator Job | `aws/kubernetes/eks-multi-region-rdbms/procedure/load-generator.sh` | Kubernetes |
+
+Load generation uses [`camunda-8-benchmark`](https://github.com/camunda-community-hub/camunda-8-benchmark)
+everywhere. Camunda's reliability-testing images are not publicly pullable, which
+disqualifies them from a repository meant to be copied; consolidation of the two
+stacks is tracked in [camunda/camunda#51191](https://github.com/camunda/camunda/issues/51191).
+
+On ECS the overlay is opt-in behind `enable_load_tests`, off by default, so a
+copy of the reference architecture does not inherit a benchmark.
+
 ## Naming Convention
 
 ```
