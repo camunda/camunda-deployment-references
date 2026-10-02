@@ -60,8 +60,9 @@ export CAMUNDA_RELEASE_NAME="${CAMUNDA_RELEASE_NAME:-camunda}"
 
 export CAMUNDA_BROKERS_PER_REGION="${CAMUNDA_BROKERS_PER_REGION:-2}"
 export CAMUNDA_CLUSTER_SIZE="${CAMUNDA_CLUSTER_SIZE:-$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_ACTIVE_REGIONS))}"
-# Sized on the slots rather than on the running zones: the partition count is
-# fixed at bootstrap, while adding a zone only adds replicas.
+# Sized on the slots rather than on the running zones, so the count already
+# fits the largest topology. Adding a zone only adds replicas. Raising the count
+# later takes partition scaling, which cannot run during the same change.
 export CAMUNDA_PARTITION_COUNT="${CAMUNDA_PARTITION_COUNT:-$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_REGION_SLOTS))}"
 
 # Replicas of every partition placed in each zone, one entry per slot.
