@@ -29,7 +29,7 @@ variable "engine_version" {
   description = "Aurora engine version. Must match the version of the global cluster."
   type        = string
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
-  default = "17.9"
+  default = "18.4"
 }
 
 variable "auto_minor_version_upgrade" {
