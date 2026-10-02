@@ -125,8 +125,8 @@ repos:
             # fakes. The cloud suites are often skipped by label, so this is the check
             # that runs on every change to the procedures (#3572).
             # yamllint disable-line rule:line-length
-            entry: bash -c 'cd aws/kubernetes/eks-multi-region-rdbms/test && go test -count=1 ./helpers/ && cd ../../../containers/ecs-dual-region-fargate/test/src
-                && go test -count=1 ./helpers/'
+            entry: bash -c 'go -C aws/kubernetes/eks-multi-region-rdbms/test test -count=1 ./helpers/ && go -C aws/containers/ecs-dual-region-fargate/test/src
+                test -count=1 ./helpers/'
             language: system
             # yamllint disable-line rule:line-length
             files: ^aws/(kubernetes/eks-multi-region-rdbms|containers/ecs-dual-region-fargate)/(procedure|test)/
