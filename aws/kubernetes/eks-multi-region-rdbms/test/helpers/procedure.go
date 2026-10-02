@@ -94,7 +94,10 @@ func DefaultZoneReplicas(slots int) []int {
 
 // Vars renders the environment as a KEY=VALUE slice suitable for exec.Cmd.
 func (e Env) Vars() []string {
-	clusterSize := e.BrokersPerRegion * e.RegionSlots
+	// Mirrors export_environment_prerequisites.sh: the cluster declares only the
+	// running zones, while the partition count is sized on the slots.
+	clusterSize := e.BrokersPerRegion * e.ActiveRegions
+	partitionCount := e.BrokersPerRegion * e.RegionSlots
 
 	zoneReplicas := e.ZoneReplicas
 	if len(zoneReplicas) == 0 {
@@ -103,7 +106,9 @@ func (e Env) Vars() []string {
 	replicationFactor := 0
 	fields := make([]string, len(zoneReplicas))
 	for i, r := range zoneReplicas {
-		replicationFactor += r
+		if i < e.ActiveRegions {
+			replicationFactor += r
+		}
 		fields[i] = fmt.Sprint(r)
 	}
 
@@ -112,7 +117,7 @@ func (e Env) Vars() []string {
 		"CAMUNDA_ACTIVE_REGIONS":     fmt.Sprint(e.ActiveRegions),
 		"CAMUNDA_BROKERS_PER_REGION": fmt.Sprint(e.BrokersPerRegion),
 		"CAMUNDA_CLUSTER_SIZE":       fmt.Sprint(clusterSize),
-		"CAMUNDA_PARTITION_COUNT":    fmt.Sprint(clusterSize),
+		"CAMUNDA_PARTITION_COUNT":    fmt.Sprint(partitionCount),
 		"CAMUNDA_REPLICATION_FACTOR": fmt.Sprint(replicationFactor),
 		"CAMUNDA_ZONE_REPLICAS":      strings.Join(fields, " "),
 		"CLUSTER_CONTEXTS":           strings.Join(e.ClusterContexts, " "),

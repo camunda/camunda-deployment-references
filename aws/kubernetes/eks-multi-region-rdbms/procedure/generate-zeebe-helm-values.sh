@@ -19,10 +19,10 @@ set -euo pipefail
 #       cluster.
 #
 #   CAMUNDA_MULTIREGION_ZONES
-#       The `orchestration.partitioning.zones` list, as a JSON flow sequence. Covers every
-#       zone SLOT, not only the deployed ones -- see the note on reserved
-#       replicas below -- and is byte-identical in every region's values file,
-#       which is what keeps the topology a single description.
+#       The `orchestration.partitioning.zones` list, as a JSON flow sequence. Covers the
+#       ACTIVE slots only -- see the note on the zone list below -- and is
+#       byte-identical in every region's values file, which is what keeps the
+#       topology a single description.
 #
 # Contact points intentionally cover only the active regions: a slot that has
 # not been deployed yet has no DNS record, and listing it would make every
@@ -53,10 +53,8 @@ ZONE_PRIORITY_BASE="${CAMUNDA_ZONE_PRIORITY_BASE:-1000}"
 ZONE_PRIORITY_STEP="${CAMUNDA_ZONE_PRIORITY_STEP:-100}"
 
 read -r -a cluster_ids <<<"$SUBMARINER_CLUSTER_IDS"
-# Every slot, including ones not deployed yet. SUBMARINER_CLUSTER_IDS covers the
-# ACTIVE regions only -- it names the clusters joined to the ClusterSet -- so
-# using it here builds a zone list one entry short and quietly drops the growth
-# property.
+# Names every slot, including ones not deployed yet, so the zone list and
+# activate-region.sh read the same name for a slot.
 read -r -a zone_names <<<"$CAMUNDA_ZONE_NAMES"
 
 contact_points=""
@@ -89,17 +87,18 @@ export CAMUNDA_CLUSTER_INITIALCONTACTPOINTS="$contact_points"
 ###############################################################################
 # Zone list                                                                   #
 #                                                                             #
-# Every SLOT is listed, including one not deployed yet. That is what makes the #
-# growth path non-disruptive: the partition layout already reserves the        #
-# missing zone's replicas, so each partition runs at N-1 of N -- a majority -- #
-# and activating the zone fills them in without redistributing anything.       #
+# Only the ACTIVE slots are listed. A declared zone without running brokers    #
+# still receives replicas, so every partition would run one zone short and     #
+# lose the headroom to survive a region loss. A slot deployed later joins      #
+# through activate-region.sh, which adds its zone with the management API and  #
+# lets the engine place its replicas.                                          #
 #                                                                             #
 # Emitted as JSON so that ../helm-values/camunda-values.yml stays valid YAML   #
 # as a template, rather than only after substitution.                          #
 ###############################################################################
 
 zones_json=""
-for ((i = 0; i < CAMUNDA_REGION_SLOTS; i++)); do
+for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     zone_name="${zone_names[$i]:-}"
     if [ -z "$zone_name" ]; then
         echo "ERROR: CAMUNDA_ZONE_NAMES has no entry for zone slot $i." >&2

@@ -3,15 +3,10 @@ set -euo pipefail
 
 # Prints the Zeebe cluster topology and asserts the expected multi-region shape:
 #
-#   * every broker of an active zone is known, which is clusterSize once all
-#     the zones are deployed and fewer while the cluster is still growing
+#   * every broker of an active zone is known, totaling clusterSize
 #   * every zone hosts exactly CAMUNDA_BROKERS_PER_REGION brokers
 #   * partitionCount and replicationFactor match the configuration
 #   * no partition is unhealthy
-#
-# Brokers belonging to zones that are not deployed yet are reported as missing
-# rather than treated as a failure, which is the expected state while a cluster
-# is grown one zone at a time.
 #
 # Zone attribution reads `brokerId`, the composite `<zone>_<index>` a zone-aware
 # broker reports. Not `nodeId`: that one is the index INSIDE the zone, so it
@@ -20,7 +15,6 @@ set -euo pipefail
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_NAMESPACE:?CAMUNDA_NAMESPACE must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_RELEASE_NAME:?CAMUNDA_RELEASE_NAME must be set, source export_environment_prerequisites.sh}"
-: "${CAMUNDA_REGION_SLOTS:?CAMUNDA_REGION_SLOTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ZONE_NAMES:?CAMUNDA_ZONE_NAMES must be set, source export-terraform-outputs.sh}"
 : "${CAMUNDA_BROKERS_PER_REGION:?CAMUNDA_BROKERS_PER_REGION must be set, source export_environment_prerequisites.sh}"
@@ -134,7 +128,7 @@ read -r -a _zone_names <<<"$CAMUNDA_ZONE_NAMES"
 
 echo
 echo "Broker distribution across zones:"
-for ((slot = 0; slot < CAMUNDA_REGION_SLOTS; slot++)); do
+for ((slot = 0; slot < CAMUNDA_ACTIVE_REGIONS; slot++)); do
     zone="${_zone_names[$slot]:-slot-$slot}"
 
     # Strip the trailing index off `brokerId`. The engine reserves `_` as the
@@ -144,13 +138,9 @@ for ((slot = 0; slot < CAMUNDA_REGION_SLOTS; slot++)); do
         '[.brokers[] | select((.brokerId | sub("_[0-9]+$"; "")) == $zone)] | length' \
         "$OUTPUT_FILE")"
 
-    if [ "$slot" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
-        echo "  $zone: $count broker(s)"
-        [ "$count" = "$CAMUNDA_BROKERS_PER_REGION" ] ||
-            fail "zone $zone hosts $count broker(s), expected $CAMUNDA_BROKERS_PER_REGION"
-    else
-        echo "  $zone: $count broker(s) (zone not activated yet)"
-    fi
+    echo "  $zone: $count broker(s)"
+    [ "$count" = "$CAMUNDA_BROKERS_PER_REGION" ] ||
+        fail "zone $zone hosts $count broker(s), expected $CAMUNDA_BROKERS_PER_REGION"
 done
 
 if [ "$failures" -ne 0 ]; then
