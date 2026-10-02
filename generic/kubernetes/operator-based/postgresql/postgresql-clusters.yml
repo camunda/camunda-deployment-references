@@ -20,7 +20,7 @@ spec:
         podAntiAffinityType: required
     description: PostgreSQL cluster for Camunda Identity
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
-    imageName: ghcr.io/cloudnative-pg/postgresql:18.4
+    imageName: ghcr.io/cloudnative-pg/postgresql:18.6
     storage:
         size: 15Gi
     walStorage:
@@ -54,7 +54,7 @@ spec:
         podAntiAffinityType: required
     description: PostgreSQL cluster for Keycloak
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
-    imageName: ghcr.io/cloudnative-pg/postgresql:18.4
+    imageName: ghcr.io/cloudnative-pg/postgresql:18.6
     storage:
         size: 15Gi
     walStorage:
@@ -99,7 +99,7 @@ spec:
         podAntiAffinityType: required
     description: PostgreSQL cluster for Camunda Hub
     # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql versioning=docker
-    imageName: ghcr.io/cloudnative-pg/postgresql:18.4
+    imageName: ghcr.io/cloudnative-pg/postgresql:18.6
     superuserSecret:
         name: pg-hub-superuser-secret
     # OpenShift Security Context - let SCC manage the security context
