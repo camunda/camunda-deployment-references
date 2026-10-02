@@ -85,7 +85,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
 
         - name: Set Terraform variables
           id: set-terraform-variables
@@ -280,7 +280,7 @@ runs:
 
         - name: Refresh Azure login after failed apply
           if: steps.apply.outputs.apply-rc != '0'
-          uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
+          uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3.0.2
           with:
               client-id: ${{ inputs.azure-client-id }}
               tenant-id: ${{ inputs.azure-tenant-id }}
@@ -346,7 +346,7 @@ runs:
 
         - name: Refresh Azure login before retry
           if: steps.classify-apply-failure.outputs.retry == 'true'
-          uses: azure/login@f5d393ae46f8fde4be8b75f32e3fc50e654ad0ca # v3.0.1
+          uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3.0.2
           with:
               client-id: ${{ inputs.azure-client-id }}
               tenant-id: ${{ inputs.azure-tenant-id }}
