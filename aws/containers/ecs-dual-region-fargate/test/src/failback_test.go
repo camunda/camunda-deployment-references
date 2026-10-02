@@ -1,16 +1,18 @@
 // Failback end-to-end tests.
 //
-// Sequence: deploy baseline -> failover -> failback, asserting that region 0
-// comes back into service and that the Aurora writer settles where each
-// --switch-writer variant says it should.
+// Sequence: deploy -> failover -> failback, asserting that region 0 returns to
+// service and that the Aurora writer settles where each --switch-writer variant
+// says it should.
 //
-// Why the test moves the Aurora writer itself: procedure/failover.sh
-// deliberately leaves Aurora alone, because in a genuine region loss AWS and
-// the JDBC failover plugin promote the surviving member — that is not the
-// runbook's job. The test reproduces that promotion explicitly, so the
-// starting state matches a real outage. Without it the writer never leaves
-// region 0, and the --switch-writer variants become indistinguishable: both
-// would end with the writer in region 0 whatever the flag said.
+// failover.sh promotes the surviving Aurora member itself, so by the time
+// failback runs the writer is already in region 1 — this test asserts that
+// precondition rather than creating it. What the two variants distinguish is
+// whether failback moves it home.
+//
+// Replication factor is the load-bearing assertion on the Zeebe side; see
+// doc.go. It runs 4 -> 2 -> 4, and only reaches 4 again if failback genuinely
+// re-added the zone: restarted brokers rejoin membership but host no
+// partitions until it is back, so a broker count cannot tell those apart.
 
 package src
 
@@ -54,20 +56,28 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 	require.NotEmpty(t, albEndpoint1)
 
 	// Baseline quorum across both regions.
-	helpers.WaitForRaftQuorum(t, albEndpoint0, env["ADMIN_USER"], env["ADMIN_PASS"], 8, 8, f.RaftTimeout)
+	before := helpers.WaitForRaftQuorum(t, albEndpoint0, env["ADMIN_USER"], env["ADMIN_PASS"],
+		brokersBothZones, partitionCount, f.RaftTimeout)
+	require.Equal(t, rfBothZones, before.ReplicationFactor, "baseline replication factor")
 
 	// Step 1: take region 0 out of service via the runbook — scale its tasks
-	// to zero and force-remove its zone from the partition distribution.
+	// to zero, promote the region 1 database, and force-remove region 0's zone
+	// from the partition distribution.
 	helpers.RunProcedureScript(t, f.Procedure("failover.sh"), env, "--failed-region", "0")
 	helpers.RequireRegionScaledDown(t, f.AWSProfile, f.Region0, env["CLUSTER_0"])
 
-	// Step 2: promote the region 1 database, standing in for what AWS does
-	// during a real region loss.
-	helpers.AuroraFailoverToRegion(t, f.AWSProfile, globalClusterID, f.Region1, 15*time.Minute)
-	require.Equal(t, f.Region1, helpers.AuroraWriterRegion(t, f.AWSProfile, globalClusterID),
-		"precondition for failback: writer must be in region 1")
+	// Mid-flight: one zone, so half the replicas.
+	during := helpers.WaitForRaftQuorum(t, albEndpoint1, env["ADMIN_USER"], env["ADMIN_PASS"],
+		brokersOneZone, partitionCount, 15*time.Minute)
+	require.Equal(t, rfOneZone, during.ReplicationFactor,
+		"after failover: the removed zone's replicas should be gone")
 
-	// Step 3: failback.
+	// failover.sh promoted the writer as part of step 1; assert the
+	// precondition rather than creating it.
+	require.Equal(t, f.Region1, helpers.AuroraWriterRegion(t, f.AWSProfile, globalClusterID),
+		"precondition for failback: failover.sh should have moved the writer to region 1")
+
+	// Step 2: failback.
 	args := []string{"--failed-region", "0"}
 	if failbackFlag != "" {
 		args = append(args, failbackFlag)
@@ -75,10 +85,14 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 	helpers.RunProcedureScript(t, f.Procedure("failback.sh"), env, args...)
 
 	// Assertion 1: region 0 is serving again and the cluster is whole.
-	// failback.sh re-adds the zone and waits for this itself — restored
-	// brokers rejoin membership but host no partitions until the zone is
-	// back — so a short budget is enough here.
-	helpers.WaitForRaftQuorum(t, albEndpoint0, env["ADMIN_USER"], env["ADMIN_PASS"], 8, 8, 15*time.Minute)
+	// failback.sh re-adds the zone and waits for this itself, so a short
+	// budget is enough here.
+	after := helpers.WaitForRaftQuorum(t, albEndpoint0, env["ADMIN_USER"], env["ADMIN_PASS"],
+		brokersBothZones, partitionCount, 15*time.Minute)
+	require.Equal(t, rfBothZones, after.ReplicationFactor,
+		"after failback: the zone must be back in the persisted distribution, not merely "+
+			"running brokers — %d brokers with a factor of %d would mean they host no partitions",
+		brokersBothZones, rfOneZone)
 
 	// Assertion 2: the writer sits where this variant expects.
 	finalWriter := helpers.AuroraWriterRegion(t, f.AWSProfile, globalClusterID)

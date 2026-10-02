@@ -44,11 +44,11 @@ func TestEndToEnd_BYO_VPC_TGW_RDBMS(t *testing.T) {
 	require.NotEmpty(t, adminPass, "admin_user_password is needed to poll /v2/topology")
 
 	t.Logf("Waiting for Raft quorum at %s ...", albEndpoint)
-	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", adminPass, 8, 8, f.RaftTimeout)
+	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", adminPass, brokersBothZones, partitionCount, f.RaftTimeout)
 
-	require.Len(t, topo.Brokers, 8)
-	require.Equal(t, 8, topo.PartitionsCount)
-	require.Equal(t, 4, topo.ReplicationFactor)
+	require.Len(t, topo.Brokers, brokersBothZones)
+	require.Equal(t, partitionCount, topo.PartitionsCount)
+	require.Equal(t, rfBothZones, topo.ReplicationFactor)
 
 	// BYO-specific assertion: the vpc/ state should re-export the supplied VPC IDs.
 	require.Equal(t,

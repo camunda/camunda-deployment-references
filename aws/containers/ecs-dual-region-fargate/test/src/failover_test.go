@@ -1,17 +1,12 @@
 // Failover end-to-end tests.
 //
-// Deploys a baseline cluster, runs procedure/failover.sh — which force-removes
-// the lost zone through the Zones API — and asserts on what that script
-// actually guarantees: the failed region is scaled to zero, the surviving
-// region still has a working Zeebe cluster, and Aurora Global is untouched and
-// healthy.
+// Deploys a baseline cluster, runs procedure/failover.sh, and asserts the three
+// things that runbook changes: the failed region's ECS services are drained,
+// the Aurora Global writer is promoted out of the failed region, and the failed
+// zone leaves the persisted partition distribution — visible as the replication
+// factor falling (see doc.go for why the factor and not the broker count).
 //
-// Note on Aurora: failover.sh deliberately does NOT move the writer ("the
-// JDBC failover plugin and AWS handle writer promotion automatically via the
-// global cluster endpoint"). Asserting a writer-region change here would test
-// a behaviour the reference architecture does not implement. The writer move
-// is asserted in TestFailback_SwitchWriter, where `aws rds
-// failover-global-cluster` really does perform it.
+// See the folder README, "Failover / Failback", for why the writer has to move.
 
 package src
 
@@ -38,6 +33,13 @@ func TestPlannedFailover(t *testing.T) {
 // arguments. The scenario is built from the flags that do exist: kill region 0
 // out-of-band, then pass --keep-tasks, which is exactly the "region is already
 // down, skip the ECS scale-down" case the script documents.
+//
+// Note what this does and does not simulate: region 0's *compute* is gone, but
+// its Aurora cluster is still reachable, so the planned switchover in step 2
+// still applies. A genuine loss of the database region cannot be switched over
+// — failover-global-cluster needs the current writer to answer — and needs the
+// AWS detach-and-promote procedure, which changes global-cluster membership
+// outside Terraform and is out of scope for this suite.
 func TestUnplannedFailover(t *testing.T) {
 	runFailoverTest(t, "unplanned", true)
 }
@@ -57,12 +59,21 @@ func runFailoverTest(t *testing.T, label string, killRegionFirst bool) {
 	env := helpers.ProcedureEnv(t, f.ProcedureDir, f.Paths.Infra, f.AWSProfile)
 	globalClusterID := env["AURORA_GLOBAL_CLUSTER_ID"]
 
-	// Baseline: writer in region 0, full quorum.
+	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
+	albEndpoint1 := terraform.Output(t, appOpts, "region_1_alb_endpoint")
+	require.NotEmpty(t, albEndpoint1)
+
+	// ---- Baseline -------------------------------------------------------
 	require.Equal(t, f.Region0, helpers.AuroraWriterRegion(t, f.AWSProfile, globalClusterID),
 		"baseline: Aurora writer should start in region 0")
-	albEndpoint0 := terraform.Output(t, appOpts, "region_0_alb_endpoint")
-	helpers.WaitForRaftQuorum(t, albEndpoint0, env["ADMIN_USER"], env["ADMIN_PASS"], 8, 8, f.RaftTimeout)
 
+	before := helpers.WaitForRaftQuorum(t, albEndpoint0, env["ADMIN_USER"], env["ADMIN_PASS"],
+		brokersBothZones, partitionCount, f.RaftTimeout)
+	require.Equal(t, rfBothZones, before.ReplicationFactor,
+		"baseline: both zones contribute %d replicas each, so the factor is %d",
+		rfOneZone, rfBothZones)
+
+	// ---- Failover -------------------------------------------------------
 	args := []string{"--failed-region", "0"}
 	if killRegionFirst {
 		t.Log("Simulating an unplanned outage: scaling region 0 to zero before the runbook starts")
@@ -74,19 +85,31 @@ func runFailoverTest(t *testing.T, label string, killRegionFirst bool) {
 
 	helpers.RunProcedureScript(t, f.Procedure("failover.sh"), env, args...)
 
-	// Assertion 1: the failed region is drained. This is the step the script
-	// performs itself and the one that prevents split-brain.
+	// ---- Assertions -----------------------------------------------------
+
+	// 1. The failed region is drained.
 	helpers.RequireRegionScaledDown(t, f.AWSProfile, f.Region0, env["CLUSTER_0"])
 
-	// Assertion 2: the surviving region still serves a Zeebe cluster. Region 0
-	// is down, so only its four brokers remain; the partition count is
-	// unchanged because failover redistributes rather than drops partitions.
-	albEndpoint1 := terraform.Output(t, appOpts, "region_1_alb_endpoint")
-	require.NotEmpty(t, albEndpoint1)
-	helpers.WaitForRaftQuorum(t, albEndpoint1, env["ADMIN_USER"], env["ADMIN_PASS"], 4, 8, 15*time.Minute)
-
-	// Assertion 3: Aurora Global is healthy and, per the script's own
-	// contract, the writer has NOT been moved by the runbook.
+	// 2. The database is writable from the surviving region. failover.sh
+	//    promotes the survivor itself — AWS performs no planned switchover on
+	//    its own, and the JDBC failover plugin can only find a writer that
+	//    exists.
+	require.Equal(t, f.Region1, helpers.AuroraWriterRegion(t, f.AWSProfile, globalClusterID),
+		"after %s failover: the Aurora writer should have moved to region 1", label)
 	require.Equal(t, "available", helpers.AuroraGlobalClusterStatus(t, f.AWSProfile, globalClusterID),
-		"after %s failover: Aurora global cluster should still be available", label)
+		"after %s failover: the Aurora global cluster should still be available", label)
+
+	// 3. The surviving zone is the whole cluster now: four brokers, every
+	//    partition still led, and a replication factor that proves the zone
+	//    left the distribution rather than merely going unreachable.
+	after := helpers.WaitForRaftQuorum(t, albEndpoint1, env["ADMIN_USER"], env["ADMIN_PASS"],
+		brokersOneZone, partitionCount, 15*time.Minute)
+	// Pinned at both ends, so a separate "it fell" assertion would be
+	// unfalsifiable: before is rfBothZones, after is rfOneZone.
+	require.Equal(t, rfOneZone, after.ReplicationFactor,
+		"after %s failover: the zone's %d replicas should be gone, leaving %d. A factor "+
+			"still at %d means the zone is in the persisted distribution and quorum is "+
+			"counting replicas that cannot answer", label, rfOneZone, rfOneZone, rfBothZones)
+	require.Equal(t, partitionCount, after.PartitionsCount,
+		"after %s failover: failover redistributes partitions, it does not drop them", label)
 }

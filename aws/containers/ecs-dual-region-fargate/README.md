@@ -144,12 +144,31 @@ failover force-removes the lost zone, failback re-adds it. The zone names are
 the AWS region names, set by `CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_*_NAME`
 in `terraform/app/locals.tf`.
 
+Each zone contributes `replication_factor / 2` = 2 replicas, so the
+cluster-wide factor is 4 with both zones and 2 while one is removed. That
+number is the signal that the distribution really changed: brokers disappear
+whenever a region is scaled down, but the factor only moves if the zone left
+the persisted distribution.
+
+They also move the **database**. Aurora Global has a single writer region, so
+losing the writer's region leaves the database read-only until a survivor is
+promoted — AWS performs no planned switchover on its own, and the JDBC failover
+plugin can only discover a writer that exists. `failover.sh` promotes it when
+the writer was in the failed region, and `failback.sh --switch-writer` brings it
+home. This matches `aws/kubernetes/eks-multi-region-rdbms`.
+
+An *unplanned* loss where the failed region's cluster no longer answers cannot
+be switched over at all: `failover-global-cluster` needs it reachable. Recovery
+is then AWS's detach-and-promote procedure, which is **lossy and one-way** — so
+it is left to an operator rather than automated in a runbook.
+
 ```bash
 # Prerequisites for both
 . ./procedure/export_environment_prerequisites.sh
 brew install --cask session-manager-plugin   # macOS
 
-# Fail region 0 away: scale its tasks to 0, then force-remove the zone
+# Fail region 0 away: scale its tasks to 0, promote the region 1 database,
+# then force-remove the zone
 ./procedure/failover.sh --failed-region 0
 
 # Validate the request without changing anything
@@ -273,11 +292,9 @@ open http://localhost:8080
 
 #### Teardown after a failover
 
-`failover.sh` itself leaves Aurora alone, so a plain failover does not change the
-writer. But if the writer did move — AWS promoting the survivor during a real
-region loss, or `failback.sh --switch-writer` — the Aurora Global cluster is no
-longer in the topology Terraform recorded, and a global cluster cannot be
-deleted while it still has members.
+After a failover the writer is in the surviving region — `failover.sh` promotes
+it — so the Aurora Global cluster is no longer in the topology Terraform
+recorded, and a global cluster cannot be deleted while it still has members.
 
 `db_force_destroy` (default `true`) handles this: the provider detaches every
 member before deleting the global cluster, in dependency order and with the

@@ -12,6 +12,12 @@
 #   6. Polls the change to COMPLETED and verifies partitions are hosted       #
 #   7. Optionally switches the Aurora writer back                             #
 #                                                                             #
+# Pair --switch-writer with a failover that moved the writer. failover.sh     #
+# promotes the surviving Aurora member when the writer was in the region it   #
+# is failing away from, so after the default failover the writer sits in the  #
+# surviving region; without --switch-writer this script restores the brokers  #
+# and leaves it there, which is a valid end state but not a symmetric one.    #
+#                                                                             #
 # Why step 5 is not optional                                                  #
 #   Failover force-removed the zone, which also dropped it from the persisted  #
 #   partition distribution. Restarted brokers rejoin cluster membership but,   #

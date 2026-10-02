@@ -20,3 +20,21 @@
 // Expect an hour or more of wall clock for a full sweep. CI splits the suite
 // across dispatch-only workflows rather than parallelising it here.
 package src
+
+// Cluster shape, mirroring terraform/app/locals.tf. Every suite in this
+// package asserts against these rather than bare literals, so a topology
+// change lands in one place.
+//
+// The replication factor is the sum over zones: each of the two zones gets
+// numberOfReplicas = replication_factor / 2 = 2, so removing a zone removes
+// its 2 and the survivor's 2 become the whole factor. That makes the factor —
+// not the broker count — the observable that distinguishes a zone leaving the
+// persisted distribution from a zone merely becoming unreachable. Brokers
+// disappear whenever a region is scaled down either way.
+const (
+	brokersBothZones = 8
+	brokersOneZone   = 4
+	partitionCount   = 8
+	rfBothZones      = 4
+	rfOneZone        = 2
+)

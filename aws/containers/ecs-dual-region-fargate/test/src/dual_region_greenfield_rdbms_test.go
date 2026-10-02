@@ -38,9 +38,9 @@ func TestEndToEnd_Greenfield_TGW_RDBMS(t *testing.T) {
 	require.NotEmpty(t, adminPass, "admin_user_password is needed to poll /v2/topology")
 
 	t.Logf("Waiting for Raft quorum at %s ...", albEndpoint)
-	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", adminPass, 8, 8, f.RaftTimeout)
+	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", adminPass, brokersBothZones, partitionCount, f.RaftTimeout)
 
-	require.Len(t, topo.Brokers, 8, "expected 8 Zeebe brokers (4 per region)")
-	require.Equal(t, 8, topo.PartitionsCount, "expected 8 partitions")
-	require.Equal(t, 4, topo.ReplicationFactor, "expected replication factor 4")
+	require.Len(t, topo.Brokers, brokersBothZones, "expected %d Zeebe brokers (%d per region)", brokersBothZones, brokersOneZone)
+	require.Equal(t, partitionCount, topo.PartitionsCount, "expected %d partitions", partitionCount)
+	require.Equal(t, rfBothZones, topo.ReplicationFactor, "expected replication factor %d", rfBothZones)
 }

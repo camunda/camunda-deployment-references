@@ -6,9 +6,11 @@
 # Removes a whole zone from the zone-aware cluster after that region is lost:  #
 #   1. Prints the topology before the change                                  #
 #   2. Scales the failed region's ECS services to zero                        #
-#   3. Force-removes the zone via DELETE /actuator/cluster/zones/{zoneId}     #
-#   4. Polls the change to COMPLETED                                          #
-#   5. Prints the topology after, and checks every partition has a leader     #
+#   3. Promotes the surviving Aurora member, if the writer was in the         #
+#      failed region                                                          #
+#   4. Force-removes the zone via DELETE /actuator/cluster/zones/{zoneId}     #
+#   5. Polls the change to COMPLETED                                          #
+#   6. Prints the topology after, and checks every partition has a leader     #
 #                                                                             #
 # Why a zone, not a broker list                                               #
 #   This reference runs a zone-aware cluster (CAMUNDA_CLUSTER_PARTITIONING_    #
@@ -28,8 +30,15 @@
 #   partitions have no quorum until the zone is removed. Removing it is what   #
 #   restores availability; there is nothing to wait for first.                 #
 #                                                                             #
-# Aurora Global Database is NOT touched — the JDBC failover plugin and AWS    #
-# handle writer promotion automatically via the global cluster endpoint.       #
+# The database                                                                #
+#   Aurora Global Database has a single writer region, so losing the          #
+#   writer's region leaves the database read-only until a survivor is         #
+#   promoted. AWS does not do that by itself, and the JDBC failover           #
+#   plugin can only discover a writer that exists — so the runbook            #
+#   promotes it, as aws/kubernetes/eks-multi-region-rdbms does.               #
+#                                                                             #
+#   A writer already outside the failed region needs nothing, so no           #
+#   flag gates this: the global cluster's own state decides.                  #
 #                                                                             #
 # Usage:                                                                      #
 #   ./failover.sh [--failed-region 0|1] [--dry-run] [--keep-tasks]            #
@@ -147,17 +156,124 @@ else
         --service "${service_arn}" --desired-count 0 \
         --no-cli-pager > /dev/null
     done
-    log "  Scaled down. Allowing 30s for the brokers to drop out of membership..."
-    sleep 30
+    log "  Scaled down."
   fi
 fi
 
 ###############################################################################
-# Step 2: Force-remove the zone                                               #
+# Step 2: Database writer                                                     #
 ###############################################################################
 
 log ""
-log "=== Step 2: Remove zone ${FAILED_ZONE} ==="
+log "=== Step 2: Aurora Global writer ==="
+
+# Guard clauses rather than nesting: two of the three exits only report, and
+# the promotion is the single interesting path.
+promote_aurora_writer() {
+  if [[ -z "${AURORA_GLOBAL_CLUSTER_ID:-}" ]]; then
+    log "  No Aurora Global cluster in this deployment — secondary storage is"
+    log "  OpenSearch, or the database is bring-your-own. Nothing to promote."
+    return 0
+  fi
+
+  local members writer_region target_arn target_region
+  members=$(aws rds describe-global-clusters \
+    --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+    --query 'GlobalClusters[0].GlobalClusterMembers' --output json)
+
+  # One jq pass for both answers: it already splits the ARN, so there is no
+  # need for a second `echo | cut` round trip.
+  writer_region=$(echo "${members}" | jq -r \
+    'first(.[] | select(.IsWriter == true) | .DBClusterArn | split(":")[3]) // empty')
+
+  log "  Current writer region: ${writer_region:-unknown}"
+
+  if [[ "${writer_region}" != "${FAILED_AWS_REGION}" ]]; then
+    log "  The writer is not in the failed region — no database action required."
+    return 0
+  fi
+
+  # A member that is neither the current writer nor in the failed region. With
+  # two regions that is exactly the survivor; selecting it this way stays
+  # correct if a third member is ever added.
+  target_arn=$(echo "${members}" | jq -r --arg failed "${FAILED_AWS_REGION}" \
+    'first(.[] | select(.IsWriter != true) | select((.DBClusterArn | split(":")[3]) != $failed) | .DBClusterArn) // empty')
+
+  if [[ -z "${target_arn}" ]]; then
+    err "No surviving Aurora member to promote — the database stays read-only."
+    err "Check: aws rds describe-global-clusters --global-cluster-identifier ${AURORA_GLOBAL_CLUSTER_ID}"
+    return 1
+  fi
+
+  target_region=$(echo "${target_arn}" | cut -d: -f4)
+
+  if [[ "${DRY_RUN}" == true ]]; then
+    log "  --dry-run: would promote ${target_arn} (${target_region}), doing nothing."
+    return 0
+  fi
+
+  log "  Promoting ${target_arn} (${target_region})"
+  # A switchover: it waits for the target to catch up, so there is no data
+  # loss. It does need the failed region's cluster to still answer — a loss
+  # where it does not needs the AWS detach-and-promote procedure, which is
+  # lossy and one-way and therefore not automated in a reference runbook.
+  aws rds failover-global-cluster \
+    --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+    --target-db-cluster-identifier "${target_arn}" \
+    --no-cli-pager >/dev/null
+
+  # Poll for the writer actually having moved, not for the cluster reporting
+  # `available`. The CLI's own db-cluster-available waiter watches the wrong
+  # field (DBClusters[].Status) on a 30s/60-attempt schedule, so it rounds
+  # every run up to a 30s multiple and can block for half an hour.
+  local waited=0
+  while [[ "${waited}" -lt "${WRITER_PROMOTION_TIMEOUT}" ]]; do
+    if [[ "$(aurora_writer_region)" == "${target_region}" ]]; then
+      log "  ✓ Writer is now in ${target_region} (after ${waited}s)."
+      log "    The AWS Advanced JDBC Wrapper failover plugin discovers it from"
+      log "    the global endpoint, so Camunda needs no restart; connections in"
+      log "    flight during the promotion are retried by the driver."
+      return 0
+    fi
+    sleep "${WRITER_POLL_INTERVAL}"
+    waited=$((waited + WRITER_POLL_INTERVAL))
+  done
+
+  # Deliberately not fatal. Step 3 is what restores Zeebe quorum, and holding
+  # it behind a slow database would extend the outage it is meant to end.
+  log "  ⚠ Writer has not shown as ${target_region} after ${WRITER_PROMOTION_TIMEOUT}s."
+  log "    Continuing — the promotion is in flight and the driver retries."
+  log "    Confirm with: ./verify_dual_region.sh"
+  return 0
+}
+
+# aurora_writer_region echoes the region of the current writer, or nothing.
+aurora_writer_region() {
+  # shellcheck disable=SC2016  # JMESPath uses literal backticks
+  aws rds describe-global-clusters \
+    --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+    --query 'GlobalClusters[0].GlobalClusterMembers[?IsWriter==`true`].DBClusterArn' \
+    --output text 2>/dev/null | awk -F':' '{print $4}'
+}
+
+WRITER_PROMOTION_TIMEOUT=600
+WRITER_POLL_INTERVAL=15
+
+promote_aurora_writer
+
+###############################################################################
+# Step 3: Force-remove the zone                                               #
+###############################################################################
+
+log ""
+log "=== Step 3: Remove zone ${FAILED_ZONE} ==="
+
+# Give the scaled-down brokers a moment to leave membership. Belt and braces:
+# the removal below passes force=true, which evicts unreachable brokers rather
+# than waiting for them, and Step 2 has usually just spent longer than this.
+if [[ "${KEEP_TASKS}" == false && "${DRY_RUN}" == false ]]; then
+  sleep 15
+fi
 
 # The management API is on port 9600 and is not published through the ALB
 # (terraform/infra/lb.tf gives that listener a fixed-response default), so
@@ -194,11 +310,11 @@ fi
 CHANGE_ID=$(echo "${BODY}" | jq -r '.changeId // .pendingChange.id // .lastChange.id // empty' 2>/dev/null)
 
 ###############################################################################
-# Step 3: Wait for the change to complete                                     #
+# Step 4: Wait for the change to complete                                     #
 ###############################################################################
 
 log ""
-log "=== Step 3: Wait for the change to complete ==="
+log "=== Step 4: Wait for the change to complete ==="
 
 if [[ -z "${CHANGE_ID}" ]]; then
   err "No changeId in the response; cannot poll the change deterministically."
@@ -213,11 +329,11 @@ if ! mgmt_wait_change "${CHANGE_ID}" 900; then
 fi
 
 ###############################################################################
-# Step 4: Verify                                                              #
+# Step 5: Verify                                                              #
 ###############################################################################
 
 log ""
-log "=== Step 4: Verify ==="
+log "=== Step 5: Verify ==="
 
 # `|| ZONE_STATE=$?` rather than a bare call: set -e would kill the script on a
 # non-zero return before $? could be read, and here 1 ("zone absent") is the
@@ -261,10 +377,14 @@ log "Failover complete — zone ${FAILED_ZONE} force-removed."
 log ""
 log "Failed region ${FAILED_REGION}:  ECS scaled to 0, zone dropped from the distribution"
 log "Surviving zone:         ${SURVIVING_AWS_REGION}, ${LEADERS}/${PARTITIONS} partitions led"
-log "Aurora:                 handled automatically by AWS / JDBC failover plugin"
+if [[ -n "${AURORA_GLOBAL_CLUSTER_ID:-}" ]]; then
+  log "Aurora writer:          $(aurora_writer_region)"
+fi
 log ""
 log "Next steps:"
 log "  1. Create work:  curl -u ${ADMIN_USER}:<pass> http://${SURVIVING_ALB}/v2/topology"
 log "  2. Health check: ./verify_dual_region.sh"
-log "  3. Restore:      ./failback.sh --failed-region ${FAILED_REGION}"
+# --switch-writer, because step 2 moved the writer out of the failed region:
+# failback without it restores the brokers and leaves the database where it is.
+log "  3. Restore:      ./failback.sh --failed-region ${FAILED_REGION} --switch-writer"
 log "════════════════════════════════════════════════════════════════"

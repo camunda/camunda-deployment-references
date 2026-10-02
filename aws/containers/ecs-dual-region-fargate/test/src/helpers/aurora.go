@@ -1,6 +1,7 @@
-// Aurora Global helpers — used by the failover/failback tests to assert on
-// writer-region changes and to reproduce the promotion AWS performs during a
-// real region loss.
+// Aurora Global helpers — used by the failover/failback tests to observe the
+// writer region and the global cluster's health. Nothing here mutates the
+// cluster: procedure/failover.sh performs the promotion, and the tests assert
+// on what it did.
 //
 // Everything shells out to the AWS CLI through awsJSON (see ecs.go) rather
 // than pulling in the SDK: the procedure scripts use the CLI, so the tests
@@ -16,7 +17,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 type globalClusterMember struct {
@@ -24,27 +24,35 @@ type globalClusterMember struct {
 	IsWriter     bool   `json:"IsClusterWriter"`
 }
 
-// auroraGlobalMembers returns the global cluster's member list.
-func auroraGlobalMembers(t *testing.T, awsProfile, globalClusterID string) []globalClusterMember {
+// globalCluster is the subset of describe-global-clusters the tests assert on.
+type globalCluster struct {
+	Status  string                `json:"Status"`
+	Members []globalClusterMember `json:"GlobalClusterMembers"`
+}
+
+// auroraGlobal fetches the global cluster once. AuroraWriterRegion and
+// AuroraGlobalClusterStatus used to issue a CLI call each, with a different
+// --query against the same API call; one response carries both.
+func auroraGlobal(t *testing.T, awsProfile, globalClusterID string) globalCluster {
 	t.Helper()
 	raw := awsJSON(t, awsProfile,
 		"rds", "describe-global-clusters",
 		"--global-cluster-identifier", globalClusterID,
-		"--query", "GlobalClusters[0].GlobalClusterMembers",
+		"--query", "GlobalClusters[0].{Status:Status,GlobalClusterMembers:GlobalClusterMembers}",
 		"--output", "json",
 	)
-	var members []globalClusterMember
-	if err := json.Unmarshal(raw, &members); err != nil {
+	var gc globalCluster
+	if err := json.Unmarshal(raw, &gc); err != nil {
 		t.Fatalf("parse describe-global-clusters JSON: %v\n%s", err, raw)
 	}
-	return members
+	return gc
 }
 
 // AuroraWriterRegion returns the AWS region (e.g. "eu-west-2") of the current
 // writer cluster in the specified Aurora Global cluster.
 func AuroraWriterRegion(t *testing.T, awsProfile, globalClusterID string) string {
 	t.Helper()
-	for _, m := range auroraGlobalMembers(t, awsProfile, globalClusterID) {
+	for _, m := range auroraGlobal(t, awsProfile, globalClusterID).Members {
 		if m.IsWriter {
 			region := regionFromDBClusterARN(m.DBClusterArn)
 			if region == "" {
@@ -57,68 +65,10 @@ func AuroraWriterRegion(t *testing.T, awsProfile, globalClusterID string) string
 	return "" // unreachable
 }
 
-// auroraMemberARN returns the DB cluster ARN of the global cluster member
-// that lives in the given region.
-func auroraMemberARN(t *testing.T, awsProfile, globalClusterID, region string) string {
-	t.Helper()
-	for _, m := range auroraGlobalMembers(t, awsProfile, globalClusterID) {
-		if regionFromDBClusterARN(m.DBClusterArn) == region {
-			return m.DBClusterArn
-		}
-	}
-	t.Fatalf("global cluster %s has no member in %s", globalClusterID, region)
-	return "" // unreachable
-}
-
 // AuroraGlobalClusterStatus returns the Status field of the global cluster.
 func AuroraGlobalClusterStatus(t *testing.T, awsProfile, globalClusterID string) string {
 	t.Helper()
-	raw := awsJSON(t, awsProfile,
-		"rds", "describe-global-clusters",
-		"--global-cluster-identifier", globalClusterID,
-		"--query", "GlobalClusters[0].Status",
-		"--output", "json",
-	)
-	var status string
-	if err := json.Unmarshal(raw, &status); err != nil {
-		t.Fatalf("parse describe-global-clusters status: %v\n%s", err, raw)
-	}
-	return status
-}
-
-// AuroraFailoverToRegion performs a planned Aurora Global failover, promoting
-// the member in targetRegion to writer, and blocks until the promotion is
-// visible.
-//
-// The failback tests need this because procedure/failover.sh deliberately
-// leaves Aurora alone — in a real region loss AWS and the JDBC failover
-// plugin move the writer, not the runbook. Without reproducing that move the
-// --switch-writer variants become indistinguishable.
-func AuroraFailoverToRegion(t *testing.T, awsProfile, globalClusterID, targetRegion string, timeout time.Duration) {
-	t.Helper()
-
-	targetARN := auroraMemberARN(t, awsProfile, globalClusterID, targetRegion)
-	t.Logf("Promoting Aurora member %s to writer", targetARN)
-
-	awsJSON(t, awsProfile,
-		"rds", "failover-global-cluster",
-		"--global-cluster-identifier", globalClusterID,
-		"--target-db-cluster-identifier", targetARN,
-		"--no-cli-pager",
-		"--output", "json",
-	)
-
-	deadline := time.Now().Add(timeout)
-	for {
-		if AuroraWriterRegion(t, awsProfile, globalClusterID) == targetRegion {
-			t.Logf("Aurora writer is now in %s", targetRegion)
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("Aurora writer did not move to %s within %s", targetRegion, timeout)
-		}
-		time.Sleep(15 * time.Second)
-	}
+	return auroraGlobal(t, awsProfile, globalClusterID).Status
 }
 
 // regionFromDBClusterARN extracts the region from an ARN of the form

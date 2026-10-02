@@ -254,6 +254,9 @@ jobs:
                   min-expected-instances: ${{ env.BENCH_MIN_EXPECTED }}
                   propagation-wait-seconds: ${{ env.BENCH_PROPAGATION_WAIT }}
 
+            # Drains region 0, promotes the region 1 Aurora writer, and removes
+            # region 0's zone — so the smoke test below runs against a surviving
+            # region with a writable database behind it.
             - name: Failover to region 1
               if: env.TESTS_ENABLED == 'true'
               shell: bash
@@ -281,6 +284,8 @@ jobs:
               # --failed-region must match the failover above: failback re-adds
               # that zone through the Zones API, without which the restored
               # brokers rejoin membership but host no partitions.
+              # --switch-writer brings the Aurora writer back too, so the
+              # deployment ends in the shape it started in.
               run: ./failback.sh --failed-region 0 --switch-writer
 
             - name: Smoke test — region 0 after the failback
