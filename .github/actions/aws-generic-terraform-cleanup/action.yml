@@ -277,13 +277,17 @@ runs:
               set -euo pipefail
               SLUG=$(echo "${INPUTS_TF_BUCKET_KEY_PREFIX}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
               echo "PREFIX_SLUG=${SLUG::-1}" | tee -a "$GITHUB_OUTPUT"
+              TARGET_SLUG=$(echo "${INPUTS_TARGET}" | tr '/' '-' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+              echo "TARGET_SLUG=${TARGET_SLUG%-}" | tee -a "$GITHUB_OUTPUT"
           env:
               INPUTS_TF_BUCKET_KEY_PREFIX: ${{ inputs.tf-bucket-key-prefix }}
+              INPUTS_TARGET: ${{ inputs.target }}
 
         - name: Upload cleanup logs
           if: always()
           uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
           with:
-              name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG }}
+              name: logs-${{ github.action }}-${{ github.job }}-${{ steps.key-prefix-slug.outputs.TARGET_SLUG }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG
+                  }}
               path: ./logs/
               retention-days: 7
