@@ -7,7 +7,6 @@
 package helpers
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/terraform"
@@ -18,17 +17,12 @@ type BYOVPCFixture struct {
 	opts *terraform.Options
 }
 
-// SetupBYOVPCs locates aws/test-fixtures/byo-vpcs/ relative to the test
-// directory, applies it with the supplied prefix and region pair, and returns
+// SetupBYOVPCs applies the isolated fixture with the supplied prefix and region pair, and returns
 // a fixture handle. The handle's Outputs map is keyed by the same field
 // names the consuming BYO tfvars expect (region_0_vpc_id, region_0_vpc_cidr,
 // region_0_private_subnet_ids, ...).
-func SetupBYOVPCs(t *testing.T, packageDir, prefix, awsProfile, region0, region1 string, tags map[string]interface{}, backend map[string]interface{}) *BYOVPCFixture {
+func SetupBYOVPCs(t *testing.T, fixtureDir, prefix, awsProfile, region0, region1 string, tags map[string]interface{}, backend map[string]interface{}) *BYOVPCFixture {
 	t.Helper()
-
-	// packageDir is test/src/: src -> test -> ecs-dual-region-fargate ->
-	// containers -> aws, then aws/test-fixtures/byo-vpcs/.
-	fixtureDir := filepath.Join(packageDir, "..", "..", "..", "..", "test-fixtures", "byo-vpcs")
 
 	opts := &terraform.Options{
 		TerraformDir: fixtureDir,

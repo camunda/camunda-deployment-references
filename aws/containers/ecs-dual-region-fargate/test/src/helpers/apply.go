@@ -16,12 +16,12 @@ import (
 	"github.com/gruntwork-io/terratest/modules/terraform"
 )
 
-// StatePaths resolves the three Terraform state directories relative to the
-// test package location.
+// StatePaths contains the isolated stack and BYO fixture directories.
 type StatePaths struct {
-	VPC   string
-	Infra string
-	App   string
+	VPC     string
+	Infra   string
+	App     string
+	Fixture string
 }
 
 // RunTag names the resources of one test run: the last six digits of
@@ -43,9 +43,8 @@ func RunTag() string {
 // `modules-order: app/terraform,infra/terraform,vpc/terraform,fixture/terraform`.
 //
 // In CI the group ends in `-run<TEST_RUN_ID>`, and the workflow targets
-// `run<TEST_RUN_ID>/`. The action matches its target anywhere in an `aws s3
-// ls` line, and this token cannot occur in another run's key, a timestamp or
-// a size.
+// `run<TEST_RUN_ID>/`. The action matches its target against the key field
+// ($NF) of `aws s3 ls`, and this token cannot occur in another run's key.
 func BackendKeyPrefix(clusterPrefix string) string {
 	group := clusterPrefix
 	if id := os.Getenv("TEST_RUN_ID"); id != "" {
@@ -79,11 +78,11 @@ func IsolatedStatePaths(t *testing.T, packageDir string) StatePaths {
 		t.Fatalf("copy .tool-versions: %v", err)
 	}
 	root := filepath.Join(copied, "containers", "ecs-dual-region-fargate", "terraform")
-	vpc := filepath.Join(root, "vpc")
 	return StatePaths{
-		VPC:   vpc,
-		Infra: filepath.Join(root, "infra"),
-		App:   filepath.Join(root, "app"),
+		VPC:     filepath.Join(root, "vpc"),
+		Infra:   filepath.Join(root, "infra"),
+		App:     filepath.Join(root, "app"),
+		Fixture: filepath.Join(copied, "test-fixtures", "byo-vpcs"),
 	}
 }
 
