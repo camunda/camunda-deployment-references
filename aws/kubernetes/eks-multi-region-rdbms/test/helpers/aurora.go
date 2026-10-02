@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -55,14 +56,18 @@ func ParseAuroraGlobal(raw []byte) (AuroraGlobalState, error) {
 // of apiRegion. Callers use it right after a procedure returned and do not
 // retry: a procedure that reports a writer move as complete must already have
 // waited for it (#3572).
-func ReadAuroraGlobal(t *testing.T, env Env, apiRegion string) AuroraGlobalState {
+func ReadAuroraGlobal(t *testing.T, globalClusterID, apiRegion string) AuroraGlobalState {
 	t.Helper()
 
 	out, err := exec.Command("aws", "rds", "describe-global-clusters",
 		"--region", apiRegion,
-		"--global-cluster-identifier", env.AuroraGlobalID,
+		"--global-cluster-identifier", globalClusterID,
 		"--query", "GlobalClusters[0]", "--output", "json").Output()
 	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			t.Fatalf("aws rds describe-global-clusters failed: %v\n%s", err, exitErr.Stderr)
+		}
 		t.Fatalf("aws rds describe-global-clusters failed: %v", err)
 	}
 	state, err := ParseAuroraGlobal(out)

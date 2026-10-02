@@ -215,7 +215,7 @@ func TestMultiRegionRegionLoss(t *testing.T) {
 	// retry, so a procedure that returns before the switchover ends fails here.
 	if env.AuroraGlobalID != "" {
 		lostRegion := env.AWSRegions[lostSlot]
-		aurora := helpers.ReadAuroraGlobal(t, env, env.AWSRegions[lostSlot+1])
+		aurora := helpers.ReadAuroraGlobal(t, env.AuroraGlobalID, env.AWSRegions[lostSlot+1])
 		if aurora.WriterRegion == lostRegion || aurora.FailoverState != "" {
 			t.Fatalf("failover.sh returned before the Aurora switchover finished: %+v", aurora)
 		}
@@ -264,7 +264,7 @@ func TestMultiRegionFailback(t *testing.T) {
 
 	if env.AuroraGlobalID != "" {
 		recoveredRegion := env.AWSRegions[lostSlot]
-		aurora := helpers.ReadAuroraGlobal(t, env, recoveredRegion)
+		aurora := helpers.ReadAuroraGlobal(t, env.AuroraGlobalID, recoveredRegion)
 		if aurora.WriterRegion != recoveredRegion || aurora.FailoverState != "" {
 			t.Fatalf("failback.sh --switch-writer returned before the writer was back in %s: %+v", recoveredRegion, aurora)
 		}
