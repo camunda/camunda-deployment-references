@@ -121,3 +121,58 @@ func TestWriterMovesWaitForTheGlobalCluster(t *testing.T) {
 		}
 	}
 }
+
+func TestWaitAuroraWriterRejectsEmptyTarget(t *testing.T) {
+	t.Parallel()
+	// Given: no writer exists and the caller has no target ARN.
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte("#!/usr/bin/env bash\necho '{\"GlobalClusterMembers\":[]}'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", "-c", `set -euo pipefail
+source ./lib-management-api.sh
+camunda::wait_aurora_writer global "" 5`)
+	cmd.Dir = ProcedureDir(t)
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "AURORA_WRITER_POLL_SECONDS=0")
+	// When
+	out, err := cmd.CombinedOutput()
+	// Then
+	if err == nil || !strings.Contains(string(out), "no target writer ARN") {
+		t.Fatalf("expected an empty-target error, got %v\n%s", err, out)
+	}
+}
+
+func TestFailoverRejectsMissingWriter(t *testing.T) {
+	t.Parallel()
+	// Given: an empty global membership and an offline management API.
+	fake := t.TempDir()
+	body, err := os.ReadFile(filepath.Join(ProcedureDir(t), "failover.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string]string{
+		"failover.sh": string(body),
+		"lib-management-api.sh": `camunda::require_slot() { :; }
+camunda::survivor_context() { echo survivor; }
+camunda::use_surviving_region() { :; }
+camunda::management() { echo '{}'; }
+camunda::wait_aurora_writer() { :; }
+`,
+		"aws": "#!/usr/bin/env bash\necho '[]'\n",
+	} {
+		if err := os.WriteFile(filepath.Join(fake, name), []byte(content), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cmd := exec.Command("bash", filepath.Join(fake, "failover.sh"), "0", "--dry-run")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"),
+		"CLUSTER_CONTEXTS=a b c", "AWS_REGIONS=eu-west-2 eu-west-3 eu-central-1",
+		"CAMUNDA_ACTIVE_REGIONS=3", "CAMUNDA_REGION_SLOTS=3", "CAMUNDA_BROKERS_PER_REGION=2",
+		"CAMUNDA_ZONE_REPLICAS=2 2 1", "CAMUNDA_REPLICATION_FACTOR=5", "AURORA_GLOBAL_CLUSTER_ID=g")
+	// When
+	out, err := cmd.CombinedOutput()
+	// Then
+	if err == nil || !strings.Contains(string(out), "No Aurora writer ARN") {
+		t.Fatalf("expected a missing-writer error, got %v\n%s", err, out)
+	}
+}

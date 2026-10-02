@@ -139,6 +139,10 @@ else
         --query 'GlobalClusters[0].GlobalClusterMembers' --output json)"
 
     writer_arn="$(echo "$members_json" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')"
+    if [ -z "$writer_arn" ]; then
+        echo "ERROR: No Aurora writer ARN in the global cluster." >&2
+        exit 1
+    fi
     writer_region="$(echo "$writer_arn" | cut -d: -f4)"
     lost_region="${aws_regions[$LOST_SLOT]}"
 

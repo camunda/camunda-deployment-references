@@ -369,6 +369,7 @@ camunda::wait_for_cluster_change() {
 camunda::wait_aurora_writer() {
     local global_id="$1"
     local target_arn="$2"
+    [ -n "$target_arn" ] || { echo "ERROR: no target writer ARN" >&2; return 1; }
     local timeout="${3:-1200}"
     local deadline=$((SECONDS + timeout))
 
