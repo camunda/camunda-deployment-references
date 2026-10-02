@@ -91,12 +91,12 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 
 	// Step 1: planned failover to region 1.
 	env := map[string]string{
-		"REGION_0":                 region0,
-		"REGION_1":                 region1,
-		"CLUSTER_NAME":             clusterPrefix,
-		"AWS_PROFILE":              awsProfile,
-		"AURORA_GLOBAL_CLUSTER_ID": globalClusterID,
-		"TF_DIR":                   infraOpts.TerraformDir,
+		"AWS_PROFILE":     awsProfile,
+		"TF_DIR":          infraOpts.TerraformDir,
+		"MGMT_LOCAL_PORT": "9603",
+	}
+	if expectWriterMovesBack {
+		env["MGMT_LOCAL_PORT"] = "9604"
 	}
 	helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failover.sh"), env)
 	require.Equal(t, region1, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),
@@ -109,10 +109,6 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 	}
 	helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failback.sh"), env, args...)
 
-	// failback.sh reports the zone re-added; every broker and partition must
-	// be back, not only the Aurora writer.
-	helpers.WaitForRaftQuorum(t, albEndpoint0, adminPassword, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
-
 	finalWriter := helpers.AuroraWriterRegion(t, awsProfile, globalClusterID)
 	if expectWriterMovesBack {
 		require.Equal(t, region0, finalWriter,
@@ -121,4 +117,8 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 		require.Equal(t, region1, finalWriter,
 			"failback %s: writer should remain in region 1 (no --switch-writer)", label)
 	}
+
+	// failback.sh reports the zone re-added; every broker and partition must
+	// be back, not only the Aurora writer.
+	helpers.WaitForRaftQuorum(t, albEndpoint0, adminPassword, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 }

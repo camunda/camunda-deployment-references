@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -100,12 +99,12 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 	// Run failover.
 	scriptPath := filepath.Join(procedureDir, "failover.sh")
 	env := map[string]string{
-		"REGION_0":                 region0,
-		"REGION_1":                 region1,
-		"CLUSTER_NAME":             clusterPrefix,
-		"AWS_PROFILE":              awsProfile,
-		"AURORA_GLOBAL_CLUSTER_ID": globalClusterID,
-		"TF_DIR":                   infraOpts.TerraformDir,
+		"AWS_PROFILE":     awsProfile,
+		"TF_DIR":          infraOpts.TerraformDir,
+		"MGMT_LOCAL_PORT": "9601",
+	}
+	if label == "unplanned" {
+		env["MGMT_LOCAL_PORT"] = "9602"
 	}
 	args := []string{}
 	if failoverFlag != "" {
@@ -113,7 +112,7 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 	}
 	if failoverFlag == "--keep-tasks" {
 		cluster0 := terraform.Output(t, infraOpts, "ecs_cluster_region_0_id")
-		helpers.ScaleDownRegion(t, awsProfile, region0, cluster0[strings.LastIndex(cluster0, "/")+1:])
+		helpers.ScaleDownRegion(t, awsProfile, region0, cluster0)
 	}
 	helpers.RunProcedureScript(t, scriptPath, env, args...)
 
