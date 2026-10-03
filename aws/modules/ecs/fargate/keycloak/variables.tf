@@ -144,7 +144,7 @@ variable "image" {
   description = "The container image to use for Keycloak"
   type        = string
   # renovate: datasource=docker depName=camunda/keycloak versioning=regex:^quay-(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-  default = "camunda/keycloak:quay-26.7.4"
+  default = "camunda/keycloak:quay-26.8.0"
 }
 
 variable "environment_variables" {
