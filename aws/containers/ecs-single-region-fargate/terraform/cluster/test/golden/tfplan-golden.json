@@ -739,6 +739,7 @@
         "name": "camunda-oc1-connectors-client-auth-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -763,6 +764,7 @@
         "name": "camunda-db-admin-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -787,6 +789,7 @@
         "name": "camunda-oc1-admin-user-password",
         "recovery_window_in_days": 0,
         "region": "eu-west-2",
+        "replica": [],
         "tags": null,
         "type": null
       }
@@ -2329,6 +2332,12 @@
           }
         },
         "module.orchestration_cluster.aws_efs_access_point.camunda_data": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "camunda_data",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2378,6 +2387,12 @@
           }
         },
         "module.orchestration_cluster.aws_efs_file_system.efs": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "efs",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2401,6 +2416,12 @@
           }
         },
         "module.orchestration_cluster.aws_efs_mount_target.efs_mounts[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "efs_mounts",
@@ -2416,6 +2437,12 @@
           }
         },
         "module.orchestration_cluster.aws_efs_mount_target.efs_mounts[1]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 1,
           "mode": "managed",
           "name": "efs_mounts",
@@ -2431,6 +2458,12 @@
           }
         },
         "module.orchestration_cluster.aws_efs_mount_target.efs_mounts[2]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 2,
           "mode": "managed",
           "name": "efs_mounts",
@@ -3297,6 +3330,12 @@
           }
         },
         "module.postgresql.aws_rds_cluster_instance.aurora_instance[0]": {
+          "identity": {
+            "account_id": null,
+            "identifier": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "aurora_instance",
@@ -3518,6 +3557,12 @@
           }
         },
         "module.vpc.aws_default_security_group.this[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "this",
