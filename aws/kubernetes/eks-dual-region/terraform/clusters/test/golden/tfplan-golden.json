@@ -959,7 +959,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.35.7-SUFFIX",
+                    "release_version": "1.35.8-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -2502,6 +2502,12 @@
               }
             },
             "module.eks_cluster_region_0.module.vpc.aws_default_security_group.this[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -3974,7 +3980,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-3",
-                    "release_version": "1.35.7-SUFFIX",
+                    "release_version": "1.35.8-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -5517,6 +5523,12 @@
               }
             },
             "module.eks_cluster_region_1.module.vpc.aws_default_security_group.this[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
