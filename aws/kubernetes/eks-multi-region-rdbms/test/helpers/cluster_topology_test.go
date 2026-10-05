@@ -26,12 +26,14 @@ printf '%s' '{"brokers":[{"brokerId":"london_0","partitions":[]},{"brokerId":"pa
 	if err := os.WriteFile(filepath.Join(dir, "lib-management-api.sh"), []byte(gateway), 0600); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("bash", "check-cluster-topology.sh")
-	cmd.Dir = dir
-	cmd.Env = (Env{RegionSlots: 3, ActiveRegions: 2, BrokersPerRegion: 1,
+	cmd := exec.Command("bash", filepath.Join(dir, "check-cluster-topology.sh"))
+	// Run from the repository: an asdf-managed jq has no version outside it.
+	cmd.Dir = ProcedureDir(t)
+	cmd.Env = append((Env{RegionSlots: 3, ActiveRegions: 2, BrokersPerRegion: 1,
 		ZoneReplicas: []int{1, 1, 1}, ZoneNames: []string{"london", "paris", "zurich"},
 		ClusterContexts: []string{"cluster-london", "cluster-paris"},
-		Namespace:       "camunda", ReleaseName: "camunda"}).Vars()
+		Namespace:       "camunda", ReleaseName: "camunda"}).Vars(),
+		"OUTPUT_FILE="+filepath.Join(dir, "zeebe-topology.json"), "TOPOLOGY_TIMEOUT_SECONDS=5")
 
 	// When: the procedure checks the real topology response shape.
 	out, err := cmd.CombinedOutput()
