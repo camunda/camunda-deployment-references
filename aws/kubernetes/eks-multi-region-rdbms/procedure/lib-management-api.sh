@@ -402,12 +402,13 @@ camunda::wait_for_cluster_change() {
 # `failover-global-cluster` returns while the switchover is still pending, and
 # `aws rds wait db-cluster-available` only checks the target cluster's own
 # status, so it returns before the writer moves. Poll the global cluster until
-# the target member is the writer and no FailoverState is reported.
+# the target member is the writer and no FailoverState is reported. The 900s
+# default stays under the 20 minutes the e2e test gives failover.sh.
 camunda::wait_aurora_writer() {
     local global_id="$1"
     local target_arn="$2"
     [ -n "$target_arn" ] || { echo "ERROR: no target writer ARN" >&2; return 1; }
-    local timeout="${3:-1200}"
+    local timeout="${3:-900}"
     local deadline=$((SECONDS + timeout))
 
     while true; do
