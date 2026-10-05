@@ -64,7 +64,7 @@ func runWaitAuroraWriter(t *testing.T, timeout string) (string, error) {
 	cmd := exec.Command("bash", "-c", `set -euo pipefail
 source ./lib-management-api.sh
 camunda::wait_aurora_writer global "$TARGET" "$TIMEOUT"
-aws rds describe-global-clusters`)
+cat "$FAKE_DIR/calls"`)
 	cmd.Dir = ProcedureDir(t)
 	cmd.Env = append(os.Environ(),
 		"PATH="+fake+":"+os.Getenv("PATH"),
@@ -83,13 +83,10 @@ func TestWaitAuroraWriterReturnsOnlyOnceSwitchoverFinished(t *testing.T) {
 	if err != nil {
 		t.Fatalf("wait failed: %v\n%s", err, out)
 	}
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	state, err := ParseAuroraGlobal([]byte(lines[len(lines)-1]))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if state.WriterRegion != "eu-west-3" || state.FailoverState != "" {
-		t.Fatalf("returned while the switchover was running: %+v\n%s", state, out)
+	// The fake settles on its 4th describe call. Fewer calls means the wait
+	// returned while the switchover was still running.
+	if !strings.HasSuffix(strings.TrimSpace(out), "\n4") {
+		t.Fatalf("returned while the switchover was running\n%s", out)
 	}
 }
 
