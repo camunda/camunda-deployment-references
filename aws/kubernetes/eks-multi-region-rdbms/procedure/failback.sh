@@ -95,30 +95,7 @@ if echo "$partitioning" | jq -e --arg zone "$recovered_zone" \
 else
     echo "    Zone $recovered_zone was force-removed during failover; adding it back."
 
-    # The zone is gone from the cluster, so its replica count and priority cannot
-    # be read back from there. They come from the zone list that step 1 rendered,
-    # which is also the one the chart just deployed, so the two cannot drift.
-    zone_spec="$(echo "$CAMUNDA_MULTIREGION_ZONES" | jq -c --arg zone "$recovered_zone" \
-        '.[] | select(.name == $zone)')"
-    if [ -z "$zone_spec" ]; then
-        echo "ERROR: zone $recovered_zone is not in CAMUNDA_MULTIREGION_ZONES." >&2
-        exit 1
-    fi
-
-    # The source-built chart currently pins the alpha5 engine image, which
-    # predates numberOfBrokers. Its still-supported API shape takes explicit
-    # broker IDs instead.
-    broker_count="$(echo "$zone_spec" | jq -r '.numberOfBrokers')"
-    brokers_json="$(camunda::region_node_ids "$RECOVERED_SLOT" "$broker_count" | tr ' ' '\n' | jq -R . | jq -sc .)"
-    body="$(echo "$zone_spec" | jq -c --argjson brokers "$brokers_json" \
-        '{numberOfReplicas, priority, brokers: $brokers}')"
-
-    # Printed before it is sent, so the exact request can be replayed by hand
-    # against `?dryRun=true` before committing to it.
-    echo "    POST /actuator/cluster/zones/$recovered_zone $body"
-    response="$(camunda::management "$survivor_context" POST "/actuator/cluster/zones/$recovered_zone" "$body")"
-    echo "$response"
-    camunda::wait_for_cluster_change "$survivor_context" "$(echo "$response" | jq -r '.changeId // .pendingChange.id // empty')"
+    camunda::add_zone "$survivor_context" "$RECOVERED_SLOT"
 fi
 
 ###############################################################################

@@ -164,6 +164,43 @@ camunda::region_node_ids() {
     echo "${ids[@]}"
 }
 
+# camunda::add_zone <context> <slot>
+#
+# Adds the zone of <slot> to the running cluster with POST
+# /actuator/cluster/zones/<zone>, then waits for the change to complete. The
+# zone's replica count and priority come from CAMUNDA_MULTIREGION_ZONES, the
+# list generate-zeebe-helm-values.sh rendered for the deployment, so the request
+# cannot drift from what the chart installed.
+camunda::add_zone() {
+    : "${CAMUNDA_MULTIREGION_ZONES:?CAMUNDA_MULTIREGION_ZONES must be set, source generate-zeebe-helm-values.sh}"
+    local context="$1" slot="$2"
+    local zone zone_spec brokers_json body
+    zone="$(camunda::zone_name "$slot")" || return 1
+
+    zone_spec="$(echo "$CAMUNDA_MULTIREGION_ZONES" |
+        jq -c --arg zone "$zone" '.[] | select(.name == $zone)')"
+    if [ -z "$zone_spec" ]; then
+        echo "ERROR: zone $zone is not in CAMUNDA_MULTIREGION_ZONES." >&2
+        return 1
+    fi
+
+    # The source-built chart currently pins the alpha5 engine image, which
+    # predates numberOfBrokers. Its still-supported API shape takes explicit
+    # broker IDs instead.
+    brokers_json="$(camunda::region_node_ids "$slot" "$(echo "$zone_spec" | jq -r '.numberOfBrokers')" |
+        tr ' ' '\n' | jq -R . | jq -sc .)"
+    body="$(echo "$zone_spec" | jq -c --argjson brokers "$brokers_json" \
+        '{numberOfReplicas, priority, brokers: $brokers}')"
+
+    # Printed before it is sent, so the exact request can be replayed by hand
+    # against `?dryRun=true` before committing to it.
+    echo "    POST /actuator/cluster/zones/$zone $body"
+    local response
+    response="$(camunda::management "$context" POST "/actuator/cluster/zones/$zone" "$body")" || return 1
+    echo "$response"
+    camunda::wait_for_cluster_change "$context" "$(echo "$response" | jq -r '.changeId // .pendingChange.id // empty')"
+}
+
 # camunda::_request <context> <local-port> <remote-port> <auth> <method> <path> [body]
 #
 # The one place that talks HTTP to a gateway. Prints the response body, sets
