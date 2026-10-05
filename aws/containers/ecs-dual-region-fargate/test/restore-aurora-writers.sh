@@ -7,7 +7,8 @@
 # Usage: restore-aurora-writers.sh <id-substring> <min-age-hours>
 #   <id-substring>   only global clusters whose identifier contains it
 #   <min-age-hours>  skip stacks younger than this (a test may still be running)
-# Env: REGION_0 (home region), AWS_PROFILE / AWS_REGION as for the AWS CLI.
+# Env: REGION_0 (home region), AWS_PROFILE / AWS_REGION as for the AWS CLI,
+#      AURORA_SETTLE_SECONDS (default 1200) to wait for a running switchover.
 #
 # Best effort: a failure is logged and the next cluster is tried, so the
 # Terraform destroy that follows always runs.
@@ -21,30 +22,47 @@ MIN_AGE_HOURS="${2:?minimum age in hours required}"
 . "$(dirname "$0")/../procedure/zeebe_management_api.sh"
 
 now=$(date -u +%s)
-aws rds describe-global-clusters --query 'GlobalClusters' --output json |
+if ! globals=$(aws rds describe-global-clusters --query 'GlobalClusters' --output json); then
+    mgmt_err "could not list the Aurora global clusters, terraform destroy may hang."
+    exit 0
+fi
+echo "$globals" |
     jq -c --arg m "$MATCH" '.[] | select((.GlobalClusterIdentifier | endswith("-global-db")) and (.GlobalClusterIdentifier | contains($m)))' |
     while read -r global; do
         id=$(echo "$global" | jq -r .GlobalClusterIdentifier)
         # A switchover still running shows the old writer flag. Let it settle,
         # then decide from the settled membership.
-        deadline=$((SECONDS + 1200))
+        # A failed read keeps the last known state, so it never looks settled.
+        deadline=$((SECONDS + ${AURORA_SETTLE_SECONDS:-1200}))
         while [ -n "$(echo "$global" | jq -r '.FailoverState.Status // ""')" ] && [ "$SECONDS" -lt "$deadline" ]; do
             mgmt_log "$id: switchover in progress, waiting."
             sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
-            global=$(aws rds describe-global-clusters --global-cluster-identifier "$id" \
-                --query 'GlobalClusters[0]' --output json) || global='{}'
+            if fresh=$(aws rds describe-global-clusters --global-cluster-identifier "$id" \
+                --query 'GlobalClusters[0]' --output json); then
+                global=$fresh
+            fi
         done
+        if [ -n "$(echo "$global" | jq -r '.FailoverState.Status // ""')" ]; then
+            mgmt_err "$id: still switching over, skipping it. terraform destroy may hang."
+            continue
+        fi
         writer=$(echo "$global" | jq -r '.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn')
         home=$(echo "$global" | jq -r --arg r "$REGION_0" \
             '[.GlobalClusterMembers[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
         if [ -z "$home" ] || [ "$writer" = "$home" ]; then
             continue
         fi
-        created=$(aws rds describe-db-clusters --region "$REGION_0" --db-cluster-identifier "$home" \
-            --query 'DBClusters[0].ClusterCreateTime' --output text)
-        if [ $(((now - $(date -u -d "$created" +%s 2>/dev/null || echo "$now")) / 3600)) -lt "$MIN_AGE_HOURS" ]; then
+        if [ "$MIN_AGE_HOURS" -gt 0 ]; then
+          if ! created=$(aws rds describe-db-clusters --region "$REGION_0" --db-cluster-identifier "$home" \
+            --query 'DBClusters[0].ClusterCreateTime' --output text) ||
+            ! created_s=$(date -u -d "$created" +%s 2>/dev/null); then
+            mgmt_err "$id: could not read the creation time of $home, skipping it."
+            continue
+        fi
+          if [ $(((now - created_s) / 3600)) -lt "$MIN_AGE_HOURS" ]; then
             mgmt_log "$id: younger than ${MIN_AGE_HOURS}h, skipping."
             continue
+          fi
         fi
         mgmt_log "$id: writer is ${writer:-none}, switching it over to $home."
         export AURORA_GLOBAL_CLUSTER_ID="$id"

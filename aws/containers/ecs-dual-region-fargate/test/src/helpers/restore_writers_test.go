@@ -84,3 +84,41 @@ func TestRestoreAuroraWritersWaitsForARunningSwitchover(t *testing.T) {
 		t.Fatalf("did not move the writer home after the switchover settled: %v\n%s\n%s", err, calls, out)
 	}
 }
+
+func TestRestoreAuroraWritersSkipsWhatItCannotRead(t *testing.T) {
+	t.Parallel()
+
+	stuck := `{"GlobalClusterIdentifier":"e2e-fo-123456-global-db","FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`
+	away := `{"GlobalClusterIdentifier":"e2e-fo-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`
+	for _, tc := range []struct{ name, fake, want, minAge string }{
+		{"list fails", `exit 1`, "could not list the Aurora global clusters", "0"},
+		{"never settles", `case "$*" in
+  *--global-cluster-identifier*) echo '` + stuck + `' ;;
+  *describe-global-clusters*) echo '[` + stuck + `]' ;;
+esac`, "still switching over", "0"},
+		{"refresh fails", `case "$*" in
+  *--global-cluster-identifier*) exit 1 ;;
+  *describe-global-clusters*) echo '[` + stuck + `]' ;;
+esac`, "still switching over", "0"},
+		{"age unknown", `case "$*" in
+  *describe-global-clusters*) echo '[` + away + `]' ;;
+  *describe-db-clusters*) exit 1 ;;
+esac`, "could not read the creation time", "1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := t.TempDir()
+			script := "#!/usr/bin/env bash\necho \"$*\" >> \"$FAKE_DIR/calls\"\n" + tc.fake + "\n"
+			if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(script), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "123456", tc.minAge)
+			cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+				"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0", "AURORA_SETTLE_SECONDS=1")
+			out, err := cmd.CombinedOutput()
+			calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
+			if err != nil || !strings.Contains(string(out), tc.want) || strings.Contains(string(calls), "failover-global-cluster") {
+				t.Fatalf("want %q and no switchover, got %v\n%s\n%s", tc.want, err, out, calls)
+			}
+		})
+	}
+}
