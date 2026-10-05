@@ -148,3 +148,29 @@ func TestRestoreAuroraWritersStrictModeReportsFailures(t *testing.T) {
 		})
 	}
 }
+
+// A stack created with TEST_CLUSTER_PREFIX does not follow the e2e-f[ob]-
+// naming, so the Go cleanup names its global cluster exactly instead.
+func TestRestoreAuroraWritersExactIDIgnoresTheNamingGuard(t *testing.T) {
+	t.Parallel()
+
+	fake := t.TempDir()
+	aws := `#!/usr/bin/env bash
+echo "$*" >> "$FAKE_DIR/calls"
+case "$*" in
+  *--global-cluster-identifier\ custom-global-db\ --query*) echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true}]}' ;;
+  *describe-global-clusters*) echo '[{"GlobalClusterIdentifier":"custom-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}]' ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(aws), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "custom-global-db", "0")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0", "RESTORE_EXACT_ID=true", "RESTORE_STRICT=true")
+	out, err := cmd.CombinedOutput()
+	calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
+	if err != nil || !strings.Contains(string(calls), "failover-global-cluster --global-cluster-identifier custom-global-db") {
+		t.Fatalf("exact ID was not restored: %v\n%s\n%s", err, calls, out)
+	}
+}

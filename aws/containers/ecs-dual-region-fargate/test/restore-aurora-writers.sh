@@ -8,7 +8,9 @@
 #   <id-regex>       only global clusters whose identifier matches it (jq
 #                    regex). Identifiers must also follow the failover and
 #                    failback test naming, ^e2e-f[ob]-<label>-, so no other
-#                    stack is ever touched.
+#                    stack is ever touched. With RESTORE_EXACT_ID=true (the Go
+#                    test cleanup), <id-regex> is instead the exact identifier
+#                    of one global cluster, whatever its naming.
 #   <min-age-hours>  skip stacks younger than this (a test may still be running)
 # Env: REGION_0 (home region), AWS_PROFILE / AWS_REGION as for the AWS CLI,
 #      AURORA_SETTLE_SECONDS (default 1200) to wait for a running switchover.
@@ -83,6 +85,7 @@ while read -r global; do
         mgmt_err "$id: could not move the writer home, terraform destroy may hang."
         failed=true
     fi
-done < <(echo "$globals" | jq -c --arg m "$MATCH" \
-    '.[] | select((.GlobalClusterIdentifier | test("^e2e-f[ob]-[a-z]+-[a-z0-9]+-global-db$")) and (.GlobalClusterIdentifier | test($m)))')
+done < <(echo "$globals" | jq -c --arg m "$MATCH" --arg exact "${RESTORE_EXACT_ID:-false}" \
+    '.[] | select(if $exact == "true" then .GlobalClusterIdentifier == $m
+        else (.GlobalClusterIdentifier | test("^e2e-f[ob]-[a-z]+-[a-z0-9]+-global-db$")) and (.GlobalClusterIdentifier | test($m)) end)')
 done_restoring
