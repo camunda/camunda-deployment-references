@@ -98,6 +98,15 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 	if expectWriterMovesBack {
 		env["MGMT_LOCAL_PORT"] = "9604"
 	}
+
+	// terraform destroy may hang while the writer is away from region 0 (see
+	// the README teardown section). Registered after ApplyAllThreeStates, so
+	// it runs before the state destroys and also covers a failed test.
+	t.Cleanup(func() {
+		if helpers.AuroraWriterRegion(t, awsProfile, globalClusterID) != region0 {
+			helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failback.sh"), env, "--switch-writer")
+		}
+	})
 	helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failover.sh"), env)
 	require.Equal(t, region1, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),
 		"after failover: writer should be in region 1")
