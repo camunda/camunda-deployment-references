@@ -4,8 +4,11 @@
 # writer a failover test moved away (see the README teardown section). The
 # workflow cleanup and the daily cleanup run it before the Terraform destroy.
 #
-# Usage: restore-aurora-writers.sh <id-substring> <min-age-hours>
-#   <id-substring>   only global clusters whose identifier contains it
+# Usage: restore-aurora-writers.sh <id-regex> <min-age-hours>
+#   <id-regex>       only global clusters whose identifier matches it (jq
+#                    regex). Identifiers must also follow the failover and
+#                    failback test naming, ^e2e-f[ob]-<label>-, so no other
+#                    stack is ever touched.
 #   <min-age-hours>  skip stacks younger than this (a test may still be running)
 # Env: REGION_0 (home region), AWS_PROFILE / AWS_REGION as for the AWS CLI,
 #      AURORA_SETTLE_SECONDS (default 1200) to wait for a running switchover.
@@ -16,7 +19,7 @@
 # writer could not be checked or moved home.
 set -uo pipefail
 
-MATCH="${1:?id substring required}"
+MATCH="${1:?identifier regex required}"
 MIN_AGE_HOURS="${2:?minimum age in hours required}"
 : "${REGION_0:?REGION_0 must be set}"
 
@@ -81,5 +84,5 @@ while read -r global; do
         failed=true
     fi
 done < <(echo "$globals" | jq -c --arg m "$MATCH" \
-    '.[] | select((.GlobalClusterIdentifier | endswith("-global-db")) and (.GlobalClusterIdentifier | contains($m)))')
+    '.[] | select((.GlobalClusterIdentifier | test("^e2e-f[ob]-[a-z]+-[a-z0-9]+-global-db$")) and (.GlobalClusterIdentifier | test($m)))')
 done_restoring

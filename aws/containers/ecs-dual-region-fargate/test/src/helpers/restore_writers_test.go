@@ -8,8 +8,9 @@ import (
 	"testing"
 )
 
-// fakeRestoreAWS serves three global clusters: one whose writer is away from
-// region 0, one already home, and one that does not match the filter.
+// fakeRestoreAWS serves five global clusters: one whose writer is away from
+// region 0, one already home, and three that the run filter must not match
+// (another run, a non-test stack, and a longer run ID ending in the same digits).
 const fakeRestoreAWS = `#!/usr/bin/env bash
 echo "$*" >> "$FAKE_DIR/calls"
 case "$*" in
@@ -17,9 +18,11 @@ case "$*" in
     echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}' ;;
   *describe-global-clusters*)
     echo '[
-      {"GlobalClusterIdentifier":"e2e-fo-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]},
-      {"GlobalClusterIdentifier":"e2e-fb-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:c","IsWriter":true}]},
-      {"GlobalClusterIdentifier":"e2e-fo-999999-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:d","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:e","IsWriter":true}]}
+      {"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]},
+      {"GlobalClusterIdentifier":"e2e-fb-switch-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:c","IsWriter":true}]},
+      {"GlobalClusterIdentifier":"prod-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:f","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:g","IsWriter":true}]},
+      {"GlobalClusterIdentifier":"e2e-fo-planned-9123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:h","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:i","IsWriter":true}]},
+      {"GlobalClusterIdentifier":"e2e-fo-planned-999999-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:d","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:e","IsWriter":true}]}
     ]' ;;
   *describe-db-clusters*) echo 2000-01-01T00:00:00Z ;;
 esac
@@ -32,7 +35,7 @@ func TestRestoreAuroraWritersMovesOnlyMatchingStrayWriters(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(fakeRestoreAWS), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "123456", "0")
+	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "-123456-global-db$", "0")
 	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
 		"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0")
 	out, err := cmd.CombinedOutput()
@@ -42,8 +45,8 @@ func TestRestoreAuroraWritersMovesOnlyMatchingStrayWriters(t *testing.T) {
 	calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
 	switches := strings.Count(string(calls), "failover-global-cluster")
 	if switches != 1 || !strings.Contains(string(calls),
-		"failover-global-cluster --global-cluster-identifier e2e-fo-123456-global-db --target-db-cluster-identifier arn:aws:rds:eu-west-2:1:cluster:a") {
-		t.Fatalf("want one switchover of e2e-fo-123456 to region 0, got %d\n%s\n%s", switches, calls, out)
+		"failover-global-cluster --global-cluster-identifier e2e-fo-planned-123456-global-db --target-db-cluster-identifier arn:aws:rds:eu-west-2:1:cluster:a") {
+		t.Fatalf("want one switchover of e2e-fo-planned-123456 to region 0, got %d\n%s\n%s", switches, calls, out)
 	}
 }
 
@@ -56,11 +59,11 @@ n=$(grep -c describe-global-clusters "$FAKE_DIR/calls")
 case "$*" in
   *describe-global-clusters*)
     if [ "$n" -le 2 ]; then
-      m='{"GlobalClusterIdentifier":"e2e-fo-123456-global-db","FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'
+      m='{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'
     elif [ -f "$FAKE_DIR/switched" ]; then
-      m='{"GlobalClusterIdentifier":"e2e-fo-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'
+      m='{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'
     else
-      m='{"GlobalClusterIdentifier":"e2e-fo-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}'
+      m='{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}'
     fi
     case "$*" in *--global-cluster-identifier*) echo "$m" ;; *) echo "[$m]" ;; esac ;;
   *failover-global-cluster*) touch "$FAKE_DIR/switched" ;;
@@ -75,7 +78,7 @@ func TestRestoreAuroraWritersWaitsForARunningSwitchover(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(fakeSettlingAWS), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "123456", "0")
+	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "-123456-global-db$", "0")
 	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
 		"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0")
 	out, err := cmd.CombinedOutput()
@@ -88,8 +91,8 @@ func TestRestoreAuroraWritersWaitsForARunningSwitchover(t *testing.T) {
 func TestRestoreAuroraWritersSkipsWhatItCannotRead(t *testing.T) {
 	t.Parallel()
 
-	stuck := `{"GlobalClusterIdentifier":"e2e-fo-123456-global-db","FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`
-	away := `{"GlobalClusterIdentifier":"e2e-fo-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`
+	stuck := `{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`
+	away := `{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`
 	for _, tc := range []struct{ name, fake, want, minAge string }{
 		{"list fails", `exit 1`, "could not list the Aurora global clusters", "0"},
 		{"never settles", `case "$*" in
@@ -111,7 +114,7 @@ esac`, "could not read the creation time", "1"},
 			if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(script), 0o755); err != nil {
 				t.Fatal(err)
 			}
-			cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "123456", tc.minAge)
+			cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "-123456-global-db$", tc.minAge)
 			cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
 				"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0", "AURORA_SETTLE_SECONDS=1")
 			out, err := cmd.CombinedOutput()
@@ -126,7 +129,7 @@ esac`, "could not read the creation time", "1"},
 func TestRestoreAuroraWritersStrictModeReportsFailures(t *testing.T) {
 	t.Parallel()
 
-	stuck := `{"GlobalClusterIdentifier":"e2e-fo-123456-global-db","FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`
+	stuck := `{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`
 	for name, fake := range map[string]string{
 		"list fails":    `exit 1`,
 		"never settles": `case "$*" in *--global-cluster-identifier*) echo '` + stuck + `' ;; *) echo '[` + stuck + `]' ;; esac`,
@@ -136,7 +139,7 @@ func TestRestoreAuroraWritersStrictModeReportsFailures(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(dir, "aws"), []byte("#!/usr/bin/env bash\n"+fake+"\n"), 0o755); err != nil {
 				t.Fatal(err)
 			}
-			cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "123456", "0")
+			cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "-123456-global-db$", "0")
 			cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "REGION_0=eu-west-2",
 				"AURORA_WRITER_POLL_SECONDS=0", "AURORA_SETTLE_SECONDS=1", "RESTORE_STRICT=true")
 			if out, err := cmd.CombinedOutput(); err == nil {

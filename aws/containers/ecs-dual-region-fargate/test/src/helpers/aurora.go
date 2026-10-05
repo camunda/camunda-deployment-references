@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -152,7 +153,7 @@ func ScaleDownRegion(t *testing.T, awsProfile, region, cluster string) {
 // destroys registered before it still run.
 func RestoreAuroraWriterHome(t *testing.T, scriptPath, awsProfile, region0, globalClusterID string) {
 	t.Helper()
-	cmd := exec.Command("bash", scriptPath, globalClusterID, "0")
+	cmd := exec.Command("bash", scriptPath, "^"+regexp.QuoteMeta(globalClusterID)+"$", "0")
 	cmd.Env = append(os.Environ(), "REGION_0="+region0, "RESTORE_STRICT=true")
 	if awsProfile != "" {
 		cmd.Env = append(cmd.Env, "AWS_PROFILE="+awsProfile)
