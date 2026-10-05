@@ -103,9 +103,8 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 	// the README teardown section). Registered after ApplyAllThreeStates, so
 	// it runs before the state destroys and also covers a failed test.
 	t.Cleanup(func() {
-		if helpers.AuroraWriterRegion(t, awsProfile, globalClusterID) != region0 {
-			helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failback.sh"), env, "--switch-writer")
-		}
+		helpers.RestoreAuroraWriterHome(t, filepath.Join(thisDir, "..", "restore-aurora-writers.sh"),
+			awsProfile, region0, globalClusterID)
 	})
 	helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failover.sh"), env)
 	require.Equal(t, region1, helpers.AuroraWriterRegion(t, awsProfile, globalClusterID),

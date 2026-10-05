@@ -145,3 +145,21 @@ func ScaleDownRegion(t *testing.T, awsProfile, region, cluster string) {
 			services[i:min(i+10, len(services))]...)...)
 	}
 }
+
+// RestoreAuroraWriterHome runs test/restore-aurora-writers.sh for one global
+// cluster. It is safe in t.Cleanup: it waits for a switchover in progress,
+// never calls t.Fatal, and reports a failure with t.Errorf so the state
+// destroys registered before it still run.
+func RestoreAuroraWriterHome(t *testing.T, scriptPath, awsProfile, region0, globalClusterID string) {
+	t.Helper()
+	cmd := exec.Command("bash", scriptPath, globalClusterID, "0")
+	cmd.Env = append(os.Environ(), "REGION_0="+region0)
+	if awsProfile != "" {
+		cmd.Env = append(cmd.Env, "AWS_PROFILE="+awsProfile)
+	}
+	out, err := cmd.CombinedOutput()
+	t.Logf("%s %s:\n%s", scriptPath, globalClusterID, out)
+	if err != nil {
+		t.Errorf("restoring the Aurora writer of %s: %v", globalClusterID, err)
+	}
+}

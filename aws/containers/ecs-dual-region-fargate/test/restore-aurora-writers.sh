@@ -25,6 +25,15 @@ aws rds describe-global-clusters --query 'GlobalClusters' --output json |
     jq -c --arg m "$MATCH" '.[] | select((.GlobalClusterIdentifier | endswith("-global-db")) and (.GlobalClusterIdentifier | contains($m)))' |
     while read -r global; do
         id=$(echo "$global" | jq -r .GlobalClusterIdentifier)
+        # A switchover still running shows the old writer flag. Let it settle,
+        # then decide from the settled membership.
+        deadline=$((SECONDS + 1200))
+        while [ -n "$(echo "$global" | jq -r '.FailoverState.Status // ""')" ] && [ "$SECONDS" -lt "$deadline" ]; do
+            mgmt_log "$id: switchover in progress, waiting."
+            sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+            global=$(aws rds describe-global-clusters --global-cluster-identifier "$id" \
+                --query 'GlobalClusters[0]' --output json) || global='{}'
+        done
         writer=$(echo "$global" | jq -r '.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn')
         home=$(echo "$global" | jq -r --arg r "$REGION_0" \
             '[.GlobalClusterMembers[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
