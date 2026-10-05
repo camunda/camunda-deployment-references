@@ -122,3 +122,26 @@ esac`, "could not read the creation time", "1"},
 		})
 	}
 }
+
+func TestRestoreAuroraWritersStrictModeReportsFailures(t *testing.T) {
+	t.Parallel()
+
+	stuck := `{"GlobalClusterIdentifier":"e2e-fo-123456-global-db","FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`
+	for name, fake := range map[string]string{
+		"list fails":    `exit 1`,
+		"never settles": `case "$*" in *--global-cluster-identifier*) echo '` + stuck + `' ;; *) echo '[` + stuck + `]' ;; esac`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "aws"), []byte("#!/usr/bin/env bash\n"+fake+"\n"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "123456", "0")
+			cmd.Env = append(os.Environ(), "PATH="+dir+":"+os.Getenv("PATH"), "REGION_0=eu-west-2",
+				"AURORA_WRITER_POLL_SECONDS=0", "AURORA_SETTLE_SECONDS=1", "RESTORE_STRICT=true")
+			if out, err := cmd.CombinedOutput(); err == nil {
+				t.Fatalf("strict mode exited 0 after a failed restore\n%s", out)
+			}
+		})
+	}
+}

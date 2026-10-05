@@ -153,7 +153,7 @@ func ScaleDownRegion(t *testing.T, awsProfile, region, cluster string) {
 func RestoreAuroraWriterHome(t *testing.T, scriptPath, awsProfile, region0, globalClusterID string) {
 	t.Helper()
 	cmd := exec.Command("bash", scriptPath, globalClusterID, "0")
-	cmd.Env = append(os.Environ(), "REGION_0="+region0)
+	cmd.Env = append(os.Environ(), "REGION_0="+region0, "RESTORE_STRICT=true")
 	if awsProfile != "" {
 		cmd.Env = append(cmd.Env, "AWS_PROFILE="+awsProfile)
 	}
