@@ -228,7 +228,11 @@ if [[ "$DRY_RUN" == "true" ]]; then
     fi
     TARGET_ARN=$(echo "${MEMBERS}" | \
       jq -r --arg r "${SURVIVING_AWS_REGION}" '[.[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
-    log "  --dry-run: would promote ${TARGET_ARN:-no surviving Aurora member} if the writer is in ${FAILED_AWS_REGION}, doing nothing."
+    if [[ -z "${TARGET_ARN}" ]]; then
+      err "No Aurora member in ${SURVIVING_AWS_REGION} to promote."
+      exit 1
+    fi
+    log "  --dry-run: would promote ${TARGET_ARN} if the writer is in ${FAILED_AWS_REGION}, doing nothing."
   fi
   exit 0
 fi

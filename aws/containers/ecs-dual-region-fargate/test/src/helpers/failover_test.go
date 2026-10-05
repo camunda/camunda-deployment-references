@@ -19,6 +19,7 @@ func TestFailoverRecoveryOrdering(t *testing.T) {
 		{"removed zone", "absent", "PROMOTED", nil, false},
 		{"dry run", "dry-run", "would promote arn:aws:rds:eu-west-3:1:cluster:b", []string{"--dry-run"}, false},
 		{"dry run, missing writer", "nowriter", "No Aurora writer ARN", []string{"--dry-run"}, true},
+		{"dry run, no surviving member", "nosurvivor", "No Aurora member in", []string{"--dry-run"}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Given: offline CLI and management API responses for one recovery path.
@@ -51,6 +52,7 @@ aurora_wait_writer() { return 0; }
 case "$*" in
   *describe-global-clusters*)
     [ "$MODE" = empty ] && { echo '[]'; exit 0; }
+    [ "$MODE" = nosurvivor ] && { echo '[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true}]'; exit 0; }
     [ "$MODE" = nowriter ] && { echo '[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]'; exit 0; }
     echo '[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]' ;;
   *describe-db-clusters*) echo available ;;
