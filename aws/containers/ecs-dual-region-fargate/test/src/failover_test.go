@@ -106,6 +106,13 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 	if label == "unplanned" {
 		env["MGMT_LOCAL_PORT"] = "9602"
 	}
+	// Same pre-destroy guard as failback_test.go: failover leaves the writer
+	// in region 1, where terraform destroy may hang.
+	t.Cleanup(func() {
+		if helpers.AuroraWriterRegion(t, awsProfile, globalClusterID) != region0 {
+			helpers.RunProcedureScript(t, filepath.Join(procedureDir, "failback.sh"), env, "--switch-writer")
+		}
+	})
 	args := []string{}
 	if failoverFlag != "" {
 		args = append(args, failoverFlag)
