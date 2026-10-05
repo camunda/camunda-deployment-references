@@ -219,9 +219,14 @@ if [[ "$DRY_RUN" == "true" ]]; then
   elif [[ "$KEEP_WRITER" == "true" ]]; then
     log "  Aurora: --keep-writer given, leaving the writer in place."
   else
-    TARGET_ARN=$(aws rds describe-global-clusters \
+    MEMBERS=$(aws rds describe-global-clusters \
       --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-      --query 'GlobalClusters[0].GlobalClusterMembers' --output json | \
+      --query 'GlobalClusters[0].GlobalClusterMembers' --output json)
+    if [[ -z "$(echo "${MEMBERS}" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')" ]]; then
+      err "No Aurora writer ARN in the global cluster."
+      exit 1
+    fi
+    TARGET_ARN=$(echo "${MEMBERS}" | \
       jq -r --arg r "${SURVIVING_AWS_REGION}" '[.[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
     log "  --dry-run: would promote ${TARGET_ARN:-no surviving Aurora member} if the writer is in ${FAILED_AWS_REGION}, doing nothing."
   fi
