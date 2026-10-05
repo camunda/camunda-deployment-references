@@ -81,6 +81,7 @@ jobs:
               run: ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh e2e- "${MAX_AGE_HOURS_CLUSTER}"
 
             - name: Delete stacks
+              if: always()
               timeout-minutes: 170
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
