@@ -27,8 +27,10 @@ on:
     schedule:
         - cron: 0 5 * * * # At 05:00 everyday.
 
+# One group for every run: scheduled and pull-request runs share the same S3
+# prefix and AWS account, and the state backends have no locking.
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
+    group: ${{ github.workflow }}
     cancel-in-progress: false
 
 env:
