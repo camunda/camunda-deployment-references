@@ -28,8 +28,8 @@ on:
                 default: true
             start_rate:
                 description: Process instances per second the load generator starts.
-                type: string
-                default: '10'
+                type: number
+                default: 10
             ref-arch:
                 description: |
                     Valid values are `ecs-single-region-fargate-load`.
@@ -411,6 +411,7 @@ jobs:
 
             - name: Set current target branch
               id: target-branch
+              if: env.CLEANUP_CLUSTERS == 'true'
               run: |
                   set -euo pipefail
                   TARGET_BRANCH=$(cat .target-branch)

@@ -2,14 +2,15 @@
 //
 // ApplyAllThreeStates wraps terraform init && apply for vpc/ → infra/ → app/ in
 // sequence, returns the three terraform.Options so tests can read outputs, and
-// is paired with DestroyAllThreeStates for orderly teardown in reverse order.
+// registers each state's destroy with t.Cleanup (last-in first-out: app/,
+// infra/, vpc/).
 package helpers
 
 import (
-	"github.com/gruntwork-io/terratest/modules/logger"
 	"path/filepath"
 	"testing"
 
+	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 )
 
