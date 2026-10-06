@@ -212,8 +212,15 @@ run "survives_a_cluster_that_is_not_registered_yet" {
   # generator and no further logs. Observed on a real apply before this retry
   # existed: three launches a minute apart, then twenty-one minutes of silence.
   assert {
-    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "until java org.springframework.boot.loader.launch.JarLauncher")
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "while true; do\\n  java org.springframework.boot.loader.launch.JarLauncher")
     error_message = "The container must retry the launcher, or a cold start leaves the generator permanently stopped"
+  }
+
+  # sh is PID 1 and ignores SIGTERM, so without forwarding every ECS stop
+  # waits out the stop timeout and kills the JVM with SIGKILL.
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.load_generator.container_definitions, "trap 'kill -TERM")
+    error_message = "The container shell must forward SIGTERM to the JVM so ECS stops it gracefully"
   }
 }
 

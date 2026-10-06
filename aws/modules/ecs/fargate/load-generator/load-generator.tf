@@ -87,7 +87,12 @@ locals {
     "cat <<'BPMNEOF' > ${local.bpmn_path}\n",
     file("${path.module}/templates/one-task.bpmn"),
     "\nBPMNEOF\n",
-    "until java org.springframework.boot.loader.launch.JarLauncher; do\n",
+    # sh stays PID 1, which ignores SIGTERM: forward it to the JVM so an ECS
+    # stop shuts the generator down instead of waiting for SIGKILL.
+    "trap 'kill -TERM \"$pid\" 2>/dev/null; wait \"$pid\"; exit 0' TERM\n",
+    "while true; do\n",
+    "  java org.springframework.boot.loader.launch.JarLauncher & pid=$!\n",
+    "  wait \"$pid\" && break\n",
     "  echo 'load generator exited, retrying in 10s' >&2\n",
     "  sleep 10\n",
     "done",
