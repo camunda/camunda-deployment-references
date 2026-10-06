@@ -2,19 +2,21 @@
 #
 # broker-disconnect-create.sh
 #
-# Creates an FIS experiment template that disconnects a single Camunda broker
-# (ECS task) by disrupting network connectivity on its Elastic Network Interface.
+# Creates an FIS experiment template that disconnects the subnet of a selected
+# Camunda broker (ECS task).
 #
-# Unlike az-disconnect-create.sh which disconnects an entire AZ (affecting all
-# benchmarks), this targets a single broker ENI belonging to a specific benchmark,
-# leaving other benchmarks unaffected.
+# FIS aws:network:disrupt-connectivity works on subnets, not ENIs: it swaps the
+# network ACL of the broker's subnet, so every task in that subnet, including
+# other brokers and other benchmarks, loses connectivity too. The selected
+# broker only decides which subnet is hit. az-disconnect-create.sh hits every
+# private subnet of an AZ instead.
 #
 # How it works:
 #   1. Finds the ECS service for the given deployment prefix
 #   2. Lists running tasks and picks one (or the one in the specified AZ)
 #   3. Resolves the task's ENI (Elastic Network Interface)
 #   4. Creates an FIS experiment template that uses aws:network:disrupt-connectivity
-#      scoped to the ENI's subnet, targeting only that subnet
+#      on the ENI's subnet
 #
 # Prerequisites:
 #   - FIS-Admin role assumed (source ./experiments/assume-fis-role.sh)

@@ -88,7 +88,7 @@ both folded in from [`camunda/camunda-load-tests-ecs`](https://github.com/camund
 
 | Piece | Path | Applies to |
 |---|---|---|
-| Persistent Prometheus with Cloud Map discovery | `aws/modules/ecs/fargate/monitoring` | ECS Fargate |
+| Long-lived Prometheus with Cloud Map discovery | `aws/modules/ecs/fargate/monitoring` | ECS Fargate |
 | Load generator (public community benchmark) | `aws/modules/ecs/fargate/load-generator` | ECS Fargate |
 | AWS FIS chaos experiments | `aws/common/procedure/chaos-fis` | Any ECS Orchestration Cluster |
 | Load generator Job | `aws/kubernetes/eks-multi-region-rdbms/procedure/load-generator.sh` | Kubernetes |
