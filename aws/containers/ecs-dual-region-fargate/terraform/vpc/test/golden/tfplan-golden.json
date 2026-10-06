@@ -408,6 +408,12 @@
           }
         },
         "module.vpc_region_0[0].aws_default_security_group.this[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "this",
@@ -1468,6 +1474,12 @@
           }
         },
         "module.vpc_region_1[0].aws_default_security_group.this[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "this",
