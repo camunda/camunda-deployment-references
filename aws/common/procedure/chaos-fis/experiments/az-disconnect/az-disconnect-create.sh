@@ -91,23 +91,36 @@ fi
 echo "VPC ID: ${VPC_ID}"
 
 # --- Find private subnets in the target AZ ---
-# Private subnets are those without a route to an internet gateway (no "Name" tag with "public")
-# We look for subnets in the target AZ that are in the VPC
-SUBNET_IDS=$(aws ec2 describe-subnets \
+# A subnet is public when its route table sends traffic to an internet gateway.
+# MapPublicIpOnLaunch is not a reliable signal: the reference VPC's public
+# subnets have it off too, which would pull them into the blast radius.
+# ponytail: only explicit route-table associations are checked, which is how
+# the reference VPC is built; a main route table with an IGW route is not.
+PUBLIC_SUBNET_IDS=$(aws ec2 describe-route-tables \
+  --filters "Name=vpc-id,Values=${VPC_ID}" "Name=route.gateway-id,Values=igw-*" \
+  --query "RouteTables[].Associations[].SubnetId" \
+  --output text \
+  --region "${AWS_REGION}" | tr '\t\n' '  ')
+
+SUBNET_IDS=""
+for SUBNET_ID in $(aws ec2 describe-subnets \
   --filters \
     "Name=vpc-id,Values=${VPC_ID}" \
     "Name=availability-zone,Values=${TARGET_AZ}" \
-  --query "Subnets[?!MapPublicIpOnLaunch].SubnetId" \
+  --query "Subnets[].SubnetId" \
   --output text \
-  --region "${AWS_REGION}")
+  --region "${AWS_REGION}"); do
+  [[ " ${PUBLIC_SUBNET_IDS} " == *" ${SUBNET_ID} "* ]] || SUBNET_IDS="${SUBNET_IDS} ${SUBNET_ID}"
+done
+SUBNET_IDS="${SUBNET_IDS# }"
 
-if [[ -z "${SUBNET_IDS}" || "${SUBNET_IDS}" == "None" ]]; then
+if [[ -z "${SUBNET_IDS}" ]]; then
   echo "ERROR: No private subnets found in AZ '${TARGET_AZ}' within VPC '${VPC_ID}'"
   echo ""
-  echo "Available AZs with private subnets:"
+  echo "Subnets in this VPC:"
   aws ec2 describe-subnets \
     --filters "Name=vpc-id,Values=${VPC_ID}" \
-    --query "Subnets[?!MapPublicIpOnLaunch].[AvailabilityZone,SubnetId,CidrBlock]" \
+    --query "Subnets[].[AvailabilityZone,SubnetId,CidrBlock]" \
     --output table \
     --region "${AWS_REGION}"
   exit 1
