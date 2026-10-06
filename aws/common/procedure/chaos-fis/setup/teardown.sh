@@ -56,7 +56,7 @@ done
 
 TEMPLATE_IDS=$(aws fis list-experiment-templates \
   --region "${AWS_REGION}" \
-  --query "experimentTemplates[?tags.managed_by=='${MANAGED_BY}'].id" \
+  --query "experimentTemplates[?tags.managed_by=='${MANAGED_BY}' && tags.repository=='camunda/camunda-deployment-references'].id" \
   --output text)
 TEMPLATE_IDS=${TEMPLATE_IDS//None/}
 
