@@ -238,7 +238,11 @@ create_template() {
     --region "${AWS_REGION}" \
     --output json)
 
-  TEMPLATE_ID=$(echo "${result}" | jq -r '.experimentTemplate.id')
+  TEMPLATE_ID=$(echo "${result}" | jq -r '.experimentTemplate.id // empty')
+  if [[ -z "${TEMPLATE_ID}" ]]; then
+    echo "ERROR: create-experiment-template returned no template ID" >&2
+    exit 1
+  fi
 }
 
 # ============================================================
@@ -404,10 +408,16 @@ wait_for_experiment() {
   echo ""
 
   while true; do
-    EXPERIMENT_DETAIL=$(aws fis get-experiment \
+    # A failed poll (throttling, expired session) must not abort the script
+    # while the experiment keeps running: report it and poll again.
+    if ! EXPERIMENT_DETAIL=$(aws fis get-experiment \
       --id "${EXPERIMENT_ID}" \
       --region "${AWS_REGION}" \
-      --output json 2>/dev/null)
+      --output json); then
+      echo "  $(date +%H:%M:%S) — get-experiment failed, retrying" >&2
+      sleep "${poll_interval}"
+      continue
+    fi
 
     CURRENT_STATE=$(echo "${EXPERIMENT_DETAIL}" | jq -r '.experiment.state.status')
 
@@ -446,10 +456,16 @@ wait_for_experiment_with_actions() {
   echo ""
 
   while true; do
-    EXPERIMENT_DETAIL=$(aws fis get-experiment \
+    # A failed poll (throttling, expired session) must not abort the script
+    # while the experiment keeps running: report it and poll again.
+    if ! EXPERIMENT_DETAIL=$(aws fis get-experiment \
       --id "${EXPERIMENT_ID}" \
       --region "${AWS_REGION}" \
-      --output json 2>/dev/null)
+      --output json); then
+      echo "  $(date +%H:%M:%S) — get-experiment failed, retrying" >&2
+      sleep "${poll_interval}"
+      continue
+    fi
 
     CURRENT_STATE=$(echo "${EXPERIMENT_DETAIL}" | jq -r '.experiment.state.status')
 

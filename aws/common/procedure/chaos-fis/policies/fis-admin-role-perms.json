@@ -7,7 +7,8 @@
       "Action": [
         "fis:CreateExperimentTemplate",
         "fis:DeleteExperimentTemplate",
-        "fis:GetExperimentTemplate"
+        "fis:GetExperimentTemplate",
+        "fis:TagResource"
       ],
       "Resource": [
         "arn:aws:fis:*:*:experiment-template/*",
@@ -20,7 +21,8 @@
       "Action": [
         "fis:StartExperiment",
         "fis:StopExperiment",
-        "fis:GetExperiment"
+        "fis:GetExperiment",
+        "fis:TagResource"
       ],
       "Resource": [
         "arn:aws:fis:*:*:experiment/*",

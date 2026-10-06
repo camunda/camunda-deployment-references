@@ -129,7 +129,9 @@ ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${FIS_EXPERIMENT_ROLE}"
 SUBNET_ARN="arn:aws:ec2:${AWS_REGION}:${ACCOUNT_ID}:subnet/${TARGET_SUBNET}"
 LOG_GROUP_ARN="arn:aws:logs:${AWS_REGION}:${ACCOUNT_ID}:log-group:${LOG_GROUP}:*"
 
-cat > /tmp/fis-broker-disconnect-template.json << EOF
+TEMPLATE_FILE=$(mktemp)
+trap 'rm -f "${TEMPLATE_FILE}"' EXIT
+cat > "${TEMPLATE_FILE}" << EOF
 {
   "description": "Disconnect broker ${TARGET_TASK_ID} (${PREFIX}) in ${TARGET_TASK_AZ} for ${DURATION}",
   "targets": {
@@ -181,7 +183,7 @@ EOF
 
 # --- Delete existing template and create new one ---
 delete_template_by_name "${TEMPLATE_NAME}"
-create_template /tmp/fis-broker-disconnect-template.json
+create_template "${TEMPLATE_FILE}"
 
 echo ""
 echo "=== Experiment template created ==="
