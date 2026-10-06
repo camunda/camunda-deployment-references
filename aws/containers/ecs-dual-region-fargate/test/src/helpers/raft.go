@@ -103,18 +103,23 @@ func fetchTopology(url, username, password string) (Topology, error) {
 	return topo, nil
 }
 
-// countLeaders sums up partition entries with Role == "LEADER" across all brokers.
-// Note: a healthy cluster has exactly one LEADER per partition. If two brokers
-// both claim leadership for the same partition, this count exceeds expectedPartitions
-// and the wait keeps going — which is the correct behavior (split brain mid-election).
+// countLeaders returns how many partitions have exactly one leader. A plain
+// sum of leader entries would let a split-brain partition (two leaders) make
+// up for a leaderless one and pass the expectedPartitions check.
 func countLeaders(topo Topology) int {
-	leaders := 0
+	perPartition := map[int]int{}
 	for _, b := range topo.Brokers {
 		for _, p := range b.Partitions {
 			if strings.EqualFold(p.Role, "leader") {
-				leaders++
+				perPartition[p.PartitionID]++
 			}
 		}
 	}
-	return leaders
+	healthy := 0
+	for _, n := range perPartition {
+		if n == 1 {
+			healthy++
+		}
+	}
+	return healthy
 }

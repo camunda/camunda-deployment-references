@@ -143,10 +143,11 @@ check_ecs_service() {
   local running_count=0
   local pending_count=0
 
-  # Find the ECS service matching <prefix>-oc-*
+  # Find the orchestration-cluster service (<prefix>-oc<N>-orchestration-cluster);
+  # a bare <prefix>-oc match also picks up <prefix>-oc<N>-connectors
   service_name=$(aws ecs list-services \
     --cluster "${ECS_CLUSTER}" \
-    --query "serviceArns[?contains(@, '${PREFIX}-oc')]" \
+    --query "serviceArns[?contains(@, '/${PREFIX}-oc') && ends_with(@, '-orchestration-cluster')]" \
     --output text \
     --region "${AWS_REGION}" 2>/dev/null | head -1 | xargs -I{} basename {} 2>/dev/null) || true
 
@@ -318,10 +319,12 @@ check_health() {
     [.brokers // [] | .[].partitions // [] | .[].partitionId] | unique | length
   ' 2>/dev/null || echo "0")
 
-  # Count partitions that have at least one leader
+  # Count partitions that have exactly one leader: two leaders on one
+  # partition (split brain) must not pass for a healthy partition.
   partitions_with_leader=$(echo "${topology_response}" | jq '
     [.brokers // [] | .[].partitions // [] | .[] | select(.role == "leader")] |
     group_by(.partitionId) |
+    map(select(length == 1)) |
     length
   ' 2>/dev/null || echo "0")
 
@@ -362,7 +365,7 @@ check_health() {
 
   if [[ "${total_partitions}" -gt 0 && "${partitions_with_leader}" -lt "${total_partitions}" ]]; then
     healthy=false
-    details="${details}${partitions_with_leader}/${total_partitions} partitions have a leader. "
+    details="${details}${partitions_with_leader}/${total_partitions} partitions have exactly one leader. "
   fi
 
   # Every count above is derived from the partitions the response actually

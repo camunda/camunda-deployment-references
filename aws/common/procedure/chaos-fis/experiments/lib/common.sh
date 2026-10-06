@@ -37,7 +37,7 @@ discover_ecs_service() {
 
   SERVICE_NAME=$(aws ecs list-services \
     --cluster "${ECS_CLUSTER}" \
-    --query "serviceArns[?contains(@, '${prefix}-oc')]" \
+    --query "serviceArns[?contains(@, '/${prefix}-oc') && ends_with(@, '-orchestration-cluster')]" \
     --output text \
     --region "${AWS_REGION}" | head -1 | xargs -I{} basename {})
 
