@@ -136,19 +136,46 @@ Customers with existing VPCs can skip greenfield VPC creation by setting `byo_vp
 
 ## Failover / Failback
 
+Both scripts drive the zone-aware [Zones API](https://docs.camunda.io/docs/next/self-managed/components/orchestration-cluster/zeebe/operations/management-api/):
+failover force-removes the lost zone, failback re-adds it. The zone names are
+the AWS region names, set by `CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_*_NAME`
+in `terraform/app/locals.tf`.
+
 ```bash
-# Planned failover (switchover) to region 1
-./procedure/failover.sh
+# Prerequisites for both
+. ./procedure/export_environment_prerequisites.sh
+brew install --cask session-manager-plugin   # macOS
 
-# Unplanned failover (detach + promote) to region 1
-./procedure/failover.sh --unplanned
+# Fail region 0 away: scale its tasks to 0, then force-remove the zone
+./procedure/failover.sh --failed-region 0
 
-# Failback to region 0
-./procedure/failback.sh
+# Validate the request without changing anything
+./procedure/failover.sh --failed-region 0 --dry-run
 
-# Failback and switch Aurora writer back to region 0
-./procedure/failback.sh --switch-writer
+# The region is already down, so skip the ECS scale-down
+./procedure/failover.sh --failed-region 0 --keep-tasks
+
+# Restore region 0: scale it up, then re-add the zone
+./procedure/failback.sh --failed-region 0
+
+# ... and move the Aurora writer back to region 0
+./procedure/failback.sh --failed-region 0 --switch-writer
 ```
+
+> [!NOTE]
+> The management API (`/actuator/*`) listens on port 9600 and is **not** published
+> through the ALB — the 9600 listener in `terraform/infra/lb.tf` has a
+> fixed-response default and no forward rule. Both scripts therefore reach it
+> through an ECS Exec / Session Manager port-forward, which needs no bastion and
+> keeps the endpoint private. That is why `session-manager-plugin` is required.
+
+> [!IMPORTANT]
+> Failover passes `force=true` explicitly. The API defaults to `force=false`,
+> which *gracefully drains* the zone and so needs its brokers still running —
+> the opposite of a failover. With `replicationFactor = 4` across two zones each
+> partition keeps two replicas per zone, so losing a zone leaves two of four,
+> short of a majority: those partitions have no quorum until the zone is
+> removed. Removing it is what restores availability.
 
 ## Accessing the deployment
 
@@ -243,7 +270,11 @@ open http://localhost:8080
 
 #### Teardown after a failover
 
-If you ran `failover.sh` (planned or unplanned) before destroying, the Aurora Global cluster writer has moved to region 1. Terraform expects the original topology and `terraform destroy` may hang on Aurora resources. To work around this:
+`failover.sh` itself leaves Aurora alone, so a plain failover does not change the
+writer. But if the writer did move — AWS promoting the survivor during a real
+region loss, or `failback.sh --switch-writer` — Terraform still expects the
+original topology and `terraform destroy` may hang on the Aurora resources. To
+work around this:
 
 ```bash
 # 1. Remove both clusters from the Global cluster

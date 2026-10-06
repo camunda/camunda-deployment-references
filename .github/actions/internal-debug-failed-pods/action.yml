@@ -176,6 +176,8 @@ runs:
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get events --sort-by='.lastTimestamp' > "${DUMP_DIR}/namespace-events.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get svc,endpoints > "${DUMP_DIR}/services-endpoints.txt" 2>&1 || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get pvc > "${DUMP_DIR}/pvcs.txt" 2>&1 || true
+              kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get pvc -o yaml > "${DUMP_DIR}/pvcs.yaml" 2>>"$DUMP_ERR" || true
+              kubectl "${CTX_ARGS[@]}" get storageclass -o yaml > "${DUMP_DIR}/storageclasses.yaml" 2>>"$DUMP_ERR" || true
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get configmaps,secrets > "${DUMP_DIR}/configmaps-secrets.txt" 2>&1 || true
               # Tool + cluster versions (helps diagnose version-specific behaviour, e.g. Helm 3 vs 4)
               kubectl "${CTX_ARGS[@]}" version > "${DUMP_DIR}/versions-kubectl.txt" 2>&1 || true
@@ -220,6 +222,32 @@ runs:
               kubectl "${CTX_ARGS[@]}" -n openshift-dns get configmap dns-default -o yaml > "${DUMP_DIR}/openshift-dns-configmap.yaml" 2>>"$DUMP_ERR" || true
               kubectl "${CTX_ARGS[@]}" -n openshift-dns logs -l dns.operator.openshift.io/daemonset-dns=default -c dns \
                 --prefix --tail="$ARTIFACT_TAIL" > "${DUMP_DIR}/openshift-dns-logs.txt" 2>&1 || true
+
+              if kubectl "${CTX_ARGS[@]}" get namespace openshift-cluster-csi-drivers >/dev/null 2>&1; then
+                csi_namespace=openshift-cluster-csi-drivers
+                kubectl "${CTX_ARGS[@]}" -n "$csi_namespace" get pods -o wide \
+                  > "${DUMP_DIR}/ebs-csi-controller-pods.txt" 2>&1 || true
+                kubectl "${CTX_ARGS[@]}" -n "$csi_namespace" describe deployment aws-ebs-csi-driver-controller \
+                  > "${DUMP_DIR}/ebs-csi-controller-describe.txt" 2>&1 || true
+
+                kubectl "${CTX_ARGS[@]}" -n "$csi_namespace" get pods -o name 2>/dev/null \
+                  | awk '/aws-ebs-csi-driver-controller/' \
+                  | while read -r pod_name; do
+                      file_name=${pod_name#pod/}
+                      containers=$(kubectl "${CTX_ARGS[@]}" -n "$csi_namespace" get "$pod_name" \
+                        -o jsonpath='{.spec.containers[*].name}' 2>/dev/null || true)
+                      for container in $containers; do
+                        kubectl "${CTX_ARGS[@]}" -n "$csi_namespace" logs "$pod_name" -c "$container" --prefix \
+                          --tail="$ARTIFACT_TAIL" > "${DUMP_DIR}/${file_name}-${container}-logs.txt" 2>&1 || true
+                        restart_count=$(kubectl "${CTX_ARGS[@]}" -n "$csi_namespace" get "$pod_name" \
+                          -o jsonpath="{.status.containerStatuses[?(@.name==\"${container}\")].restartCount}" 2>/dev/null || true)
+                        if [[ "${restart_count:-0}" -gt 0 ]]; then
+                          kubectl "${CTX_ARGS[@]}" -n "$csi_namespace" logs "$pod_name" -c "$container" --prefix --previous \
+                            --tail="$ARTIFACT_TAIL" > "${DUMP_DIR}/${file_name}-${container}-logs-previous.txt" 2>&1 || true
+                        fi
+                      done
+                    done || true
+              fi
 
               # Dump info for ALL pods (incl. Completed init/setup jobs) — per container
               kubectl "${CTX_ARGS[@]}" -n "$NAMESPACE" get po --no-headers \
