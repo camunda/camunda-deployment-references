@@ -31,9 +31,12 @@ on:
             - aws/modules/ecs/**
             - aws/modules/aurora-global/**
 
+# Never cancel a running suite: after a cancellation GitHub kills the job within
+# minutes, before "Destroy the states of this run" can finish, and the stacks
+# leak until the daily sweep. A new push waits for the previous run instead.
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+    cancel-in-progress: false
 
 env:
     AWS_PROFILE: infraex
