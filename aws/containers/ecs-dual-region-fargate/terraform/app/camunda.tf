@@ -44,6 +44,7 @@ module "orchestration_cluster_region_0" {
     local.cluster_region_env_region_0,
     local.rdbms_env_vars,
     local.opensearch_env_vars_region_0,
+    local.opensearch_exporter_env_vars,
     local.common_env_vars,
     [
       {
@@ -74,10 +75,11 @@ module "orchestration_cluster_region_0" {
     # The OpenSearch domains use fine-grained access control: without the
     # master user password the brokers cannot reach secondary storage. The
     # output is null, so absent from the remote state, in RDBMS mode.
-    try([{
-      name      = "CAMUNDA_DATA_SECONDARYSTORAGE_OPENSEARCH_PASSWORD"
-      valueFrom = local.infra.opensearch_password_secret_region_0_arn
-    }], []),
+    try([for name in [
+      "CAMUNDA_DATA_SECONDARYSTORAGE_OPENSEARCH_PASSWORD",
+      "CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_PASSWORD",
+      "CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_PASSWORD",
+    ] : { name = name, valueFrom = local.infra.opensearch_password_secret_region_0_arn }], []),
   )
 
   service_security_group_ids = [
@@ -158,6 +160,7 @@ module "orchestration_cluster_region_1" {
     local.cluster_region_env_region_1,
     local.rdbms_env_vars,
     local.opensearch_env_vars_region_1,
+    local.opensearch_exporter_env_vars,
     local.common_env_vars,
     [
       {
@@ -191,10 +194,11 @@ module "orchestration_cluster_region_1" {
     # The OpenSearch domains use fine-grained access control: without the
     # master user password the brokers cannot reach secondary storage. The
     # output is null, so absent from the remote state, in RDBMS mode.
-    try([{
-      name      = "CAMUNDA_DATA_SECONDARYSTORAGE_OPENSEARCH_PASSWORD"
-      valueFrom = local.infra.opensearch_password_secret_region_1_arn
-    }], []),
+    try([for name in [
+      "CAMUNDA_DATA_SECONDARYSTORAGE_OPENSEARCH_PASSWORD",
+      "CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_PASSWORD",
+      "CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_PASSWORD",
+    ] : { name = name, valueFrom = local.infra.opensearch_password_secret_region_1_arn }], []),
   )
 
   service_security_group_ids = [
