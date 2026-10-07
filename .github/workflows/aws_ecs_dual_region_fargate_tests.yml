@@ -303,7 +303,7 @@ jobs:
                   fast=0
                   for _ in $(seq 1 60); do
                       t=$(curl -s -o /dev/null -w '%{http_code} %{time_total}' --max-time 10 \
-                          -u "${ADMIN_USER}:${ADMIN_PASS}" "http://${ALB_ENDPOINT_0}/v2/topology")
+                          -u "${ADMIN_USER}:${ADMIN_PASS}" "http://${ALB_ENDPOINT_0}/v2/topology") || true
                       echo "topology: ${t}"
                       if [[ ${t%% *} == 200 ]] && awk -v s="${t##* }" 'BEGIN { exit !(s < 2) }'; then
                           fast=$((fast + 1))
