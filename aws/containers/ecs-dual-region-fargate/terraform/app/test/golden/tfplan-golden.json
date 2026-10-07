@@ -1305,6 +1305,12 @@
           }
         },
         "module.orchestration_cluster_region_0.aws_efs_access_point.camunda_data": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "camunda_data",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1354,6 +1360,12 @@
           }
         },
         "module.orchestration_cluster_region_0.aws_efs_file_system.efs": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "efs",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -1377,6 +1389,12 @@
           }
         },
         "module.orchestration_cluster_region_0.aws_efs_mount_target.efs_mounts[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "efs_mounts",
@@ -1398,6 +1416,12 @@
           }
         },
         "module.orchestration_cluster_region_0.aws_efs_mount_target.efs_mounts[1]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 1,
           "mode": "managed",
           "name": "efs_mounts",
@@ -1419,6 +1443,12 @@
           }
         },
         "module.orchestration_cluster_region_0.aws_efs_mount_target.efs_mounts[2]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 2,
           "mode": "managed",
           "name": "efs_mounts",
@@ -2642,6 +2672,12 @@
           }
         },
         "module.orchestration_cluster_region_1.aws_efs_access_point.camunda_data": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "camunda_data",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2691,6 +2727,12 @@
           }
         },
         "module.orchestration_cluster_region_1.aws_efs_file_system.efs": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "efs",
           "provider_name": "registry.terraform.io/hashicorp/aws",
@@ -2714,6 +2756,12 @@
           }
         },
         "module.orchestration_cluster_region_1.aws_efs_mount_target.efs_mounts[0]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 0,
           "mode": "managed",
           "name": "efs_mounts",
@@ -2735,6 +2783,12 @@
           }
         },
         "module.orchestration_cluster_region_1.aws_efs_mount_target.efs_mounts[1]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 1,
           "mode": "managed",
           "name": "efs_mounts",
@@ -2756,6 +2810,12 @@
           }
         },
         "module.orchestration_cluster_region_1.aws_efs_mount_target.efs_mounts[2]": {
+          "identity": {
+            "account_id": null,
+            "id": null,
+            "region": null
+          },
+          "identity_schema_version": 0,
           "index": 2,
           "mode": "managed",
           "name": "efs_mounts",
