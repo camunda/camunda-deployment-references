@@ -119,6 +119,13 @@ repos:
             files: ^\.github/actions/camunda-smoke-test/scripts/port-forward\.sh$
             pass_filenames: false
 
+          - id: eks-multi-region-rdbms-helper-tests
+            name: EKS multi-region RDBMS procedure helper tests
+            entry: bash -c 'cd aws/kubernetes/eks-multi-region-rdbms/test/helpers && go test -count=1 ./...'
+            language: system
+            files: ^aws/kubernetes/eks-multi-region-rdbms/(procedure|test)/
+            pass_filenames: false
+
           - id: destroy-resources-selftest
             name: Destroy-resources classifier self-test
             # yamllint disable-line rule:line-length

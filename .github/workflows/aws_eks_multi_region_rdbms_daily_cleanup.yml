@@ -67,7 +67,8 @@ jobs:
         needs: [triage]
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
-        timeout-minutes: 260
+        # The two destroy passes (255) plus the Aurora detach step (30).
+        timeout-minutes: 290
         strategy:
             fail-fast: false
             matrix:
@@ -114,6 +115,7 @@ jobs:
             # as the destroy, so a running test is never touched.
             - name: Detach the readers of switched Aurora writers
               timeout-minutes: 30
+              continue-on-error: true
               run: ./aws/kubernetes/eks-multi-region-rdbms/test/detach-switched-aurora-members.sh "^eks-mr-" "${MAX_AGE_HOURS_CLUSTER}"
 
             - name: Delete clusters

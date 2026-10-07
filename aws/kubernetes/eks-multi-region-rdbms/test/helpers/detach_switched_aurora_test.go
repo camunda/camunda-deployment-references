@@ -14,6 +14,14 @@ import (
 // created ageHours ago. It returns the remove-from-global-cluster calls.
 func runDetach(t *testing.T, match, minAge, writerRegion string, ageHours int) (removed []string, out string) {
 	t.Helper()
+	return runDetachSettling(t, match, minAge, "", writerRegion, ageHours)
+}
+
+// runDetachSettling is runDetach with a switchover in progress on the first
+// listing: the global cluster then reports pendingWriterRegion as writer and a
+// FailoverState, and every later read reports the settled writerRegion.
+func runDetachSettling(t *testing.T, match, minAge, pendingWriterRegion, writerRegion string, ageHours int) (removed []string, out string) {
+	t.Helper()
 	bin := t.TempDir()
 	calls := filepath.Join(bin, "calls")
 	created := time.Now().UTC().Add(-time.Duration(ageHours) * time.Hour).Format("2006-01-02T15:04:05.000000+00:00")
@@ -24,20 +32,28 @@ func runDetach(t *testing.T, match, minAge, writerRegion string, ageHours int) (
 		"eu-west-3":    arn("eu-west-3", "eks-mr-abc-paris-db"),
 		"eu-central-2": arn("eu-central-2", "eks-mr-abc-zurich-db"),
 	}
-	var json []string
-	for region, a := range members {
-		w := "false"
-		if region == writerRegion {
-			w = "true"
+	global := func(writer, failover string) string {
+		var json []string
+		for region, a := range members {
+			w := "false"
+			if region == writer {
+				w = "true"
+			}
+			json = append(json, `{"DBClusterArn":"`+a+`","IsWriter":`+w+`}`)
 		}
-		json = append(json, `{"DBClusterArn":"`+a+`","IsWriter":`+w+`}`)
+		return `{"GlobalClusterIdentifier":"eks-mr-abc-global-db",` + failover + `"GlobalClusterMembers":[` + strings.Join(json, ",") + `]}`
 	}
-	globals := `[{"GlobalClusterIdentifier":"eks-mr-abc-global-db","GlobalClusterMembers":[` + strings.Join(json, ",") + `]}]`
+	settled := global(writerRegion, "")
+	listing := "[" + settled + "]"
+	if pendingWriterRegion != "" {
+		listing = "[" + global(pendingWriterRegion, `"FailoverState":{"Status":"switching-over"},`) + "]"
+	}
 
 	stub := `#!/bin/bash
 echo "$*" >>"` + calls + `"
 case "$2" in
-describe-global-clusters) echo '` + globals + `' ;;
+describe-global-clusters)
+  if [ "$3" = --global-cluster-identifier ]; then echo '` + settled + `'; else echo '` + listing + `'; fi ;;
 describe-db-clusters) echo '` + created + `' ;;
 esac
 `
@@ -46,7 +62,7 @@ esac
 	}
 
 	cmd := exec.Command("bash", filepath.Join("..", "detach-switched-aurora-members.sh"), match, minAge)
-	cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "TF_VAR_region_0=eu-west-2")
+	cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "TF_VAR_region_0=eu-west-2", "AURORA_POLL_SECONDS=0", "AURORA_SETTLE_SECONDS=3")
 	o, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("the script must never fail the teardown, got %v:\n%s", err, o)
@@ -111,5 +127,19 @@ func TestDetachIgnoresOtherGlobalClusters(t *testing.T) {
 	// Then: nothing is detached.
 	if len(removed) != 0 {
 		t.Fatalf("expected no detach outside the regex, got %v:\n%s", removed, out)
+	}
+}
+
+func TestDetachDecidesFromTheSettledWriter(t *testing.T) {
+	t.Parallel()
+
+	// Given: a switchover to paris is still running, so the listing shows london as writer.
+	// When: the teardown preparation runs.
+	removed, out := runDetachSettling(t, "^eks-mr-abc-", "0", "eu-west-2", "eu-west-3", 1)
+
+	// Then: it waits for the switchover, then detaches the readers of the settled writer in paris.
+	joined := strings.Join(removed, "\n")
+	if !strings.Contains(out, "switchover in progress") || len(removed) != 2 || strings.Contains(joined, "paris-db") {
+		t.Fatalf("expected a wait, then the london and zurich readers detached, got %v:\n%s", removed, out)
 	}
 }
