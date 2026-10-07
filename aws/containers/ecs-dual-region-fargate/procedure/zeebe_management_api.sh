@@ -52,7 +52,22 @@ mgmt_tunnel_close() {
 # localhost. `prefix` is the module prefix, e.g. "<cluster_name>-r1-oc"; the
 # service is "<prefix>-orchestration-cluster" (aws/modules/ecs/fargate/
 # orchestration-cluster/ecs.tf:214).
+#
+# Tries MGMT_TUNNEL_ATTEMPTS times (default 3), picking the task again each
+# time: right after a region loss the surviving brokers can restart, and the
+# task picked first may be the one going away.
 mgmt_tunnel_open() {
+    local attempt attempts="${MGMT_TUNNEL_ATTEMPTS:-3}"
+    for attempt in $(seq 1 "${attempts}"); do
+        _mgmt_tunnel_open_once "$@" && return 0
+        [ "${attempt}" -lt "${attempts}" ] || break
+        mgmt_log "Tunnel attempt ${attempt}/${attempts} failed, retrying in 15s..."
+        sleep "${MGMT_TUNNEL_RETRY_SECONDS:-15}"
+    done
+    return 1
+}
+
+_mgmt_tunnel_open_once() {
     local region="$1" cluster="$2" prefix="$3" profile="${4:-}"
     # Expanded as ${arr[@]+"${arr[@]}"}: an empty array under `set -u` is an
     # "unbound variable" error on bash 3.2, which is what /usr/bin/env bash

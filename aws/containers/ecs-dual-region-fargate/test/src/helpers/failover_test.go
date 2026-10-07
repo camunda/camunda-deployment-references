@@ -83,3 +83,26 @@ fi
 		})
 	}
 }
+
+// Right after a region loss the first tunnel can fail while the surviving
+// brokers restart. mgmt_tunnel_open retries, and gives up after the last try.
+func TestMgmtTunnelOpenRetries(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		attempts string
+		wantErr  bool
+	}{{"3", false}, {"2", true}} {
+		cmd := exec.Command("bash", "-c", `set -uo pipefail
+. ./zeebe_management_api.sh
+calls=0
+_mgmt_tunnel_open_once() { calls=$((calls + 1)); [ "$calls" -ge 3 ]; }
+mgmt_tunnel_open eu-west-3 c p`)
+		cmd.Dir = filepath.Join("..", "..", "..", "procedure")
+		cmd.Env = append(os.Environ(), "MGMT_TUNNEL_ATTEMPTS="+tc.attempts, "MGMT_TUNNEL_RETRY_SECONDS=0")
+		out, err := cmd.CombinedOutput()
+		if (err != nil) != tc.wantErr {
+			t.Errorf("%s attempts: err=%v\n%s", tc.attempts, err, out)
+		}
+	}
+}
