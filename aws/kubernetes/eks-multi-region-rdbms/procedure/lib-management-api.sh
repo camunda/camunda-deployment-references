@@ -248,8 +248,8 @@ camunda::_request() {
     # when `kubectl port-forward` exits because the pod it picked behind the
     # service is restarting, as survivor brokers do right after a drain or an
     # install. A single attempt failed failback with HTTP 000 on exactly that.
-    local response attempt rc
-    for attempt in $(seq 1 "${CAMUNDA_API_CONNECT_ATTEMPTS:-5}"); do
+    local response attempt rc attempts="${CAMUNDA_API_CONNECT_ATTEMPTS:-5}"
+    for attempt in $(seq 1 "$attempts"); do
         kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
             port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" \
             "${local_port}:${remote_port}" >/dev/null 2>&1 &
@@ -262,7 +262,7 @@ camunda::_request() {
         kill "$pid" 2>/dev/null || true
         wait "$pid" 2>/dev/null || true
 
-        [ "$rc" -ne 7 ] && break
+        [ "$rc" -ne 7 ] || [ "$attempt" -eq "$attempts" ] && break
         echo "    no tunnel to $context on attempt $attempt, retrying ..." >&2
         sleep 5
     done
