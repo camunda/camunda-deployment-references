@@ -226,12 +226,6 @@ camunda::_request() {
     local context="$1" local_port="$2" remote_port="$3" auth="$4"
     local method="$5" path="$6" body="${7:-}" form_file="${8:-}"
 
-    kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
-        port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" \
-        "${local_port}:${remote_port}" >/dev/null 2>&1 &
-    local pid=$!
-    sleep 3
-
     # Bounded, because the callers are polling loops with their own deadlines and
     # a port-forward that half-opens rather than dies makes curl wait forever,
     # which is exactly the case those deadlines exist for. 000 on expiry reads
@@ -248,11 +242,30 @@ camunda::_request() {
         curl_args+=(-H 'Content-Type: application/json' -d "$body")
     fi
 
-    local response
-    response="$(curl "${curl_args[@]}" "http://localhost:${local_port}${path}")" || true
+    # Retried only on curl exit 7, "could not connect": nothing listened on the
+    # local port, so no request left this host and a retry is safe even for a
+    # POST or DELETE. That happens when the tunnel is not up after the sleep, or
+    # when `kubectl port-forward` exits because the pod it picked behind the
+    # service is restarting, as survivor brokers do right after a drain or an
+    # install. A single attempt failed failback with HTTP 000 on exactly that.
+    local response attempt rc
+    for attempt in $(seq 1 "${CAMUNDA_API_CONNECT_ATTEMPTS:-5}"); do
+        kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
+            port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" \
+            "${local_port}:${remote_port}" >/dev/null 2>&1 &
+        local pid=$!
+        sleep 3
 
-    kill "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
+        rc=0
+        response="$(curl "${curl_args[@]}" "http://localhost:${local_port}${path}")" || rc=$?
+
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+
+        [ "$rc" -ne 7 ] && break
+        echo "    no tunnel to $context on attempt $attempt, retrying ..." >&2
+        sleep 5
+    done
 
     # `-w` appends the status on its own line, so the body is everything before
     # it. curl reports 000 when it never got an answer at all.
