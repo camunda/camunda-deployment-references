@@ -114,6 +114,27 @@ resource "aws_secretsmanager_secret_version" "connectors_password_region_0" {
 #                  Region 1 Secrets                            #
 ################################################################
 
+# The OpenSearch master user password, read by region 1 tasks from their own
+# region so they still start when region 0 is lost. Region 0 tasks read
+# db_admin_password_region_0.
+resource "aws_secretsmanager_secret" "opensearch_password_region_1" {
+  provider = aws.accepter
+  count    = var.secondary_storage_type == "opensearch" ? 1 : 0
+
+  name                    = "${local.prefix_region_1}-opensearch-password"
+  description             = "Master user password for OpenSearch (${local.prefix_region_1})"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_region_1
+}
+
+resource "aws_secretsmanager_secret_version" "opensearch_password_region_1" {
+  provider = aws.accepter
+  count    = var.secondary_storage_type == "opensearch" ? 1 : 0
+
+  secret_id     = aws_secretsmanager_secret.opensearch_password_region_1[0].id
+  secret_string = local.db_admin_password_effective
+}
+
 resource "aws_secretsmanager_secret" "admin_user_password_region_1" {
   provider = aws.accepter
 

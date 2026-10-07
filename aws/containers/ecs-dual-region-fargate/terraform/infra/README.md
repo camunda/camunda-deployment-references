@@ -52,6 +52,7 @@
 | [aws_secretsmanager_secret.connectors_password_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.connectors_password_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.db_admin_password_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
+| [aws_secretsmanager_secret.opensearch_password_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.registry_credentials_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret.registry_credentials_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_secretsmanager_secret_version.admin_user_password_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
@@ -59,6 +60,7 @@
 | [aws_secretsmanager_secret_version.connectors_password_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.connectors_password_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.db_admin_password_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
+| [aws_secretsmanager_secret_version.opensearch_password_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.registry_credentials_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_secretsmanager_secret_version.registry_credentials_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret_version) | resource |
 | [aws_security_group.camunda_ports_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
@@ -145,6 +147,8 @@
 | <a name="output_nlb_grpc_region_1_arn"></a> [nlb\_grpc\_region\_1\_arn](#output\_nlb\_grpc\_region\_1\_arn) | n/a |
 | <a name="output_nlb_raft_region_0_arn"></a> [nlb\_raft\_region\_0\_arn](#output\_nlb\_raft\_region\_0\_arn) | n/a |
 | <a name="output_nlb_raft_region_1_arn"></a> [nlb\_raft\_region\_1\_arn](#output\_nlb\_raft\_region\_1\_arn) | n/a |
+| <a name="output_opensearch_password_secret_region_0_arn"></a> [opensearch\_password\_secret\_region\_0\_arn](#output\_opensearch\_password\_secret\_region\_0\_arn) | n/a |
+| <a name="output_opensearch_password_secret_region_1_arn"></a> [opensearch\_password\_secret\_region\_1\_arn](#output\_opensearch\_password\_secret\_region\_1\_arn) | n/a |
 | <a name="output_opensearch_region_0_endpoint"></a> [opensearch\_region\_0\_endpoint](#output\_opensearch\_region\_0\_endpoint) | The endpoint of the OpenSearch domain in region 0 |
 | <a name="output_opensearch_region_1_endpoint"></a> [opensearch\_region\_1\_endpoint](#output\_opensearch\_region\_1\_endpoint) | The endpoint of the OpenSearch domain in region 1 |
 | <a name="output_rds_db_connect_policy_region_0_arn"></a> [rds\_db\_connect\_policy\_region\_0\_arn](#output\_rds\_db\_connect\_policy\_region\_0\_arn) | n/a |

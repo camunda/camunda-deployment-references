@@ -61,7 +61,7 @@ module "orchestration_cluster_region_0" {
     ]
   )
 
-  secrets = [
+  secrets = concat([
     {
       name      = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_PASSWORD"
       valueFrom = local.infra.admin_user_password_secret_region_0_arn
@@ -69,8 +69,16 @@ module "orchestration_cluster_region_0" {
     {
       name      = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_PASSWORD"
       valueFrom = local.infra.connectors_password_secret_region_0_arn
-    }
-  ]
+    },
+    ],
+    # The OpenSearch domains use fine-grained access control: without the
+    # master user password the brokers cannot reach secondary storage. The
+    # output is null, so absent from the remote state, in RDBMS mode.
+    try([{
+      name      = "CAMUNDA_DATA_SECONDARYSTORAGE_OPENSEARCH_PASSWORD"
+      valueFrom = local.infra.opensearch_password_secret_region_0_arn
+    }], []),
+  )
 
   service_security_group_ids = [
     local.infra.sg_camunda_ports_region_0_id,
@@ -170,7 +178,7 @@ module "orchestration_cluster_region_1" {
     ]
   )
 
-  secrets = [
+  secrets = concat([
     {
       name      = "CAMUNDA_SECURITY_INITIALIZATION_USERS_0_PASSWORD"
       valueFrom = local.infra.admin_user_password_secret_region_1_arn
@@ -178,8 +186,16 @@ module "orchestration_cluster_region_1" {
     {
       name      = "CAMUNDA_SECURITY_INITIALIZATION_USERS_1_PASSWORD"
       valueFrom = local.infra.connectors_password_secret_region_1_arn
-    }
-  ]
+    },
+    ],
+    # The OpenSearch domains use fine-grained access control: without the
+    # master user password the brokers cannot reach secondary storage. The
+    # output is null, so absent from the remote state, in RDBMS mode.
+    try([{
+      name      = "CAMUNDA_DATA_SECONDARYSTORAGE_OPENSEARCH_PASSWORD"
+      valueFrom = local.infra.opensearch_password_secret_region_1_arn
+    }], []),
+  )
 
   service_security_group_ids = [
     local.infra.sg_camunda_ports_region_1_id,

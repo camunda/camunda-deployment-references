@@ -269,6 +269,14 @@ output "aurora_db_port" {
 #                     OpenSearch Outputs                        #
 ################################################################
 
+output "opensearch_password_secret_region_0_arn" {
+  value = var.secondary_storage_type == "opensearch" ? aws_secretsmanager_secret.db_admin_password_region_0.arn : null
+}
+
+output "opensearch_password_secret_region_1_arn" {
+  value = var.secondary_storage_type == "opensearch" ? aws_secretsmanager_secret.opensearch_password_region_1[0].arn : null
+}
+
 output "opensearch_region_0_endpoint" {
   value       = var.secondary_storage_type == "opensearch" ? module.opensearch_region_0[0].opensearch_domain_endpoint : null
   description = "The endpoint of the OpenSearch domain in region 0"
