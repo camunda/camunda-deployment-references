@@ -24,6 +24,16 @@ resource "random_password" "db_admin_password" {
   length           = 32
   special          = true
   override_special = "!#$%^()-_=+[]{}:?"
+  # OpenSearch rejects a master password without one of each class. Ignored
+  # on existing states so that adding them does not rotate the password.
+  min_upper   = 1
+  min_lower   = 1
+  min_numeric = 1
+  min_special = 1
+
+  lifecycle {
+    ignore_changes = [min_upper, min_lower, min_numeric, min_special]
+  }
 }
 
 ################################################################
