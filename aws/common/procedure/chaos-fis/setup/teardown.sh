@@ -58,7 +58,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Run one aws command as FIS-Admin, leaving this shell's credentials alone.
-# Empty when the role is already gone, which callers treat as "nothing to do".
+# FIS_ADMIN_CREDS is empty when the role cannot be assumed (for example it is
+# already gone); as_fis_admin then warns and runs the command with the current
+# credentials instead, so the FIS calls still happen.
 FIS_ADMIN_CREDS=$(aws sts assume-role \
   --role-arn "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/${FIS_ADMIN_ROLE}" \
   --role-session-name "fis-teardown" \
