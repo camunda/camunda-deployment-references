@@ -112,8 +112,8 @@ jobs:
             # A single Terraform state holds the EKS clusters, the Transit Gateway mesh and
             # the Aurora Global Database, so one destroy tears the whole architecture down.
             # Same preparation as the test workflow teardown. It reads the age from
-            # the Terraform state the destroy below gates on, so it only touches
-            # the stacks that destroy then removes.
+            # the Terraform state the destroy below gates on, one hour ahead of the
+            # destroy's cutoff (see the script for why).
             - name: Detach the readers of switched Aurora writers
               timeout-minutes: 30
               continue-on-error: true
