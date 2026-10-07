@@ -18,10 +18,15 @@
 #   <id-regex>       only global clusters whose identifier matches it (jq regex).
 #                    Identifiers must also end in -global-db, the naming of
 #                    terraform/clusters/database.tf.
-#   <min-age-hours>  skip global clusters whose writer is younger, so the daily
-#                    sweep never touches a test that is still running.
-# Env: TF_VAR_region_0 (region slot 0), AURORA_SETTLE_SECONDS (default 1200) to
-#      wait for a running switchover, AURORA_POLL_SECONDS (default 15).
+#   <min-age-hours>  skip a global cluster whose Terraform state is younger. This
+#                    is the gate the destroy applies (destroy-resources.sh), read
+#                    from the same object, s3://$STATE_BUCKET/${STATE_PREFIX}
+#                    tfstate-<cluster-name>/clusters.tfstate. So the sweep never
+#                    detaches a stack the destroy then skips. 0 skips the lookup.
+# Env: TF_VAR_region_0 (region slot 0), STATE_BUCKET, STATE_BUCKET_REGION and
+#      STATE_PREFIX when <min-age-hours> is above 0, AURORA_SETTLE_SECONDS
+#      (default 1200) to wait for a running switchover, AURORA_POLL_SECONDS
+#      (default 15).
 #
 # Best effort: a failure is logged and the next cluster is tried, so the
 # Terraform destroy that follows always runs.
@@ -65,23 +70,21 @@ jq -c --arg m "$MATCH" '.[] | select((.GlobalClusterIdentifier | test($m)) and (
         continue
     fi
 
-    created=$(aws rds describe-db-clusters --region "$(region_of "$writer")" \
-        --db-cluster-identifier "$(name_of "$writer")" \
-        --query 'DBClusters[0].ClusterCreateTime' --output text 2>/dev/null) || created=""
-    if [ -z "$created" ] || [ "$created" = None ]; then
-        log "$id: could not read the writer's age, skipping."
-        continue
-    fi
-    # AWS answers e.g. 2026-10-06T15:52:10.123000+00:00. jq parses it the same way
-    # on GNU and BSD userlands, unlike `date -d`.
-    created_epoch=$(jq -rn --arg t "$created" '$t | sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z") | fromdateiso8601') || {
-        log "$id: unreadable writer creation time '$created', skipping."
-        continue
-    }
-    age_hours=$(((now - created_epoch) / 3600))
-    if [ "$age_hours" -lt "$MIN_AGE_HOURS" ]; then
-        log "$id: ${age_hours}h old, younger than ${MIN_AGE_HOURS}h, skipping."
-        continue
+    if [ "$MIN_AGE_HOURS" -gt 0 ]; then
+        key="${STATE_PREFIX:?STATE_PREFIX must be set when <min-age-hours> is above 0}tfstate-${id%-global-db}/clusters.tfstate"
+        modified=$(aws s3api head-object --region "${STATE_BUCKET_REGION:?}" --bucket "${STATE_BUCKET:?}" \
+            --key "$key" --query LastModified --output text 2>/dev/null) || modified=""
+        # S3 answers e.g. 2026-10-06T20:41:37+00:00. jq parses it the same way on
+        # GNU and BSD userlands, unlike `date -d`.
+        modified_epoch=$(jq -rn --arg t "$modified" '$t | sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z") | fromdateiso8601' 2>/dev/null) || {
+            log "$id: no readable state at s3://$STATE_BUCKET/$key, the destroy skips it too, skipping."
+            continue
+        }
+        age_hours=$(((now - modified_epoch) / 3600))
+        if [ "$age_hours" -lt "$MIN_AGE_HOURS" ]; then
+            log "$id: state ${age_hours}h old, younger than ${MIN_AGE_HOURS}h, skipping."
+            continue
+        fi
     fi
 
     log "$id: writer moved to $(region_of "$writer"), detaching the reader members."

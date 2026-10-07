@@ -10,9 +10,9 @@ import (
 )
 
 // runDetach runs test/detach-switched-aurora-members.sh against a stubbed AWS
-// CLI holding one global cluster whose writer lives in writerRegion and was
-// created ageHours ago. It returns the remove-from-global-cluster calls.
-func runDetach(t *testing.T, match, minAge, writerRegion string, ageHours int) (removed []string, out string) {
+// CLI holding one global cluster whose writer lives in writerRegion and whose
+// Terraform state was last written ageHours ago. It returns every AWS call.
+func runDetach(t *testing.T, match, minAge, writerRegion string, ageHours int) (calls []string, out string) {
 	t.Helper()
 	return runDetachSettling(t, match, minAge, "", writerRegion, ageHours)
 }
@@ -20,11 +20,11 @@ func runDetach(t *testing.T, match, minAge, writerRegion string, ageHours int) (
 // runDetachSettling is runDetach with a switchover in progress on the first
 // listing: the global cluster then reports pendingWriterRegion as writer and a
 // FailoverState, and every later read reports the settled writerRegion.
-func runDetachSettling(t *testing.T, match, minAge, pendingWriterRegion, writerRegion string, ageHours int) (removed []string, out string) {
+func runDetachSettling(t *testing.T, match, minAge, pendingWriterRegion, writerRegion string, ageHours int) (calls []string, out string) {
 	t.Helper()
 	bin := t.TempDir()
-	calls := filepath.Join(bin, "calls")
-	created := time.Now().UTC().Add(-time.Duration(ageHours) * time.Hour).Format("2006-01-02T15:04:05.000000+00:00")
+	callLog := filepath.Join(bin, "calls")
+	modified := time.Now().UTC().Add(-time.Duration(ageHours) * time.Hour).Format("2006-01-02T15:04:05+00:00")
 
 	arn := func(region, name string) string { return "arn:aws:rds:" + region + ":123456789012:cluster:" + name }
 	members := map[string]string{
@@ -50,11 +50,11 @@ func runDetachSettling(t *testing.T, match, minAge, pendingWriterRegion, writerR
 	}
 
 	stub := `#!/bin/bash
-echo "$*" >>"` + calls + `"
+echo "$*" >>"` + callLog + `"
 case "$2" in
 describe-global-clusters)
   if [ "$3" = --global-cluster-identifier ]; then echo '` + settled + `'; else echo '` + listing + `'; fi ;;
-describe-db-clusters) echo '` + created + `' ;;
+head-object) case "$*" in *"--key ci/tfstate-eks-mr-abc/clusters.tfstate"*) echo '` + modified + `' ;; *) exit 254 ;; esac ;;
 esac
 `
 	if err := os.WriteFile(filepath.Join(bin, "aws"), []byte(stub), 0o755); err != nil {
@@ -62,18 +62,46 @@ esac
 	}
 
 	cmd := exec.Command("bash", filepath.Join("..", "detach-switched-aurora-members.sh"), match, minAge)
-	cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "TF_VAR_region_0=eu-west-2", "AURORA_POLL_SECONDS=0", "AURORA_SETTLE_SECONDS=3")
+	cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "TF_VAR_region_0=eu-west-2", "AURORA_POLL_SECONDS=0", "AURORA_SETTLE_SECONDS=3",
+		"STATE_BUCKET=bucket", "STATE_BUCKET_REGION=eu-central-1", "STATE_PREFIX=ci/")
 	o, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("the script must never fail the teardown, got %v:\n%s", err, o)
 	}
-	raw, _ := os.ReadFile(calls)
-	for _, line := range strings.Split(string(raw), "\n") {
-		if strings.Contains(line, "remove-from-global-cluster") {
-			removed = append(removed, line)
+	raw, _ := os.ReadFile(callLog)
+	return strings.Split(strings.TrimSpace(string(raw)), "\n"), string(o)
+}
+
+// only keeps the calls of one AWS subcommand.
+func only(calls []string, subcommand string) (kept []string) {
+	for _, c := range calls {
+		if strings.Contains(c, " "+subcommand+" ") {
+			kept = append(kept, c)
 		}
 	}
-	return removed, string(o)
+	return kept
+}
+
+// assertDetachedLondonAndZurich checks that both readers are detached and then
+// awaited, each in its own region and by its own name, and the paris writer is not.
+func assertDetachedLondonAndZurich(t *testing.T, calls []string, out string) {
+	t.Helper()
+	removed, waited := only(calls, "remove-from-global-cluster"), only(calls, "wait")
+	all := strings.Join(append(removed, waited...), "\n")
+	want := []string{
+		"--region eu-west-2 --global-cluster-identifier eks-mr-abc-global-db --db-cluster-identifier arn:aws:rds:eu-west-2:123456789012:cluster:eks-mr-abc-london-db",
+		"--region eu-central-2 --global-cluster-identifier eks-mr-abc-global-db --db-cluster-identifier arn:aws:rds:eu-central-2:123456789012:cluster:eks-mr-abc-zurich-db",
+		"db-cluster-available --region eu-west-2 --db-cluster-identifier eks-mr-abc-london-db",
+		"db-cluster-available --region eu-central-2 --db-cluster-identifier eks-mr-abc-zurich-db",
+	}
+	for _, w := range want {
+		if !strings.Contains(all, w) {
+			t.Errorf("missing call %q", w)
+		}
+	}
+	if len(removed) != 2 || len(waited) != 2 || strings.Contains(all, "paris-db") {
+		t.Fatalf("expected 2 detaches and 2 waits, none for the paris writer, got:\n%s\n%s", all, out)
+	}
 }
 
 func TestDetachLeavesAWriterInRegionSlotZero(t *testing.T) {
@@ -81,10 +109,10 @@ func TestDetachLeavesAWriterInRegionSlotZero(t *testing.T) {
 
 	// Given: no failover moved the writer, so terraform destroy works as is.
 	// When: the teardown preparation runs.
-	removed, out := runDetach(t, "^eks-mr-abc-", "0", "eu-west-2", 1)
+	calls, out := runDetach(t, "^eks-mr-abc-", "0", "eu-west-2", 1)
 
 	// Then: no member is detached.
-	if len(removed) != 0 {
+	if removed := only(calls, "remove-from-global-cluster"); len(removed) != 0 {
 		t.Fatalf("expected no detach, got %v:\n%s", removed, out)
 	}
 }
@@ -94,27 +122,37 @@ func TestDetachRemovesReadersOfASwitchedWriter(t *testing.T) {
 
 	// Given: a failover left the writer in paris.
 	// When: the teardown preparation runs.
-	removed, out := runDetach(t, "^eks-mr-abc-", "0", "eu-west-3", 1)
+	calls, out := runDetach(t, "^eks-mr-abc-", "0", "eu-west-3", 1)
 
-	// Then: both readers are detached, each in its own region, and the writer is not.
-	joined := strings.Join(removed, "\n")
-	if len(removed) != 2 || strings.Contains(joined, "paris-db") ||
-		!strings.Contains(joined, "--region eu-west-2") || !strings.Contains(joined, "--region eu-central-2") {
-		t.Fatalf("expected the london and zurich readers detached in their regions, got %v:\n%s", removed, out)
-	}
+	// Then: both readers are detached and awaited in their own regions, and the writer is not.
+	assertDetachedLondonAndZurich(t, calls, out)
 }
 
 func TestDetachSkipsAClusterYoungerThanTheMinimumAge(t *testing.T) {
 	t.Parallel()
 
-	// Given: a switched writer created 3h ago, while the daily sweep only takes 12h and older.
-	// When: the teardown preparation runs.
-	removed, out := runDetach(t, "^eks-mr-", "12", "eu-west-3", 3)
+	// Given: a switched writer whose Terraform state was written 3h ago, while the destroy only takes 12h and older.
+	// When: the daily sweep preparation runs.
+	calls, out := runDetach(t, "^eks-mr-", "12", "eu-west-3", 3)
 
-	// Then: a test that may still be running is left alone.
-	if len(removed) != 0 {
-		t.Fatalf("expected the young cluster to be skipped, got %v:\n%s", removed, out)
+	// Then: the stack the destroy skips is left alone.
+	if removed := only(calls, "remove-from-global-cluster"); len(removed) != 0 {
+		t.Fatalf("expected the young stack to be skipped, got %v:\n%s", removed, out)
 	}
+}
+
+func TestDetachTakesAStackWhoseStateIsOldEnough(t *testing.T) {
+	t.Parallel()
+
+	// Given: a switched writer whose Terraform state was written 13h ago.
+	// When: the daily sweep preparation runs with the destroy's 12h gate.
+	calls, out := runDetach(t, "^eks-mr-", "12", "eu-west-3", 13)
+
+	// Then: the state object the destroy gates on is read, and the readers are detached.
+	if heads := only(calls, "head-object"); len(heads) != 1 || !strings.Contains(heads[0], "--bucket bucket --key ci/tfstate-eks-mr-abc/clusters.tfstate") {
+		t.Fatalf("expected one read of the stack's state object, got %v:\n%s", heads, out)
+	}
+	assertDetachedLondonAndZurich(t, calls, out)
 }
 
 func TestDetachIgnoresOtherGlobalClusters(t *testing.T) {
@@ -122,10 +160,10 @@ func TestDetachIgnoresOtherGlobalClusters(t *testing.T) {
 
 	// Given: a switched writer that belongs to another run.
 	// When: the teardown preparation runs for a different cluster name.
-	removed, out := runDetach(t, "^eks-mr-other-", "0", "eu-west-3", 1)
+	calls, out := runDetach(t, "^eks-mr-other-", "0", "eu-west-3", 1)
 
 	// Then: nothing is detached.
-	if len(removed) != 0 {
+	if removed := only(calls, "remove-from-global-cluster"); len(removed) != 0 {
 		t.Fatalf("expected no detach outside the regex, got %v:\n%s", removed, out)
 	}
 }
@@ -135,11 +173,11 @@ func TestDetachDecidesFromTheSettledWriter(t *testing.T) {
 
 	// Given: a switchover to paris is still running, so the listing shows london as writer.
 	// When: the teardown preparation runs.
-	removed, out := runDetachSettling(t, "^eks-mr-abc-", "0", "eu-west-2", "eu-west-3", 1)
+	calls, out := runDetachSettling(t, "^eks-mr-abc-", "0", "eu-west-2", "eu-west-3", 1)
 
 	// Then: it waits for the switchover, then detaches the readers of the settled writer in paris.
-	joined := strings.Join(removed, "\n")
-	if !strings.Contains(out, "switchover in progress") || len(removed) != 2 || strings.Contains(joined, "paris-db") {
-		t.Fatalf("expected a wait, then the london and zurich readers detached, got %v:\n%s", removed, out)
+	if !strings.Contains(out, "switchover in progress") {
+		t.Fatalf("expected a wait for the switchover:\n%s", out)
 	}
+	assertDetachedLondonAndZurich(t, calls, out)
 }
