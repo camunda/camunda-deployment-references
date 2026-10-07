@@ -38,8 +38,9 @@ MIN_AGE_HOURS="${2:?minimum age in hours required}"
 
 # A dispatch input is free text. Anything other than a whole number would make the
 # age test below error out, read as false, and skip the gate the destroy applies.
-if ! [[ "$MIN_AGE_HOURS" =~ ^[0-9]+$ ]]; then
-    echo "[detach-switched-aurora] <min-age-hours> must be a whole number, got '$MIN_AGE_HOURS'; detaching nothing." >&2
+# Four digits at most: a longer one overflows Bash arithmetic and wraps around.
+if ! [[ "$MIN_AGE_HOURS" =~ ^[0-9]{1,4}$ ]]; then
+    echo "[detach-switched-aurora] <min-age-hours> must be a whole number of at most 4 digits, got '$MIN_AGE_HOURS'; detaching nothing." >&2
     exit 0
 fi
 

@@ -198,10 +198,13 @@ func TestDetachRefusesAMalformedMinimumAge(t *testing.T) {
 
 	// Given: a mistyped dispatch input for the age gate.
 	// When: the daily sweep preparation runs with it.
-	calls, out := runDetach(t, "^eks-mr-", "twelve", "eu-west-3", 1)
+	// The second value overflows Bash arithmetic and would wrap to a negative gate.
+	for _, age := range []string{"twelve", "99999999999999999999"} {
+		calls, out := runDetach(t, "^eks-mr-", age, "eu-west-3", 1)
 
-	// Then: nothing is read or detached, instead of skipping the gate.
-	if removed := only(calls, "remove-from-global-cluster"); len(removed) != 0 || !strings.Contains(out, "must be a whole number") {
-		t.Fatalf("expected the malformed age to stop the script, got %v:\n%s", removed, out)
+		// Then: nothing is read or detached, instead of skipping the gate.
+		if removed := only(calls, "remove-from-global-cluster"); len(removed) != 0 || !strings.Contains(out, "must be a whole number") {
+			t.Fatalf("expected the malformed age %q to stop the script, got %v:\n%s", age, removed, out)
+		}
 	}
 }
