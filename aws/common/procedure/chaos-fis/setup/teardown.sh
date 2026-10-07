@@ -6,9 +6,9 @@
 # CloudWatch log group they log to, and the two IAM roles.
 #
 # The order is not cosmetic. Deleting an experiment template needs
-# fis:DeleteExperimentTemplate, and once FIS-Admin is gone the only principal
-# left holding it is you, so the templates go first and the roles last. The
-# previous version deleted the roles first and left the templates stranded.
+# fis:DeleteExperimentTemplate, which FIS-Admin holds and your own role may
+# not, so the templates go while FIS-Admin still exists and the roles go last.
+# The previous version deleted the roles first and left the templates stranded.
 #
 # Run it with your own credentials, not with FIS-Admin assumed: FIS-Admin is
 # not allowed to delete IAM roles. If you sourced assume-fis-role.sh, run
