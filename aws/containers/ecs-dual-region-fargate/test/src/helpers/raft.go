@@ -56,6 +56,9 @@ type Topology struct {
 //   - len(brokers) == expectedBrokers (default 8)
 //   - every partition has exactly one LEADER
 //
+// The cluster runs with basic auth, so the request carries the admin
+// credentials; without them every poll returns 401 and the wait can only time out.
+//
 // Fails the test on timeout. Poll interval defaults to 30s.
 //
 // The endpoint requires basic auth: adminPassword is the infra/ output

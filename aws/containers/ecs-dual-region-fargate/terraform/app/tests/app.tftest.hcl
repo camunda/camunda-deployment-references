@@ -755,3 +755,54 @@ run "app_may_not_lower_tls" {
     var.rdbms_extra_jdbc_params,
   ]
 }
+
+# --- load_tests: the opt-in overlay ------------------------------------------
+
+run "load_tests_absent_by_default" {
+  command = plan
+
+  assert {
+    condition     = output.region_0_prometheus_endpoint == null && output.region_1_prometheus_endpoint == null
+    error_message = "No Prometheus should be planned unless enable_load_tests is set"
+  }
+
+  assert {
+    condition     = output.load_generator_target == null
+    error_message = "No load generator should be planned unless enable_load_tests is set"
+  }
+}
+
+run "load_tests_drive_region_0_and_monitor_both_regions" {
+  command = plan
+
+  variables {
+    enable_load_tests = true
+  }
+
+  override_data {
+    target = data.aws_vpc.region_0
+    values = { cidr_block = "10.200.0.0/16" }
+  }
+
+  override_data {
+    target = data.aws_vpc.region_1
+    values = { cidr_block = "10.201.0.0/16" }
+  }
+
+  # Region 0 holds partition leadership; a generator anywhere else measures the
+  # cross-region link instead of the engine.
+  assert {
+    condition     = output.load_generator_target == "orchestration-cluster.test-app-r0-oc.service.local"
+    error_message = "The generator should target the region 0 Orchestration Cluster's Cloud Map record"
+  }
+
+  assert {
+    condition     = output.region_0_prometheus_endpoint == "http://prometheus.test-app-lt-r0.service.local:9090"
+    error_message = "Region 0 should get its own Prometheus"
+  }
+
+  assert {
+    condition     = output.region_1_prometheus_endpoint == "http://prometheus.test-app-lt-r1.service.local:9090"
+    error_message = "Region 1 should get its own Prometheus"
+  }
+}

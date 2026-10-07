@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  One service task, which is the workload the absorbed benchmark drove through
+  LOAD_TESTER_STARTER_BPMN_XML_PATH=bpmn/one_task.bpmn.
+
+  The community benchmark image bundles only multi-task processes
+  (typical_process.bpmn has ten service tasks), so keeping the absorbed
+  workload means shipping it here. The process id and the job type match what
+  that benchmark used, so a run against this reference exercises the same shape
+  of work.
+
+  The job type is the literal benchmark-task rather than a benchmark-task-N
+  variant: with benchmark.multipleJobTypes = 0 the generator subscribes to
+  benchmark.jobType verbatim. Raising multiple_job_types without changing this
+  file leaves every instance stuck on a task nothing subscribes to.
+-->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_one_task"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="benchmark" name="benchmark" isExecutable="true">
+    <bpmn:startEvent id="StartEvent">
+      <bpmn:outgoing>Flow_start_to_task</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_start_to_task" sourceRef="StartEvent" targetRef="ServiceTask"/>
+    <bpmn:serviceTask id="ServiceTask" name="benchmark task">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="benchmark-task"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_start_to_task</bpmn:incoming>
+      <bpmn:outgoing>Flow_task_to_end</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_task_to_end" sourceRef="ServiceTask" targetRef="EndEvent"/>
+    <bpmn:endEvent id="EndEvent">
+      <bpmn:incoming>Flow_task_to_end</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram">
+    <bpmndi:BPMNPlane id="BPMNPlane" bpmnElement="benchmark">
+      <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="StartEvent">
+        <dc:Bounds x="172" y="102" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ServiceTask_di" bpmnElement="ServiceTask">
+        <dc:Bounds x="260" y="80" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_di" bpmnElement="EndEvent">
+        <dc:Bounds x="412" y="102" width="36" height="36"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_start_to_task_di" bpmnElement="Flow_start_to_task">
+        <di:waypoint xmlns:di="http://www.omg.org/spec/DD/20100524/DI" x="208" y="120"/>
+        <di:waypoint xmlns:di="http://www.omg.org/spec/DD/20100524/DI" x="260" y="120"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_task_to_end_di" bpmnElement="Flow_task_to_end">
+        <di:waypoint xmlns:di="http://www.omg.org/spec/DD/20100524/DI" x="360" y="120"/>
+        <di:waypoint xmlns:di="http://www.omg.org/spec/DD/20100524/DI" x="412" y="120"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

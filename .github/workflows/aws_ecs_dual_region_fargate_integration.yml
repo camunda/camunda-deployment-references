@@ -18,6 +18,11 @@ on:
                 required: false
                 default: ''
                 type: string
+            enable_load_tests:
+                description: Also deploy the load test overlay (greenfield RDBMS test only)
+                required: false
+                default: false
+                type: boolean
     pull_request:
         paths:
             - .github/workflows/aws_ecs_dual_region_fargate_integration.yml
@@ -62,7 +67,7 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        timeout-minutes: 240
+        timeout-minutes: 300
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -92,6 +97,7 @@ jobs:
                   TEST_AWS_PROFILE: ${{ env.AWS_PROFILE }}
                   TEST_REGION_0: eu-west-2
                   TEST_REGION_1: eu-west-3
+                  TEST_ENABLE_LOAD_TESTS: ${{ inputs.enable_load_tests }}
                   TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
                   # Suffixes every state group of this run, and names its stacks.
@@ -101,9 +107,9 @@ jobs:
                   set -e
                   TEST_FILTER="${INPUTS_TEST_NAME}"
                   if [[ -z "$TEST_FILTER" ]]; then
-                      go test -v -timeout 90m -run 'TestEndToEnd_Greenfield_' ./...
+                      go test -v -timeout 150m -run 'TestEndToEnd_Greenfield_' ./...
                   else
-                      go test -v -timeout 90m -run "$TEST_FILTER" ./...
+                      go test -v -timeout 150m -run "$TEST_FILTER" ./...
                   fi
 
             # t.Cleanup destroys each stack when the tests end normally. It does not run

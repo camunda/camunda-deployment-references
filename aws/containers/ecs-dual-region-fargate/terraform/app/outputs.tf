@@ -96,3 +96,23 @@ output "next_steps" {
     ════════════════════════════════════════════════════════════════════
   EOT
 }
+
+output "region_0_prometheus_endpoint" {
+  value       = one(module.monitoring_region_0[*].prometheus_endpoint)
+  description = "In-VPC base URL of the region 0 load test Prometheus, or null when enable_load_tests is false."
+}
+
+output "region_1_prometheus_endpoint" {
+  value       = one(module.monitoring_region_1[*].prometheus_endpoint)
+  description = "In-VPC base URL of the region 1 load test Prometheus, or null when enable_load_tests is false."
+}
+
+output "load_generator_log_group" {
+  value       = one(module.load_generator[*].log_group_name)
+  description = "CloudWatch log group (region 0) carrying the load generator's throughput lines, or null when enable_load_tests is false."
+}
+
+output "load_generator_target" {
+  value       = one(module.load_generator[*].grpc_address) != null ? module.orchestration_cluster_region_0.dns_a_record : null
+  description = "The region 0 Orchestration Cluster record the load generator drives, or null when enable_load_tests is false."
+}
