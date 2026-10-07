@@ -174,3 +174,40 @@ esac
 		t.Fatalf("exact ID was not restored: %v\n%s\n%s", err, calls, out)
 	}
 }
+
+// Right after a switchover AWS refuses the next one with "replication setup
+// is still in progress. Please retry". Seen on the failover suite: the
+// pre-destroy restore gave up, and destroy then hung with the writer away.
+func TestRestoreAuroraWritersRetriesWhileReplicationSetsUp(t *testing.T) {
+	t.Parallel()
+
+	fake := t.TempDir()
+	aws := `#!/usr/bin/env bash
+echo "$*" >> "$FAKE_DIR/calls"
+case "$*" in
+  *failover-global-cluster*)
+    n=$(grep -c failover-global-cluster "$FAKE_DIR/calls")
+    if [ "$n" -le 2 ]; then
+      echo "An error occurred (InvalidDBClusterStateFault) when calling the FailoverGlobalCluster operation: The switchover request is not successful because replication setup is still in progress. Please retry the request later." >&2
+      exit 254
+    fi
+    touch "$FAKE_DIR/switched" ;;
+  *describe-global-clusters*--global-cluster-identifier*)
+    if [ -f "$FAKE_DIR/switched" ]; then w=a; else w=b; fi
+    echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":'$([ $w = a ] && echo true || echo false)'},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":'$([ $w = b ] && echo true || echo false)'}]}' ;;
+  *describe-global-clusters*)
+    echo '[{"GlobalClusterIdentifier":"g","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}]' ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(aws), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "g", "0")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake, "REGION_0=eu-west-2",
+		"AURORA_WRITER_POLL_SECONDS=0", "RESTORE_EXACT_ID=true", "RESTORE_STRICT=true")
+	out, err := cmd.CombinedOutput()
+	calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
+	if err != nil || strings.Count(string(calls), "failover-global-cluster") != 3 {
+		t.Fatalf("want 3 switchover attempts and success, got %v\n%s\n%s", err, calls, out)
+	}
+}

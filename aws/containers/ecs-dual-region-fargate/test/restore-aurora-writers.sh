@@ -79,9 +79,18 @@ while read -r global; do
     fi
     mgmt_log "$id: writer is ${writer:-none}, switching it over to $home."
     export AURORA_GLOBAL_CLUSTER_ID="$id"
-    if ! aws rds failover-global-cluster --global-cluster-identifier "$id" \
-        --target-db-cluster-identifier "$home" --no-cli-pager >/dev/null ||
-        ! aurora_wait_writer "$home"; then
+    # Right after a switchover, AWS refuses the next one while replication is
+    # still being set up ("Please retry"). Retry that error only, until the
+    # settle deadline.
+    deadline=$((SECONDS + ${AURORA_SETTLE_SECONDS:-1200}))
+    while ! err=$(aws rds failover-global-cluster --global-cluster-identifier "$id" \
+        --target-db-cluster-identifier "$home" --no-cli-pager 2>&1 >/dev/null) &&
+        [[ "$err" == *"replication setup is still in progress"* ]] && [ "$SECONDS" -lt "$deadline" ]; do
+        mgmt_log "$id: replication still setting up, retrying the switchover."
+        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+    done
+    [ -n "$err" ] && mgmt_err "$id: $err"
+    if [ -n "$err" ] || ! aurora_wait_writer "$home"; then
         mgmt_err "$id: could not move the writer home, terraform destroy may hang."
         failed=true
     fi
