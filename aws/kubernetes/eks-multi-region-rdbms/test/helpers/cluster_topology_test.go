@@ -31,7 +31,10 @@ printf '%s' '{"brokers":[{"brokerId":"london_0","partitions":[]},{"brokerId":"pa
 	cmd.Env = (Env{RegionSlots: 3, ActiveRegions: 2, BrokersPerRegion: 1,
 		ZoneReplicas: []int{1, 1, 1}, ZoneNames: []string{"london", "paris", "zurich"},
 		ClusterContexts: []string{"cluster-london", "cluster-paris"},
-		Namespace:       "camunda", ReleaseName: "camunda"}).Vars()
+		Namespace:       "camunda", ReleaseName: "camunda",
+		// The stub answers at once, so a script that keeps polling has failed.
+		// Without this a missing tool such as jq turns into a 25-minute wait.
+		Extra: map[string]string{"TOPOLOGY_TIMEOUT_SECONDS": "0"}}).Vars()
 
 	// When: the procedure checks the real topology response shape.
 	out, err := cmd.CombinedOutput()
