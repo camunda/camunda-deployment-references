@@ -522,6 +522,9 @@ destroy_module() {
 
   mkdir -p "$temp_dir"
   cp "$tf_config_file" "$temp_dir/config.tf" || return 1
+  # The temp dir sits outside the checkout, so an asdf-managed terraform would
+  # find no version there; carry the repository's pins along.
+  cp "$SCRIPT_DIR/../../../../.tool-versions" "$temp_dir/" 2>/dev/null || true
   cd "$temp_dir" || return 1
 
   echo "[$group_id][$module_name] Initializing Terraform"
