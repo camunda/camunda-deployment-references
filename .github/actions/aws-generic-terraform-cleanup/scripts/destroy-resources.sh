@@ -522,6 +522,9 @@ destroy_module() {
 
   mkdir -p "$temp_dir"
   cp "$tf_config_file" "$temp_dir/config.tf" || return 1
+  # The temp dir sits outside the checkout, so an asdf-managed terraform would
+  # find no version there; carry the repository's pins along.
+  cp "$SCRIPT_DIR/../../../../.tool-versions" "$temp_dir/" 2>/dev/null || true
   cd "$temp_dir" || return 1
 
   echo "[$group_id][$module_name] Initializing Terraform"
@@ -531,8 +534,9 @@ destroy_module() {
     # EKS uses "accepter" alias instead of "cluster_1", and doesn't need "cluster_0" alias
     if [[ "${OPENSHIFT:-false}" == "false" ]]; then
       echo "[$group_id][$module_name] Adjusting provider aliases for EKS dual-region"
-      sed -i 's/alias  = "cluster_1"/alias  = "accepter"/' "$temp_dir/config.tf"
-      sed -i '/alias  = "cluster_0"/d' "$temp_dir/config.tf"
+      # Not sed -i: GNU and BSD sed disagree on its argument.
+      sed -e 's/alias  = "cluster_1"/alias  = "accepter"/' -e '/alias  = "cluster_0"/d' \
+        "$temp_dir/config.tf" > "$temp_dir/config.tf.new" && mv "$temp_dir/config.tf.new" "$temp_dir/config.tf" || return 1
     fi
 
     cat > "$temp_dir/terraform.tfvars" <<EOF
