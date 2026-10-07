@@ -36,7 +36,7 @@ MATCH="${1:?identifier regex required}"
 MIN_AGE_HOURS="${2:?minimum age in hours required}"
 : "${TF_VAR_region_0:?TF_VAR_region_0 must be set to region slot 0}"
 
-# A dispatch input is free text. Anything else than a whole number would make the
+# A dispatch input is free text. Anything other than a whole number would make the
 # age test below error out, read as false, and skip the gate the destroy applies.
 if ! [[ "$MIN_AGE_HOURS" =~ ^[0-9]+$ ]]; then
     echo "[detach-switched-aurora] <min-age-hours> must be a whole number, got '$MIN_AGE_HOURS'; detaching nothing." >&2
@@ -87,9 +87,15 @@ jq -c --arg m "$MATCH" '.[] | select((.GlobalClusterIdentifier | test($m)) and (
             log "$id: no readable state at s3://$STATE_BUCKET/$key, the destroy skips it too, skipping."
             continue
         }
-        age_hours=$(((now - modified_epoch) / 3600))
-        if [ "$age_hours" -lt "$MIN_AGE_HOURS" ]; then
-            log "$id: state ${age_hours}h old, younger than ${MIN_AGE_HOURS}h, skipping."
+        # One hour earlier than the destroy's cutoff. The destroy reads its clock
+        # later, after this step (30 min at most) and its own setup, so a state
+        # crossing the line in between would otherwise be destroyed unprepared.
+        # Preparing a stack the destroy then skips is harmless: it is at least
+        # MIN_AGE_HOURS - 1 old, far past any running test, and its detached
+        # readers are standalone clusters the next sweep removes.
+        age_minutes=$(((now - modified_epoch) / 60))
+        if [ "$age_minutes" -lt $((MIN_AGE_HOURS * 60 - 60)) ]; then
+            log "$id: state $((age_minutes / 60))h old, younger than ${MIN_AGE_HOURS}h minus the 1h margin, skipping."
             continue
         fi
     fi

@@ -182,6 +182,17 @@ func TestDetachDecidesFromTheSettledWriter(t *testing.T) {
 	assertDetachedLondonAndZurich(t, calls, out)
 }
 
+func TestDetachPreparesAStackCloseToTheDestroyCutoff(t *testing.T) {
+	t.Parallel()
+
+	// Given: a switched writer whose state is 11h old, under the destroy's 12h cutoff but inside the 1h margin.
+	// When: the daily sweep preparation runs.
+	calls, out := runDetach(t, "^eks-mr-", "12", "eu-west-3", 11)
+
+	// Then: it is prepared, since the destroy may reach the cutoff before it reads its own clock.
+	assertDetachedLondonAndZurich(t, calls, out)
+}
+
 func TestDetachRefusesAMalformedMinimumAge(t *testing.T) {
 	t.Parallel()
 
