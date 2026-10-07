@@ -562,7 +562,7 @@ destroy_module() {
       echo "[$group_id][$module_name] Adjusting provider aliases for EKS dual-region"
       # Not sed -i: GNU and BSD sed disagree on its argument.
       sed -e 's/alias  = "cluster_1"/alias  = "accepter"/' -e '/alias  = "cluster_0"/d' \
-        "$temp_dir/config.tf" > "$temp_dir/config.tf.new" && mv "$temp_dir/config.tf.new" "$temp_dir/config.tf"
+        "$temp_dir/config.tf" > "$temp_dir/config.tf.new" && mv "$temp_dir/config.tf.new" "$temp_dir/config.tf" || return 1
     fi
 
     cat > "$temp_dir/terraform.tfvars" <<EOF
