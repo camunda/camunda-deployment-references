@@ -28,7 +28,7 @@ global:
 identity:
     enabled: false
 
-console:
+camundaHub:
     enabled: false
 
 # Optimize requires Elasticsearch or OpenSearch and cannot run on RDBMS
