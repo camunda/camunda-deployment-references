@@ -113,6 +113,25 @@ aurora_unplanned_hint() {
   err "Next time the Aurora primary is down as well, pass --keep-writer."
 }
 
+# Sets WRITER_ARN and TARGET_ARN (the member in the surviving region), or exits.
+aurora_read_members() {
+  local members
+  members=$(aws rds describe-global-clusters --region "${SURVIVING_AWS_REGION}" \
+    --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+    --query 'GlobalClusters[0].GlobalClusterMembers' --output json)
+  WRITER_ARN=$(echo "${members}" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')
+  if [[ -z "${WRITER_ARN}" ]]; then
+    err "No Aurora writer ARN in the global cluster."
+    exit 1
+  fi
+  TARGET_ARN=$(echo "${members}" | jq -r --arg r "${SURVIVING_AWS_REGION}" \
+    '[.[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
+  if [[ -z "${TARGET_ARN}" ]]; then
+    err "No Aurora member in ${SURVIVING_AWS_REGION} to promote."
+    exit 1
+  fi
+}
+
 ###############################################################################
 # Step 0: Pre-flight                                                          #
 ###############################################################################
@@ -219,19 +238,7 @@ if [[ "$DRY_RUN" == "true" ]]; then
   elif [[ "$KEEP_WRITER" == "true" ]]; then
     log "  Aurora: --keep-writer given, leaving the writer in place."
   else
-    MEMBERS=$(aws rds describe-global-clusters --region "${SURVIVING_AWS_REGION}" \
-      --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-      --query 'GlobalClusters[0].GlobalClusterMembers' --output json)
-    if [[ -z "$(echo "${MEMBERS}" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')" ]]; then
-      err "No Aurora writer ARN in the global cluster."
-      exit 1
-    fi
-    TARGET_ARN=$(echo "${MEMBERS}" | \
-      jq -r --arg r "${SURVIVING_AWS_REGION}" '[.[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
-    if [[ -z "${TARGET_ARN}" ]]; then
-      err "No Aurora member in ${SURVIVING_AWS_REGION} to promote."
-      exit 1
-    fi
+    aurora_read_members
     log "  --dry-run: would promote ${TARGET_ARN} if the writer is in ${FAILED_AWS_REGION}, doing nothing."
   fi
   exit 0
@@ -298,14 +305,7 @@ elif [[ "$KEEP_WRITER" == "true" ]]; then
   log "  unplanned recovery procedure; exporting waits until a writer is available."
   AURORA_SUMMARY="left in place (--keep-writer)"
 else
-  MEMBERS=$(aws rds describe-global-clusters --region "${SURVIVING_AWS_REGION}" \
-    --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-    --query 'GlobalClusters[0].GlobalClusterMembers' --output json)
-  WRITER_ARN=$(echo "${MEMBERS}" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')
-  if [[ -z "${WRITER_ARN}" ]]; then
-    err "No Aurora writer ARN in the global cluster."
-    exit 1
-  fi
+  aurora_read_members
   WRITER_REGION=$(echo "${WRITER_ARN}" | cut -d: -f4)
   if [[ "${WRITER_REGION}" != "${FAILED_AWS_REGION}" ]]; then
     log "  Writer is in ${WRITER_REGION}, not in the failed region."
@@ -323,12 +323,6 @@ else
     if [[ "${WRITER_STATUS}" != "available" ]]; then
       err "The Aurora writer in ${FAILED_AWS_REGION} is ${WRITER_STATUS}, so a planned switchover cannot run."
       aurora_unplanned_hint
-      exit 1
-    fi
-    TARGET_ARN=$(echo "${MEMBERS}" | jq -r --arg r "${SURVIVING_AWS_REGION}" \
-      '[.[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
-    if [[ -z "${TARGET_ARN}" ]]; then
-      err "No Aurora member in ${SURVIVING_AWS_REGION} to promote."
       exit 1
     fi
     log "  Planned switchover to ${TARGET_ARN}"
