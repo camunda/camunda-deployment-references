@@ -110,6 +110,12 @@ jobs:
 
             # A single Terraform state holds the EKS clusters, the Transit Gateway mesh and
             # the Aurora Global Database, so one destroy tears the whole architecture down.
+            # Same preparation as the test workflow teardown, with the same age gate
+            # as the destroy, so a running test is never touched.
+            - name: Detach the readers of switched Aurora writers
+              timeout-minutes: 30
+              run: ./aws/kubernetes/eks-multi-region-rdbms/test/detach-switched-aurora-members.sh "^eks-mr-" "${MAX_AGE_HOURS_CLUSTER}"
+
             - name: Delete clusters
               id: delete_clusters
               # Covers both destroy passes below back to back, plus the cloud-nuke
