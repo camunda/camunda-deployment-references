@@ -80,7 +80,7 @@ module "orchestration_cluster_region_0" {
   efs_security_group_ids = [local.infra.sg_efs_region_0_id]
 
   extra_task_role_attachments = concat(
-    local.infra.rds_db_connect_policy_region_0_arn != null ? [local.infra.rds_db_connect_policy_region_0_arn] : [],
+    try([local.infra.rds_db_connect_policy_region_0_arn], []),
     [local.infra.s3_backup_access_policy_region_0_arn],
   )
 
@@ -189,7 +189,7 @@ module "orchestration_cluster_region_1" {
   efs_security_group_ids = [local.infra.sg_efs_region_1_id]
 
   extra_task_role_attachments = concat(
-    local.infra.rds_db_connect_policy_region_1_arn != null ? [local.infra.rds_db_connect_policy_region_1_arn] : [],
+    try([local.infra.rds_db_connect_policy_region_1_arn], []),
     [local.infra.s3_backup_access_policy_region_0_arn],
   )
 
@@ -272,7 +272,7 @@ module "connectors_region_0" {
 
   task_desired_count = 1
   extra_task_role_attachments = concat(
-    local.infra.rds_db_connect_policy_region_0_arn != null ? [local.infra.rds_db_connect_policy_region_0_arn] : [],
+    try([local.infra.rds_db_connect_policy_region_0_arn], []),
   )
   service_timeouts = {
     create = "30m"
@@ -353,7 +353,7 @@ module "connectors_region_1" {
 
   task_desired_count = 1
   extra_task_role_attachments = concat(
-    local.infra.rds_db_connect_policy_region_1_arn != null ? [local.infra.rds_db_connect_policy_region_1_arn] : [],
+    try([local.infra.rds_db_connect_policy_region_1_arn], []),
   )
   service_timeouts = {
     create = "30m"
