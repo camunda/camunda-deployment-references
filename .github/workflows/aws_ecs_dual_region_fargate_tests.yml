@@ -288,6 +288,34 @@ jobs:
               # deployment ends in the shape it started in.
               run: ./failback.sh --failed-region 0 --switch-writer
 
+            # --switch-writer returns as soon as Aurora reports the new writer, while
+            # the application's JDBC connections are still failing over to it
+            # (failoverTimeoutMs=60000). Basic auth reads users from that database,
+            # so every request stalls for tens of seconds in that window, and a
+            # 10-second smoke test then creates a single instance. Wait until
+            # authenticated requests are fast again.
+            - name: Wait for the API to reconnect to the new Aurora writer
+              if: env.TESTS_ENABLED == 'true'
+              shell: bash
+              timeout-minutes: 6
+              run: |
+                  set -uo pipefail
+                  fast=0
+                  for _ in $(seq 1 60); do
+                      t=$(curl -s -o /dev/null -w '%{http_code} %{time_total}' --max-time 10 \
+                          -u "${ADMIN_USER}:${ADMIN_PASS}" "http://${ALB_ENDPOINT_0}/v2/topology")
+                      echo "topology: ${t}"
+                      if [[ ${t%% *} == 200 ]] && awk -v s="${t##* }" 'BEGIN { exit !(s < 2) }'; then
+                          fast=$((fast + 1))
+                          [[ $fast -ge 5 ]] && exit 0
+                      else
+                          fast=0
+                      fi
+                      sleep 5
+                  done
+                  echo "::error::The API did not answer authenticated requests quickly within 5 minutes of the writer switch."
+                  exit 1
+
             - name: Smoke test — region 0 after the failback
               if: env.TESTS_ENABLED == 'true'
               uses: ./.github/actions/camunda-smoke-test
