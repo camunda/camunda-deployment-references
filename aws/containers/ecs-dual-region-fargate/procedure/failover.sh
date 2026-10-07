@@ -361,18 +361,44 @@ mgmt_tunnel_close
 mgmt_topology_summary "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
   "AFTER failover — ${FAILED_ZONE} removed"
 
-TOPOLOGY=$(curl -sf --max-time 20 -u "${ADMIN_USER}:${ADMIN_PASS}" \
-  "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
-LEADERS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[] | select(.role == "leader")] | length' 2>/dev/null || echo 0)
-PARTITIONS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[].partitionId] | unique | length' 2>/dev/null || echo 0)
+# Re-election is not instantaneous, and it is not part of the cluster change:
+# the change reaching COMPLETED means the zone has left the distribution, not
+# that every partition has already chosen a new leader from the replicas that
+# remain. Measured on a live stack, 5 of 8 partitions had a leader the moment
+# the change completed and the rest followed within a minute, so a single-shot
+# check here fails a failover that is in fact succeeding.
+LEADER_TIMEOUT=300
+LEADER_POLL_INTERVAL=10
+waited=0
+LEADERS=0
+PARTITIONS=0
 
-if [[ "${LEADERS}" -eq "${PARTITIONS}" ]] && [[ "${PARTITIONS}" -gt 0 ]]; then
-  log "✓ Every partition has a leader (${LEADERS}/${PARTITIONS})."
-else
-  err "Only ${LEADERS} of ${PARTITIONS} partitions have a leader — cluster not yet settled."
-  err "Re-check with: ./verify_dual_region.sh"
-  exit 1
-fi
+while :; do
+  TOPOLOGY=$(curl -sf --max-time 20 -u "${ADMIN_USER}:${ADMIN_PASS}" \
+    "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
+  # Count partitions that have exactly one leader, not leader entries: two
+  # leaders on one partition must not make up for none on another.
+  LEADERS=$(echo "${TOPOLOGY}" | jq '
+    [.brokers[].partitions[] | select(.role == "leader") | .partitionId]
+    | group_by(.) | map(select(length == 1)) | length' 2>/dev/null || echo 0)
+  PARTITIONS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[].partitionId] | unique | length' 2>/dev/null || echo 0)
+
+  if [[ "${LEADERS}" -eq "${PARTITIONS}" ]] && [[ "${PARTITIONS}" -gt 0 ]]; then
+    log "✓ Every partition has a leader (${LEADERS}/${PARTITIONS}) after ${waited}s."
+    break
+  fi
+
+  if [[ "${waited}" -ge "${LEADER_TIMEOUT}" ]]; then
+    err "Only ${LEADERS} of ${PARTITIONS} partitions have a leader after ${LEADER_TIMEOUT}s."
+    err "The zone was removed, so this is re-election not finishing rather than"
+    err "the removal failing. Re-check with: ./verify_dual_region.sh"
+    exit 1
+  fi
+
+  log "  [${waited}s] ${LEADERS}/${PARTITIONS} partitions led, waiting for re-election..."
+  sleep "${LEADER_POLL_INTERVAL}"
+  waited=$((waited + LEADER_POLL_INTERVAL))
+done
 
 ###############################################################################
 # Summary                                                                     #

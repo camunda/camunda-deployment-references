@@ -65,9 +65,10 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 	helpers.RunProcedureScript(t, f.Procedure("failover.sh"), env, "--failed-region", "0")
 	helpers.RequireRegionScaledDown(t, f.AWSProfile, f.Region0, env["CLUSTER_0"])
 
-	// Mid-flight: one zone, so half the replicas.
-	during := helpers.WaitForRaftQuorum(t, albEndpoint1, env["ADMIN_USER"], env["ADMIN_PASS"],
-		brokersOneZone, partitionCount, 15*time.Minute)
+	// Mid-flight: one zone, so half the replicas. Leaders rather than brokers
+	// — the drained region stays in membership for a while with zero replicas.
+	during := helpers.WaitForPartitionLeaders(t, albEndpoint1, env["ADMIN_USER"], env["ADMIN_PASS"],
+		partitionCount, 15*time.Minute)
 	require.Equal(t, rfOneZone, during.ReplicationFactor,
 		"after failover: the removed zone's replicas should be gone")
 

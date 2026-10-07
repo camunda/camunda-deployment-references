@@ -98,11 +98,17 @@ func runFailoverTest(t *testing.T, label string, killRegionFirst bool) {
 	require.Equal(t, "available", helpers.AuroraGlobalClusterStatus(t, f.AWSProfile, globalClusterID),
 		"after %s failover: the Aurora global cluster should still be available", label)
 
-	// 3. The surviving zone is the whole cluster now: four brokers, every
-	//    partition still led, and a replication factor that proves the zone
-	//    left the distribution rather than merely going unreachable.
-	after := helpers.WaitForRaftQuorum(t, albEndpoint1, env["ADMIN_USER"], env["ADMIN_PASS"],
-		brokersOneZone, partitionCount, 15*time.Minute)
+	// 3. The surviving zone is the whole cluster now: every partition still
+	//    led, and a replication factor that proves the zone left the
+	//    distribution rather than merely going unreachable.
+	//
+	//    Not asserted: the broker count. The scaled-down region's brokers stay
+	//    in cluster membership for a while, hosting zero replicas — a live run
+	//    showed brokers=8, clusterSize=4, replicationFactor=2 right after the
+	//    change. Waiting for 4 brokers would wait on ECS task teardown rather
+	//    than on anything about the cluster.
+	after := helpers.WaitForPartitionLeaders(t, albEndpoint1, env["ADMIN_USER"], env["ADMIN_PASS"],
+		partitionCount, 15*time.Minute)
 	// Pinned at both ends, so a separate "it fell" assertion would be
 	// unfalsifiable: before is rfBothZones, after is rfOneZone.
 	require.Equal(t, rfOneZone, after.ReplicationFactor,
