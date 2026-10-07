@@ -6,13 +6,16 @@
 # CloudWatch log group they log to, and the two IAM roles.
 #
 # The order is not cosmetic. Deleting an experiment template needs
-# fis:DeleteExperimentTemplate, and once FIS-Admin is gone the only principal
-# left holding it is you, so the templates go first and the roles last. The
-# previous version deleted the roles first and left the templates stranded.
+# fis:DeleteExperimentTemplate, which FIS-Admin holds and your own role may
+# not, so the templates go while FIS-Admin still exists and the roles go last.
+# The previous version deleted the roles first and left the templates stranded.
 #
 # Run it with your own credentials, not with FIS-Admin assumed: FIS-Admin is
 # not allowed to delete IAM roles. If you sourced assume-fis-role.sh, run
 # `unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN` first.
+# The FIS calls (listing and deleting templates) go through FIS-Admin, which
+# the script assumes for those calls only: the SSO role that may delete IAM
+# roles does not necessarily hold any fis:* permission.
 #
 # Usage:
 #   ./setup/teardown.sh [--yes]
@@ -54,7 +57,27 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-TEMPLATE_IDS=$(aws fis list-experiment-templates \
+# Run one aws command as FIS-Admin, leaving this shell's credentials alone.
+# FIS_ADMIN_CREDS is empty when the role cannot be assumed (for example it is
+# already gone); as_fis_admin then warns and runs the command with the current
+# credentials instead, so the FIS calls still happen.
+FIS_ADMIN_CREDS=$(aws sts assume-role \
+  --role-arn "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/${FIS_ADMIN_ROLE}" \
+  --role-session-name "fis-teardown" \
+  --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+  --output text 2>/dev/null || true)
+as_fis_admin() {
+  if [[ -z "${FIS_ADMIN_CREDS}" ]]; then
+    echo "WARNING: cannot assume ${FIS_ADMIN_ROLE}; using the current credentials for FIS calls" >&2
+    aws "$@"
+    return
+  fi
+  local key secret token
+  read -r key secret token <<< "${FIS_ADMIN_CREDS}"
+  AWS_ACCESS_KEY_ID="${key}" AWS_SECRET_ACCESS_KEY="${secret}" AWS_SESSION_TOKEN="${token}" aws "$@"
+}
+
+TEMPLATE_IDS=$(as_fis_admin fis list-experiment-templates \
   --region "${AWS_REGION}" \
   --query "experimentTemplates[?tags.managed_by=='${MANAGED_BY}' && tags.repository=='camunda/camunda-deployment-references'].id" \
   --output text)
@@ -89,7 +112,7 @@ echo "--- Removing experiment templates ---"
 if [[ -n "${TEMPLATE_IDS// /}" ]]; then
   for TEMPLATE_ID in ${TEMPLATE_IDS}; do
     echo "  Deleting template: ${TEMPLATE_ID}"
-    aws fis delete-experiment-template --id "${TEMPLATE_ID}" --region "${AWS_REGION}" > /dev/null
+    as_fis_admin fis delete-experiment-template --id "${TEMPLATE_ID}" --region "${AWS_REGION}" > /dev/null
   done
 else
   echo "  No template tagged managed_by=${MANAGED_BY}, skipping."
