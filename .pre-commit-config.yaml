@@ -121,7 +121,7 @@ repos:
 
           - id: eks-multi-region-rdbms-helper-tests
             name: EKS multi-region RDBMS procedure helper tests
-            entry: bash -c 'command -v -a jq; jq --version; cd aws/kubernetes/eks-multi-region-rdbms/test/helpers && go test -count=1 ./...'
+            entry: bash -c 'cd aws/kubernetes/eks-multi-region-rdbms/test/helpers && go test -count=1 ./...'
             language: system
             files: ^aws/kubernetes/eks-multi-region-rdbms/(procedure|test)/
             pass_filenames: false
