@@ -219,7 +219,7 @@ if [[ "$DRY_RUN" == "true" ]]; then
   elif [[ "$KEEP_WRITER" == "true" ]]; then
     log "  Aurora: --keep-writer given, leaving the writer in place."
   else
-    MEMBERS=$(aws rds describe-global-clusters \
+    MEMBERS=$(aws rds describe-global-clusters --region "${SURVIVING_AWS_REGION}" \
       --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
       --query 'GlobalClusters[0].GlobalClusterMembers' --output json)
     if [[ -z "$(echo "${MEMBERS}" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')" ]]; then
@@ -298,7 +298,7 @@ elif [[ "$KEEP_WRITER" == "true" ]]; then
   log "  unplanned recovery procedure; exporting waits until a writer is available."
   AURORA_SUMMARY="left in place (--keep-writer)"
 else
-  MEMBERS=$(aws rds describe-global-clusters \
+  MEMBERS=$(aws rds describe-global-clusters --region "${SURVIVING_AWS_REGION}" \
     --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
     --query 'GlobalClusters[0].GlobalClusterMembers' --output json)
   WRITER_ARN=$(echo "${MEMBERS}" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')
@@ -334,7 +334,7 @@ else
     log "  Planned switchover to ${TARGET_ARN}"
     # The status read above can still say "available" early in an outage. A
     # rejected or stalled switchover gets the same guidance.
-    if ! aws rds failover-global-cluster \
+    if ! aws rds failover-global-cluster --region "${SURVIVING_AWS_REGION}" \
         --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
         --target-db-cluster-identifier "${TARGET_ARN}" \
         --no-cli-pager > /dev/null \

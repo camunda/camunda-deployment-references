@@ -312,7 +312,8 @@ aurora_wait_writer() {
     local deadline=$((SECONDS + max_wait))
     mgmt_log "Waiting for the Aurora switchover to ${target_arn} (timeout ${max_wait}s)..."
     while [ "${SECONDS}" -lt "${deadline}" ]; do
-        global_json=$(aws rds describe-global-clusters \
+        # Ask the target's region (ARN field 4): the CLI default region can be the lost one.
+        global_json=$(aws rds describe-global-clusters --region "$(echo "${target_arn}" | cut -d: -f4)" \
             --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
             --query 'GlobalClusters[0]' --output json 2>/dev/null || echo '{}')
         writer=$(echo "${global_json}" | jq -r '.GlobalClusterMembers[]? | select(.IsWriter == true) | .DBClusterArn')

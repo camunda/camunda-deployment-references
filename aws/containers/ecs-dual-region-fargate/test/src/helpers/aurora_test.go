@@ -37,6 +37,7 @@ func TestParseAuroraWriterRegion(t *testing.T) {
 const fakeAWS = `#!/usr/bin/env bash
 calls="$FAKE_DIR/calls"
 n=$(( $(cat "$calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$calls"
+echo "$*" >> "$FAKE_DIR/args"
 if [ "$n" -le 2 ]; then
   echo '{"FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true}]}'
 elif [ "$n" -eq 3 ]; then
@@ -63,6 +64,9 @@ cat "$FAKE_DIR/calls"`)
 	out, err := cmd.CombinedOutput()
 	if err != nil || !strings.HasSuffix(strings.TrimSpace(string(out)), "4") {
 		t.Fatalf("returned before the switchover finished: %v\n%s", err, out)
+	} // The CLI default region can be the lost one: ask the target's region.
+	if args, _ := os.ReadFile(filepath.Join(fake, "args")); !strings.Contains(string(args), "--region eu-west-3") {
+		t.Errorf("describe-global-clusters did not target the new writer's region:\n%s", args)
 	}
 }
 
