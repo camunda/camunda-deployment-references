@@ -849,7 +849,11 @@ for group_id in $groups; do
         if [ "$age_hours" -ge "$MIN_AGE_IN_HOURS" ]; then
           destroy_module "$group_id" "$module" || exit 1
         else
-          echo "[$group_id][$module] Skipping (age < $MIN_AGE_IN_HOURS hours)"
+          # The modules below this one hold resources it depends on: destroying
+          # them under a live state fails (a VPC still holding RDS ENIs), so
+          # leave the rest of the group for a later run.
+          echo "[$group_id][$module] Skipping it and the modules after it (age < $MIN_AGE_IN_HOURS hours)"
+          break
         fi
       else
         echo "[$group_id][$module] Not found, skipping..."
