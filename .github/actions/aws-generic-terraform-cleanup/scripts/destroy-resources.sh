@@ -298,7 +298,8 @@ classify_destroy_error() {
     echo remediate_broken_trust_policy
   elif [[ "$output" == *"DeleteConflict"* && "$output" == *"policy attached to entities"* ]]; then
     echo remediate_iam_attachments
-  elif [[ "$output" == *"InvalidGlobalClusterStateFault"* ]]; then
+  elif [[ "$output" == *"InvalidGlobalClusterStateFault"* ||
+          "$output" == *"Cannot delete the last instance of the master cluster"* ]]; then
     echo remediate_aurora_global
   fi
 }
@@ -785,6 +786,29 @@ remediate_aurora_global() {
   global_ids=$(grep -oE 'RDS Global Cluster \(([^)]+)\)' <<<"$output" |
     sed -E 's/.*\((.*)\)/\1/' | sort -u)
 
+  # After a failover the writer can sit in the second region; deleting its last
+  # instance then fails while a replica is attached, and the error names only
+  # the instance. Find the global cluster that owns it through the members'
+  # own regions, since the instance need not live in AWS_REGION.
+  if [[ -z "$global_ids" ]]; then
+    local instance_ids gid member region cluster_id
+    instance_ids=$(grep -oE 'RDS Cluster Instance \(([^)]+)\)' <<<"$output" |
+      sed -E 's/.*\((.*)\)/\1/' | sort -u)
+    for gid in $(aws rds describe-global-clusters --query 'GlobalClusters[].GlobalClusterIdentifier' --output text 2>/dev/null); do
+      for member in $(aws rds describe-global-clusters --global-cluster-identifier "$gid" \
+        --query 'GlobalClusters[0].GlobalClusterMembers[].DBClusterArn' --output text 2>/dev/null); do
+        region=$(cut -d: -f4 <<<"$member")
+        cluster_id=$(cut -d: -f7 <<<"$member")
+        if aws rds describe-db-clusters --region "$region" --db-cluster-identifier "$cluster_id" \
+          --query 'DBClusters[0].DBClusterMembers[].DBInstanceIdentifier' --output text 2>/dev/null |
+          tr '\t' '\n' | grep -qxF -f <(printf '%s\n' "$instance_ids"); then
+          global_ids="$global_ids $gid"
+        fi
+      done
+    done
+    global_ids=$(tr ' ' '\n' <<<"$global_ids" | sed '/^$/d' | sort -u)
+  fi
+
   if [[ -z "$global_ids" ]]; then
     echo "[$group_id][$module_name] No global cluster identifier in the error text; nothing to detach."
     return 0
@@ -799,7 +823,9 @@ remediate_aurora_global() {
 
     for arn in $members; do
       echo "[$group_id][$module_name] Detaching $arn from $global_id"
-      aws rds remove-from-global-cluster \
+      # The call has to go to the member's own region, which after a failover
+      # is often not AWS_REGION.
+      aws rds remove-from-global-cluster --region "$(cut -d: -f4 <<<"$arn")" \
         --global-cluster-identifier "$global_id" \
         --db-cluster-identifier "$arn" --no-cli-pager >/dev/null 2>&1 || true
     done
@@ -837,6 +863,7 @@ destroy_selftest() {
   local gone="Error: status is 404, identifier is '404', code is 'CLUSTERS-MGMT-404'"
   local delete_conflict="Error: deleting IAM Policy (arn:aws:iam::000000000000:policy/EXAMPLE-external-dns-policy): DeleteConflict: Cannot delete a policy attached to entities."
   local unknown="Error: Invalid provider configuration"
+  local last_master="Error: deleting RDS Cluster Instance (ecsdr-1234-r1-camunda-db-0): operation error RDS: DeleteDBInstance, https response error StatusCode: 400, api error InvalidDBClusterStateFault: Cannot delete the last instance of the master cluster. Delete the replica cluster before deleting the last master cluster instance."
   local global_state="Error: deleting RDS Global Cluster (ecsdr-1234-global-db): operation error RDS: DeleteGlobalCluster, https response error StatusCode: 400, api error InvalidGlobalClusterStateFault: Global Cluster ecsdr-1234-global-db is not empty"
 
   _expect "DependencyViolation -> vpc dependencies" \
@@ -851,6 +878,8 @@ destroy_selftest() {
     "$(classify_destroy_error "$gone" cluster)" "already_gone"
   _expect "InvalidGlobalClusterStateFault -> detach Aurora members" \
     "$(classify_destroy_error "$global_state" infra/terraform)" "remediate_aurora_global"
+  _expect "last master instance after failover -> detach Aurora members" \
+    "$(classify_destroy_error "$last_master" infra/terraform)" "remediate_aurora_global"
 
   # A 404 only means "already gone" for a cluster module; anywhere else it is
   # an unclassified failure and must not be swallowed as success.
