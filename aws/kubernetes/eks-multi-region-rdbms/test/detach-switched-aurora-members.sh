@@ -21,8 +21,11 @@
 #   <min-age-hours>  skip a global cluster whose Terraform state is younger. This
 #                    is the gate the destroy applies (destroy-resources.sh), read
 #                    from the same object, s3://$STATE_BUCKET/${STATE_PREFIX}
-#                    tfstate-<cluster-name>/clusters.tfstate. So the sweep never
-#                    detaches a stack the destroy then skips. 0 skips the lookup.
+#                    tfstate-<cluster-name>/clusters.tfstate, with a cutoff one
+#                    hour earlier than the destroy's (see below). A stack inside
+#                    that hour can be prepared and skipped by the destroy; its
+#                    readers then stay standalone clusters until the next sweep
+#                    removes them. 0 skips the lookup.
 # Env: TF_VAR_region_0 (region slot 0), STATE_BUCKET, STATE_BUCKET_REGION and
 #      STATE_PREFIX when <min-age-hours> is above 0, AURORA_SETTLE_SECONDS
 #      (default 1200) to wait for a running switchover, AURORA_POLL_SECONDS
