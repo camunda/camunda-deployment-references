@@ -114,6 +114,8 @@ jobs:
               if: always()
               timeout-minutes: 45
               env:
+                  # Stops starting clusters 5 minutes before the step timeout.
+                  RESTORE_BUDGET_SECONDS: '2400'
                   REGION_0: eu-west-2
                   RUN_ID: ${{ github.run_id }}
               run: |

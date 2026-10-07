@@ -13,7 +13,12 @@
 #                    of one global cluster, whatever its naming.
 #   <min-age-hours>  skip stacks younger than this (a test may still be running)
 # Env: REGION_0 (home region), AWS_PROFILE / AWS_REGION as for the AWS CLI,
-#      AURORA_SETTLE_SECONDS (default 1200) to wait for a running switchover.
+#      AURORA_SETTLE_SECONDS (default 1200): the whole budget of one cluster,
+#      shared by settling a running switchover, retrying while replication
+#      sets up, and waiting for the move home.
+#      RESTORE_BUDGET_SECONDS (default unlimited): the budget of the whole run.
+#      A cluster is only started if a full per-cluster budget still fits, so
+#      a step timeout set above it never kills a switchover midway.
 #
 # Best effort: a failure is logged and the next cluster is tried, so the
 # Terraform destroy that follows always runs. With RESTORE_STRICT=true (the Go
@@ -39,12 +44,18 @@ if ! globals=$(aws rds describe-global-clusters --query 'GlobalClusters' --outpu
     failed=true
     done_restoring
 fi
+cluster_budget=${AURORA_SETTLE_SECONDS:-1200}
 while read -r global; do
     id=$(echo "$global" | jq -r .GlobalClusterIdentifier)
+    if [ -n "${RESTORE_BUDGET_SECONDS:-}" ] && [ $((SECONDS + cluster_budget)) -gt "$RESTORE_BUDGET_SECONDS" ]; then
+        mgmt_err "$id: not enough run budget left for another cluster, skipping it. terraform destroy may hang."
+        failed=true
+        continue
+    fi
+    deadline=$((SECONDS + cluster_budget))
     # A switchover still running shows the old writer flag. Let it settle,
     # then decide from the settled membership.
     # A failed read keeps the last known state, so it never looks settled.
-    deadline=$((SECONDS + ${AURORA_SETTLE_SECONDS:-1200}))
     while [ -n "$(echo "$global" | jq -r '.FailoverState.Status // ""')" ] && [ "$SECONDS" -lt "$deadline" ]; do
         mgmt_log "$id: switchover in progress, waiting."
         sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
@@ -81,8 +92,7 @@ while read -r global; do
     export AURORA_GLOBAL_CLUSTER_ID="$id"
     # Right after a switchover, AWS refuses the next one while replication is
     # still being set up ("Please retry"). Retry that error only, until the
-    # settle deadline.
-    deadline=$((SECONDS + ${AURORA_SETTLE_SECONDS:-1200}))
+    # cluster deadline.
     while ! err=$(aws rds failover-global-cluster --global-cluster-identifier "$id" \
         --target-db-cluster-identifier "$home" --no-cli-pager 2>&1 >/dev/null) &&
         [[ "$err" == *"replication setup is still in progress"* ]] && [ "$SECONDS" -lt "$deadline" ]; do
@@ -90,7 +100,7 @@ while read -r global; do
         sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
     done
     [ -n "$err" ] && mgmt_err "$id: $err"
-    if [ -n "$err" ] || ! aurora_wait_writer "$home"; then
+    if [ -n "$err" ] || ! aurora_wait_writer "$home" "$((deadline > SECONDS ? deadline - SECONDS : 1))"; then
         mgmt_err "$id: could not move the writer home, terraform destroy may hang."
         failed=true
     fi
