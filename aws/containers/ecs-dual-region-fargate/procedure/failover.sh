@@ -239,11 +239,15 @@ promote_aurora_writer() {
     waited=$((waited + WRITER_POLL_INTERVAL))
   done
 
-  # Deliberately not fatal. Step 3 is what restores Zeebe quorum, and holding
-  # it behind a slow database would extend the outage it is meant to end.
+  # Do not abort here: step 3 is what restores Zeebe quorum, and holding it
+  # behind a slow database would extend the outage this script exists to end.
+  # But do not call it a success either — record it, and exit non-zero at the
+  # end, so automation and operators are not told failover completed while the
+  # surviving region is still read-only.
+  WRITER_PROMOTION_FAILED=true
   log "  ⚠ Writer has not shown as ${target_region} after ${WRITER_PROMOTION_TIMEOUT}s."
-  log "    Continuing — the promotion is in flight and the driver retries."
-  log "    Confirm with: ./verify_dual_region.sh"
+  log "    Continuing to the zone removal — the promotion may still be in flight."
+  log "    Confirm with: ./verify_dual_region.sh before treating failover as done."
   return 0
 }
 
@@ -258,6 +262,9 @@ aurora_writer_region() {
 
 WRITER_PROMOTION_TIMEOUT=600
 WRITER_POLL_INTERVAL=15
+# Set when the promotion was issued but no writer appeared in time; the script
+# finishes its Zeebe work and then exits non-zero.
+WRITER_PROMOTION_FAILED=false
 
 promote_aurora_writer
 
@@ -388,3 +395,12 @@ log "  2. Health check: ./verify_dual_region.sh"
 # failback without it restores the brokers and leaves the database where it is.
 log "  3. Restore:      ./failback.sh --failed-region ${FAILED_REGION} --switch-writer"
 log "════════════════════════════════════════════════════════════════"
+
+if [[ "${WRITER_PROMOTION_FAILED}" == true ]]; then
+  err ""
+  err "Zeebe failover completed, but the Aurora writer never moved out of"
+  err "${FAILED_AWS_REGION}. The surviving region is up and read-only."
+  err "Check the promotion with:"
+  err "  aws rds describe-global-clusters --global-cluster-identifier ${AURORA_GLOBAL_CLUSTER_ID}"
+  exit 1
+fi

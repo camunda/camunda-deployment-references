@@ -164,6 +164,41 @@ camunda::region_node_ids() {
     echo "${ids[@]}"
 }
 
+# camunda::add_zone <context> <slot>
+#
+# Adds the zone of <slot> to the running cluster with POST
+# /actuator/cluster/zones/<zone>, then waits for the change to complete. The
+# zone's replica count and priority come from CAMUNDA_MULTIREGION_ZONES, the
+# list generate-zeebe-helm-values.sh rendered for the deployment, so the request
+# cannot drift from what the chart installed.
+camunda::add_zone() {
+    : "${CAMUNDA_MULTIREGION_ZONES:?CAMUNDA_MULTIREGION_ZONES must be set, source generate-zeebe-helm-values.sh}"
+    local context="$1" slot="$2"
+    local zone zone_spec brokers_json body
+    zone="$(camunda::zone_name "$slot")" || return 1
+
+    zone_spec="$(echo "$CAMUNDA_MULTIREGION_ZONES" |
+        jq -c --arg zone "$zone" '.[] | select(.name == $zone)')"
+    if [ -z "$zone_spec" ]; then
+        echo "ERROR: zone $zone is not in CAMUNDA_MULTIREGION_ZONES." >&2
+        return 1
+    fi
+
+    # The source-built chart currently pins the alpha5 engine image, which
+    # predates numberOfBrokers. Its still-supported API shape takes explicit
+    # broker IDs instead.
+    brokers_json="$(camunda::region_node_ids "$slot" "$(echo "$zone_spec" | jq -r '.numberOfBrokers')" |
+        tr ' ' '\n' | jq -R . | jq -sc .)"
+    body="$(echo "$zone_spec" | jq -c --argjson brokers "$brokers_json" \
+        '{numberOfReplicas, priority, brokers: $brokers}')"
+
+    # Printed before it is sent, so the exact request can be replayed by hand
+    # against `?dryRun=true` before committing to it.
+    echo "    POST /actuator/cluster/zones/$zone $body"
+    camunda::management "$context" POST "/actuator/cluster/zones/$zone" "$body" || return 1
+    camunda::wait_for_cluster_change "$context"
+}
+
 # camunda::_request <context> <local-port> <remote-port> <auth> <method> <path> [body]
 #
 # The one place that talks HTTP to a gateway. Prints the response body, sets
@@ -191,12 +226,6 @@ camunda::_request() {
     local context="$1" local_port="$2" remote_port="$3" auth="$4"
     local method="$5" path="$6" body="${7:-}" form_file="${8:-}"
 
-    kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
-        port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" \
-        "${local_port}:${remote_port}" >/dev/null 2>&1 &
-    local pid=$!
-    sleep 3
-
     # Bounded, because the callers are polling loops with their own deadlines and
     # a port-forward that half-opens rather than dies makes curl wait forever,
     # which is exactly the case those deadlines exist for. 000 on expiry reads
@@ -213,11 +242,30 @@ camunda::_request() {
         curl_args+=(-H 'Content-Type: application/json' -d "$body")
     fi
 
-    local response
-    response="$(curl "${curl_args[@]}" "http://localhost:${local_port}${path}")" || true
+    # Retried only on curl exit 7, "could not connect": nothing listened on the
+    # local port, so no request left this host and a retry is safe even for a
+    # POST or DELETE. That happens when the tunnel is not up after the sleep, or
+    # when `kubectl port-forward` exits because the pod it picked behind the
+    # service is restarting, as survivor brokers do right after a drain or an
+    # install. A single attempt failed failback with HTTP 000 on exactly that.
+    local response attempt rc attempts="${CAMUNDA_API_CONNECT_ATTEMPTS:-5}"
+    for attempt in $(seq 1 "$attempts"); do
+        kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" \
+            port-forward "svc/${CAMUNDA_RELEASE_NAME}-zeebe-gateway" \
+            "${local_port}:${remote_port}" >/dev/null 2>&1 &
+        local pid=$!
+        sleep 3
 
-    kill "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
+        rc=0
+        response="$(curl "${curl_args[@]}" "http://localhost:${local_port}${path}")" || rc=$?
+
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+
+        [ "$rc" -ne 7 ] || [ "$attempt" -eq "$attempts" ] && break
+        echo "    no tunnel to $context on attempt $attempt, retrying ..." >&2
+        sleep 5
+    done
 
     # `-w` appends the status on its own line, so the body is everything before
     # it. curl reports 000 when it never got an answer at all.

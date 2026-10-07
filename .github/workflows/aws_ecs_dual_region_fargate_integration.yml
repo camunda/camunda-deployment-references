@@ -19,6 +19,11 @@ on:
                 required: false
                 default: ''
                 type: string
+            enable_load_tests:
+                description: Also deploy the load test overlay (greenfield RDBMS test only)
+                required: false
+                default: false
+                type: boolean
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -44,11 +49,34 @@ jobs:
               uses: ./.github/actions/internal-triage-skip
 
     integration:
+        name: ${{ matrix.test }}
         runs-on: ubuntu-latest
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
+        # One test: provision, assert, destroy.
         timeout-minutes: 120
+        # One test per runner leg, not all of them in one `go test`.
+        #
+        # The suite is serial within a process — every test drives
+        # `terraform init -reconfigure` against the same three module
+        # directories (see test/src/doc.go) — and each test provisions and
+        # destroys a complete dual-region stack, roughly 45-60 minutes. Run
+        # end to end that is several hours, well past any job budget. A matrix
+        # gives each test its own runner and therefore its own checkout, so the
+        # shared-directory race does not apply across legs and the wall clock
+        # is one test, not all of them.
+        #
+        # max-parallel bounds how many full stacks exist at once, which is the
+        # real limit here: Elastic IPs and NAT gateways per region run out
+        # before anything else does.
+        strategy:
+            fail-fast: false
+            max-parallel: 2
+            matrix:
+                test:
+                    - TestEndToEnd_Greenfield_TGW_RDBMS
+                    - TestEndToEnd_Greenfield_VpcPeering_OpenSearch
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -84,14 +112,14 @@ jobs:
                   TEST_AWS_PROFILE: ${{ env.AWS_PROFILE }}
                   TEST_REGION_0: eu-west-2
                   TEST_REGION_1: eu-west-3
+                  TEST_ENABLE_LOAD_TESTS: ${{ inputs.enable_load_tests }}
                   TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
+                  MATRIX_TEST: ${{ matrix.test }}
               run: |
                   set -e
-                  TEST_FILTER="${INPUTS_TEST_NAME}"
-                  if [[ -z "$TEST_FILTER" ]]; then
-                      go test -v -timeout 90m ./...
-                  else
-                      go test -v -timeout 90m -run "$TEST_FILTER" ./...
-                  fi
+                  # The dispatch input overrides the matrix leg, so a single
+                  # test can still be run on demand without editing the matrix.
+                  TEST_FILTER="${INPUTS_TEST_NAME:-${MATRIX_TEST}}"
+                  go test -v -timeout 110m -run "^${TEST_FILTER}$" ./...

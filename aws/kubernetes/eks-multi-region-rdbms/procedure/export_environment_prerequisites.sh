@@ -20,14 +20,16 @@ set -o pipefail
 # Region topology                                                             #
 ###############################################################################
 
-# Number of REGION SLOTS, and therefore of zones. Fixed for the lifetime of the
-# Camunda cluster: the partition layout reserves replicas per zone, so changing
-# it redistributes every partition. A broker's own ID is its index INSIDE its
-# zone, so the slot count does not enter into it.
+# Number of REGION SLOTS provisioned by Terraform. A slot is infrastructure that
+# can host a zone; it is not a zone until Camunda runs in it. A broker's own ID
+# is its index INSIDE its zone, so the slot count does not enter into it.
 export CAMUNDA_REGION_SLOTS="${CAMUNDA_REGION_SLOTS:-3}"
 
-# Number of slots currently deployed. Must be CAMUNDA_REGION_SLOTS or
-# CAMUNDA_REGION_SLOTS - 1.
+# Number of slots running Camunda, and therefore the number of zones the cluster
+# declares. Only deployed zones are declared: a declared zone without running
+# brokers still receives replicas, and every partition then runs one zone short.
+# A slot is added later through activate-region.sh, which adds its zone with the
+# cluster management API.
 export CAMUNDA_ACTIVE_REGIONS="${CAMUNDA_ACTIVE_REGIONS:-3}"
 
 # AWS regions, kubectl contexts and Submariner cluster IDs, one entry per slot.
@@ -57,8 +59,11 @@ export CAMUNDA_NAMESPACE="${CAMUNDA_NAMESPACE:-camunda}"
 export CAMUNDA_RELEASE_NAME="${CAMUNDA_RELEASE_NAME:-camunda}"
 
 export CAMUNDA_BROKERS_PER_REGION="${CAMUNDA_BROKERS_PER_REGION:-2}"
-export CAMUNDA_CLUSTER_SIZE="${CAMUNDA_CLUSTER_SIZE:-$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_REGION_SLOTS))}"
-export CAMUNDA_PARTITION_COUNT="${CAMUNDA_PARTITION_COUNT:-$CAMUNDA_CLUSTER_SIZE}"
+export CAMUNDA_CLUSTER_SIZE="${CAMUNDA_CLUSTER_SIZE:-$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_ACTIVE_REGIONS))}"
+# Sized on the slots rather than on the running zones, so the count already
+# fits the largest topology. Adding a zone only adds replicas. Raising the count
+# later takes partition scaling, which cannot run during the same change.
+export CAMUNDA_PARTITION_COUNT="${CAMUNDA_PARTITION_COUNT:-$((CAMUNDA_BROKERS_PER_REGION * CAMUNDA_REGION_SLOTS))}"
 
 # Replicas of every partition placed in each zone, one entry per slot.
 #
@@ -70,8 +75,8 @@ export CAMUNDA_PARTITION_COUNT="${CAMUNDA_PARTITION_COUNT:-$CAMUNDA_CLUSTER_SIZE
 #
 # This is a default, not a constraint. Any layout the chart accepts works --
 # uniform 1-1-1, 3-3-3, or an asymmetric one -- as long as every zone has at
-# least one replica, no zone has more replicas than it has brokers, and the
-# deployed zones hold a majority of the replicas. All three are checked below.
+# least one replica and no zone has more replicas than it has brokers. Both are
+# checked below.
 #
 #   export CAMUNDA_ZONE_REPLICAS="2 2 1"
 if [ -z "${CAMUNDA_ZONE_REPLICAS:-}" ]; then
@@ -87,19 +92,6 @@ if [ -z "${CAMUNDA_ZONE_REPLICAS:-}" ]; then
     unset _i _zone_replicas
 fi
 export CAMUNDA_ZONE_REPLICAS
-
-# Derived from the layout above rather than configured on its own, so the two
-# can never disagree. With zone awareness the chart computes the placement from
-# the zone list; this value is what check-cluster-topology.sh asserts against.
-if [ -z "${CAMUNDA_REPLICATION_FACTOR:-}" ]; then
-    _rf=0
-    for _r in $CAMUNDA_ZONE_REPLICAS; do
-        _rf=$((_rf + _r))
-    done
-    CAMUNDA_REPLICATION_FACTOR="$_rf"
-    unset _r _rf
-fi
-export CAMUNDA_REPLICATION_FACTOR
 
 # Consume the rolling chart from the camunda-platform-helm main branch, like the
 # other architectures. The pin below is a commit on that branch, bumped by
@@ -178,21 +170,19 @@ if [ "$CAMUNDA_ACTIVE_REGIONS" -gt "$CAMUNDA_REGION_SLOTS" ]; then
 fi
 
 # The zone replica layout is the one place an asymmetric topology can go wrong
-# silently, so it is validated rather than trusted. The majority test is stated
-# in replicas rather than in zones: with an unbalanced layout the two are not
-# the same question, and only the replica count decides whether a partition can
-# form a quorum.
+# silently, so it is validated rather than trusted.
 # shellcheck disable=SC2086
 _zone_replica_count="$(_multiregion_count $CAMUNDA_ZONE_REPLICAS)"
 
 if [ "$_zone_replica_count" -ne "$CAMUNDA_REGION_SLOTS" ]; then
     echo "ERROR: CAMUNDA_ZONE_REPLICAS ('$CAMUNDA_ZONE_REPLICAS') has $_zone_replica_count entries for $CAMUNDA_REGION_SLOTS slots." >&2
-    echo "       It must name every slot, including ones not deployed yet." >&2
+    echo "       It must name every slot, including ones not deployed yet, so that activate-region.sh" >&2
+    echo "       knows the replica count of the zone it adds." >&2
     return 1 2>/dev/null || exit 1
 fi
 
 _slot=0
-_active_replicas=0
+_rf=0
 for _replicas in $CAMUNDA_ZONE_REPLICAS; do
     if ! [[ "$_replicas" =~ ^[0-9]+$ ]] || [ "$_replicas" -lt 1 ]; then
         echo "ERROR: zone slot $_slot has numberOfReplicas '$_replicas'; every zone needs at least 1." >&2
@@ -203,20 +193,17 @@ for _replicas in $CAMUNDA_ZONE_REPLICAS; do
         echo "       A zone cannot hold more replicas of a partition than it has brokers." >&2
         return 1 2>/dev/null || exit 1
     fi
-    if [ "$_slot" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
-        _active_replicas=$((_active_replicas + _replicas))
-    fi
+    [ "$_slot" -lt "$CAMUNDA_ACTIVE_REGIONS" ] && _rf=$((_rf + _replicas))
     _slot=$((_slot + 1))
 done
 
-if [ "$((2 * _active_replicas))" -le "$CAMUNDA_REPLICATION_FACTOR" ]; then
-    echo "ERROR: the deployed zones hold $_active_replicas of $CAMUNDA_REPLICATION_FACTOR replicas, which is not a majority." >&2
-    echo "       Layout '$CAMUNDA_ZONE_REPLICAS' with $CAMUNDA_ACTIVE_REGIONS of $CAMUNDA_REGION_SLOTS slots deployed." >&2
-    echo "       Every Zeebe partition would lose its quorum. Deploy more slots, or" >&2
-    echo "       move replicas onto the ones you do deploy." >&2
-    return 1 2>/dev/null || exit 1
+# Only declared, active zones contribute to the replication factor. The chart
+# derives placement from the zone list, and check-cluster-topology.sh checks it.
+if [ -z "${CAMUNDA_REPLICATION_FACTOR:-}" ]; then
+    CAMUNDA_REPLICATION_FACTOR="$_rf"
 fi
-unset _slot _replicas _active_replicas _zone_replica_count
+export CAMUNDA_REPLICATION_FACTOR
+unset _slot _replicas _zone_replica_count _rf
 
 # No clusterSize/slots divisibility check any more: with the zone-aware scheme the chart
 # derives the StatefulSet replica count from the zone's own numberOfBrokers, and

@@ -17,8 +17,10 @@
 //     quotas (Elastic IPs and NAT gateways per region bite first). Serial
 //     execution is the cost decision, not a technical limit.
 //
-// Expect an hour or more of wall clock for a full sweep. CI splits the suite
-// across dispatch-only workflows rather than parallelising it here.
+// Expect 45-60 minutes per test. CI does not run them in one process: the
+// dispatch workflows matrix over the test names, so each one gets its own
+// runner and therefore its own checkout, which sidesteps (1) entirely while
+// `max-parallel` keeps (2) in hand.
 package src
 
 // Cluster shape, mirroring terraform/app/locals.tf. Every suite in this

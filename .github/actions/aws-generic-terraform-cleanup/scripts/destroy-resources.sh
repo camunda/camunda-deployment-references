@@ -515,14 +515,14 @@ destroy_module() {
     # from the runner as its provider config.
     local repo_root resolved
     repo_root="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-    resolved="$(cd "$repo_root" && realpath -m -- "$TF_CONFIG_PATH")"
-
-    if [[ "$resolved" != "$repo_root/"* ]]; then
-      echo "Error: tf-config-path '$TF_CONFIG_PATH' resolves outside the repository"
+    # Plain realpath (no GNU -m) so the guard also runs on macOS; a missing
+    # file resolves to nothing and is reported as not found.
+    if ! resolved="$(cd "$repo_root" && realpath -- "$TF_CONFIG_PATH" 2>/dev/null)" || [[ ! -f "$resolved" ]]; then
+      echo "Error: tf-config-path '$TF_CONFIG_PATH' not found"
       exit 1
     fi
-    if [[ ! -f "$resolved" ]]; then
-      echo "Error: tf-config-path '$TF_CONFIG_PATH' not found"
+    if [[ "$resolved" != "$repo_root/"* ]]; then
+      echo "Error: tf-config-path '$TF_CONFIG_PATH' resolves outside the repository"
       exit 1
     fi
     echo "[$group_id][$module_name] Using the provider configuration $TF_CONFIG_PATH"
@@ -535,6 +535,9 @@ destroy_module() {
 
   mkdir -p "$temp_dir"
   cp "$tf_config_file" "$temp_dir/config.tf" || return 1
+  # The temp dir sits outside the checkout, so an asdf-managed terraform would
+  # find no version there; carry the repository's pins along.
+  cp "$SCRIPT_DIR/../../../../.tool-versions" "$temp_dir/" 2>/dev/null || true
   cd "$temp_dir" || return 1
 
   echo "[$group_id][$module_name] Initializing Terraform"
@@ -544,8 +547,9 @@ destroy_module() {
     # EKS uses "accepter" alias instead of "cluster_1", and doesn't need "cluster_0" alias
     if [[ "${OPENSHIFT:-false}" == "false" ]]; then
       echo "[$group_id][$module_name] Adjusting provider aliases for EKS dual-region"
-      sed -i 's/alias  = "cluster_1"/alias  = "accepter"/' "$temp_dir/config.tf"
-      sed -i '/alias  = "cluster_0"/d' "$temp_dir/config.tf"
+      # Not sed -i: GNU and BSD sed disagree on its argument.
+      sed -e 's/alias  = "cluster_1"/alias  = "accepter"/' -e '/alias  = "cluster_0"/d' \
+        "$temp_dir/config.tf" > "$temp_dir/config.tf.new" && mv "$temp_dir/config.tf.new" "$temp_dir/config.tf" || return 1
     fi
 
     cat > "$temp_dir/terraform.tfvars" <<EOF
@@ -707,10 +711,25 @@ EOF
 # meant only a module literally named "clusters" could ever reach it — an
 # architecture whose states are named after their layers got no fallback at
 # all, however many regions it spanned.
+#
+# Only runs for the LAST module in the destruction order. That order is the
+# reverse of the dependency order, so the last state is the one that owns the
+# VPC, and everything that lived inside it has already been destroyed. Nuking
+# earlier would delete subnets and ENIs that the states still queued behind it
+# have in their own plans — exactly the corruption this function's own warning
+# describes. Previously the `clusters` gate achieved this by accident, because
+# `clusters` was last for every architecture that reached here; an order like
+# `app/terraform,infra/terraform,vpc/terraform` does not have that property.
 nuke_vpcs_in_cleanup_regions() {
   local group_id="$1" module_name="$2" temp_dir="$3"
 
   [[ "$RETRY_DESTROY" == "true" && -n "${CLEANUP_REGIONS:-}" ]] || return 0
+
+  local last_module="${ORDERED_MODULES[${#ORDERED_MODULES[@]} - 1]}"
+  if [[ "$module_name" != "$last_module" ]]; then
+    echo "[$group_id][$module_name] Skipping the cloud-nuke fallback: '$last_module' owns the VPC and has not been destroyed yet."
+    return 0
+  fi
 
   echo "[$group_id][$module_name] Retry: running cloud-nuke on the declared regions as fallback..."
 

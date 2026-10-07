@@ -275,3 +275,53 @@ variable "camunda_hub_websockets_image" {
   # renovate: datasource=docker depName=camunda/hub-websockets versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
   default = "camunda/hub-websockets:8.10.0-alpha5"
 }
+
+################################################################
+#                      Load test Options                       #
+################################################################
+
+variable "enable_load_tests" {
+  description = "Deploy the load test overlay: a long-lived Prometheus that discovers this cluster through Cloud Map, and a load generator driving process instances at it. Off by default; the plan is unchanged while it is false."
+  type        = bool
+  default     = false
+}
+
+variable "load_tests_prometheus_port" {
+  description = "Port the load test Prometheus listens on. Deliberately outside var.ports so enabling the overlay does not widen the cluster's own security group."
+  type        = number
+  default     = 9090
+}
+
+variable "load_tests_retention_time" {
+  description = "How long the load test Prometheus keeps samples, as a Prometheus duration."
+  type        = string
+  default     = "168h"
+}
+
+variable "load_tests_start_rate" {
+  description = "Process instances started per second by the load generator. Defaults to the rate the absorbed camunda-load-tests-ecs benchmark ran at, so a run here is comparable with one from there."
+  type        = number
+  default     = 150
+}
+
+################################################################
+#                  Benchmark cluster profile                   #
+################################################################
+
+variable "enable_benchmark_cluster_profile" {
+  description = "Apply the cluster-side settings the absorbed camunda-load-tests-ecs benchmark ran with: explicit processing flow control and provisioned EFS throughput. Off by default because both change how the engine and its storage behave for every workload, not just a benchmark. Turn it on when the numbers have to be comparable with that benchmark."
+  type        = bool
+  default     = false
+}
+
+variable "benchmark_cluster_write_limit" {
+  description = "CAMUNDA_PROCESSING_FLOWCONTROL_WRITE_LIMIT applied when enable_benchmark_cluster_profile is true."
+  type        = number
+  default     = 10000
+}
+
+variable "benchmark_cluster_efs_throughput_in_mibps" {
+  description = "Provisioned EFS throughput in MiB/s applied when enable_benchmark_cluster_profile is true. Ignored while the profile is off, where EFS stays in elastic mode."
+  type        = number
+  default     = 60
+}

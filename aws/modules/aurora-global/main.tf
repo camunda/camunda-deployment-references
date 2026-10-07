@@ -18,9 +18,11 @@ resource "aws_rds_global_cluster" "this" {
   # plain destroy wedges on them. force_destroy makes the provider detach every
   # member first, in dependency order and with the state left consistent.
   #
-  # Default false: on a real deployment the global cluster holds the data, and
-  # a destroy that quietly detaches its members is not something to opt into by
-  # accident. Test environments set it true.
+  # Unset by default: on a real deployment the global cluster holds the data,
+  # and a destroy that quietly detaches its members is not something to opt
+  # into by accident. Leaving the variable null keeps the attribute out of the
+  # plan entirely, so callers that never set it are unaffected. Test
+  # environments set it true.
   force_destroy = var.force_destroy
 }
 

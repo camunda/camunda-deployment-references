@@ -43,10 +43,9 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 
 	f := helpers.NewFixture(t, "failback-"+label, "transit_gateway", "rdbms")
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, f.Paths, f.Options)
+	// ApplyAllThreeStates registers each state's destroy with t.Cleanup, so a
+	// failure partway through still tears down what was created.
+	_, _, appOpts := helpers.ApplyAllThreeStates(t, f.Paths, f.Options)
 
 	env := helpers.ProcedureEnv(t, f.ProcedureDir, f.Paths.Infra, f.AWSProfile)
 	globalClusterID := env["AURORA_GLOBAL_CLUSTER_ID"]

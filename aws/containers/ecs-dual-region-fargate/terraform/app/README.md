@@ -7,15 +7,22 @@
 | ---- | ------ | ------- |
 | <a name="module_connectors_region_0"></a> [connectors\_region\_0](#module\_connectors\_region\_0) | ../../../../modules/ecs/fargate/connectors | n/a |
 | <a name="module_connectors_region_1"></a> [connectors\_region\_1](#module\_connectors\_region\_1) | ../../../../modules/ecs/fargate/connectors | n/a |
+| <a name="module_load_generator"></a> [load\_generator](#module\_load\_generator) | ../../../../modules/ecs/fargate/load-generator | n/a |
+| <a name="module_monitoring_region_0"></a> [monitoring\_region\_0](#module\_monitoring\_region\_0) | ../../../../modules/ecs/fargate/monitoring | n/a |
+| <a name="module_monitoring_region_1"></a> [monitoring\_region\_1](#module\_monitoring\_region\_1) | ../../../../modules/ecs/fargate/monitoring | n/a |
 | <a name="module_orchestration_cluster_region_0"></a> [orchestration\_cluster\_region\_0](#module\_orchestration\_cluster\_region\_0) | ../../../../modules/ecs/fargate/orchestration-cluster | n/a |
 | <a name="module_orchestration_cluster_region_1"></a> [orchestration\_cluster\_region\_1](#module\_orchestration\_cluster\_region\_1) | ../../../../modules/ecs/fargate/orchestration-cluster | n/a |
 ## Resources
 
 | Name | Type |
 | ---- | ---- |
+| [aws_security_group.prometheus_region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_security_group.prometheus_region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [terraform_data.rdbms_jdbc_url_present](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [aws_region.region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [aws_region.region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
+| [aws_vpc.region_0](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/vpc) | data source |
+| [aws_vpc.region_1](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/vpc) | data source |
 | [terraform_remote_state.infra](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/data-sources/remote_state) | data source |
 ## Inputs
 
@@ -25,6 +32,10 @@
 | <a name="input_camunda_image"></a> [camunda\_image](#input\_camunda\_image) | Container image for the Camunda orchestration cluster tasks (Zeebe broker + gateway + webapps) | `string` | `"camunda/camunda:8.10-SNAPSHOT"` | no |
 | <a name="input_connectors_image"></a> [connectors\_image](#input\_connectors\_image) | Container image for the Camunda connectors-bundle tasks. Separate from camunda\_image because connectors ship as a distinct artifact from the orchestration cluster. | `string` | `"camunda/connectors-bundle:8.10-SNAPSHOT"` | no |
 | <a name="input_default_tags"></a> [default\_tags](#input\_default\_tags) | Default tags to apply to all resources | `map(string)` | `{}` | no |
+| <a name="input_enable_load_tests"></a> [enable\_load\_tests](#input\_enable\_load\_tests) | Deploy the load test overlay: one Prometheus per region discovering that region's brokers through Cloud Map, and a load generator in region 0 driving process instances at the cluster. Off by default; the plan is unchanged while it is false. | `bool` | `false` | no |
+| <a name="input_load_tests_prometheus_port"></a> [load\_tests\_prometheus\_port](#input\_load\_tests\_prometheus\_port) | Port the load test Prometheus instances listen on. | `number` | `9090` | no |
+| <a name="input_load_tests_retention_time"></a> [load\_tests\_retention\_time](#input\_load\_tests\_retention\_time) | How long the load test Prometheus instances keep samples, as a Prometheus duration. | `string` | `"168h"` | no |
+| <a name="input_load_tests_start_rate"></a> [load\_tests\_start\_rate](#input\_load\_tests\_start\_rate) | Process instances started per second by the load generator. Defaults to the rate the absorbed camunda-load-tests-ecs dual-region test ran at. | `number` | `150` | no |
 | <a name="input_rdbms_extra_jdbc_params"></a> [rdbms\_extra\_jdbc\_params](#input\_rdbms\_extra\_jdbc\_params) | Extra query parameters for the RDBMS secondary-storage JDBC URL, e.g. { connectTimeout = "5000" }. Merged over the parameters the infra layer supplies (aurora\_jdbc\_url\_parameters), so retuning one of them — failoverTimeoutMs, say — needs neither a re-apply of the infrastructure state nor a hand-written replacement URL. Ignored when rdbms\_jdbc\_url is set, since that override is taken verbatim. Only used when secondary storage is 'rdbms'. | `map(string)` | `{}` | no |
 | <a name="input_rdbms_jdbc_url"></a> [rdbms\_jdbc\_url](#input\_rdbms\_jdbc\_url) | Full override for the RDBMS secondary-storage JDBC URL. When null (default), the URL is composed from the infra layer's aurora\_jdbc\_* component outputs. Set it to point this app layer at a database provisioned outside this reference architecture, or at an infra state that predates those outputs. Taken verbatim: neither the infra-provided parameters nor rdbms\_extra\_jdbc\_params are appended to it. Only used when secondary storage is 'rdbms'. | `string` | `null` | no |
 | <a name="input_region_0"></a> [region\_0](#input\_region\_0) | AWS region for the primary (owner) cluster (must match infra/ and vpc/ configuration) | `string` | `"eu-west-2"` | no |
@@ -37,11 +48,15 @@
 | Name | Description |
 | ---- | ----------- |
 | <a name="output_admin_user_password"></a> [admin\_user\_password](#output\_admin\_user\_password) | The admin password for Camunda |
+| <a name="output_load_generator_log_group"></a> [load\_generator\_log\_group](#output\_load\_generator\_log\_group) | CloudWatch log group (region 0) carrying the load generator's throughput lines, or null when enable\_load\_tests is false. |
+| <a name="output_load_generator_target"></a> [load\_generator\_target](#output\_load\_generator\_target) | The region 0 Orchestration Cluster record the load generator drives, or null when enable\_load\_tests is false. |
 | <a name="output_next_steps"></a> [next\_steps](#output\_next\_steps) | Operator handover: how to fetch credentials and access the deployment. |
 | <a name="output_region_0_alb_endpoint"></a> [region\_0\_alb\_endpoint](#output\_region\_0\_alb\_endpoint) | The DNS name of the ALB in region 0 (HTTP/REST access) |
 | <a name="output_region_0_log_group_name"></a> [region\_0\_log\_group\_name](#output\_region\_0\_log\_group\_name) | CloudWatch log group for the orchestration cluster in region 0 |
 | <a name="output_region_0_nlb_grpc_endpoint"></a> [region\_0\_nlb\_grpc\_endpoint](#output\_region\_0\_nlb\_grpc\_endpoint) | The DNS name of the external NLB in region 0 (gRPC access) |
+| <a name="output_region_0_prometheus_endpoint"></a> [region\_0\_prometheus\_endpoint](#output\_region\_0\_prometheus\_endpoint) | In-VPC base URL of the region 0 load test Prometheus, or null when enable\_load\_tests is false. |
 | <a name="output_region_1_alb_endpoint"></a> [region\_1\_alb\_endpoint](#output\_region\_1\_alb\_endpoint) | The DNS name of the ALB in region 1 (HTTP/REST access) |
 | <a name="output_region_1_log_group_name"></a> [region\_1\_log\_group\_name](#output\_region\_1\_log\_group\_name) | CloudWatch log group for the orchestration cluster in region 1 |
 | <a name="output_region_1_nlb_grpc_endpoint"></a> [region\_1\_nlb\_grpc\_endpoint](#output\_region\_1\_nlb\_grpc\_endpoint) | The DNS name of the external NLB in region 1 (gRPC access) |
+| <a name="output_region_1_prometheus_endpoint"></a> [region\_1\_prometheus\_endpoint](#output\_region\_1\_prometheus\_endpoint) | In-VPC base URL of the region 1 load test Prometheus, or null when enable\_load\_tests is false. |
 <!-- END_TF_DOCS -->

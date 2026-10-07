@@ -49,10 +49,9 @@ func runFailoverTest(t *testing.T, label string, killRegionFirst bool) {
 
 	f := helpers.NewFixture(t, "failover-"+label, "transit_gateway", "rdbms")
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, f.Paths, f.Options)
+	// ApplyAllThreeStates registers each state's destroy with t.Cleanup, so a
+	// failure partway through still tears down what was created.
+	_, _, appOpts := helpers.ApplyAllThreeStates(t, f.Paths, f.Options)
 
 	// The procedure scripts hard-require a full environment contract; source
 	// it from the script that owns it rather than rebuilding it here.

@@ -32,15 +32,14 @@ func TestEndToEnd_BYO_VPC_TGW_RDBMS(t *testing.T) {
 		f.Options.VPCVars[k] = v
 	}
 
-	var vpcOpts, infraOpts, appOpts *terraform.Options
-	defer helpers.DestroyAllThreeStates(t, appOpts, infraOpts, vpcOpts)
-
-	vpcOpts, infraOpts, appOpts = helpers.ApplyAllThreeStates(t, f.Paths, f.Options)
+	// ApplyAllThreeStates registers each state's destroy with t.Cleanup, so a
+	// failure partway through still tears down what was created.
+	vpcOpts, _, appOpts := helpers.ApplyAllThreeStates(t, f.Paths, f.Options)
 
 	albEndpoint := terraform.Output(t, appOpts, "region_0_alb_endpoint")
 	require.NotEmpty(t, albEndpoint)
 
-	adminPass := terraform.Output(t, appOpts, "admin_user_password")
+	adminPass := helpers.SensitiveOutput(t, appOpts, "admin_user_password")
 	require.NotEmpty(t, adminPass, "admin_user_password is needed to poll /v2/topology")
 
 	t.Logf("Waiting for Raft quorum at %s ...", albEndpoint)

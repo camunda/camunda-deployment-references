@@ -20,6 +20,8 @@ This GitHub Action automates the deployment of the aws/containers/ecs-single-reg
 | `tf-modules-name` | <p>Name of the tf modules to use, the folder to refer to - cluster / vpn</p> | `true` | `cluster` |
 | `ref-arch` | <p>Reference architecture to deploy</p> | `false` | `ecs-single-region-fargate` |
 | `authentication-mode` | <p>Platform authentication mode to deploy: 'basic' (built-in users) or 'oidc' (bundled Keycloak).</p> | `false` | `basic` |
+| `enable-load-tests` | <p>Deploy the load test overlay next to the cluster: a Prometheus that discovers it through Cloud Map, and a load generator driving process instances at it. The generator wires basic auth only, so this requires authentication-mode 'basic'; the reference architecture fails the plan otherwise.</p> | `false` | `false` |
+| `load-tests-start-rate` | <p>Process instances per second the load generator starts, when enable-load-tests is true. Empty keeps the reference architecture's own default, which is the rate the absorbed benchmark ran at.</p> | `false` | `""` |
 
 
 ## Outputs
@@ -103,4 +105,16 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: basic
+
+    enable-load-tests:
+    # Deploy the load test overlay next to the cluster: a Prometheus that discovers it through Cloud Map, and a load generator driving process instances at it. The generator wires basic auth only, so this requires authentication-mode 'basic'; the reference architecture fails the plan otherwise.
+    #
+    # Required: false
+    # Default: false
+
+    load-tests-start-rate:
+    # Process instances per second the load generator starts, when enable-load-tests is true. Empty keeps the reference architecture's own default, which is the rate the absorbed benchmark ran at.
+    #
+    # Required: false
+    # Default: ""
 ```

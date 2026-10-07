@@ -57,7 +57,11 @@ fail=0
 while IFS= read -r dir; do
     [[ -n $dir ]] || continue
     echo "[terraform test] running in $dir"
-    if ! ( cd "$dir" && terraform init -input=false -backend=false -reconfigure > /dev/null && terraform test ); then
+    # git exports GIT_INDEX_FILE (and GIT_DIR in a worktree) to commit hooks.
+    # `terraform init` clones git module sources with plain `git clone`, which
+    # would inherit them and write the module's files into the commit's index.
+    if ! ( cd "$dir" && unset GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE GIT_PREFIX \
+        && terraform init -input=false -backend=false -reconfigure > /dev/null && terraform test ); then
         fail=1
         echo "[terraform test] FAILED in $dir" >&2
     fi

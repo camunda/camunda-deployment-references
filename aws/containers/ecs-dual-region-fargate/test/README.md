@@ -60,10 +60,10 @@ cd ../vpc && terraform destroy -auto-approve
 | Workflow | Trigger | Covers |
 |---|---|---|
 | `aws_ecs_dual_region_fargate_tests.yml` | pull request + dispatch | The happy path, and the only lane that runs on PRs. Deploys greenfield `vpc_peering` + `rdbms`, proves process instances execute, then drives `failover.sh` and `failback.sh` against that same cluster, re-proving execution after each transition. Does not use this Terratest suite. |
-| `aws_ecs_dual_region_fargate_integration.yml` | dispatch | `go test ./...` — the whole suite below. |
-| `aws_ecs_dual_region_fargate_failover.yml` | dispatch | The four failover/failback tests. Installs `session-manager-plugin`: the scripts reach the management API over ECS Exec, since port 9600 is not exposed through the ALB. |
+| `aws_ecs_dual_region_fargate_integration.yml` | dispatch | The two greenfield shapes, one test per runner leg. |
+| `aws_ecs_dual_region_fargate_failover.yml` | dispatch | The four failover/failback tests, one per runner leg. Installs `session-manager-plugin`: the scripts reach the management API over ECS Exec, since port 9600 is not exposed through the ALB. |
 | `aws_ecs_dual_region_fargate_byo_vpc.yml` | dispatch | `TestEndToEnd_BYO_VPC_TGW_RDBMS`. |
 | `aws_ecs_dual_region_fargate_golden.yml` | pull request + dispatch | Golden plan comparison for all three states. No AWS resources created. |
 | `aws_ecs_dual_region_fargate_daily_cleanup.yml` | daily + dispatch | Sweeps leaked clusters, including the post-failover Aurora teardown. |
 
-The dispatch-only workflows stay dispatch-only on purpose: each test provisions its own full stack, so running the suite is several clusters' worth of spend. The PR lane deliberately covers one combination on one cluster.
+The dispatch-only workflows stay dispatch-only on purpose: each test provisions its own full stack, so running a suite is several clusters' worth of spend. They matrix one test per runner — a single `go test ./...` would be several hours of serial wall clock — with `max-parallel` bounding how many stacks exist at once. The PR lane deliberately covers one combination on one cluster.

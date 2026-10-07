@@ -55,7 +55,7 @@ Camunda 8 deployments consist of two logical clusters:
 - Elasticsearch / OpenSearch (search-heavy / analytics workloads)
 - RDBMS / PostgreSQL (relational preference; Optimize still requires Elasticsearch/OpenSearch)
 
-RDBMS secondary storage is available since 8.9 for the Orchestration Cluster (Operate, Tasklist, v2 REST API). For backend trade-offs and benchmarks, see [secondary storage architecture](https://docs.camunda.io/docs/self-managed/reference-architecture/reference-architecture/#secondary-storage-architecture) and [RDBMS benchmark results](https://docs.camunda.io/docs/self-managed/concepts/secondary-storage/rdbms-benchmark-results/) in the product documentation. Reference implementations with a dedicated RDBMS variant (the `*-rdbms` declination of a ref-arch uses a relational database instead of a document store):
+RDBMS secondary storage is available since 8.9 for the Orchestration Cluster (Operate, Tasklist, v2 REST API). For backend trade-offs and benchmarks, see [secondary storage architecture](https://docs.camunda.io/docs/self-managed/reference-architecture/#secondary-storage-architecture) and [RDBMS benchmark results](https://docs.camunda.io/docs/self-managed/concepts/secondary-storage/rdbms-benchmark-results/) in the product documentation. Reference implementations with a dedicated RDBMS variant (the `*-rdbms` declination of a ref-arch uses a relational database instead of a document store):
 
 | Reference architecture | RDBMS backend |
 |------------------------|---------------|
@@ -79,6 +79,27 @@ The RDBMS exporter has [no multi-region mode](https://docs.camunda.io/docs/next/
 Zeebe places replicas per zone, so the replication factor is the sum of the zones' replicas rather than the number of zones. The AWS reference defaults to two replicas in each database region and one in the remaining region, giving `replicationFactor: 5` across three zones: the third region carries a vote without carrying a database, and losing either database region still leaves three replicas of five. The layout is configurable — any distribution works as long as no single zone holds half the replicas.
 
 **Production baseline:** Minimum 3 Zeebe brokers across 3 availability zones.
+
+## Load testing and resilience
+
+Two optional pieces exist to observe a deployment under load rather than at rest,
+both folded in from [`camunda/camunda-load-tests-ecs`](https://github.com/camunda/camunda-load-tests-ecs)
+(see camunda/team-infrastructure-experience#464):
+
+| Piece | Path | Applies to |
+|---|---|---|
+| Long-lived Prometheus with Cloud Map discovery | `aws/modules/ecs/fargate/monitoring` | ECS Fargate |
+| Load generator (public community benchmark) | `aws/modules/ecs/fargate/load-generator` | ECS Fargate |
+| AWS FIS chaos experiments | `aws/common/procedure/chaos-fis` | Any ECS Orchestration Cluster |
+| Load generator Job | `aws/kubernetes/eks-multi-region-rdbms/procedure/load-generator.sh` | Kubernetes |
+
+Load generation uses [`camunda-8-benchmark`](https://github.com/camunda-community-hub/camunda-8-benchmark)
+everywhere. Camunda's reliability-testing images are not publicly pullable, which
+disqualifies them from a repository meant to be copied; consolidation of the two
+stacks is tracked in [camunda/camunda#51191](https://github.com/camunda/camunda/issues/51191).
+
+On ECS the overlay is opt-in behind `enable_load_tests`, off by default, so a
+copy of the reference architecture does not inherit a benchmark.
 
 ## Naming Convention
 
