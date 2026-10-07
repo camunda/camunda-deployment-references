@@ -181,3 +181,16 @@ func TestDetachDecidesFromTheSettledWriter(t *testing.T) {
 	}
 	assertDetachedLondonAndZurich(t, calls, out)
 }
+
+func TestDetachRefusesAMalformedMinimumAge(t *testing.T) {
+	t.Parallel()
+
+	// Given: a mistyped dispatch input for the age gate.
+	// When: the daily sweep preparation runs with it.
+	calls, out := runDetach(t, "^eks-mr-", "twelve", "eu-west-3", 1)
+
+	// Then: nothing is read or detached, instead of skipping the gate.
+	if removed := only(calls, "remove-from-global-cluster"); len(removed) != 0 || !strings.Contains(out, "must be a whole number") {
+		t.Fatalf("expected the malformed age to stop the script, got %v:\n%s", removed, out)
+	}
+}

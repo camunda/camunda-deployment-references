@@ -36,6 +36,13 @@ MATCH="${1:?identifier regex required}"
 MIN_AGE_HOURS="${2:?minimum age in hours required}"
 : "${TF_VAR_region_0:?TF_VAR_region_0 must be set to region slot 0}"
 
+# A dispatch input is free text. Anything else than a whole number would make the
+# age test below error out, read as false, and skip the gate the destroy applies.
+if ! [[ "$MIN_AGE_HOURS" =~ ^[0-9]+$ ]]; then
+    echo "[detach-switched-aurora] <min-age-hours> must be a whole number, got '$MIN_AGE_HOURS'; detaching nothing." >&2
+    exit 0
+fi
+
 log() { echo "[detach-switched-aurora] $*" >&2; }
 region_of() { cut -d: -f4 <<<"$1"; }
 name_of() { cut -d: -f7 <<<"$1"; }
