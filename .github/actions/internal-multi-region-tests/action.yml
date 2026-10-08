@@ -151,7 +151,7 @@ runs:
                 # unreleased. The newest tag, 15.0.0-alpha5, predates both.
                 # TODO: [release-duty] switch to the public chart when 8.10 is released.
                 # renovate-helm-main: digest tracked against camunda-platform-helm main
-                CHART_GIT_REF="7e3b87d2ce8b9544b3be0472d6662937e1f0d63e"
+                CHART_GIT_REF="a5ee96e435b83c3964552d94788fe1765e152b5a"
                 CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
                 CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"
                 # `git clone --branch` resolves a branch or a tag, never a commit, so
