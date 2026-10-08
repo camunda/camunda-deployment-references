@@ -640,30 +640,41 @@ EOF
   local destroy_succeeded=false
   local handler
   for attempt in $(seq 1 $max_destroy_attempts); do
-    if output=$(terraform destroy -auto-approve 2>&1); then
+    echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts}"
+
+    # Stream the destroy as it runs, and keep a copy for the classifier.
+    #
+    # This used to be `output=$(terraform destroy ...)`. Command substitution
+    # buffers the whole run in memory and only ever reaches the log on a normal
+    # return, so a pass stopped by the caller's `timeout` discarded every line
+    # — the one case where the output matters most. A 2026-10-07 ECS
+    # dual-region sweep spent 75 minutes inside one module and left nothing
+    # behind but "Destroying module", so which resource was slow could not be
+    # answered at all. Each group already writes to its own log file, which is
+    # what gets uploaded, so streaming costs no interleaving there.
+    local destroy_log="${temp_dir}/destroy-attempt-${attempt}.log"
+    local destroy_rc=0
+    terraform destroy -auto-approve 2>&1 | tee "$destroy_log"
+    destroy_rc=${PIPESTATUS[0]}
+    output=$(cat "$destroy_log" 2>/dev/null || true)
+
+    if [[ "$destroy_rc" -eq 0 ]]; then
       destroy_succeeded=true
-      echo "$output"
       break
     fi
+
     # terraform prints a full red `Error: deleting EC2 VPC (...):
     # DependencyViolation` block for a condition the dispatch below routinely
     # recovers from on the next attempt — that block is why this lane reads as
     # permanently broken in #3122, when every destroy was in fact completing on
-    # attempt 2. Worse, groups run in parallel into one interleaved `tail -f`
-    # stream, so those lines arrive with no indication of which cluster they
-    # belong to or whether anything is going to be done about them.
-    #
-    # Say what is about to happen, and tag every line so a recovered attempt
-    # cannot be mistaken for the job's cause of death. Grouping with
-    # `::group::` is not an option here: concurrent groups would nest and
-    # swallow each other's output.
+    # attempt 2. The detail is above now; say plainly whether anything is going
+    # to be done about it, tagged so a recovered attempt cannot be mistaken for
+    # the job's cause of death.
     if [[ $attempt -lt $max_destroy_attempts ]]; then
-      echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts} failed; a retry may still recover it. Output:"
+      echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts} failed; a retry may still recover it."
     else
-      echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts} failed; no attempts left. Output:"
+      echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts} failed; no attempts left."
     fi
-    local tag="[$group_id][$module_name] > "
-    printf '%s%s\n' "$tag" "${output//$'\n'/$'\n'$tag}"
 
     handler=$(classify_destroy_error "$output" "$module_name")
 

@@ -67,6 +67,8 @@ jobs:
               uses: ./.github/actions/internal-triage-skip
 
     cleanup-clusters:
+        # Two sequential passes of up to 165 each, so the job needs room for both.
+        timeout-minutes: 350
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
@@ -108,7 +110,7 @@ jobs:
             - name: Delete clusters
               id: delete_clusters
               continue-on-error: true
-              timeout-minutes: 125
+              timeout-minutes: 165
               uses: ./.github/actions/aws-generic-terraform-cleanup
               env:
                   TF_VAR_region_0: ${{ env.REGION_0 }}
@@ -118,6 +120,17 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
+                  # 120 rather than the action's 85. The 85 default is sized for a
+                  # ROSA profile; this architecture's infra/ layer alone — Aurora
+                  # Global plus two regional clusters and their instances — ran 75
+                  # minutes without finishing on 2026-10-07 and the pass was killed
+                  # mid-teardown. Raised here rather than in the action so no other
+                  # caller's budget moves.
+                  #
+                  # Envelope: 120 + the 30m cloud-nuke retry = 150, which has to
+                  # clear the step timeout below with room for the ghost pass and
+                  # the log upload — a killed step takes the artifact with it.
+                  destroy-pass-timeout-minutes: '120'
                   modules-order: app/terraform,infra/terraform,vpc/terraform
                   tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-ecs
                   cleanup-regions: ${{ env.REGION_0 }} ${{ env.REGION_1 }}
@@ -130,7 +143,7 @@ jobs:
             - name: Retry delete clusters
               id: retry_delete_clusters
               if: steps.delete_clusters.outcome == 'failure'
-              timeout-minutes: 125
+              timeout-minutes: 165
               uses: ./.github/actions/aws-generic-terraform-cleanup
               env:
                   TF_VAR_region_0: ${{ env.REGION_0 }}
@@ -140,6 +153,7 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   max-age-hours: '0' # the previous step alters the age and resets it to 0
+                  destroy-pass-timeout-minutes: '120' # same rationale as the first pass
                   modules-order: app/terraform,infra/terraform,vpc/terraform
                   tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-ecs
                   cleanup-regions: ${{ env.REGION_0 }} ${{ env.REGION_1 }}

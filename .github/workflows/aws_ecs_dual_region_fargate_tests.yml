@@ -360,7 +360,8 @@ jobs:
         runs-on: ubuntu-latest
         needs: [triage, integration-tests]
         if: always() && needs.triage.outputs.should_skip == 'false' && needs.triage.result == 'success'
-        timeout-minutes: 130
+        # Clears the step budget below, which itself clears 120 + 30.
+        timeout-minutes: 180
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -384,7 +385,7 @@ jobs:
             - name: Destroy app, infra and vpc
               id: delete_clusters
               if: env.DELETE_CLUSTERS == 'true'
-              timeout-minutes: 125
+              timeout-minutes: 165
               uses: ./.github/actions/aws-generic-terraform-cleanup
               env:
                   # Read by the cleanup provider configuration below, which has
@@ -397,6 +398,18 @@ jobs:
                   tf-bucket-key-prefix: ${{ needs.triage.outputs.backend_key_prefix }}
                   max-age-hours: '0'
                   target: ${{ needs.triage.outputs.cluster_name }}
+                  # 120 rather than the action's 85. The 85 default is sized for a
+                  # ROSA profile; this architecture's infra/ layer alone — Aurora
+                  # Global plus two regional clusters and their instances — ran 75
+                  # minutes without finishing on 2026-10-07 and the pass was killed
+                  # mid-teardown. Raised here rather than in the action so no other
+                  # caller's budget moves.
+                  #
+                  # Envelope: 120 + the 30m cloud-nuke retry = 150, which has to
+                  # clear the step timeout below with room for the ghost pass and
+                  # the log upload — a killed step takes the artifact with it.
+                  destroy-pass-timeout-minutes: '120'
+
                   modules-order: app/terraform,infra/terraform,vpc/terraform
                   tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-ecs
                   cleanup-regions: ${{ env.REGION_0 }} ${{ env.REGION_1 }}
