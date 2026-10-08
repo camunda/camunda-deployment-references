@@ -12918,6 +12918,13 @@
           }
         },
         "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.190.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.190.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -12932,6 +12939,13 @@
           }
         },
         "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.192.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.192.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -12946,6 +12960,13 @@
           }
         },
         "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.200.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.200.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -12960,6 +12981,13 @@
           }
         },
         "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.202.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.202.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13021,6 +13049,13 @@
           }
         },
         "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.190.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.190.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13035,6 +13070,13 @@
           }
         },
         "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.192.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.192.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13049,6 +13091,13 @@
           }
         },
         "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.210.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.210.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13063,6 +13112,13 @@
           }
         },
         "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.212.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.212.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13124,6 +13180,13 @@
           }
         },
         "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.200.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.200.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13138,6 +13201,13 @@
           }
         },
         "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.202.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.202.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13152,6 +13222,13 @@
           }
         },
         "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.210.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.210.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13166,6 +13243,13 @@
           }
         },
         "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.212.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.212.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
