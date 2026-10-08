@@ -382,27 +382,47 @@ fi
 mgmt_topology_summary "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
   "AFTER failback — ${RECOVERED_ZONE} restored"
 
-TOPOLOGY=$(curl -sf --max-time 20 -u "${ADMIN_USER}:${ADMIN_PASS}" \
-  "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
-BROKERS=$(echo "${TOPOLOGY}" | jq '.brokers | length' 2>/dev/null || echo 0)
-PARTITIONS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[].partitionId] | unique | length' 2>/dev/null || echo 0)
-LEADERS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[] | select(.role == "leader")] | length' 2>/dev/null || echo 0)
-IDLE=$(echo "${TOPOLOGY}" | jq --arg z "${RECOVERED_ZONE}" \
-  '[.brokers[] | select(.brokerId | startswith($z + "_")) | select((.partitions | length) == 0)] | length' 2>/dev/null || echo 0)
+# Re-election lags the cluster change: the change reaching COMPLETED means the
+# zone is back in the persisted distribution, not that every partition has
+# already chosen a leader among the restored replicas. A failover run measured
+# 5 of 8 partitions led the instant its change completed, with the rest
+# following inside a minute, so a single read here fails a healthy failback.
+# Poll on the same terms the failover path uses.
+SETTLE_TIMEOUT=300
+SETTLE_POLL_INTERVAL=10
+waited=0
+BROKERS=0; PARTITIONS=0; LEADERS=0; IDLE=0
 
-if [ "${BROKERS}" -ne "${TARGET_BROKERS}" ]; then
-    err "Expected ${TARGET_BROKERS} brokers, found ${BROKERS}."
+while :; do
+  TOPOLOGY=$(curl -sf --max-time 20 -u "${ADMIN_USER}:${ADMIN_PASS}" \
+    "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
+  BROKERS=$(echo "${TOPOLOGY}" | jq '.brokers | length' 2>/dev/null || echo 0)
+  PARTITIONS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[].partitionId] | unique | length' 2>/dev/null || echo 0)
+  # Partitions holding exactly one leader, not leader entries: two leaders on
+  # one partition must not make up for none on another.
+  LEADERS=$(echo "${TOPOLOGY}" | jq '
+    [.brokers[].partitions[] | select(.role == "leader") | .partitionId]
+    | group_by(.) | map(select(length == 1)) | length' 2>/dev/null || echo 0)
+  IDLE=$(echo "${TOPOLOGY}" | jq --arg z "${RECOVERED_ZONE}" \
+    '[.brokers[] | select(.brokerId | startswith($z + "_")) | select((.partitions | length) == 0)] | length' 2>/dev/null || echo 0)
+
+  if [ "${BROKERS}" -eq "${TARGET_BROKERS}" ] && [ "${IDLE}" -eq 0 ] \
+     && [ "${PARTITIONS}" -gt 0 ] && [ "${LEADERS}" -eq "${PARTITIONS}" ]; then
+    log "✓ ${BROKERS} brokers, ${PARTITIONS} partitions, ${LEADERS} leaders, no idle brokers (after ${waited}s)."
+    break
+  fi
+
+  if [ "${waited}" -ge "${SETTLE_TIMEOUT}" ]; then
+    err "Cluster did not settle within ${SETTLE_TIMEOUT}s."
+    err "  brokers=${BROKERS}/${TARGET_BROKERS} partitions=${PARTITIONS} led=${LEADERS} idle=${IDLE}"
+    [ "${IDLE}" -ne 0 ] && err "  Idle ${RECOVERED_ZONE} brokers host no partitions — the zone re-add did not take effect."
     exit 1
-fi
-if [ "${IDLE}" -ne 0 ]; then
-    err "${IDLE} ${RECOVERED_ZONE} broker(s) host no partitions — the zone re-add did not take effect."
-    exit 1
-fi
-if [ "${LEADERS}" -ne "${PARTITIONS}" ]; then
-    err "Only ${LEADERS} of ${PARTITIONS} partitions have a leader — not settled yet."
-    exit 1
-fi
-log "✓ ${BROKERS} brokers, ${PARTITIONS} partitions, ${LEADERS} leaders, no idle brokers."
+  fi
+
+  log "  [${waited}s] brokers=${BROKERS}/${TARGET_BROKERS} led=${LEADERS}/${PARTITIONS} idle=${IDLE}, waiting..."
+  sleep "${SETTLE_POLL_INTERVAL}"
+  waited=$((waited + SETTLE_POLL_INTERVAL))
+done
 
 ###############################################################################
 # Step 7: Optionally switch the Aurora writer back                            #

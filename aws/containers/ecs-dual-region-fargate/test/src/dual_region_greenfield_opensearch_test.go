@@ -15,7 +15,11 @@ import (
 )
 
 func TestEndToEnd_Greenfield_VpcPeering_OpenSearch(t *testing.T) {
-	f := helpers.NewFixture(t, "greenfield-peering-opensearch", "vpc_peering", "opensearch")
+	// Short label on purpose: the prefix feeds infra/opensearch.tf, which
+	// appends "-r<N>-opensearch", and an OpenSearch domain name caps at 28
+	// characters. "greenfield-peering-opensearch" alone overran it before the
+	// random suffix was even added.
+	f := helpers.NewFixture(t, "peer-os", "vpc_peering", "opensearch")
 
 	// ApplyAllThreeStates registers each state's destroy with t.Cleanup, so a
 	// failure partway through still tears down what was created.

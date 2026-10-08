@@ -21,7 +21,14 @@ import (
 
 type globalClusterMember struct {
 	DBClusterArn string `json:"DBClusterArn"`
-	IsWriter     bool   `json:"IsClusterWriter"`
+	// IsWriter, not IsClusterWriter. describe-global-clusters returns IsWriter
+	// on GlobalClusterMembers; IsClusterWriter belongs to DBClusterMembers,
+	// the instances inside one cluster. With the wrong tag this unmarshals
+	// false for every member and AuroraWriterRegion fails with "no writer
+	// member found" before the runbooks are ever exercised. The shell path
+	// (procedure/failover.sh) always used .IsWriter, which is why the live run
+	// promoted correctly while the Go tests could not have.
+	IsWriter bool `json:"IsWriter"`
 }
 
 // globalCluster is the subset of describe-global-clusters the tests assert on.

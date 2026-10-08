@@ -217,10 +217,19 @@ promote_aurora_writer() {
   # loss. It does need the failed region's cluster to still answer — a loss
   # where it does not needs the AWS detach-and-promote procedure, which is
   # lossy and one-way and therefore not automated in a reference runbook.
-  aws rds failover-global-cluster \
+  # Guarded: under `set -e` a rejected or transient switchover would abort the
+  # script here, before step 3 removes the zone — and the zone removal is what
+  # restores Zeebe quorum. Record it and carry on; the run still exits non-zero
+  # at the end.
+  if ! aws rds failover-global-cluster \
     --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
     --target-db-cluster-identifier "${target_arn}" \
-    --no-cli-pager >/dev/null
+    --no-cli-pager >/dev/null; then
+    WRITER_PROMOTION_FAILED=true
+    err "  aws rds failover-global-cluster was rejected."
+    err "  Continuing to the zone removal; the database stays in ${FAILED_AWS_REGION}."
+    return 0
+  fi
 
   # Poll for the writer actually having moved, not for the cluster reporting
   # `available`. The CLI's own db-cluster-available waiter watches the wrong

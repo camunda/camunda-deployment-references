@@ -14,6 +14,7 @@
 package src
 
 import (
+	"os"
 	"testing"
 
 	"github.com/gruntwork-io/terratest/modules/terraform"
@@ -24,6 +25,14 @@ import (
 
 func TestEndToEnd_Greenfield_TGW_RDBMS(t *testing.T) {
 	f := helpers.NewFixture(t, "greenfield-tgw-rdbms", "transit_gateway", "rdbms")
+
+	// The integration workflow exports TEST_ENABLE_LOAD_TESTS, and the fixture
+	// does not carry it — without this, dispatching with the input enabled
+	// silently exercised the default-disabled overlay. Set here rather than in
+	// NewFixture so the OpenSearch leg is unaffected.
+	if os.Getenv("TEST_ENABLE_LOAD_TESTS") == "true" {
+		f.Options.AppVars["enable_load_tests"] = true
+	}
 
 	// ApplyAllThreeStates registers each state's destroy with t.Cleanup, so a
 	// failure partway through still tears down what was created.

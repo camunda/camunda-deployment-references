@@ -14,6 +14,14 @@ runs:
     steps:
         - name: Install session-manager-plugin
           shell: bash
+          env:
+              # Pinned, not `latest`. This runs `dpkg -i` as root on a runner
+              # that has already loaded AWS credentials, so a mutable download
+              # is a credential-exfiltration path. AWS publishes no checksum
+              # file for the plugin, so the digest is recorded here and the
+              # install refuses to proceed if it does not match.
+              SMP_VERSION: 1.2.835.0
+              SMP_SHA256: 7c6dcad12518571cc7959a713e6a8ae1bdf6ed66fd9bee37dc189e39ca58ae03
           run: |
               set -euo pipefail
 
@@ -23,7 +31,10 @@ runs:
               fi
 
               curl -fsSL -o /tmp/session-manager-plugin.deb \
-                  "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
+                  "https://s3.amazonaws.com/session-manager-downloads/plugin/${SMP_VERSION}/ubuntu_64bit/session-manager-plugin.deb"
+
+              echo "${SMP_SHA256}  /tmp/session-manager-plugin.deb" | sha256sum --check --strict
+
               sudo dpkg -i /tmp/session-manager-plugin.deb
               rm -f /tmp/session-manager-plugin.deb
               session-manager-plugin --version

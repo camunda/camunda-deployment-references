@@ -328,7 +328,7 @@ remediate_vpc_dependencies() {
   if [[ -n "${CLEANUP_REGIONS:-}" ]]; then
     local region retry_vpc
     for region in $CLEANUP_REGIONS; do
-      retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
+      retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id},${group_id}-*" \
                   --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
       [[ -n "$retry_vpc" && "$retry_vpc" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc" "$region"
     done
@@ -753,10 +753,15 @@ nuke_vpcs_in_cleanup_regions() {
   # cloud-nuke deletes whatever its config matches, so the regex is anchored to
   # this group and every regex metacharacter in the id is escaped.
   safe_id=$(printf '%s' "$group_id" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
-  NAME_REGEX="^${safe_id}.*" yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX)] | .EKSCluster.include.names_regex = [strenv(NAME_REGEX)]' -i "$nuke_config"
+  # Require an ownership boundary after the id. `^<id>.*` alone also matched
+  # every longer id sharing the prefix, so nuking for `ecsdr-123` would have
+  # taken `ecsdr-1234`'s VPCs with it. `(-|$)` keeps both the exact name and
+  # the `<id>-<suffix>` forms every architecture here uses.
+  NAME_REGEX="^${safe_id}(-|$)" yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX)] | .EKSCluster.include.names_regex = [strenv(NAME_REGEX)]' -i "$nuke_config"
 
   for region in $CLEANUP_REGIONS; do
-    vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
+    # Same boundary as the regex above: `${group_id}*` alone matches longer ids.
+    vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id},${group_id}-*" \
                 --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
     if [[ -n "$vpc_check" && "$vpc_check" != "None" ]]; then
       # EKS first, VPC second. A run that dies mid-apply leaves clusters whose
@@ -919,15 +924,25 @@ destroy_selftest() {
     local scoped_config scoped_vpc scoped_eks
     scoped_config="$(mktemp)"
     cp "$SCRIPT_DIR/matching-vpc.yml" "$scoped_config"
-    NAME_REGEX='^example-group.*' yq eval \
+    NAME_REGEX='^example-group(-|$)' yq eval \
       '.VPC.include.names_regex = [strenv(NAME_REGEX)] | .EKSCluster.include.names_regex = [strenv(NAME_REGEX)]' \
       -i "$scoped_config"
     scoped_vpc="$(yq eval '.VPC.include.names_regex[0]' "$scoped_config")"
     scoped_eks="$(yq eval '.EKSCluster.include.names_regex[0]' "$scoped_config")"
     rm -f "$scoped_config"
 
-    _expect "cloud-nuke VPC target is scoped to the group" "$scoped_vpc" '^example-group.*'
-    _expect "cloud-nuke EKS target is scoped to the group" "$scoped_eks" '^example-group.*'
+    _expect "cloud-nuke VPC target is scoped to the group" "$scoped_vpc" '^example-group(-|$)'
+    _expect "cloud-nuke EKS target is scoped to the group" "$scoped_eks" '^example-group(-|$)'
+
+    # The boundary is the point: a prefix-only pattern also matches every
+    # longer id, which is how one group's nuke reaches another's VPCs.
+    if printf 'example-group-1234-r0-vpc\n' | grep -Eq '^example-group(-|$)' &&
+       ! printf 'example-group1234-r0-vpc\n' | grep -Eq '^example-group(-|$)'; then
+      echo "ok   cloud-nuke pattern stops at the group boundary"
+    else
+      echo "FAIL cloud-nuke pattern leaks across ids sharing a prefix"
+      failures=$((failures + 1))
+    fi
   else
     echo "skip cloud-nuke scoping check: yq unavailable"
   fi
@@ -957,7 +972,13 @@ fi
 if [ "$ID_OR_ALL" == "all" ]; then
   groups=$(echo "$all_objects" | awk '{print $NF}' | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
 else
-  groups=$(echo "$all_objects" | awk '{print $NF}' | grep "$ID_OR_ALL" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
+  # Match the whole `tfstate-<target>/` path segment, not a substring of the
+  # key. A bare `grep "$ID_OR_ALL"` also matched every longer id with the same
+  # prefix, so a target of `ecsdr-123` selected `ecsdr-1234` too — and callers
+  # pass `max-age-hours: 0`, so one pull request's teardown could destroy
+  # another's live cluster. Numeric, PR-derived ids make that collision
+  # ordinary rather than exotic.
+  groups=$(echo "$all_objects" | awk '{print $NF}' | grep -F "/tfstate-${ID_OR_ALL}/" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
   if [ -z "$groups" ] && [ "$FAIL_ON_NOT_FOUND" = true ]; then
     echo "Error: No object found for ID '$ID_OR_ALL'"
     exit 1

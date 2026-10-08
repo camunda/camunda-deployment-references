@@ -74,9 +74,10 @@ jobs:
             fail-fast: false
             max-parallel: 2
             matrix:
-                test:
-                    - TestEndToEnd_Greenfield_TGW_RDBMS
-                    - TestEndToEnd_Greenfield_VpcPeering_OpenSearch
+                test: >-
+                    ${{ inputs.test_name != ''
+                    && fromJSON(format('["{0}"]', inputs.test_name))
+                    || fromJSON('["TestEndToEnd_Greenfield_TGW_RDBMS","TestEndToEnd_Greenfield_VpcPeering_OpenSearch"]') }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -115,11 +116,16 @@ jobs:
                   TEST_ENABLE_LOAD_TESTS: ${{ inputs.enable_load_tests }}
                   TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
-                  INPUTS_TEST_NAME: ${{ inputs.test_name }}
                   MATRIX_TEST: ${{ matrix.test }}
               run: |
                   set -e
                   # The dispatch input overrides the matrix leg, so a single
                   # test can still be run on demand without editing the matrix.
-                  TEST_FILTER="${INPUTS_TEST_NAME:-${MATRIX_TEST}}"
+                  TEST_FILTER="${MATRIX_TEST}"
+                  # `go test -run` exits 0 when the pattern matches nothing, so a
+                  # typo'd dispatch would report success having tested nothing.
+                  if ! grep -rqE "func ${TEST_FILTER}\\(" ./*_test.go; then
+                      echo "::error::no test named ${TEST_FILTER} in $(pwd)"
+                      exit 1
+                  fi
                   go test -v -timeout 110m -run "^${TEST_FILTER}$" ./...

@@ -44,7 +44,11 @@ echo "Deploying ${PROCESS_ID} to http://${HOST} ..."
 # is not yet accepting deployments.
 ATTEMPTS=12
 for attempt in $(seq 1 "${ATTEMPTS}"); do
+    # Bounded: an ALB that accepts the connection but never answers would
+    # otherwise block the first attempt forever and the remaining retries would
+    # never run — the loop would look like a hang rather than a failure.
     RESPONSE=$(curl -s -w '\n%{http_code}' \
+        --connect-timeout 10 --max-time 60 \
         -u "${ADMIN_USER}:${ADMIN_PASS}" \
         -X POST "http://${HOST}/v2/deployments" \
         -F "resources=@${BPMN_FILE}" || true)

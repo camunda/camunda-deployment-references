@@ -23,7 +23,12 @@ func TestEndToEnd_BYO_VPC_TGW_RDBMS(t *testing.T) {
 
 	// Step 1: stand up the throwaway VPCs that stand in for a customer-owned pair.
 	vpcs := helpers.SetupBYOVPCs(t, f.CallerDir, f.ClusterPrefix, f.AWSProfile, f.Region0, f.Region1, f.Tags)
-	defer vpcs.DestroyBYOVPCs(t)
+	// t.Cleanup, not defer: a function's defers run *before* the testing
+	// framework's cleanups, so `defer` here destroyed the customer VPCs while
+	// app/infra/vpc were still standing in them — every dependent destroy then
+	// failed and leaked. Registering before ApplyAllThreeStates puts this last
+	// in LIFO order, which is exactly when it should run.
+	t.Cleanup(func() { vpcs.DestroyBYOVPCs(t) })
 
 	// Step 2: switch the vpc/ layer to consume them instead of creating its own.
 	f.Options.VPCVars["byo_vpc"] = true

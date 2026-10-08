@@ -437,10 +437,18 @@ jobs:
     report-failure:
         name: Report failure
         runs-on: ubuntu-slim
-        if: needs.triage.outputs.should_skip == 'false' && (failure())
+        # needs the jobs that can actually fail, and always() so this is not
+        # itself skipped. It used to depend on report-success, which is skipped
+        # whenever the suite fails — and GitHub skips a job whose dependency was
+        # skipped, so the one path that needed a Slack message never sent one.
+        if: >-
+            always() && needs.triage.outputs.should_skip == 'false'
+            && (needs.integration-tests.result == 'failure'
+                || needs.cleanup-cluster.result == 'failure')
         needs:
             - triage
-            - report-success
+            - integration-tests
+            - cleanup-cluster
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
