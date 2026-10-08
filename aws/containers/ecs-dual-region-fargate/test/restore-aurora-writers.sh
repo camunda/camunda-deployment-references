@@ -39,6 +39,12 @@ done_restoring() {
     [ "${RESTORE_STRICT:-false}" = true ] && [ "$failed" = true ] && exit 1
     exit 0
 }
+# A malformed value would make the age test error out and skip the age gate.
+if ! [[ "$MIN_AGE_HOURS" =~ ^[0-9]{1,4}$ ]]; then
+    mgmt_err "minimum age '$MIN_AGE_HOURS' is not a whole number of hours (0-9999), restoring nothing."
+    failed=true
+    done_restoring
+fi
 if ! globals=$(aws rds describe-global-clusters --query 'GlobalClusters' --output json); then
     mgmt_err "could not list the Aurora global clusters, terraform destroy may hang."
     failed=true

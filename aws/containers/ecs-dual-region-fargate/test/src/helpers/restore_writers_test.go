@@ -107,6 +107,9 @@ esac`, "still switching over", "0"},
   *describe-global-clusters*) echo '[` + away + `]' ;;
   *describe-db-clusters*) exit 1 ;;
 esac`, "could not read the creation time", "1"},
+		{"age with unit", `echo '[` + away + `]'`, "not a whole number of hours", "12h"},
+		{"negative age", `echo '[` + away + `]'`, "not a whole number of hours", "-1"},
+		{"oversized age", `echo '[` + away + `]'`, "not a whole number of hours", "99999999999999999999"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := t.TempDir()
