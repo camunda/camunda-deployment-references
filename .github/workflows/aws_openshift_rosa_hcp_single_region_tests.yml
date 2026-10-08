@@ -563,11 +563,6 @@ jobs:
                     yq -i '.camundaHub.enabled = true' values.yml
                   fi
 
-                  # TODO: [release-duty] drop this load together with the file it
-                  # reads; see camunda/camunda-platform-helm#7284.
-                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/image-overrides.yml\")" values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
-
                   # Add integration tests values
                   if [ "$TESTS_ENABLED" == "true" ]; then
                     for file in registry.yml identity.yml; do
