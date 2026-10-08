@@ -152,7 +152,7 @@ func TestRestoreAuroraWritersStrictModeReportsFailures(t *testing.T) {
 	}
 }
 
-// A stack created with TEST_CLUSTER_PREFIX does not follow the e2e-f[ob]-
+// A stack created with TEST_CLUSTER_PREFIX does not follow the e2e-<label>-
 // naming, so the Go cleanup names its global cluster exactly instead.
 func TestRestoreAuroraWritersExactIDIgnoresTheNamingGuard(t *testing.T) {
 	t.Parallel()
@@ -238,5 +238,40 @@ esac
 	calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
 	if err == nil || !strings.Contains(string(out), "run budget left") || strings.Contains(string(calls), "failover-global-cluster") {
 		t.Fatalf("want no switchover and a budget error, got %v\n%s\n%s", err, calls, out)
+	}
+}
+
+// An interrupted destroy can drop the region 1 cluster from the state while it
+// stays in the global cluster. AWS then refuses to delete the writer's last
+// instance and terraform retries until its timeout (run 37763954861). The
+// writer is home here, as on a greenfield stack, so only the detach helps.
+func TestRestoreAuroraWritersDetachesReadersOfAHomeWriter(t *testing.T) {
+	t.Parallel()
+
+	fake := t.TempDir()
+	aws := `#!/usr/bin/env bash
+echo "$*" >> "$FAKE_DIR/calls"
+case "$*" in
+  *describe-global-clusters*) echo '[{"GlobalClusterIdentifier":"e2e-tgw-rdbms-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}]' ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(aws), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "-123456-global-db$", "0")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0", "RESTORE_STRICT=true")
+	out, err := cmd.CombinedOutput()
+	calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
+	for _, want := range []string{
+		"rds remove-from-global-cluster --region eu-west-3 --global-cluster-identifier e2e-tgw-rdbms-123456-global-db --db-cluster-identifier arn:aws:rds:eu-west-3:1:cluster:b",
+		"rds wait db-cluster-available --region eu-west-3 --db-cluster-identifier b",
+	} {
+		if !strings.Contains(string(calls), want) {
+			t.Fatalf("missing %q: %v\n%s\n%s", want, err, calls, out)
+		}
+	}
+	if err != nil || strings.Contains(string(calls), "failover-global-cluster") || strings.Contains(string(calls), "cluster:a --") {
+		t.Fatalf("want only the reader detached, got %v\n%s\n%s", err, calls, out)
 	}
 }

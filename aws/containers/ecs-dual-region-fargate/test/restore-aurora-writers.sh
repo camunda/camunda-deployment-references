@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Moves the Aurora writer of leftover ECS dual-region test stacks back to
-# region 0, so that terraform destroy does not hang on a global cluster whose
-# writer a failover test moved away (see the README teardown section). The
-# workflow cleanup and the daily cleanup run it before the Terraform destroy.
+# Prepares the Aurora global cluster of leftover ECS dual-region test stacks
+# for terraform destroy: moves a writer that a failover test moved away back to
+# region 0 (see the README teardown section), then detaches the readers, so the
+# destroy cannot hang on the writer's last instance. The workflow cleanup and
+# the daily cleanup run it before the Terraform destroy.
 #
 # Usage: restore-aurora-writers.sh <id-regex> <min-age-hours>
 #   <id-regex>       only global clusters whose identifier matches it (jq
-#                    regex). Identifiers must also follow the failover and
-#                    failback test naming, ^e2e-f[ob]-<label>-, so no other
-#                    stack is ever touched. With RESTORE_EXACT_ID=true (the Go
+#                    regex). Identifiers must also follow the test naming,
+#                    ^e2e-<label>-<suffix>-global-db$, so no other stack is
+#                    ever touched. With RESTORE_EXACT_ID=true (the Go
 #                    test cleanup), <id-regex> is instead the exact identifier
 #                    of one global cluster, whatever its naming.
 #   <min-age-hours>  skip stacks younger than this (a test may still be running)
@@ -78,7 +79,7 @@ while read -r global; do
     writer=$(echo "$global" | jq -r '.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn')
     home=$(echo "$global" | jq -r --arg r "$REGION_0" \
         '[.GlobalClusterMembers[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
-    if [ -z "$home" ] || [ "$writer" = "$home" ]; then
+    if [ -z "$home" ]; then
         continue
     fi
     if [ "$MIN_AGE_HOURS" -gt 0 ]; then
@@ -94,23 +95,40 @@ while read -r global; do
         continue
       fi
     fi
-    mgmt_log "$id: writer is ${writer:-none}, switching it over to $home."
-    export AURORA_GLOBAL_CLUSTER_ID="$id"
-    # Right after a switchover, AWS refuses the next one while replication is
-    # still being set up ("Please retry"). Retry that error only, until the
-    # cluster deadline.
-    while ! err=$(aws rds failover-global-cluster --global-cluster-identifier "$id" \
-        --target-db-cluster-identifier "$home" --no-cli-pager 2>&1 >/dev/null) &&
-        [[ "$err" == *"replication setup is still in progress"* ]] && [ "$SECONDS" -lt "$deadline" ]; do
-        mgmt_log "$id: replication still setting up, retrying the switchover."
-        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
-    done
-    [ -n "$err" ] && mgmt_err "$id: $err"
-    if [ -n "$err" ] || ! aurora_wait_writer "$home" "$((deadline > SECONDS ? deadline - SECONDS : 1))"; then
-        mgmt_err "$id: could not move the writer home, terraform destroy may hang."
-        failed=true
+    if [ "$writer" != "$home" ]; then
+        mgmt_log "$id: writer is ${writer:-none}, switching it over to $home."
+        export AURORA_GLOBAL_CLUSTER_ID="$id"
+        # Right after a switchover, AWS refuses the next one while replication is
+        # still being set up ("Please retry"). Retry that error only, until the
+        # cluster deadline.
+        while ! err=$(aws rds failover-global-cluster --global-cluster-identifier "$id" \
+            --target-db-cluster-identifier "$home" --no-cli-pager 2>&1 >/dev/null) &&
+            [[ "$err" == *"replication setup is still in progress"* ]] && [ "$SECONDS" -lt "$deadline" ]; do
+            mgmt_log "$id: replication still setting up, retrying the switchover."
+            sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+        done
+        [ -n "$err" ] && mgmt_err "$id: $err"
+        if [ -n "$err" ] || ! aurora_wait_writer "$home" "$((deadline > SECONDS ? deadline - SECONDS : 1))"; then
+            mgmt_err "$id: could not move the writer home, terraform destroy may hang."
+            failed=true
+            continue
+        fi
     fi
+    # A reader still attached makes AWS refuse to delete the writer's last
+    # instance, and terraform retries that until its timeout. This happens when
+    # an interrupted destroy dropped the reader from the state but not from
+    # the global cluster. Detaching every reader first lets the destroy finish.
+    for reader in $(echo "$global" | jq -r --arg h "$home" '.GlobalClusterMembers[].DBClusterArn | select(. != $h)'); do
+        region=$(echo "$reader" | cut -d: -f4)
+        mgmt_log "$id: detaching reader $reader."
+        if ! aws rds remove-from-global-cluster --region "$region" --global-cluster-identifier "$id" \
+            --db-cluster-identifier "$reader" --no-cli-pager >/dev/null ||
+            ! aws rds wait db-cluster-available --region "$region" --db-cluster-identifier "$(echo "$reader" | cut -d: -f7)"; then
+            mgmt_err "$id: could not detach $reader, terraform destroy may hang."
+            failed=true
+        fi
+    done
 done < <(echo "$globals" | jq -c --arg m "$MATCH" --arg exact "${RESTORE_EXACT_ID:-false}" \
     '.[] | select(if $exact == "true" then .GlobalClusterIdentifier == $m
-        else (.GlobalClusterIdentifier | test("^e2e-f[ob]-[a-z]+-[a-z0-9]+-global-db$")) and (.GlobalClusterIdentifier | test($m)) end)')
+        else (.GlobalClusterIdentifier | test("^e2e-[a-z]+(-[a-z]+)*-[a-z0-9]+-global-db$")) and (.GlobalClusterIdentifier | test($m)) end)')
 done_restoring
