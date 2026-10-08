@@ -26,14 +26,21 @@ printf '%s' '{"brokers":[{"brokerId":"london_0","partitions":[]},{"brokerId":"pa
 	if err := os.WriteFile(filepath.Join(dir, "lib-management-api.sh"), []byte(gateway), 0600); err != nil {
 		t.Fatal(err)
 	}
+	// Run from the repository, not the temporary directory: asdf shims such as
+	// jq resolve their version from the working directory's .tool-versions, and
+	// a CI runner has no global one. The output file still goes to dir.
 	cmd := exec.Command("bash", filepath.Join(dir, "check-cluster-topology.sh"))
-	// Run from the repository: an asdf-managed jq has no version outside it.
 	cmd.Dir = ProcedureDir(t)
-	cmd.Env = append((Env{RegionSlots: 3, ActiveRegions: 2, BrokersPerRegion: 1,
+	cmd.Env = (Env{RegionSlots: 3, ActiveRegions: 2, BrokersPerRegion: 1,
 		ZoneReplicas: []int{1, 1, 1}, ZoneNames: []string{"london", "paris", "zurich"},
 		ClusterContexts: []string{"cluster-london", "cluster-paris"},
-		Namespace:       "camunda", ReleaseName: "camunda"}).Vars(),
-		"OUTPUT_FILE="+filepath.Join(dir, "zeebe-topology.json"), "TOPOLOGY_TIMEOUT_SECONDS=5")
+		Namespace:       "camunda", ReleaseName: "camunda",
+		// The stub answers at once, so a script that keeps polling has failed.
+		// Without this a missing tool such as jq turns into a 25-minute wait.
+		Extra: map[string]string{
+			"TOPOLOGY_TIMEOUT_SECONDS": "0",
+			"OUTPUT_FILE":              filepath.Join(dir, "zeebe-topology.json"),
+		}}).Vars()
 
 	// When: the procedure checks the real topology response shape.
 	out, err := cmd.CombinedOutput()

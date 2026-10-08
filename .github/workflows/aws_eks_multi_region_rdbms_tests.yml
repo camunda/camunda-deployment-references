@@ -358,7 +358,8 @@ jobs:
         # plus checkout, tooling and credentials. The step envelope has to cover
         # them or the fallback that exists to recover leaked infrastructure is
         # killed halfway through it.
-        timeout-minutes: 270
+        # 30 more for the Aurora detach step that runs before them.
+        timeout-minutes: 300
         strategy:
             fail-fast: false
             matrix: ${{ fromJson(needs.clusters-info.outputs.platform-matrix) }}
@@ -392,6 +393,15 @@ jobs:
               run: |
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ env.REF_ARCH }}/${{ steps.target-branch.outputs.TARGET_BRANCH }}/" | tee -a "$GITHUB_OUTPUT"
+
+            # A failover that failback did not undo leaves the Aurora writer out of
+            # region slot 0, and terraform destroy then fails on the writer's last
+            # instance for its whole budget. Best effort: continue-on-error keeps the
+            # destroy running even if this step hits its timeout.
+            - name: Detach the readers of a switched Aurora writer
+              timeout-minutes: 30
+              continue-on-error: true
+              run: ./aws/kubernetes/eks-multi-region-rdbms/test/detach-switched-aurora-members.sh "^${CLUSTER_NAME}-global-db$" 0
 
             - name: Destroy the infrastructure
               timeout-minutes: 255
