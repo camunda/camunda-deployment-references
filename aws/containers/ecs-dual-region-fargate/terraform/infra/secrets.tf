@@ -143,6 +143,21 @@ resource "aws_secretsmanager_secret_version" "opensearch_password_region_1" {
 
   secret_id     = aws_secretsmanager_secret.opensearch_password_region_1[0].id
   secret_string = local.db_admin_password_effective
+
+  lifecycle {
+    # Covers what min_* on random_password cannot: an overridden
+    # db_admin_password, and a password generated before min_* existed.
+    precondition {
+      condition = alltrue([
+        length(local.db_admin_password_effective) >= 8,
+        can(regex("[A-Z]", local.db_admin_password_effective)),
+        can(regex("[a-z]", local.db_admin_password_effective)),
+        can(regex("[0-9]", local.db_admin_password_effective)),
+        can(regex("[^A-Za-z0-9]", local.db_admin_password_effective)),
+      ])
+      error_message = "OpenSearch needs a master password of at least 8 characters with an uppercase letter, a lowercase letter, a digit and a special character. Set db_admin_password to one, or regenerate the generated one with: terraform apply -replace='random_password.db_admin_password[0]'."
+    }
+  }
 }
 
 resource "aws_secretsmanager_secret" "admin_user_password_region_1" {
