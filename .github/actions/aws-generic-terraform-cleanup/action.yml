@@ -68,7 +68,7 @@ inputs:
         description: Version of the OpenShift to install
         required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.22.5
+        default: 4.22.16
 
     delete-ghost-rosa-clusters:
         description: Specify whether to delete ghost rosa clusters (true or false)
@@ -113,7 +113,7 @@ runs:
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@fc5fa6ee1e142bf583e9f01e749bc31654ff07ac # 2.3.8
 
         - name: Install Cloud Nuke for retry
           shell: bash
@@ -154,7 +154,7 @@ runs:
 
         - name: Install CLI tools from OpenShift Mirror
           if: ${{ inputs.openshift == 'true' }}
-          uses: redhat-actions/openshift-tools-installer@e3b32c2ab7b064b2ce189121c4a49f509a99a7b4 # v3
+          uses: redhat-actions/openshift-tools-installer@37eb3cfb20ac2df6f0511ffa71cd917e4d49cabf # v3
           with:
               oc: ${{ inputs.openshift-version }}
 
@@ -282,7 +282,7 @@ runs:
 
         - name: Upload cleanup logs
           if: always()
-          uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+          uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
           with:
               name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG }}
               path: ./logs/

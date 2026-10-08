@@ -27,7 +27,7 @@ eksctl 0.229.0
 golang 1.26.5
 
 # renovate: datasource=github-tags depName=fullstorydev/grpcurl
-grpcurl 1.9.3
+grpcurl 1.9.4
 
 # datasource=custom.helm-camunda depName=helm
 helm 4.2.3
@@ -41,14 +41,14 @@ kind 0.32.0
 
 kubectl 1.36.2
 
-kustomize 5.8.1 # used by the tests
+kustomize 5.8.2 # used by the tests
 
 # renovate: datasource=github-tags depName=FiloSottile/mkcert
 mkcert 1.4.4
 
-pre-commit 4.6.1
+pre-commit 4.6.2
 
-python 3.14.6
+python 3.14.8
 
 shellcheck 0.11.0
 
