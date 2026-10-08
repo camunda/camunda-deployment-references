@@ -104,8 +104,10 @@ export CAMUNDA_ZONE_REPLICAS
 # passed from outside overrides it -- `${VAR:-default}` treats an empty value as
 # unset. See camunda/camunda-platform-helm#6807.
 #
-# renovate-helm-main: digest tracked against camunda-platform-helm main
-export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-a5ee96e435b83c3964552d94788fe1765e152b5a}"
+# TODO: held on 1225a5b7 until this suite supports the per-zone StatefulSets of
+# newer charts; see camunda/camunda-deployment-references#3639. Restore the
+# `renovate-helm-main` marker when the pin moves.
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-1225a5b7ff9d62e3db1ce005e128249197b2d339}"
 
 # TODO: [release-duty] drop the source build and switch HELM_CHART_REF to
 # https://helm.camunda.io once 8.10 is generally available.
