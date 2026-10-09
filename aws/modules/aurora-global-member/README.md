@@ -26,7 +26,7 @@ No modules.
 | <a name="input_cluster_identifier"></a> [cluster\_identifier](#input\_cluster\_identifier) | Identifier of the regional Aurora cluster. Lowercase letters, digits and hyphens, starting with a letter and not ending with one. | `string` | n/a | yes |
 | <a name="input_database_name"></a> [database\_name](#input\_database\_name) | Name of the initial database. Only honoured on the primary member. | `string` | `"camunda"` | no |
 | <a name="input_engine"></a> [engine](#input\_engine) | Aurora engine type. Only aurora-postgresql is exercised by the reference architecture. | `string` | `"aurora-postgresql"` | no |
-| <a name="input_engine_version"></a> [engine\_version](#input\_engine\_version) | Aurora engine version. Must match the version of the global cluster. | `string` | `"17.9"` | no |
+| <a name="input_engine_version"></a> [engine\_version](#input\_engine\_version) | Aurora engine version. Must match the version of the global cluster. | `string` | `"17.11"` | no |
 | <a name="input_global_cluster_identifier"></a> [global\_cluster\_identifier](#input\_global\_cluster\_identifier) | ID of the aws\_rds\_global\_cluster this regional cluster joins | `string` | n/a | yes |
 | <a name="input_iam_auth_enabled"></a> [iam\_auth\_enabled](#input\_iam\_auth\_enabled) | Whether IAM database authentication is enabled. Recommended: the AWS JDBC wrapper iam plugin removes the need to distribute a password. | `bool` | `true` | no |
 | <a name="input_instance_class"></a> [instance\_class](#input\_instance\_class) | Instance class of the Aurora cluster instances | `string` | `"db.r6g.large"` | no |

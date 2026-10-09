@@ -33,7 +33,7 @@ variable "engine_version" {
 variable "postgresql_engine_version" {
   type = string
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
-  default     = "18.4"
+  default     = "18.6"
   description = "Aurora PostgreSQL engine version, used when engine = aurora-postgresql. Set this to pin a specific version for the PostgreSQL path."
 
   # This value reaches aws_rds_global_cluster and aws_rds_cluster unchanged, so

@@ -26,8 +26,8 @@ Outputs match the field names the `ecs-dual-region-fargate` vpc/ state's BYO mod
 
 | Name | Source | Version |
 | ---- | ------ | ------- |
-| <a name="module_vpc_region_0"></a> [vpc\_region\_0](#module\_vpc\_region\_0) | terraform-aws-modules/vpc/aws | v6.6.1 |
-| <a name="module_vpc_region_1"></a> [vpc\_region\_1](#module\_vpc\_region\_1) | terraform-aws-modules/vpc/aws | v6.6.1 |
+| <a name="module_vpc_region_0"></a> [vpc\_region\_0](#module\_vpc\_region\_0) | terraform-aws-modules/vpc/aws | v6.7.3 |
+| <a name="module_vpc_region_1"></a> [vpc\_region\_1](#module\_vpc\_region\_1) | terraform-aws-modules/vpc/aws | v6.7.3 |
 ## Resources
 
 | Name | Type |
