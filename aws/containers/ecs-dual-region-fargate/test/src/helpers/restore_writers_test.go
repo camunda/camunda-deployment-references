@@ -245,8 +245,8 @@ esac
 // stays in the global cluster. AWS then refuses to delete the writer's last
 // instance and terraform retries until its timeout (run 37763954861). The
 // writer is home here, as on a greenfield stack. Reader b has an instance and
-// is detached; reader c has none, so a detach would never settle and it is
-// deleted instead (run 37809356148).
+// is detached; reader c has none, so it can be neither detached nor deleted
+// (runs 37809356148, 37912265264) and is reported at once.
 func TestRestoreAuroraWritersDetachesReadersOfAHomeWriter(t *testing.T) {
 	t.Parallel()
 
@@ -270,15 +270,14 @@ esac
 	for _, want := range []string{
 		"rds remove-from-global-cluster --region eu-west-3 --global-cluster-identifier e2e-tgw-rdbms-123456-global-db --db-cluster-identifier arn:aws:rds:eu-west-3:1:cluster:b",
 		"rds wait db-cluster-available --region eu-west-3 --db-cluster-identifier b",
-		"rds delete-db-cluster --region eu-west-3 --db-cluster-identifier c --skip-final-snapshot",
-		"rds wait db-cluster-deleted --region eu-west-3 --db-cluster-identifier c",
 	} {
 		if !strings.Contains(string(calls), want) {
 			t.Fatalf("missing %q: %v\n%s\n%s", want, err, calls, out)
 		}
 	}
-	if err != nil || strings.Contains(string(calls), "failover-global-cluster") || strings.Contains(string(calls), "cluster:a --") ||
-		strings.Contains(string(calls), "cluster:c --") || strings.Contains(string(calls), "delete-db-cluster --region eu-west-3 --db-cluster-identifier b") {
-		t.Fatalf("want only the reader detached, got %v\n%s\n%s", err, calls, out)
+	if err == nil || !strings.Contains(string(out), "cluster:c has no instance") ||
+		strings.Contains(string(calls), "failover-global-cluster") || strings.Contains(string(calls), "cluster:a --") ||
+		strings.Contains(string(calls), "cluster:c --") || strings.Contains(string(calls), "delete-db-cluster") {
+		t.Fatalf("want reader b detached and reader c reported, got %v\n%s\n%s", err, calls, out)
 	}
 }

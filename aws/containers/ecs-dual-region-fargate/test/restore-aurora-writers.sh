@@ -121,21 +121,16 @@ while read -r global; do
     for reader in $(echo "$global" | jq -r --arg h "$home" '.GlobalClusterMembers[].DBClusterArn | select(. != $h)'); do
         region=$(echo "$reader" | cut -d: -f4)
         name=$(echo "$reader" | cut -d: -f7)
-        # A reader without instances cannot become a standalone cluster, so a
-        # detach never settles (run 37809356148). Delete it instead: AWS lists
-        # this as a normal step when deleting a global database.
+        # A reader without instances can be neither detached (it never settles,
+        # run 37809356148) nor deleted while it is a member (AWS refuses,
+        # run 37912265264). Report it at once instead of waiting 30 minutes.
         if ! members=$(aws rds describe-db-clusters --region "$region" --db-cluster-identifier "$name" \
             --query 'length(DBClusters[0].DBClusterMembers)' --output text); then
             mgmt_err "$id: could not read $reader, terraform destroy may hang."
             failed=true
         elif [ "$members" = 0 ]; then
-            mgmt_log "$id: deleting reader $reader, which has no instance."
-            if ! aws rds delete-db-cluster --region "$region" --db-cluster-identifier "$name" \
-                --skip-final-snapshot --no-cli-pager >/dev/null ||
-                ! aws rds wait db-cluster-deleted --region "$region" --db-cluster-identifier "$name"; then
-                mgmt_err "$id: could not delete $reader, terraform destroy may hang."
-                failed=true
-            fi
+            mgmt_err "$id: reader $reader has no instance and cannot be detached or deleted. Add an instance to it, detach it, then delete it; terraform destroy will hang until then."
+            failed=true
         else
             mgmt_log "$id: detaching reader $reader."
             if ! aws rds remove-from-global-cluster --region "$region" --global-cluster-identifier "$id" \
