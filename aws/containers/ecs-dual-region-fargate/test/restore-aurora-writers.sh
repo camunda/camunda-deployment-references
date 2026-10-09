@@ -120,12 +120,30 @@ while read -r global; do
     # the global cluster. Detaching every reader first lets the destroy finish.
     for reader in $(echo "$global" | jq -r --arg h "$home" '.GlobalClusterMembers[].DBClusterArn | select(. != $h)'); do
         region=$(echo "$reader" | cut -d: -f4)
-        mgmt_log "$id: detaching reader $reader."
-        if ! aws rds remove-from-global-cluster --region "$region" --global-cluster-identifier "$id" \
-            --db-cluster-identifier "$reader" --no-cli-pager >/dev/null ||
-            ! aws rds wait db-cluster-available --region "$region" --db-cluster-identifier "$(echo "$reader" | cut -d: -f7)"; then
-            mgmt_err "$id: could not detach $reader, terraform destroy may hang."
+        name=$(echo "$reader" | cut -d: -f7)
+        # A reader without instances cannot become a standalone cluster, so a
+        # detach never settles (run 37809356148). Delete it instead: AWS lists
+        # this as a normal step when deleting a global database.
+        if ! members=$(aws rds describe-db-clusters --region "$region" --db-cluster-identifier "$name" \
+            --query 'length(DBClusters[0].DBClusterMembers)' --output text); then
+            mgmt_err "$id: could not read $reader, terraform destroy may hang."
             failed=true
+        elif [ "$members" = 0 ]; then
+            mgmt_log "$id: deleting reader $reader, which has no instance."
+            if ! aws rds delete-db-cluster --region "$region" --db-cluster-identifier "$name" \
+                --skip-final-snapshot --no-cli-pager >/dev/null ||
+                ! aws rds wait db-cluster-deleted --region "$region" --db-cluster-identifier "$name"; then
+                mgmt_err "$id: could not delete $reader, terraform destroy may hang."
+                failed=true
+            fi
+        else
+            mgmt_log "$id: detaching reader $reader."
+            if ! aws rds remove-from-global-cluster --region "$region" --global-cluster-identifier "$id" \
+                --db-cluster-identifier "$reader" --no-cli-pager >/dev/null ||
+                ! aws rds wait db-cluster-available --region "$region" --db-cluster-identifier "$name"; then
+                mgmt_err "$id: could not detach $reader, terraform destroy may hang."
+                failed=true
+            fi
         fi
     done
 done < <(echo "$globals" | jq -c --arg m "$MATCH" --arg exact "${RESTORE_EXACT_ID:-false}" \
