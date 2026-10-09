@@ -268,15 +268,25 @@ HEALTH_CHECK_PROCESS_ID="dual-region-health-check"
 # from "I just made it healthy", and would no longer detect the very drift
 # this section exists to catch. deploy_health_check_process.sh is step 6 of
 # the deployment procedure — run it once, before verifying.
+# Ask a region that is actually serving. Hardcoding region 0 here meant that
+# `--failed-region 0` — the documented post-failover invocation — queried the
+# region it had just been told was down, and reported the process missing on a
+# cluster whose survivor could serve it perfectly well.
+if region_active 0; then
+    DEFINITION_ALB="${ALB_ENDPOINT_0}"
+else
+    DEFINITION_ALB="${ALB_ENDPOINT_1}"
+fi
+
 DEFINITIONS=$(curl -sf --max-time 30 \
     -u "${ADMIN_USER}:${ADMIN_PASS}" \
-    -X POST "http://${ALB_ENDPOINT_0}/v2/process-definitions/search" \
+    -X POST "http://${DEFINITION_ALB}/v2/process-definitions/search" \
     -H "Content-Type: application/json" \
     -d "{\"filter\":{\"processDefinitionId\":\"${HEALTH_CHECK_PROCESS_ID}\"}}" \
     2>/dev/null || echo "")
 
 if [ "$(echo "${DEFINITIONS}" | jq -r '.page.totalItems // 0')" -gt 0 ]; then
-    check "Health-check process '${HEALTH_CHECK_PROCESS_ID}' is deployed" 0
+    check "Health-check process '${HEALTH_CHECK_PROCESS_ID}' is deployed (via ${DEFINITION_ALB})" 0
 else
     check "Health-check process '${HEALTH_CHECK_PROCESS_ID}' is deployed (run ./deploy_health_check_process.sh)" 1
 fi

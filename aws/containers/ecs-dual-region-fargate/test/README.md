@@ -45,7 +45,7 @@ Override defaults with env vars:
 
 ## Cleanup
 
-Each test does `defer terraform.Destroy(...)` for all three states in reverse order (app → infra → vpc). If the test panics or is killed, resources will leak — `.github/workflows/aws_ecs_dual_region_fargate_daily_cleanup.yml` sweeps clusters whose state is older than 12 hours. All tests tag their resources `Test = "true"` via `default_tags`.
+`ApplyAllThreeStates` registers each state's destroy with `t.Cleanup` before applying it, so they run last-in-first-out — app → infra → vpc — and a failure partway through still tears down what was created. If the test panics or is killed, resources will leak — `.github/workflows/aws_ecs_dual_region_fargate_daily_cleanup.yml` sweeps clusters whose state is older than 12 hours. All tests tag their resources `Test = "true"` via `default_tags`.
 
 To force a manual cleanup after a stuck run:
 

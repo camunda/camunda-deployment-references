@@ -4,6 +4,11 @@
 
 Deploys the aws/containers/ecs-dual-region-fargate reference architecture.
 
+Internal to this repository. It calls sibling actions by caller-relative
+path (./.github/actions/...), which only resolve when this repository is
+the one checked out, so the cross-repository usage the generated snippet
+below shows will not work as written.
+
 Unlike the single-region architecture, this one is three independent
 Terraform states applied in order — vpc/ -> infra/ -> app/ — wired to each
 other through terraform_remote_state over S3. The action applies all three
@@ -19,8 +24,8 @@ callers never have to re-init the state to read an endpoint.
 | `aws-profile` | <p>AWS CLI profile the Terraform providers should use</p> | `false` | `infraex` |
 | `region-0` | <p>Primary region (Aurora Global writer, Zeebe zone priority 1000)</p> | `true` | `""` |
 | `region-1` | <p>Secondary region</p> | `true` | `""` |
-| `networking-mode` | <p>How the two VPCs are connected — vpc<em>peering or transit</em>gateway</p> | `false` | `vpc_peering` |
-| `secondary-storage-type` | <p>Camunda secondary storage — rdbms (Aurora Global) or opensearch</p> | `false` | `rdbms` |
+| `networking-mode` | <p>How the two VPCs are connected — <code>vpc_peering</code> or <code>transit_gateway</code></p> | `false` | `vpc_peering` |
+| `secondary-storage-type` | <p>Camunda secondary storage — <code>rdbms</code> (Aurora Global) or <code>opensearch</code></p> | `false` | `rdbms` |
 | `single-nat-gateway` | <p>Share one NAT gateway per VPC instead of one per AZ. Cheaper and adequate for a test cluster; not a production shape.</p> | `false` | `true` |
 | `tags` | <p>Tags to apply to all resources, in JSON format</p> | `false` | `{}` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket storing Terraform state</p> | `true` | `""` |
@@ -73,13 +78,13 @@ This action is a `composite` action.
     # Default: ""
 
     networking-mode:
-    # How the two VPCs are connected — vpc_peering or transit_gateway
+    # How the two VPCs are connected — `vpc_peering` or `transit_gateway`
     #
     # Required: false
     # Default: vpc_peering
 
     secondary-storage-type:
-    # Camunda secondary storage — rdbms (Aurora Global) or opensearch
+    # Camunda secondary storage — `rdbms` (Aurora Global) or `opensearch`
     #
     # Required: false
     # Default: rdbms

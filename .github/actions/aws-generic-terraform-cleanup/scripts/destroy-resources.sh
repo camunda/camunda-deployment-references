@@ -969,8 +969,15 @@ if [ $aws_exit_code -ne 0 ] && [ $aws_exit_code -ne 1 ]; then
   exit 1
 fi
 
+# `tf-bucket-key-prefix` defaults to empty, in which case the keys start with
+# `tfstate-<group>/` and have no leading slash at all. Anchoring on `/tfstate-`
+# silently matched nothing for those callers, and a targeted cleanup then
+# reported "nothing to destroy" and exited 0 with the stack still running.
+# `(^|.*/)` accepts the key either at the root or behind a prefix; it is
+# written as an ERE because BRE alternation is a GNU extension and this
+# script has to run outside GNU userland.
 if [ "$ID_OR_ALL" == "all" ]; then
-  groups=$(echo "$all_objects" | awk '{print $NF}' | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
+  groups=$(echo "$all_objects" | awk '{print $NF}' | sed -E -n 's#(^|.*/)tfstate-([^/]*)/.*#\2#p' | sort -u)
 else
   # Match the whole `tfstate-<target>/` path segment, not a substring of the
   # key. A bare `grep "$ID_OR_ALL"` also matched every longer id with the same
@@ -978,7 +985,11 @@ else
   # pass `max-age-hours: 0`, so one pull request's teardown could destroy
   # another's live cluster. Numeric, PR-derived ids make that collision
   # ordinary rather than exotic.
-  groups=$(echo "$all_objects" | awk '{print $NF}' | grep -F "/tfstate-${ID_OR_ALL}/" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
+  # shellcheck disable=SC2016  # the character class is a regex, not an expansion
+  safe_target=$(printf '%s' "$ID_OR_ALL" | sed 's/[][\.*^$(){}?+|/]/\\&/g')
+  groups=$(echo "$all_objects" | awk '{print $NF}' |
+    grep -E "(^|/)tfstate-${safe_target}/" |
+    sed -E -n 's#(^|.*/)tfstate-([^/]*)/.*#\2#p' | sort -u)
   if [ -z "$groups" ] && [ "$FAIL_ON_NOT_FOUND" = true ]; then
     echo "Error: No object found for ID '$ID_OR_ALL'"
     exit 1

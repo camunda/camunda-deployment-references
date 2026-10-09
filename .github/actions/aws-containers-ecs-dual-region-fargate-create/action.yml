@@ -4,6 +4,11 @@ name: Deploy AWS Containers ECS Dual Region Fargate
 description: |
     Deploys the aws/containers/ecs-dual-region-fargate reference architecture.
 
+    Internal to this repository. It calls sibling actions by caller-relative
+    path (./.github/actions/...), which only resolve when this repository is
+    the one checked out, so the cross-repository usage the generated snippet
+    below shows will not work as written.
+
     Unlike the single-region architecture, this one is three independent
     Terraform states applied in order — vpc/ -> infra/ -> app/ — wired to each
     other through terraform_remote_state over S3. The action applies all three
@@ -27,10 +32,10 @@ inputs:
         description: Secondary region
         required: true
     networking-mode:
-        description: How the two VPCs are connected — vpc_peering or transit_gateway
+        description: How the two VPCs are connected — `vpc_peering` or `transit_gateway`
         default: vpc_peering
     secondary-storage-type:
-        description: Camunda secondary storage — rdbms (Aurora Global) or opensearch
+        description: Camunda secondary storage — `rdbms` (Aurora Global) or `opensearch`
         default: rdbms
     single-nat-gateway:
         description: |
