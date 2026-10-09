@@ -1,0 +1,27 @@
+---
+# Temporary image overrides for the integration-test deployments.
+#
+# Every pin here overrides a chart default that is currently broken, and each
+# one names the upstream issue that retires it. Suites load this file rather
+# than carrying their own `yq -i '.<component>.image.tag = ...'` line.
+#
+# TODO: [release-duty] once the entries below are gone, delete this file and
+# every line that loads it.
+
+# TODO: [release-duty] drop this pin once the chart's default Connectors image
+# starts on ROSA in domain mode. Track it in
+# camunda/camunda-deployment-references#3636.
+#
+# camunda/connectors-bundle:8.10.0, the chart default, builds the Camunda client
+# while Spring starts. On ROSA in domain mode the OIDC issuer is not reachable
+# yet, so the context refresh fails and the pod stays at 0/1 (503):
+#
+#   BeanCreationException: 'defaultCamundaClient'
+#     Failed to retrieve well known configuration
+#     java.net.SocketTimeoutException: Connect timed out
+#
+# 8.10.0-rc1 passes the same suite: rosa-hcp-single-region (domain) was green on
+# main with this pin. Seen on PR #3636, runs 37809178352 and 37818609673.
+connectors:
+    image:
+        tag: 8.10.0-rc1

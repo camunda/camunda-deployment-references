@@ -555,6 +555,9 @@ jobs:
                     "tests/utils/camunda-values-identity-secrets.yml"
                     "tests/helm-values/identity.yml"
                     "tests/helm-values/registry.yml"
+                    # TODO: [release-duty] drop this entry together with the file it
+                    # names; the file names the reason for each pin.
+                    "../../../generic/kubernetes/single-region/tests/helm-values/image-overrides.yml"
                   )
 
                   # Add OpenShift-specific SCC configuration
