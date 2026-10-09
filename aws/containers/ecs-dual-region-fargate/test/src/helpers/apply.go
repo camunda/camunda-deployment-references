@@ -24,11 +24,12 @@ type StatePaths struct {
 
 // DefaultStatePaths returns paths anchored at the standard layout:
 //
-//	aws/containers/ecs-dual-region-fargate/test/src/<helpers>
-//	                                              └── terraform/{vpc,infra,app}/
+//	aws/containers/ecs-dual-region-fargate/
+//	├── test/src/            ← packageDir, what the tests pass in
+//	└── terraform/{vpc,infra,app}/
 //
-// Tests in src/ call this with their package directory; the relative climb is
-// two levels: src/ → test/ → ecs-dual-region-fargate/ → terraform/{vpc,infra,app}.
+// Tests in src/ call this with their own directory, so the climb is two
+// levels: src/ → test/ → ecs-dual-region-fargate/, then down into terraform/.
 func DefaultStatePaths(packageDir string) StatePaths {
 	root := filepath.Join(packageDir, "..", "..", "terraform")
 	return StatePaths{

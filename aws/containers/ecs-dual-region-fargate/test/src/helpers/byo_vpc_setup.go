@@ -26,11 +26,13 @@ type BYOVPCFixture struct {
 func SetupBYOVPCs(t *testing.T, packageDir, prefix, awsProfile, region0, region1 string, tags map[string]interface{}) *BYOVPCFixture {
 	t.Helper()
 
-	// packageDir is test/src/helpers/ (one dir below test/src/).
-	// Fixture path: ../../../../../test-fixtures/byo-vpcs/
-	// climb: helpers -> src -> test -> ecs-dual-region-fargate -> containers -> aws -> repo
+	// packageDir is the test package directory, test/src/ — that is what every
+	// caller passes. The comment here used to claim test/src/helpers/ and climb
+	// one level too many, which resolved to <repo>/test-fixtures/byo-vpcs and
+	// failed before Terraform ever ran.
+	// climb: src -> test -> ecs-dual-region-fargate -> containers -> aws
 	// then descend: test-fixtures/byo-vpcs/
-	fixtureDir := filepath.Join(packageDir, "..", "..", "..", "..", "..", "test-fixtures", "byo-vpcs")
+	fixtureDir := filepath.Join(packageDir, "..", "..", "..", "..", "test-fixtures", "byo-vpcs")
 
 	opts := &terraform.Options{
 		TerraformDir: fixtureDir,

@@ -14,15 +14,9 @@
 package src
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
-	"time"
 
-	"github.com/gruntwork-io/terratest/modules/random"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
 
@@ -30,88 +24,31 @@ import (
 )
 
 func TestEndToEnd_Greenfield_TGW_RDBMS(t *testing.T) {
-	t.Parallel()
+	f := helpers.NewFixture(t, "greenfield-tgw-rdbms", "transit_gateway", "rdbms")
 
-	awsProfile := envOrDefault("TEST_AWS_PROFILE", "infraex")
-	region0 := envOrDefault("TEST_REGION_0", "eu-west-2")
-	region1 := envOrDefault("TEST_REGION_1", "eu-west-3")
-	clusterPrefix := envOrDefault("TEST_CLUSTER_PREFIX", fmt.Sprintf("e2e-tgw-rdbms-%s", strings.ToLower(random.UniqueId())))
-	backendBucket := envOrDefault("TEST_BACKEND_BUCKET", "tests-ra-aws-rosa-hcp-tf-state-eu-central-1")
-	backendRegion := envOrDefault("TEST_BACKEND_REGION", "eu-central-1")
-	raftTimeoutMin := envIntOrDefault(t, "TEST_RAFT_TIMEOUT_MIN", 30)
-
-	// Resolve state paths relative to THIS test file's directory.
-	_, thisFile, _, _ := runtime.Caller(0)
-	paths := helpers.DefaultStatePaths(filepath.Dir(thisFile))
-
-	commonTags := map[string]interface{}{
-		"Test":    "true",
-		"RunID":   clusterPrefix,
-		"Owner":   "terratest",
-		"Purpose": "ecs-dual-region-e2e-greenfield-tgw-rdbms",
+	// The integration workflow exports TEST_ENABLE_LOAD_TESTS, and the fixture
+	// does not carry it — without this, dispatching with the input enabled
+	// silently exercised the default-disabled overlay. Set here rather than in
+	// NewFixture so the OpenSearch leg is unaffected.
+	if os.Getenv("TEST_ENABLE_LOAD_TESTS") == "true" {
+		f.Options.AppVars["enable_load_tests"] = true
 	}
 
-	opts := helpers.ApplyOptions{
-		VPCVars: map[string]interface{}{
-			"cluster_name":       clusterPrefix,
-			"aws_profile":        awsProfile,
-			"region_0":           region0,
-			"region_1":           region1,
-			"networking_mode":    "transit_gateway",
-			"single_nat_gateway": true,
-			"default_tags":       commonTags,
-		},
-		InfraVars: map[string]interface{}{
-			"cluster_name":           clusterPrefix,
-			"aws_profile":            awsProfile,
-			"region_0":               region0,
-			"region_1":               region1,
-			"secondary_storage_type": "rdbms",
-			"s3_force_destroy":       true,
-			"default_tags":           commonTags,
-		},
-		AppVars: map[string]interface{}{
-			"aws_profile":  awsProfile,
-			"default_tags": commonTags,
-			// Opt-in load test overlay: proves it applies and destroys cleanly
-			// on the dual-region stack.
-			"enable_load_tests": os.Getenv("TEST_ENABLE_LOAD_TESTS") == "true",
-		},
-		BackendBucket:    backendBucket,
-		BackendRegion:    backendRegion,
-		BackendKeyPrefix: fmt.Sprintf("aws/containers/ecs-dual-region-fargate/%s/", clusterPrefix),
-	}
-
-	_, _, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
+	// ApplyAllThreeStates registers each state's destroy with t.Cleanup, so a
+	// failure partway through still tears down what was created.
+	_, _, appOpts := helpers.ApplyAllThreeStates(t, f.Paths, f.Options)
 
 	// Read region 0 ALB endpoint from the app state (it re-exports infra outputs).
 	albEndpoint := terraform.Output(t, appOpts, "region_0_alb_endpoint")
 	require.NotEmpty(t, albEndpoint, "region_0_alb_endpoint should be a non-empty DNS name")
 
+	adminPass := helpers.SensitiveOutput(t, appOpts, "admin_user_password")
+	require.NotEmpty(t, adminPass, "admin_user_password is needed to poll /v2/topology")
+
 	t.Logf("Waiting for Raft quorum at %s ...", albEndpoint)
-	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", helpers.SensitiveOutput(t, appOpts, "admin_user_password"), 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
+	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", adminPass, brokersBothZones, partitionCount, f.RaftTimeout)
 
-	require.Len(t, topo.Brokers, 8, "expected 8 Zeebe brokers (4 per region)")
-	require.Equal(t, 8, topo.PartitionsCount, "expected 8 partitions")
-	require.Equal(t, 4, topo.ReplicationFactor, "expected replication factor 4")
-}
-
-func envOrDefault(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
-func envIntOrDefault(t *testing.T, key string, fallback int) int {
-	t.Helper()
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback
-	}
-	var parsed int
-	if _, err := fmt.Sscanf(v, "%d", &parsed); err != nil {
-		t.Fatalf("%s must be an integer, got %q", key, v)
-	}
-	return parsed
+	require.Len(t, topo.Brokers, brokersBothZones, "expected %d Zeebe brokers (%d per region)", brokersBothZones, brokersOneZone)
+	require.Equal(t, partitionCount, topo.PartitionsCount, "expected %d partitions", partitionCount)
+	require.Equal(t, rfBothZones, topo.ReplicationFactor, "expected replication factor %d", rfBothZones)
 }

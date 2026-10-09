@@ -5,14 +5,22 @@
 #                                                                             #
 # Checks:                                                                     #
 #   - ECS service status in both regions                                      #
-#   - Zeebe cluster topology (8 brokers, 8 partitions)                        #
+#   - Zeebe cluster topology (brokers, partitions, replication, leaders)      #
 #   - Aurora Global Database replication status                               #
 #   - Workflow execution from each region                                     #
 #                                                                             #
 # Usage:                                                                      #
-#   ./verify_dual_region.sh                                                   #
+#   ./verify_dual_region.sh [--failed-region 0|1]                             #
 #   Environment variables are sourced automatically from                      #
 #   export_environment_prerequisites.sh unless already set in the shell.      #
+#                                                                             #
+# Expected topology                                                           #
+#   Both regions up:  8 brokers, 8 partitions, replicationFactor 4.           #
+#   --failed-region:  after failover.sh. The failed region is skipped and     #
+#   the survivor must report 4 brokers, 8 partitions, replicationFactor 2.    #
+#   /v2/topology derives the replication factor from the partition members    #
+#   that remain, so removing a zone that held 2 of the 4 replicas lowers it   #
+#   to 2.                                                                     #
 ###############################################################################
 
 set -euo pipefail
@@ -31,6 +39,30 @@ AURORA_GLOBAL_CLUSTER_ID="${AURORA_GLOBAL_CLUSTER_ID:-}"
 ADMIN_USER="${ADMIN_USER:-admin}"
 ADMIN_PASS="${ADMIN_PASS:-}"
 
+FAILED_REGION=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --failed-region) FAILED_REGION="${2:-}"; shift 2 ;;
+        *) echo "Unknown argument: $1"; exit 1 ;;
+    esac
+done
+
+if [[ -n "${FAILED_REGION}" && "${FAILED_REGION}" != "0" && "${FAILED_REGION}" != "1" ]]; then
+    echo "ERROR: --failed-region must be 0 or 1"
+    exit 1
+fi
+
+# Matches terraform/app/locals.tf: 4 brokers and 2 replicas per region.
+if [[ -n "${FAILED_REGION}" ]]; then
+    EXPECTED_BROKERS=4
+    EXPECTED_REPLICATION_FACTOR=2
+else
+    EXPECTED_BROKERS=8
+    EXPECTED_REPLICATION_FACTOR=4
+fi
+EXPECTED_PARTITIONS=8
+
 # Auto-source prerequisites if the key variables are not already in the environment.
 if [[ -z "${REGION_0}" || -z "${CLUSTER_0}" || -z "${ADMIN_PASS}" ]]; then
     # shellcheck disable=SC1091
@@ -39,7 +71,6 @@ fi
 
 PASS=0
 FAIL=0
-WARN=0
 
 check() {
     local description=$1
@@ -54,11 +85,16 @@ check() {
     fi
 }
 
-warn() {
-    local description=$1
-    echo "  ⚠️  ${description}"
-    WARN=$((WARN + 1))
+# Returns 0 when the region should be checked, 1 when it is the failed one.
+region_active() {
+    [[ "$1" != "${FAILED_REGION}" ]]
 }
+
+if [[ -n "${FAILED_REGION}" ]]; then
+    echo ""
+    echo "Region ${FAILED_REGION} marked as failed: its checks are skipped."
+fi
+
 
 ###############################################################################
 # 1. ECS Service Health                                                       #
@@ -118,8 +154,8 @@ check_ecs_services() {
     done
 }
 
-check_ecs_services "${REGION_0}" "${CLUSTER_0}" "0"
-check_ecs_services "${REGION_1}" "${CLUSTER_1}" "1"
+region_active 0 && check_ecs_services "${REGION_0}" "${CLUSTER_0}" "0"
+region_active 1 && check_ecs_services "${REGION_1}" "${CLUSTER_1}" "1"
 
 ###############################################################################
 # 2. Zeebe Cluster Topology                                                   #
@@ -145,26 +181,34 @@ check_topology() {
 
     local broker_count
     broker_count=$(echo "${topology}" | jq '.brokers | length')
-    if [ "${broker_count}" = "8" ]; then
-        check "Region ${label}: cluster has ${broker_count} brokers (expected 8)" 0
+    if [ "${broker_count}" = "${EXPECTED_BROKERS}" ]; then
+        check "Region ${label}: cluster has ${broker_count} brokers (expected ${EXPECTED_BROKERS})" 0
     else
-        check "Region ${label}: cluster has ${broker_count} brokers (expected 8)" 1
+        check "Region ${label}: cluster has ${broker_count} brokers (expected ${EXPECTED_BROKERS})" 1
     fi
 
     local partition_count
     partition_count=$(echo "${topology}" | jq '.partitionsCount')
-    if [ "${partition_count}" = "8" ]; then
-        check "Region ${label}: cluster has ${partition_count} partitions (expected 8)" 0
+    if [ "${partition_count}" = "${EXPECTED_PARTITIONS}" ]; then
+        check "Region ${label}: cluster has ${partition_count} partitions (expected ${EXPECTED_PARTITIONS})" 0
     else
-        check "Region ${label}: cluster has ${partition_count} partitions (expected 8)" 1
+        check "Region ${label}: cluster has ${partition_count} partitions (expected ${EXPECTED_PARTITIONS})" 1
     fi
 
     local replication_factor
     replication_factor=$(echo "${topology}" | jq '.replicationFactor')
-    if [ "${replication_factor}" = "4" ]; then
-        check "Region ${label}: replication factor ${replication_factor} (expected 4)" 0
+    if [ "${replication_factor}" = "${EXPECTED_REPLICATION_FACTOR}" ]; then
+        check "Region ${label}: replication factor ${replication_factor} (expected ${EXPECTED_REPLICATION_FACTOR})" 0
     else
-        check "Region ${label}: replication factor ${replication_factor} (expected 4)" 1
+        check "Region ${label}: replication factor ${replication_factor} (expected ${EXPECTED_REPLICATION_FACTOR})" 1
+    fi
+
+    local leader_count
+    leader_count=$(echo "${topology}" | jq '[.brokers[].partitions[] | select(.role == "leader") | .partitionId] | unique | length')
+    if [ "${leader_count}" = "${EXPECTED_PARTITIONS}" ]; then
+        check "Region ${label}: ${leader_count}/${EXPECTED_PARTITIONS} partitions have a leader" 0
+    else
+        check "Region ${label}: ${leader_count}/${EXPECTED_PARTITIONS} partitions have a leader" 1
     fi
 
     # Show broker distribution
@@ -173,8 +217,8 @@ check_topology() {
     echo "${topology}" | jq -r '.brokers[] | "    Broker \(.nodeId) — partitions: \([.partitions[].partitionId] | sort | join(","))"'
 }
 
-check_topology "${ALB_ENDPOINT_0}" "0"
-check_topology "${ALB_ENDPOINT_1}" "1"
+region_active 0 && check_topology "${ALB_ENDPOINT_0}" "0"
+region_active 1 && check_topology "${ALB_ENDPOINT_1}" "1"
 
 ###############################################################################
 # 3. Aurora Global Database Status                                            #
@@ -217,17 +261,49 @@ echo ""
 echo "=== 4. Workflow Execution Test ==="
 echo ""
 
+HEALTH_CHECK_PROCESS_ID="dual-region-health-check"
+
+# Assert the process is deployed; do NOT deploy it here. A verification that
+# repairs what it is about to check cannot tell "the deployment is healthy"
+# from "I just made it healthy", and would no longer detect the very drift
+# this section exists to catch. deploy_health_check_process.sh is step 6 of
+# the deployment procedure — run it once, before verifying.
+# Ask a region that is actually serving. Hardcoding region 0 here meant that
+# `--failed-region 0` — the documented post-failover invocation — queried the
+# region it had just been told was down, and reported the process missing on a
+# cluster whose survivor could serve it perfectly well.
+if region_active 0; then
+    DEFINITION_ALB="${ALB_ENDPOINT_0}"
+else
+    DEFINITION_ALB="${ALB_ENDPOINT_1}"
+fi
+
+DEFINITIONS=$(curl -sf --max-time 30 \
+    -u "${ADMIN_USER}:${ADMIN_PASS}" \
+    -X POST "http://${DEFINITION_ALB}/v2/process-definitions/search" \
+    -H "Content-Type: application/json" \
+    -d "{\"filter\":{\"processDefinitionId\":\"${HEALTH_CHECK_PROCESS_ID}\"}}" \
+    2>/dev/null || echo "")
+
+if [ "$(echo "${DEFINITIONS}" | jq -r '.page.totalItems // 0')" -gt 0 ]; then
+    check "Health-check process '${HEALTH_CHECK_PROCESS_ID}' is deployed (via ${DEFINITION_ALB})" 0
+else
+    check "Health-check process '${HEALTH_CHECK_PROCESS_ID}' is deployed (run ./deploy_health_check_process.sh)" 1
+fi
+
 test_workflow() {
     local alb=$1
     local label=$2
 
-    # Create a simple process instance via REST API
+    # Create a process instance via the v2 REST API. The field is
+    # processDefinitionId — bpmnProcessId is the pre-v2 spelling and is
+    # rejected.
     local response
     response=$(curl -sf --max-time 30 \
         -u "${ADMIN_USER}:${ADMIN_PASS}" \
         -X POST "http://${alb}/v2/process-instances" \
         -H "Content-Type: application/json" \
-        -d '{"bpmnProcessId":"dual-region-health-check","variables":{}}' \
+        -d "{\"processDefinitionId\":\"${HEALTH_CHECK_PROCESS_ID}\",\"variables\":{}}" \
         2>/dev/null || echo "")
 
     if echo "${response}" | jq -e '.processInstanceKey' >/dev/null 2>&1; then
@@ -235,20 +311,19 @@ test_workflow() {
         key=$(echo "${response}" | jq -r '.processInstanceKey')
         check "Region ${label}: workflow started (key: ${key})" 0
     else
-        # Process might not be deployed — that's a warning, not failure
-        warn "Region ${label}: workflow test skipped (deploy a process first or check ALB connectivity)"
+        check "Region ${label}: workflow start failed (response: ${response:-empty})" 1
     fi
 }
 
-test_workflow "${ALB_ENDPOINT_0}" "0"
-test_workflow "${ALB_ENDPOINT_1}" "1"
+region_active 0 && test_workflow "${ALB_ENDPOINT_0}" "0"
+region_active 1 && test_workflow "${ALB_ENDPOINT_1}" "1"
 
 ###############################################################################
 # Summary                                                                     #
 ###############################################################################
 
 echo ""
-echo "=== Results: ${PASS} passed, ${FAIL} failed, ${WARN} warnings ==="
+echo "=== Results: ${PASS} passed, ${FAIL} failed ==="
 echo ""
 
 if [ "${FAIL}" -gt 0 ]; then
