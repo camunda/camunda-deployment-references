@@ -195,8 +195,10 @@ camunda::add_zone() {
     # Printed before it is sent, so the exact request can be replayed by hand
     # against `?dryRun=true` before committing to it.
     echo "    POST /actuator/cluster/zones/$zone $body"
-    camunda::management "$context" POST "/actuator/cluster/zones/$zone" "$body" || return 1
-    camunda::wait_for_cluster_change "$context"
+    local response
+    response="$(camunda::management "$context" POST "/actuator/cluster/zones/$zone" "$body")" || return 1
+    echo "$response"
+    camunda::wait_for_cluster_change "$context" "$(echo "$response" | jq -r '.changeId // .pendingChange.id // empty')"
 }
 
 # camunda::_request <context> <local-port> <remote-port> <auth> <method> <path> [body]
@@ -361,13 +363,16 @@ camunda::gateway_upload() {
         POST "$path" "" "$file"
 }
 
-# camunda::wait_for_cluster_change <context> [timeout_seconds]
+# camunda::wait_for_cluster_change <context> <change-id> [timeout_seconds]
 #
-# Polls GET /actuator/cluster until no change is pending and the last change
-# reports COMPLETED.
+# Polls GET /actuator/cluster until the change the caller just requested is the
+# last change, reports COMPLETED, and nothing is pending. Matching the ID
+# matters: right after the request the new change may not be visible yet, and
+# the previous change's COMPLETED status would otherwise end the wait at once.
 camunda::wait_for_cluster_change() {
     local context="$1"
-    local timeout="${2:-900}"
+    local change_id="${2:?camunda::wait_for_cluster_change needs the changeId of the request}"
+    local timeout="${3:-900}"
     local deadline=$((SECONDS + timeout))
 
     while true; do
@@ -380,7 +385,14 @@ camunda::wait_for_cluster_change() {
         local pending
         pending="$(echo "$cluster" | jq -r '.pendingChange // empty' 2>/dev/null || true)"
         local status
-        status="$(echo "$cluster" | jq -r '.lastChange.status // empty' 2>/dev/null || true)"
+        status="$(echo "$cluster" | jq -r --arg id "$change_id" \
+            'select((.lastChange.id | tostring) == $id) | .lastChange.status // empty' 2>/dev/null || true)"
+
+        if [ "$status" = "FAILED" ] || [ "$status" = "CANCELLED" ]; then
+            echo "ERROR: cluster change $change_id ended as $status." >&2
+            echo "$cluster" >&2
+            return 1
+        fi
 
         if [ -z "$pending" ] && [ "$status" = "COMPLETED" ]; then
             echo "Cluster change completed."
@@ -394,6 +406,43 @@ camunda::wait_for_cluster_change() {
         fi
 
         echo "  waiting for the cluster change to complete (last status: ${status:-unknown}) ..."
-        sleep 15
+        sleep "${CLUSTER_CHANGE_POLL_SECONDS:-15}"
+    done
+}
+
+# camunda::wait_aurora_writer <global-cluster-id> <target-cluster-arn> [timeout]
+#
+# `failover-global-cluster` returns while the switchover is still pending, and
+# `aws rds wait db-cluster-available` only checks the target cluster's own
+# status, so it returns before the writer moves. Poll the global cluster until
+# the target member is the writer and no FailoverState is reported. The 900s
+# default stays under the 20 minutes the e2e test gives failover.sh.
+camunda::wait_aurora_writer() {
+    local global_id="$1"
+    local target_arn="$2"
+    [ -n "$target_arn" ] || { echo "ERROR: no target writer ARN" >&2; return 1; }
+    local timeout="${3:-900}"
+    local deadline=$((SECONDS + timeout))
+
+    while true; do
+        local global_json writer state
+        global_json="$(aws rds describe-global-clusters \
+            --global-cluster-identifier "$global_id" \
+            --query 'GlobalClusters[0]' --output json 2>/dev/null)" || global_json="{}"
+        writer="$(echo "$global_json" | jq -r '.GlobalClusterMembers[]? | select(.IsWriter == true) | .DBClusterArn')"
+        state="$(echo "$global_json" | jq -r '.FailoverState.Status // ""')"
+
+        if [ "$writer" = "$target_arn" ] && [ -z "$state" ]; then
+            return 0
+        fi
+
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "ERROR: Aurora switchover to $target_arn did not finish within ${timeout}s" \
+                "(writer: ${writer:-none}, failover state: ${state:-none})." >&2
+            return 1
+        fi
+
+        echo "    waiting for the Aurora switchover (writer: $(echo "$writer" | cut -d: -f4), state: ${state:-none}) ..."
+        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
     done
 }

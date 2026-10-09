@@ -146,7 +146,8 @@ in `terraform/app/locals.tf`.
 . ./procedure/export_environment_prerequisites.sh
 brew install --cask session-manager-plugin   # macOS
 
-# Fail region 0 away: scale its tasks to 0, then force-remove the zone
+# Fail region 0 away: scale its tasks to 0, force-remove the zone, and move the
+# Aurora writer to region 1 if it was in region 0
 ./procedure/failover.sh --failed-region 0
 
 # Validate the request without changing anything
@@ -154,6 +155,10 @@ brew install --cask session-manager-plugin   # macOS
 
 # The region is already down, so skip the ECS scale-down
 ./procedure/failover.sh --failed-region 0 --keep-tasks
+
+# The region is gone, Aurora included: also leave the writer alone, then
+# follow the AWS unplanned recovery procedure for Aurora
+./procedure/failover.sh --failed-region 0 --keep-tasks --keep-writer
 
 # Restore region 0: scale it up, then re-add the zone
 ./procedure/failback.sh --failed-region 0
@@ -270,11 +275,18 @@ open http://localhost:8080
 
 #### Teardown after a failover
 
-`failover.sh` itself leaves Aurora alone, so a plain failover does not change the
-writer. But if the writer did move — AWS promoting the survivor during a real
-region loss, or `failback.sh --switch-writer` — Terraform still expects the
-original topology and `terraform destroy` may hang on the Aurora resources. To
-work around this:
+Aurora Global Database never moves its writer across regions on its own.
+`failover.sh` moves it to the surviving region when it was in the failed one,
+and `failback.sh --switch-writer` moves it back. Both run a planned switchover,
+which needs the current Aurora primary to still be healthy. If the failed
+region's Aurora cluster is down too, `failover.sh` stops and points to the
+[Aurora Global Database unplanned recovery procedure](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html).
+Pass `--keep-writer` in that case to skip the switchover and let the script
+finish.
+
+While the writer is away from region 0, Terraform still expects the original
+topology and `terraform destroy` may hang on the Aurora resources. To work
+around this:
 
 ```bash
 # 1. Remove both clusters from the Global cluster

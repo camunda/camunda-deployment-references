@@ -119,11 +119,17 @@ repos:
             files: ^\.github/actions/camunda-smoke-test/scripts/port-forward\.sh$
             pass_filenames: false
 
-          - id: eks-multi-region-rdbms-helper-tests
-            name: EKS multi-region RDBMS procedure helper tests
-            entry: bash -c 'cd aws/kubernetes/eks-multi-region-rdbms/test/helpers && go test -count=1 ./...'
+          - id: dr-procedure-offline-tests
+            name: DR procedure offline tests (EKS multi-region, ECS dual-region)
+            # Offline Go tests that drive the failover/failback shell helpers against
+            # fakes. The cloud suites are often skipped by label, so this is the check
+            # that runs on every change to the procedures (#3572).
+            # yamllint disable-line rule:line-length
+            entry: bash -c 'go -C aws/kubernetes/eks-multi-region-rdbms/test test -count=1 ./helpers/ && go -C aws/containers/ecs-dual-region-fargate/test/src
+                test -count=1 ./helpers/'
             language: system
-            files: ^aws/kubernetes/eks-multi-region-rdbms/(procedure|test)/
+            # yamllint disable-line rule:line-length
+            files: ^aws/(kubernetes/eks-multi-region-rdbms|containers/ecs-dual-region-fargate)/(procedure|test)/
             pass_filenames: false
 
           - id: destroy-resources-selftest

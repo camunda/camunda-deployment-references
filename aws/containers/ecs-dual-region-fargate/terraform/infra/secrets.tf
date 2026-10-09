@@ -24,6 +24,16 @@ resource "random_password" "db_admin_password" {
   length           = 32
   special          = true
   override_special = "!#$%^()-_=+[]{}:?"
+  # OpenSearch rejects a master password without one of each class. Ignored
+  # on existing states so that adding them does not rotate the password.
+  min_upper   = 1
+  min_lower   = 1
+  min_numeric = 1
+  min_special = 1
+
+  lifecycle {
+    ignore_changes = [min_upper, min_lower, min_numeric, min_special]
+  }
 }
 
 ################################################################
@@ -113,6 +123,42 @@ resource "aws_secretsmanager_secret_version" "connectors_password_region_0" {
 ################################################################
 #                  Region 1 Secrets                            #
 ################################################################
+
+# The OpenSearch master user password, read by region 1 tasks from their own
+# region so they still start when region 0 is lost. Region 0 tasks read
+# db_admin_password_region_0.
+resource "aws_secretsmanager_secret" "opensearch_password_region_1" {
+  provider = aws.accepter
+  count    = var.secondary_storage_type == "opensearch" ? 1 : 0
+
+  name                    = "${local.prefix_region_1}-opensearch-password"
+  description             = "Master user password for OpenSearch (${local.prefix_region_1})"
+  recovery_window_in_days = 0
+  kms_key_id              = local.secrets_kms_key_arn_region_1
+}
+
+resource "aws_secretsmanager_secret_version" "opensearch_password_region_1" {
+  provider = aws.accepter
+  count    = var.secondary_storage_type == "opensearch" ? 1 : 0
+
+  secret_id     = aws_secretsmanager_secret.opensearch_password_region_1[0].id
+  secret_string = local.db_admin_password_effective
+
+  lifecycle {
+    # Covers what min_* on random_password cannot: an overridden
+    # db_admin_password, and a password generated before min_* existed.
+    precondition {
+      condition = alltrue([
+        length(local.db_admin_password_effective) >= 8,
+        can(regex("[A-Z]", local.db_admin_password_effective)),
+        can(regex("[a-z]", local.db_admin_password_effective)),
+        can(regex("[0-9]", local.db_admin_password_effective)),
+        can(regex("[^A-Za-z0-9]", local.db_admin_password_effective)),
+      ])
+      error_message = "OpenSearch needs a master password of at least 8 characters with an uppercase letter, a lowercase letter, a digit and a special character. Set db_admin_password to one, or regenerate the generated one with: terraform apply -replace='random_password.db_admin_password[0]'."
+    }
+  }
+}
 
 resource "aws_secretsmanager_secret" "admin_user_password_region_1" {
   provider = aws.accepter

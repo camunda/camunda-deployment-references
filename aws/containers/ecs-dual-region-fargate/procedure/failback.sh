@@ -423,8 +423,7 @@ if [ "${SWITCH_WRITER}" = "true" ]; then
             --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
             --target-db-cluster-identifier "${MEMBER_ARN}" \
             --no-cli-pager
-        sleep 15
-        wait_aurora_available "$(echo "${MEMBER_ARN}" | awk -F':' '{print $7}')" "${RECOVERED_AWS_REGION}"
+        aurora_wait_writer "${MEMBER_ARN}"
         log "Aurora writer moved to ${RECOVERED_AWS_REGION}."
     fi
 else

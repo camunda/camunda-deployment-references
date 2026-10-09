@@ -49,7 +49,7 @@ resource "aws_iam_policy" "ecs_task_secrets_region_0" {
             aws_secretsmanager_secret.admin_user_password_region_0.arn,
             aws_secretsmanager_secret.connectors_password_region_0.arn,
           ],
-          var.secondary_storage_type == "rdbms" ? [aws_secretsmanager_secret.db_admin_password_region_0.arn] : [],
+          [aws_secretsmanager_secret.db_admin_password_region_0.arn],
           var.registry_username != "" ? [aws_secretsmanager_secret.registry_credentials_region_0[0].arn] : [],
         )
       },
@@ -147,6 +147,7 @@ resource "aws_iam_policy" "ecs_task_secrets_region_1" {
             aws_secretsmanager_secret.admin_user_password_region_1.arn,
             aws_secretsmanager_secret.connectors_password_region_1.arn,
           ],
+          aws_secretsmanager_secret.opensearch_password_region_1[*].arn,
           var.registry_username != "" ? [aws_secretsmanager_secret.registry_credentials_region_1[0].arn] : [],
         )
       },

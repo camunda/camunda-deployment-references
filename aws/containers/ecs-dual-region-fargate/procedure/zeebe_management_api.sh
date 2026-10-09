@@ -52,7 +52,22 @@ mgmt_tunnel_close() {
 # localhost. `prefix` is the module prefix, e.g. "<cluster_name>-r1-oc"; the
 # service is "<prefix>-orchestration-cluster" (aws/modules/ecs/fargate/
 # orchestration-cluster/ecs.tf:214).
+#
+# Tries MGMT_TUNNEL_ATTEMPTS times (default 3), picking the task again each
+# time: right after a region loss the surviving brokers can restart, and the
+# task picked first may be the one going away.
 mgmt_tunnel_open() {
+    local attempt attempts="${MGMT_TUNNEL_ATTEMPTS:-3}"
+    for attempt in $(seq 1 "${attempts}"); do
+        _mgmt_tunnel_open_once "$@" && return 0
+        [ "${attempt}" -lt "${attempts}" ] || break
+        mgmt_log "Tunnel attempt ${attempt}/${attempts} failed, retrying in 15s..."
+        sleep "${MGMT_TUNNEL_RETRY_SECONDS:-15}"
+    done
+    return 1
+}
+
+_mgmt_tunnel_open_once() {
     local region="$1" cluster="$2" prefix="$3" profile="${4:-}"
     # Expanded as ${arr[@]+"${arr[@]}"}: an empty array under `set -u` is an
     # "unbound variable" error on bash 3.2, which is what /usr/bin/env bash
@@ -298,4 +313,30 @@ mgmt_topology_summary() {
     '
     echo "-----------------------------------------------------------------"
     return 0
+}
+
+# aurora_wait_writer <target-cluster-arn> [timeout]
+#
+# Needs AURORA_GLOBAL_CLUSTER_ID. failover-global-cluster returns while the
+# switchover is still pending, and the target cluster reports "available"
+# before the writer moves. Poll the global
+# cluster until the target is the writer and no FailoverState is left.
+aurora_wait_writer() {
+    local target_arn=$1 max_wait=${2:-1200} global_json writer state
+    [ -n "${target_arn}" ] || { mgmt_err "no target writer ARN"; return 1; }
+    local deadline=$((SECONDS + max_wait))
+    mgmt_log "Waiting for the Aurora switchover to ${target_arn} (timeout ${max_wait}s)..."
+    while [ "${SECONDS}" -lt "${deadline}" ]; do
+        # Ask the target's region (ARN field 4): the CLI default region can be the lost one.
+        global_json=$(aws rds describe-global-clusters --region "$(echo "${target_arn}" | cut -d: -f4)" \
+            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+            --query 'GlobalClusters[0]' --output json 2>/dev/null || echo '{}')
+        writer=$(echo "${global_json}" | jq -r '.GlobalClusterMembers[]? | select(.IsWriter == true) | .DBClusterArn')
+        state=$(echo "${global_json}" | jq -r '.FailoverState.Status // ""')
+        [ "${writer}" = "${target_arn}" ] && [ -z "${state}" ] && { mgmt_log "Aurora switchover finished."; return 0; }
+        mgmt_log "  Writer: ${writer:-none}, failover state: ${state:-none} ($((max_wait - deadline + SECONDS))s elapsed)"
+        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+    done
+    mgmt_err "Timed out waiting for the Aurora switchover to ${target_arn}."
+    return 1
 }

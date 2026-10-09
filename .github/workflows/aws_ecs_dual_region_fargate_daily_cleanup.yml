@@ -1,0 +1,112 @@
+---
+name: Tests - Daily Cleanup - AWS Containers ECS Dual Region Fargate
+
+# Reclaims the vpc/, infra/ and app/ states the ECS dual-region test suites
+# (integration, BYO VPC, failover) leave behind when a run is killed before its
+# own cleanup step. Each test writes its states under
+# aws/containers/ecs-dual-region-fargate/tfstate-<id>/<layer>/terraform.tfstate,
+# <layer> being app, infra, vpc, or the BYO VPC test's fixture.
+
+on:
+    workflow_dispatch:
+        inputs:
+            max_age_hours_cluster:
+                description: Maximum age of clusters in hours
+                required: true
+                default: '12'
+    pull_request:
+        paths:
+            - .github/workflows/aws_ecs_dual_region_fargate_daily_cleanup.yml
+            - .tool-versions
+            - aws/containers/ecs-dual-region-fargate/terraform/cleanup/**
+            - aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh
+            - aws/containers/ecs-dual-region-fargate/procedure/zeebe_management_api.sh
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/aws-configure-cli/**
+
+    schedule:
+        - cron: 0 5 * * * # At 05:00 everyday.
+
+# One group for every run: scheduled and pull-request runs share the same S3
+# prefix and AWS account, and the state backends have no locking.
+concurrency:
+    group: ${{ github.workflow }}
+    cancel-in-progress: false
+
+env:
+    MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
+
+    AWS_PROFILE: infraex
+    S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    S3_BUCKET_REGION: eu-central-1
+    AWS_REGION: eu-west-2
+
+    # Regions the ECS dual-region test workflows deploy to.
+    TF_VAR_region_0: eu-west-2
+    TF_VAR_region_1: eu-west-3
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        outputs:
+            should_skip: ${{ steps.skip_check.outputs.should_skip }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+            - name: Check labels
+              id: skip_check
+              uses: ./.github/actions/internal-triage-skip
+
+    cleanup-clusters:
+        needs: [triage]
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        timeout-minutes: 240
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            # A killed failover run can leave the Aurora writer in region 1, where
+            # terraform destroy may hang. Move it home before the destroy.
+            - name: Move stray Aurora writers home
+              timeout-minutes: 60
+              env:
+                  # Stops starting clusters 5 minutes before the step timeout.
+                  RESTORE_BUDGET_SECONDS: '3300'
+                  REGION_0: ${{ env.TF_VAR_region_0 }}
+              run: ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh "-global-db$" "${MAX_AGE_HOURS_CLUSTER}"
+
+            - name: Delete stacks
+              if: always()
+              timeout-minutes: 170
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
+                  tf-bucket-key-prefix: aws/containers/ecs-dual-region-fargate/
+                  modules-order: app/terraform,infra/terraform,vpc/terraform,fixture/terraform
+                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate
+
+    report-failure:
+        if: failure() && github.event_name == 'schedule'
+        needs: [cleanup-clusters]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+            - name: Notify in Slack in case of failure
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
