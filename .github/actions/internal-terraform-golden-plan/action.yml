@@ -45,7 +45,7 @@ runs:
               INPUTS_S3_BUCKET_KEY: ${{ inputs.s3-bucket-key }}
 
         - name: Upload pipeline golden result
-          uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+          uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
           with:
               name: ${{ steps.golden-prepare.outputs.module_dir_key }}
               path: ${{ inputs.module-dir }}compare/tfplan-golden.json
@@ -105,14 +105,14 @@ runs:
         - name: Compute diff
           id: diff
           if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
-          uses: int128/diff-action@d568d28eca4411ad141d5cd5f84c7b739a0956ce # v2
+          uses: int128/diff-action@274034d712aef611adcbd41e5a647f43e4edd5a5 # v2
           with:
               base: ${{ inputs.module-dir }}test/golden/tfplan-golden.json
               head: ${{ inputs.module-dir }}compare/tfplan-golden.json
 
         - name: Post diff on PR
           if: always() && github.event_name == 'pull_request' && env.update_or_create_diff_comment == 'true'
-          uses: int128/comment-action@9448863881c42b4c69f213d9a67c8b37e7c0f105 # v1
+          uses: int128/comment-action@57130c0b08c149c4ba778ea2dbf5d9e2ac5d1917 # v1
           with:
               update-if-exists: replace
               post: |

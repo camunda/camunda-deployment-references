@@ -63,7 +63,7 @@ _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda
 # a published tag: the guide needs the Camunda Hub keys this branch migrates to,
 # which no released 8.10 tag carries yet.
 # renovate-helm-main: digest tracked against camunda-platform-helm main
-_chart_default_git_ref="1225a5b7ff9d62e3db1ce005e128249197b2d339"
+_chart_default_git_ref="7e3b87d2ce8b9544b3be0472d6662937e1f0d63e"
 # TODO: [release-duty] drop the source build and install the published chart once 8.10 is released.
 _chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-$_chart_default_git_ref}"
 _default_checkout_dir="$(cd "$_chart_src_dir/.." && pwd)/.camunda-platform-helm"

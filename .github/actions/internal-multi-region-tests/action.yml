@@ -151,7 +151,7 @@ runs:
                 # unreleased. The newest tag, 15.0.0-alpha5, predates both.
                 # TODO: [release-duty] switch to the public chart when 8.10 is released.
                 # renovate-helm-main: digest tracked against camunda-platform-helm main
-                CHART_GIT_REF="1225a5b7ff9d62e3db1ce005e128249197b2d339"
+                CHART_GIT_REF="7e3b87d2ce8b9544b3be0472d6662937e1f0d63e"
                 CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
                 CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"
                 # `git clone --branch` resolves a branch or a tag, never a commit, so
@@ -394,7 +394,7 @@ runs:
 
         - name: Upload Pod Logs
           if: failure()
-          uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+          uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
           with:
               name: pod-logs-${{ inputs.helm-version }}
               retention-days: 7
