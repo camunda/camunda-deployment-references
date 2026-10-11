@@ -350,7 +350,7 @@ jobs:
 
             - name: 📤 Upload Azure Activity Log dump
               if: failure() && steps.azure_activity_log.outputs.dump-dir != ''
-              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
               with:
                   name: azure-activity-log-${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   path: ${{ steps.azure_activity_log.outputs.dump-dir }}
@@ -398,7 +398,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@5251cf2838875fd6cab406a1ffa16af1355474a8 # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@a82386064fbdf975fade9d99c98a2af9b506496a # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters

@@ -97,7 +97,7 @@ jobs:
             contents: read
             pull-requests: write # comments and labels on the pull request
         steps:
-            - uses: camunda/infra-global-github-actions/start-build-monitor@5251cf2838875fd6cab406a1ffa16af1355474a8 # main
+            - uses: camunda/infra-global-github-actions/start-build-monitor@a82386064fbdf975fade9d99c98a2af9b506496a # main
 
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
