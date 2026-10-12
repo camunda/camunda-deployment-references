@@ -85,16 +85,16 @@ while read -r global; do
     home=$(echo "$global" | jq -r --arg r "$REGION_0" \
         '[.GlobalClusterMembers[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
     if [ "$MIN_AGE_HOURS" -gt 0 ]; then
-        # Gate on the infra state object the destroy gates on, not on the
-        # cluster's age: an old cluster with a fresh state is skipped by the
-        # destroy and must be left alone here too.
+        # Gate on the state objects the destroy gates on, not on the cluster's
+        # age. The destroy handles app before infra and stops the whole stack
+        # at the first fresh one, so the newest of the two decides.
         cluster=${id%-global-db}
         modified=$(aws s3api list-objects-v2 --region "${STATE_BUCKET_REGION:?}" --bucket "${STATE_BUCKET:?}" \
             --prefix "${STATE_PREFIX:?}tfstate-$cluster" --output json 2>/dev/null |
-            jq -r --arg re "/tfstate-$cluster(-run[0-9]+)?/infra/terraform[.]tfstate$" \
+            jq -r --arg re "/tfstate-$cluster(-run[0-9]+)?/(app|infra)/terraform[.]tfstate$" \
             '[.Contents[]? | select(.Key | test($re)) | .LastModified] | max // empty')
         if ! modified_s=$(jq -rn --arg t "$modified" '$t | sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z") | fromdateiso8601' 2>/dev/null); then
-            mgmt_log "$id: no readable infra state, the destroy skips it too, skipping."
+            mgmt_log "$id: no readable app or infra state, the destroy skips it too, skipping."
             continue
         fi
         # Whole hours, as the destroy counts them.

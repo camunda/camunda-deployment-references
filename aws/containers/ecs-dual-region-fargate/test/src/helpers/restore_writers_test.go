@@ -106,10 +106,14 @@ esac`, "still switching over", "0"},
 		{"no infra state", `case "$*" in
   *describe-global-clusters*) echo '[` + away + `]' ;;
   *list-objects-v2*) echo '{"Contents":[{"Key":"p/tfstate-e2e-fo-planned-123456-run1/vpc/terraform.tfstate","LastModified":"2000-01-01T00:00:00+00:00"}]}' ;;
-esac`, "no readable infra state", "1"},
+esac`, "no readable app or infra state", "1"},
 		{"fresh infra state", `case "$*" in
   *describe-global-clusters*) echo '[` + away + `]' ;;
   *list-objects-v2*) echo '{"Contents":[{"Key":"p/tfstate-e2e-fo-planned-123456-run1/infra/terraform.tfstate","LastModified":"'$(date -u +%Y-%m-%dT%H:%M:%S+00:00)'"}]}' ;;
+esac`, "state younger than 1h", "1"},
+		{"fresh app state", `case "$*" in
+  *describe-global-clusters*) echo '[` + away + `]' ;;
+  *list-objects-v2*) echo '{"Contents":[{"Key":"p/tfstate-e2e-fo-planned-123456-run1/infra/terraform.tfstate","LastModified":"2000-01-01T00:00:00+00:00"},{"Key":"p/tfstate-e2e-fo-planned-123456-run1/app/terraform.tfstate","LastModified":"'$(date -u +%Y-%m-%dT%H:%M:%S+00:00)'"}]}' ;;
 esac`, "state younger than 1h", "1"},
 		{"no home member", `echo '[{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}]'`, "no member in eu-west-2", "0"},
 		{"age with unit", `echo '[` + away + `]'`, "not a whole number of hours", "12h"},
