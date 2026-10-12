@@ -59,6 +59,27 @@ fi
 cluster_budget=${AURORA_SETTLE_SECONDS:-1200}
 while read -r global; do
     id=$(echo "$global" | jq -r .GlobalClusterIdentifier)
+    # Decide eligibility first: a young stack must not spend the run budget
+    # settling a switchover that the destroy will not act on anyway.
+    if [ "$MIN_AGE_HOURS" -gt 0 ]; then
+        # Gate on the state objects the destroy gates on, not on the cluster's
+        # age. The destroy handles app before infra and stops the whole stack
+        # at the first fresh one, so the newest of the two decides.
+        cluster=${id%-global-db}
+        modified=$(aws s3api list-objects-v2 --region "${STATE_BUCKET_REGION:?}" --bucket "${STATE_BUCKET:?}" \
+            --prefix "${STATE_PREFIX:?}tfstate-$cluster" --output json 2>/dev/null |
+            jq -r --arg re "/tfstate-$cluster(-run[0-9]+)?/(app|infra)/terraform[.]tfstate$" \
+            '[.Contents[]? | select(.Key | test($re)) | .LastModified] | max // empty')
+        if ! modified_s=$(jq -rn --arg t "$modified" '$t | sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z") | fromdateiso8601' 2>/dev/null); then
+            mgmt_log "$id: no readable app or infra state, the destroy skips it too, skipping."
+            continue
+        fi
+        # Whole hours, as the destroy counts them.
+        if [ $(((now - modified_s) / 3600)) -lt "$MIN_AGE_HOURS" ]; then
+            mgmt_log "$id: state younger than ${MIN_AGE_HOURS}h, skipping."
+            continue
+        fi
+    fi
     if [ -n "${RESTORE_BUDGET_SECONDS:-}" ] && [ $((SECONDS + cluster_budget)) -gt "$RESTORE_BUDGET_SECONDS" ]; then
         mgmt_err "$id: not enough run budget left for another cluster, skipping it. terraform destroy may hang."
         failed=true
@@ -84,25 +105,6 @@ while read -r global; do
     writer=$(echo "$global" | jq -r '.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn')
     home=$(echo "$global" | jq -r --arg r "$REGION_0" \
         '[.GlobalClusterMembers[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
-    if [ "$MIN_AGE_HOURS" -gt 0 ]; then
-        # Gate on the state objects the destroy gates on, not on the cluster's
-        # age. The destroy handles app before infra and stops the whole stack
-        # at the first fresh one, so the newest of the two decides.
-        cluster=${id%-global-db}
-        modified=$(aws s3api list-objects-v2 --region "${STATE_BUCKET_REGION:?}" --bucket "${STATE_BUCKET:?}" \
-            --prefix "${STATE_PREFIX:?}tfstate-$cluster" --output json 2>/dev/null |
-            jq -r --arg re "/tfstate-$cluster(-run[0-9]+)?/(app|infra)/terraform[.]tfstate$" \
-            '[.Contents[]? | select(.Key | test($re)) | .LastModified] | max // empty')
-        if ! modified_s=$(jq -rn --arg t "$modified" '$t | sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z") | fromdateiso8601' 2>/dev/null); then
-            mgmt_log "$id: no readable app or infra state, the destroy skips it too, skipping."
-            continue
-        fi
-        # Whole hours, as the destroy counts them.
-        if [ $(((now - modified_s) / 3600)) -lt "$MIN_AGE_HOURS" ]; then
-            mgmt_log "$id: state younger than ${MIN_AGE_HOURS}h, skipping."
-            continue
-        fi
-    fi
     if [ -z "$home" ]; then
         mgmt_err "$id: no member in $REGION_0 to move the writer to, terraform destroy may hang."
         failed=true
