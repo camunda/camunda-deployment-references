@@ -71,7 +71,17 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     #
     # The cross-region DNS gate in ../helm-values/camunda-values.yml derives its
     # per-pod hostnames from these contact points, so it inherits the dot too.
-    fqdn="${cluster_ids[$i]}.${CAMUNDA_RELEASE_NAME}-zeebe.${CAMUNDA_NAMESPACE}.svc.clusterset.local."
+    #
+    # In zone-aware mode the chart renders one StatefulSet and one headless
+    # Service per zone, both named <release>-zeebe-<zone>. Names longer than 59
+    # characters get a digest from the chart instead, which this script cannot
+    # predict, so refuse them.
+    zeebe_svc="${CAMUNDA_RELEASE_NAME}-zeebe-${zone_names[$i]}"
+    if [ "${#zeebe_svc}" -gt 59 ]; then
+        echo "ERROR: Zeebe service name '$zeebe_svc' is longer than 59 characters; shorten CAMUNDA_RELEASE_NAME or the zone name." >&2
+        exit 1
+    fi
+    fqdn="${cluster_ids[$i]}.${zeebe_svc}.${CAMUNDA_NAMESPACE}.svc.clusterset.local."
 
     export "REGION_${i}_ZEEBE_SERVICE_NAME=$fqdn"
 
