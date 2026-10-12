@@ -340,3 +340,27 @@ aurora_wait_writer() {
     mgmt_err "Timed out waiting for the Aurora switchover to ${target_arn}."
     return 1
 }
+
+# aurora_settled_global <region> [timeout]
+#
+# Needs AURORA_GLOBAL_CLUSTER_ID. Prints the global cluster once no switchover
+# runs. Early in a switchover the old writer still has IsWriter set, so a
+# caller that decides from a running switchover starts a second one, which AWS
+# rejects. Progress goes to stderr so stdout stays the JSON.
+aurora_settled_global() {
+    local region=$1 max_wait=${2:-1200} global_json state
+    local deadline=$((SECONDS + max_wait))
+    while true; do
+        global_json=$(aws rds describe-global-clusters --region "${region}" \
+            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+            --query 'GlobalClusters[0]' --output json) || return 1
+        state=$(echo "${global_json}" | jq -r '.FailoverState.Status // ""')
+        [ -z "${state}" ] && { echo "${global_json}"; return 0; }
+        if [ "${SECONDS}" -ge "${deadline}" ]; then
+            mgmt_err "A switchover of ${AURORA_GLOBAL_CLUSTER_ID} is still ${state} after ${max_wait}s."
+            return 1
+        fi
+        mgmt_log "  A switchover is ${state}, waiting for it to settle." >&2
+        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+    done
+}

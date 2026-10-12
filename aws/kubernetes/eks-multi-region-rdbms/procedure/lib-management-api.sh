@@ -446,3 +446,29 @@ camunda::wait_aurora_writer() {
         sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
     done
 }
+
+# camunda::settled_aurora_global <global-cluster-id> [timeout]
+#
+# Prints the global cluster once no switchover runs. Early in a switchover the
+# old writer still has IsWriter set, so a caller that decides from a running
+# switchover starts a second one, which AWS rejects. Progress goes to stderr
+# so stdout stays the JSON.
+camunda::settled_aurora_global() {
+    local global_id="$1"
+    local timeout="${2:-900}"
+    local deadline=$((SECONDS + timeout))
+    local global_json state
+    while true; do
+        global_json="$(aws rds describe-global-clusters \
+            --global-cluster-identifier "$global_id" \
+            --query 'GlobalClusters[0]' --output json)" || return 1
+        state="$(echo "$global_json" | jq -r '.FailoverState.Status // ""')"
+        [ -z "$state" ] && { echo "$global_json"; return 0; }
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "ERROR: a switchover of $global_id is still $state after ${timeout}s." >&2
+            return 1
+        fi
+        echo "    a switchover is $state, waiting for it to settle ..." >&2
+        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+    done
+}

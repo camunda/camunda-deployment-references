@@ -154,6 +154,7 @@ camunda::survivor_context() { echo survivor; }
 camunda::use_surviving_region() { :; }
 camunda::management() { echo '{}'; }
 camunda::wait_aurora_writer() { :; }
+camunda::settled_aurora_global() { echo '{"GlobalClusterMembers":[]}'; }
 `,
 		"aws": "#!/usr/bin/env bash\necho '[]'\n",
 	} {
@@ -171,5 +172,33 @@ camunda::wait_aurora_writer() { :; }
 	// Then
 	if err == nil || !strings.Contains(string(out), "No Aurora writer ARN") {
 		t.Fatalf("expected a missing-writer error, got %v\n%s", err, out)
+	}
+}
+
+// A rerun can find the previous switchover early, while the lost region still
+// has IsWriter set. Deciding from that state starts a second switchover, which
+// AWS rejects. The helper must return only the settled membership.
+func TestSettledAuroraGlobalWaitsForTheSwitchover(t *testing.T) {
+	t.Parallel()
+
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(fakeAWS), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", "-c", `set -euo pipefail
+source ./lib-management-api.sh
+camunda::settled_aurora_global global 60 | jq -r '.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn'`)
+	cmd.Dir = ProcedureDir(t)
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake, "AURORA_WRITER_POLL_SECONDS=0")
+	out, err := cmd.Output()
+	if err != nil || strings.TrimSpace(string(out)) != paris {
+		t.Fatalf("want the settled writer %s on stdout, got %v\n%s", paris, err, out)
+	}
+	body, err := os.ReadFile(filepath.Join(ProcedureDir(t), "failover.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), "camunda::settled_aurora_global") {
+		t.Error("failover.sh decides from the global cluster without camunda::settled_aurora_global")
 	}
 }

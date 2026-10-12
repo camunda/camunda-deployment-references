@@ -115,10 +115,14 @@ aurora_unplanned_hint() {
 
 # Sets WRITER_ARN and TARGET_ARN (the member in the surviving region), or exits.
 aurora_read_members() {
-  local members
-  members=$(aws rds describe-global-clusters --region "${SURVIVING_AWS_REGION}" \
-    --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-    --query 'GlobalClusters[0].GlobalClusterMembers' --output json)
+  local global members
+  # A rerun can find the previous run's switchover still going: decide from
+  # the settled membership, never start a second switchover.
+  if ! global=$(aurora_settled_global "${SURVIVING_AWS_REGION}"); then
+    err "Could not read a settled Aurora global cluster."
+    exit 1
+  fi
+  members=$(echo "${global}" | jq '.GlobalClusterMembers')
   WRITER_ARN=$(echo "${members}" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')
   if [[ -z "${WRITER_ARN}" ]]; then
     err "No Aurora writer ARN in the global cluster."

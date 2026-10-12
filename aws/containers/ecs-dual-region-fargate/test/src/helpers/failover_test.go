@@ -47,6 +47,7 @@ mgmt_request() {
 }
 mgmt_wait_change() { return 0; }
 aurora_wait_writer() { return 0; }
+aurora_settled_global() { aws rds describe-global-clusters | jq '{GlobalClusterMembers: .}'; }
 `,
 				"aws": `#!/usr/bin/env bash
 case "$*" in

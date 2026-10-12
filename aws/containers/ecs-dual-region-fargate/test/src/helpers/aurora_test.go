@@ -167,3 +167,32 @@ done
 		})
 	}
 }
+
+// A rerun can find the previous switchover early, while the failed region
+// still has IsWriter set. Deciding from that state starts a second switchover,
+// which AWS rejects. The helper must return only the settled membership.
+func TestAuroraSettledGlobalWaitsForTheSwitchover(t *testing.T) {
+	t.Parallel()
+
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(fakeAWS), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", "-c", `set -euo pipefail
+. ./zeebe_management_api.sh
+aurora_settled_global eu-west-3 60 | jq -r '.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn'`)
+	cmd.Dir = filepath.Join("..", "..", "..", "procedure")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"AURORA_GLOBAL_CLUSTER_ID=g", "AURORA_WRITER_POLL_SECONDS=0")
+	out, err := cmd.Output()
+	if err != nil || strings.TrimSpace(string(out)) != "arn:aws:rds:eu-west-3:1:cluster:b" {
+		t.Fatalf("want the settled writer on stdout, got %v\n%s", err, out)
+	}
+	body, err := os.ReadFile(filepath.Join("..", "..", "..", "procedure", "failover.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), "aurora_settled_global") {
+		t.Error("failover.sh decides from the global cluster without aurora_settled_global")
+	}
+}

@@ -134,9 +134,9 @@ else
     echo
     echo "--> Database: inspecting the Aurora Global Database $AURORA_GLOBAL_CLUSTER_ID"
 
-    members_json="$(aws rds describe-global-clusters \
-        --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-        --query 'GlobalClusters[0].GlobalClusterMembers' --output json)"
+    # A rerun can find the previous run's switchover still going: decide from
+    # the settled membership, never start a second switchover.
+    members_json="$(camunda::settled_aurora_global "$AURORA_GLOBAL_CLUSTER_ID" | jq '.GlobalClusterMembers')"
 
     writer_arn="$(echo "$members_json" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')"
     if [ -z "$writer_arn" ]; then
