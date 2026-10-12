@@ -419,12 +419,22 @@ if [ "${SWITCH_WRITER}" = "true" ]; then
         # to be gated too: promoting the writer is not a validation step.
         log "  --dry-run given, not moving the writer."
     else
-        aws rds failover-global-cluster \
-            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-            --target-db-cluster-identifier "${MEMBER_ARN}" \
-            --no-cli-pager
-        aurora_wait_writer "${MEMBER_ARN}"
-        log "Aurora writer moved to ${RECOVERED_AWS_REGION}."
+        # A rerun can find the previous run's switchover running or done:
+        # settle first, and never submit a duplicate switchover.
+        if ! SETTLED=$(aurora_settled_global "${RECOVERED_AWS_REGION}"); then
+            err "Could not read a settled Aurora global cluster."
+            exit 1
+        fi
+        if [ "$(echo "${SETTLED}" | jq -r '.GlobalClusterMembers[] | select(.IsWriter == true) | .DBClusterArn')" = "${MEMBER_ARN}" ]; then
+            log "Aurora writer is already in ${RECOVERED_AWS_REGION}."
+        else
+            aws rds failover-global-cluster \
+                --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+                --target-db-cluster-identifier "${MEMBER_ARN}" \
+                --no-cli-pager
+            aurora_wait_writer "${MEMBER_ARN}"
+            log "Aurora writer moved to ${RECOVERED_AWS_REGION}."
+        fi
     fi
 else
     log ""

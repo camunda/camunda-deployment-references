@@ -188,11 +188,13 @@ aurora_settled_global eu-west-3 60 | jq -r '.GlobalClusterMembers[] | select(.Is
 	if err != nil || strings.TrimSpace(string(out)) != "arn:aws:rds:eu-west-3:1:cluster:b" {
 		t.Fatalf("want the settled writer on stdout, got %v\n%s", err, out)
 	}
-	body, err := os.ReadFile(filepath.Join("..", "..", "..", "procedure", "failover.sh"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(body), "aurora_settled_global") {
-		t.Error("failover.sh decides from the global cluster without aurora_settled_global")
+	for _, script := range []string{"failover.sh", "failback.sh"} {
+		body, err := os.ReadFile(filepath.Join("..", "..", "..", "procedure", script))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(body), "aurora_settled_global") {
+			t.Errorf("%s decides from the global cluster without aurora_settled_global", script)
+		}
 	}
 }

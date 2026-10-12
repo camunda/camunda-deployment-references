@@ -127,13 +127,21 @@ else
         if [ -z "$target_arn" ] || [ "$target_arn" = "null" ]; then
             echo "    No Aurora member in $recovered_region, nothing to switch back to."
         else
-            echo "    Switching the writer back to $target_arn"
-            aws rds failover-global-cluster \
-                --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-                --target-db-cluster-identifier "$target_arn"
+            # A rerun can find the previous run's switchover running or done:
+            # settle first, and never submit a duplicate switchover.
+            settled_writer="$(camunda::settled_aurora_global "$AURORA_GLOBAL_CLUSTER_ID" |
+                jq -r '.GlobalClusterMembers[] | select(.IsWriter == true) | .DBClusterArn')"
+            if [ "$settled_writer" = "$target_arn" ]; then
+                echo "    Writer is already in $recovered_region."
+            else
+                echo "    Switching the writer back to $target_arn"
+                aws rds failover-global-cluster \
+                    --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
+                    --target-db-cluster-identifier "$target_arn"
 
-            camunda::wait_aurora_writer "$AURORA_GLOBAL_CLUSTER_ID" "$target_arn"
-            echo "    Writer is back in $recovered_region."
+                camunda::wait_aurora_writer "$AURORA_GLOBAL_CLUSTER_ID" "$target_arn"
+                echo "    Writer is back in $recovered_region."
+            fi
         fi
     else
         writer_region="$(echo "$members_json" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn' | cut -d: -f4)"

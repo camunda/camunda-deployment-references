@@ -194,11 +194,13 @@ camunda::settled_aurora_global global 60 | jq -r '.GlobalClusterMembers[] | sele
 	if err != nil || strings.TrimSpace(string(out)) != paris {
 		t.Fatalf("want the settled writer %s on stdout, got %v\n%s", paris, err, out)
 	}
-	body, err := os.ReadFile(filepath.Join(ProcedureDir(t), "failover.sh"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(body), "camunda::settled_aurora_global") {
-		t.Error("failover.sh decides from the global cluster without camunda::settled_aurora_global")
+	for _, script := range []string{"failover.sh", "failback.sh"} {
+		body, err := os.ReadFile(filepath.Join(ProcedureDir(t), script))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(body), "camunda::settled_aurora_global") {
+			t.Errorf("%s decides from the global cluster without camunda::settled_aurora_global", script)
+		}
 	}
 }
