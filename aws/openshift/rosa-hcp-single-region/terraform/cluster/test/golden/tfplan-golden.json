@@ -144,6 +144,7 @@
                   },
                   "type": "aws_iam_role",
                   "values": {
+                    "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
                     "description": null,
                     "force_detach_policies": false,
                     "max_session_duration": 3600,
@@ -229,174 +230,6 @@
                   "schema_version": 0,
                   "sensitive_values": {},
                   "type": "aws_caller_identity"
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.aws_iam_policy_document.custom_trust_policy[0]": {
-                  "index": 0,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRole"
-                        ],
-                        "condition": [],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "AWS"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.aws_iam_policy_document.custom_trust_policy[1]": {
-                  "index": 1,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRole"
-                        ],
-                        "condition": [],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              null
-                            ],
-                            "type": "AWS"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
-                },
-                "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.aws_iam_policy_document.custom_trust_policy[2]": {
-                  "index": 2,
-                  "mode": "data",
-                  "name": "custom_trust_policy",
-                  "provider_name": "registry.terraform.io/hashicorp/aws",
-                  "schema_version": 0,
-                  "sensitive_values": {
-                    "statement": [
-                      {
-                        "actions": [
-                          false
-                        ],
-                        "condition": [],
-                        "not_principals": [],
-                        "principals": [
-                          {
-                            "identifiers": [
-                              false
-                            ]
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  "type": "aws_iam_policy_document",
-                  "values": {
-                    "override_json": null,
-                    "override_policy_documents": null,
-                    "policy_id": null,
-                    "source_json": null,
-                    "source_policy_documents": null,
-                    "statement": [
-                      {
-                        "actions": [
-                          "sts:AssumeRole"
-                        ],
-                        "condition": [],
-                        "effect": "Allow",
-                        "not_actions": null,
-                        "not_principals": [],
-                        "not_resources": null,
-                        "principals": [
-                          {
-                            "identifiers": [
-                              "ec2.amazonaws.com"
-                            ],
-                            "type": "Service"
-                          }
-                        ],
-                        "resources": null,
-                        "sid": null
-                      }
-                    ],
-                    "version": null
-                  }
                 },
                 "module.rosa_cluster.module.rosa_hcp.module.account_iam_resources[0].data.aws_partition.current": {
                   "mode": "data",
@@ -2904,7 +2737,7 @@
               "type": "time_sleep",
               "values": {
                 "create_duration": "20s",
-                "destroy_duration": "20s",
+                "destroy_duration": "5m",
                 "triggers": {
                   "cidr_block": "10.0.0.0/16"
                 }
