@@ -8,14 +8,21 @@ import (
 	"testing"
 )
 
+// switchAwareMembers is a fake describe-global-clusters answer for one global
+// cluster: the writer is b in region 1 until a failover-global-cluster call
+// creates $FAKE_DIR/switched, then a in region 0.
+const switchAwareMembers = `    if [ -f "$FAKE_DIR/switched" ]; then w=a; else w=b; fi
+    echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":'$([ $w = a ] && echo true || echo false)'},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":'$([ $w = b ] && echo true || echo false)'}]}'`
+
 // fakeRestoreAWS serves five global clusters: one whose writer is away from
 // region 0, one already home, and three that the run filter must not match
 // (another run, a non-test stack, and a longer run ID ending in the same digits).
 const fakeRestoreAWS = `#!/usr/bin/env bash
 echo "$*" >> "$FAKE_DIR/calls"
 case "$*" in
+  *failover-global-cluster*) touch "$FAKE_DIR/switched" ;;
   *describe-global-clusters*--global-cluster-identifier*)
-    echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}' ;;
+` + switchAwareMembers + ` ;;
   *describe-global-clusters*)
     echo '[
       {"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]},
@@ -98,11 +105,11 @@ func TestRestoreAuroraWritersSkipsWhatItCannotRead(t *testing.T) {
 		{"never settles", `case "$*" in
   *--global-cluster-identifier*) echo '` + stuck + `' ;;
   *describe-global-clusters*) echo '[` + stuck + `]' ;;
-esac`, "still switching over", "0"},
+esac`, "could not move the writer home", "0"},
 		{"refresh fails", `case "$*" in
   *--global-cluster-identifier*) exit 1 ;;
   *describe-global-clusters*) echo '[` + stuck + `]' ;;
-esac`, "still switching over", "0"},
+esac`, "could not move the writer home", "0"},
 		{"no infra state", `case "$*" in
   *describe-global-clusters*) echo '[` + away + `]' ;;
   *list-objects-v2*) echo '{"Contents":[{"Key":"p/tfstate-e2e-fo-planned-123456-run1/vpc/terraform.tfstate","LastModified":"2000-01-01T00:00:00+00:00"}]}' ;;
@@ -176,7 +183,9 @@ func TestRestoreAuroraWritersExactIDIgnoresTheNamingGuard(t *testing.T) {
 	aws := `#!/usr/bin/env bash
 echo "$*" >> "$FAKE_DIR/calls"
 case "$*" in
-  *--global-cluster-identifier\ custom-global-db\ --query*) echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true}]}' ;;
+  *failover-global-cluster*) touch "$FAKE_DIR/switched" ;;
+  *--global-cluster-identifier\ custom-global-db\ --query*)
+` + switchAwareMembers + ` ;;
   *describe-global-clusters*) echo '[{"GlobalClusterIdentifier":"custom-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}]' ;;
 esac
 `
@@ -306,7 +315,9 @@ func TestRestoreAuroraWritersGatesOnTheInfraState(t *testing.T) {
 	aws := `#!/usr/bin/env bash
 echo "$*" >> "$FAKE_DIR/calls"
 case "$*" in
-  *describe-global-clusters*--global-cluster-identifier*) echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true}]}' ;;
+  *failover-global-cluster*) touch "$FAKE_DIR/switched" ;;
+  *describe-global-clusters*--global-cluster-identifier*)
+` + switchAwareMembers + ` ;;
   *describe-global-clusters*) echo '[{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}]' ;;
   *list-objects-v2*) echo '{"Contents":[{"Key":"p/tfstate-e2e-fo-planned-123456-run1/infra/terraform.tfstate","LastModified":"2000-01-01T00:00:00+00:00"},{"Key":"p/tfstate-e2e-fo-planned-1234567-run1/infra/terraform.tfstate","LastModified":"2999-01-01T00:00:00+00:00"}]}' ;;
   *describe-db-clusters*) echo 1 ;;

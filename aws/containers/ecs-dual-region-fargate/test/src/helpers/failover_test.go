@@ -46,8 +46,9 @@ mgmt_request() {
   echo '{"changeId":"1","plannedChanges":[]}'
 }
 mgmt_wait_change() { return 0; }
-aurora_wait_writer() { return 0; }
-aurora_settled_global() { aws rds describe-global-clusters | jq '{GlobalClusterMembers: .}'; }
+`,
+				"aurora.sh": `aurora_settled_global() { aws rds describe-global-clusters | jq '{GlobalClusterMembers: .}'; }
+aurora_switch_to() { aws rds failover-global-cluster; }
 `,
 				"aws": `#!/usr/bin/env bash
 case "$*" in

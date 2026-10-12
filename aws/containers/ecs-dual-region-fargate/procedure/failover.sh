@@ -65,6 +65,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # shellcheck source=SCRIPTDIR/zeebe_management_api.sh
 . "${SCRIPT_DIR}/zeebe_management_api.sh"
+# shellcheck source=SCRIPTDIR/aurora.sh
+. "${SCRIPT_DIR}/aurora.sh"
 
 ###############################################################################
 # Argument parsing                                                            #
@@ -134,6 +136,104 @@ aurora_read_members() {
     err "No Aurora member in ${SURVIVING_AWS_REGION} to promote."
     exit 1
   fi
+}
+
+# Step 2 and 3: force-removes FAILED_ZONE and waits for the change, or prints
+# the planned change on a dry run. A rerun finds the zone already gone and
+# sends no second request.
+remove_failed_zone() {
+  local present=0 query="force=true" body change_id
+  mgmt_zone_present "${FAILED_ZONE}" || present=$?
+  case "${present}" in
+    1) log "  Zone ${FAILED_ZONE} is already absent — skipping removal."
+       return 0 ;;
+    2) err "Could not read the partition distribution; zone removal cannot proceed."
+       exit 1 ;;
+  esac
+
+  [[ "$DRY_RUN" == "true" ]] && query="${query}&dryRun=true"
+  log "  DELETE /actuator/cluster/zones/${FAILED_ZONE}?${query}"
+  if ! body=$(mgmt_request DELETE "/actuator/cluster/zones/${FAILED_ZONE}?${query}"); then
+    err "Zone removal rejected; see the response above."
+    exit 1
+  fi
+  log "  Accepted."
+
+  if [[ "$DRY_RUN" == "true" ]]; then
+    log ""
+    log "Dry run only — nothing was changed. Planned operations:"
+    echo "${body}" | jq -r '
+      "  changeId:   \(.changeId)",
+      "  operations: \(.plannedChanges | length)",
+      ([.plannedChanges[].operation] | group_by(.)
+        | map("    \(length)x \(.[0])") | .[])
+    ' 2>/dev/null || echo "${body}"
+    return 0
+  fi
+
+  log ""
+  log "=== Step 3: Wait for the change to complete ==="
+  change_id=$(echo "${body}" | jq -r '.changeId // .pendingChange.id // .lastChange.id // empty' 2>/dev/null)
+  if [[ -z "${change_id}" ]]; then
+    err "No changeId in the response; cannot poll the change deterministically."
+    echo "${body}" | jq . 2>/dev/null || echo "${body}"
+    exit 1
+  fi
+  log "  changeId=${change_id}"
+  if ! mgmt_wait_change "${change_id}" 900; then
+    err "Zone removal did not complete. Inspect: GET /actuator/cluster/changes/${change_id}"
+    exit 1
+  fi
+}
+
+# Step 5: moves the Aurora writer out of the failed region, or on a dry run
+# says what it would do. Sets AURORA_SUMMARY for the final report.
+move_aurora_writer() {
+  if [[ -z "${AURORA_GLOBAL_CLUSTER_ID:-}" ]]; then
+    log "  Aurora: AURORA_GLOBAL_CLUSTER_ID is not set, skipping."
+    AURORA_SUMMARY="not managed (AURORA_GLOBAL_CLUSTER_ID unset)"
+    return 0
+  fi
+  if [[ "$KEEP_WRITER" == "true" ]]; then
+    log "  Aurora: --keep-writer given, leaving the writer where it is."
+    log "  If it was in ${FAILED_AWS_REGION}, recover it with the Aurora Global Database"
+    log "  unplanned recovery procedure; exporting waits until a writer is available."
+    AURORA_SUMMARY="left in place (--keep-writer)"
+    return 0
+  fi
+
+  aurora_read_members
+  local writer_region writer_status
+  writer_region=$(echo "${WRITER_ARN}" | cut -d: -f4)
+  if [[ "${writer_region}" != "${FAILED_AWS_REGION}" ]]; then
+    log "  Aurora: the writer is in ${writer_region}, not in the failed region."
+    AURORA_SUMMARY="writer in ${writer_region}"
+    return 0
+  fi
+  if [[ "$DRY_RUN" == "true" ]]; then
+    log "  --dry-run: would promote ${TARGET_ARN}, doing nothing."
+    return 0
+  fi
+
+  # A planned switchover needs the current primary to be healthy. If the
+  # failed region's Aurora cluster is down too, only AWS's unplanned recovery
+  # can move the writer, and that can lose data.
+  writer_status=$(aws rds describe-db-clusters --region "${FAILED_AWS_REGION}" \
+    --db-cluster-identifier "${WRITER_ARN}" \
+    --query 'DBClusters[0].Status' --output text 2>/dev/null || echo unreachable)
+  if [[ "${writer_status}" != "available" ]]; then
+    err "The Aurora writer in ${FAILED_AWS_REGION} is ${writer_status}, so a planned switchover cannot run."
+    aurora_unplanned_hint
+    exit 1
+  fi
+  # The status read above can still say "available" early in an outage. A
+  # rejected or stalled switchover gets the same guidance.
+  if ! aurora_switch_to "${TARGET_ARN}"; then
+    err "The planned switchover to ${SURVIVING_AWS_REGION} did not complete."
+    aurora_unplanned_hint
+    exit 1
+  fi
+  AURORA_SUMMARY="writer moved to ${SURVIVING_AWS_REGION}"
 }
 
 ###############################################################################
@@ -208,67 +308,11 @@ if ! mgmt_tunnel_open "${SURVIVING_AWS_REGION}" "${SURVIVING_CLUSTER}" \
   exit 1
 fi
 
-ZONE_STATE=0
-BODY='{}'
-mgmt_zone_present "${FAILED_ZONE}" || ZONE_STATE=$?
-if [[ "${ZONE_STATE}" -eq 2 ]]; then
-  err "Could not read the partition distribution; zone removal cannot proceed."
-  exit 1
-elif [[ "${ZONE_STATE}" -eq 1 ]]; then
-  log "  Zone ${FAILED_ZONE} is already absent — skipping removal."
-else
-  QUERY="force=true"
-  [[ "$DRY_RUN" == "true" ]] && QUERY="${QUERY}&dryRun=true"
-
-  log "  DELETE /actuator/cluster/zones/${FAILED_ZONE}?${QUERY}"
-  if ! BODY=$(mgmt_request DELETE "/actuator/cluster/zones/${FAILED_ZONE}?${QUERY}"); then
-    err "Zone removal rejected; see the response above."
-    exit 1
-  fi
-  log "  Accepted."
-fi
+remove_failed_zone
 
 if [[ "$DRY_RUN" == "true" ]]; then
-  log ""
-  log "Dry run only — nothing was changed. Planned operations:"
-  echo "${BODY}" | jq -r '
-    "  changeId:   \(.changeId)",
-    "  operations: \(.plannedChanges | length)",
-    ([.plannedChanges[].operation] | group_by(.)
-      | map("    \(length)x \(.[0])") | .[])
-  ' 2>/dev/null || echo "${BODY}"
-  if [[ -z "${AURORA_GLOBAL_CLUSTER_ID:-}" ]]; then
-    log "  Aurora: AURORA_GLOBAL_CLUSTER_ID is not set, skipping."
-  elif [[ "$KEEP_WRITER" == "true" ]]; then
-    log "  Aurora: --keep-writer given, leaving the writer in place."
-  else
-    aurora_read_members
-    log "  --dry-run: would promote ${TARGET_ARN} if the writer is in ${FAILED_AWS_REGION}, doing nothing."
-  fi
+  move_aurora_writer
   exit 0
-fi
-
-if [[ "${ZONE_STATE}" -eq 0 ]]; then
-  CHANGE_ID=$(echo "${BODY}" | jq -r '.changeId // .pendingChange.id // .lastChange.id // empty' 2>/dev/null)
-
-###############################################################################
-# Step 3: Wait for the change to complete                                     #
-###############################################################################
-
-  log ""
-  log "=== Step 3: Wait for the change to complete ==="
-
-  if [[ -z "${CHANGE_ID}" ]]; then
-    err "No changeId in the response; cannot poll the change deterministically."
-    echo "${BODY}" | jq . 2>/dev/null || echo "${BODY}"
-    exit 1
-  fi
-
-  log "  changeId=${CHANGE_ID}"
-  if ! mgmt_wait_change "${CHANGE_ID}" 900; then
-    err "Zone removal did not complete. Inspect: GET /actuator/cluster/changes/${CHANGE_ID}"
-    exit 1
-  fi
 fi
 
 ###############################################################################
@@ -300,50 +344,7 @@ mgmt_tunnel_close
 
 log ""
 log "=== Step 5: Aurora writer ==="
-AURORA_SUMMARY="not managed (AURORA_GLOBAL_CLUSTER_ID unset)"
-if [[ -z "${AURORA_GLOBAL_CLUSTER_ID:-}" ]]; then
-  log "  AURORA_GLOBAL_CLUSTER_ID is not set, skipping."
-elif [[ "$KEEP_WRITER" == "true" ]]; then
-  log "  --keep-writer given, leaving the Aurora writer where it is."
-  log "  If it was in ${FAILED_AWS_REGION}, recover it with the Aurora Global Database"
-  log "  unplanned recovery procedure; exporting waits until a writer is available."
-  AURORA_SUMMARY="left in place (--keep-writer)"
-else
-  aurora_read_members
-  WRITER_REGION=$(echo "${WRITER_ARN}" | cut -d: -f4)
-  if [[ "${WRITER_REGION}" != "${FAILED_AWS_REGION}" ]]; then
-    log "  Writer is in ${WRITER_REGION}, not in the failed region."
-    # An earlier run may have started a switchover whose writer flag already
-    # moved while FailoverState is still set: wait for it to settle as well.
-    aurora_wait_writer "${WRITER_ARN}"
-    AURORA_SUMMARY="writer in ${WRITER_REGION}"
-  else
-    # A planned switchover needs the current primary to be healthy. If the
-    # failed region's Aurora cluster is down too, only AWS's unplanned
-    # recovery can move the writer, and that can lose data.
-    WRITER_STATUS=$(aws rds describe-db-clusters --region "${FAILED_AWS_REGION}" \
-      --db-cluster-identifier "${WRITER_ARN}" \
-      --query 'DBClusters[0].Status' --output text 2>/dev/null || echo unreachable)
-    if [[ "${WRITER_STATUS}" != "available" ]]; then
-      err "The Aurora writer in ${FAILED_AWS_REGION} is ${WRITER_STATUS}, so a planned switchover cannot run."
-      aurora_unplanned_hint
-      exit 1
-    fi
-    log "  Planned switchover to ${TARGET_ARN}"
-    # The status read above can still say "available" early in an outage. A
-    # rejected or stalled switchover gets the same guidance.
-    if ! aws rds failover-global-cluster --region "${SURVIVING_AWS_REGION}" \
-        --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-        --target-db-cluster-identifier "${TARGET_ARN}" \
-        --no-cli-pager > /dev/null \
-      || ! aurora_wait_writer "${TARGET_ARN}"; then
-      err "The planned switchover to ${SURVIVING_AWS_REGION} did not complete."
-      aurora_unplanned_hint
-      exit 1
-    fi
-    AURORA_SUMMARY="writer moved to ${SURVIVING_AWS_REGION}"
-  fi
-fi
+move_aurora_writer
 
 ###############################################################################
 # Step 6: Verify leaders                                                      #

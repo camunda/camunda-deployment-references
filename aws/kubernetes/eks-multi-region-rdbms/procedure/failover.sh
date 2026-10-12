@@ -64,6 +64,8 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib-management-api.sh"
+# shellcheck source=SCRIPTDIR/aurora.sh
+. "$SCRIPT_DIR/aurora.sh"
 
 read -r -a aws_regions <<<"$AWS_REGIONS"
 
@@ -136,7 +138,13 @@ else
 
     # A rerun can find the previous run's switchover still going: decide from
     # the settled membership, never start a second switchover.
-    members_json="$(camunda::settled_aurora_global "$AURORA_GLOBAL_CLUSTER_ID" | jq '.GlobalClusterMembers')"
+    lost_region="${aws_regions[$LOST_SLOT]}"
+    surviving_region="${aws_regions[$((LOST_SLOT == 0 ? 1 : 0))]}"
+    if ! global_json="$(aurora_settled_global "$surviving_region")"; then
+        echo "ERROR: could not read a settled Aurora global cluster." >&2
+        exit 1
+    fi
+    members_json="$(echo "$global_json" | jq '.GlobalClusterMembers')"
 
     writer_arn="$(echo "$members_json" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')"
     if [ -z "$writer_arn" ]; then
@@ -144,17 +152,11 @@ else
         exit 1
     fi
     writer_region="$(echo "$writer_arn" | cut -d: -f4)"
-    lost_region="${aws_regions[$LOST_SLOT]}"
 
     echo "    current writer region: $writer_region"
 
     if [ "$writer_region" != "$lost_region" ]; then
         echo "    The writer is not in the lost region: no database action required."
-        # An earlier run may have started a switchover whose writer flag already
-        # moved while FailoverState is still set: wait for it to settle as well.
-        if [ "$DRY_RUN" != true ]; then
-            camunda::wait_aurora_writer "$AURORA_GLOBAL_CLUSTER_ID" "$writer_arn"
-        fi
     else
         target_arn="$(echo "$members_json" | jq -r --arg lost "$lost_region" \
             '[.[] | select(.IsWriter != true) | select((.DBClusterArn | split(":")[3]) != $lost)][0].DBClusterArn')"
@@ -168,12 +170,7 @@ else
             echo "    --dry-run: would promote $target_arn, doing nothing."
         else
             echo "    Planned switchover to $target_arn"
-            aws rds failover-global-cluster \
-                --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-                --target-db-cluster-identifier "$target_arn"
-
-            echo "    Waiting for the switchover to finish ..."
-            camunda::wait_aurora_writer "$AURORA_GLOBAL_CLUSTER_ID" "$target_arn"
+            aurora_switch_to "$target_arn"
 
             echo "    Promotion complete."
             echo

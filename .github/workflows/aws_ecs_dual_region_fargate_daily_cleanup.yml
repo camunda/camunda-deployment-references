@@ -21,6 +21,7 @@ on:
             - aws/containers/ecs-dual-region-fargate/terraform/cleanup/**
             - aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh
             - aws/containers/ecs-dual-region-fargate/procedure/zeebe_management_api.sh
+            - aws/containers/ecs-dual-region-fargate/procedure/aurora.sh
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-configure-cli/**
 

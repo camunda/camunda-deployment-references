@@ -49,6 +49,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # shellcheck source=SCRIPTDIR/zeebe_management_api.sh
 . "${SCRIPT_DIR}/zeebe_management_api.sh"
+# shellcheck source=SCRIPTDIR/aurora.sh
+. "${SCRIPT_DIR}/aurora.sh"
 
 ###############################################################################
 # Argument parsing                                                            #
@@ -113,7 +115,7 @@ get_global_cluster_members() {
     aws rds describe-global-clusters \
         --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
         --query 'GlobalClusters[0].GlobalClusterMembers' \
-        --output json 2>/dev/null || echo "[]"
+        --output json --region "${RECOVERED_AWS_REGION}" 2>/dev/null || echo "[]"
 }
 
 ###############################################################################
@@ -419,22 +421,13 @@ if [ "${SWITCH_WRITER}" = "true" ]; then
         # to be gated too: promoting the writer is not a validation step.
         log "  --dry-run given, not moving the writer."
     else
-        # A rerun can find the previous run's switchover running or done:
-        # settle first, and never submit a duplicate switchover.
-        if ! SETTLED=$(aurora_settled_global "${RECOVERED_AWS_REGION}"); then
-            err "Could not read a settled Aurora global cluster."
+        # Safe on a rerun: a running switchover settles first, and a writer
+        # already in place is left alone.
+        if ! aurora_switch_to "${MEMBER_ARN}"; then
+            err "Could not move the Aurora writer to ${RECOVERED_AWS_REGION}."
             exit 1
         fi
-        if [ "$(echo "${SETTLED}" | jq -r '.GlobalClusterMembers[] | select(.IsWriter == true) | .DBClusterArn')" = "${MEMBER_ARN}" ]; then
-            log "Aurora writer is already in ${RECOVERED_AWS_REGION}."
-        else
-            aws rds failover-global-cluster \
-                --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-                --target-db-cluster-identifier "${MEMBER_ARN}" \
-                --no-cli-pager
-            aurora_wait_writer "${MEMBER_ARN}"
-            log "Aurora writer moved to ${RECOVERED_AWS_REGION}."
-        fi
+        log "Aurora writer is in ${RECOVERED_AWS_REGION}."
     fi
 else
     log ""

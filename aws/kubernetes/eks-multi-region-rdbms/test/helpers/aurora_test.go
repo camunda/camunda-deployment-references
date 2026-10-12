@@ -36,108 +36,10 @@ func TestParseAuroraGlobal(t *testing.T) {
 	}
 }
 
-// fakeAWS replays #3572: after failover-global-cluster, describe-global-clusters
-// reports the old writer with a FailoverState for two polls, then the new
-// writer while FailoverState is still set, and only then the settled cluster.
-const fakeAWS = `#!/usr/bin/env bash
-calls="$FAKE_DIR/calls"
-case "$*" in
-  *describe-global-clusters*)
-    n=$(( $(cat "$calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$calls"
-    if [ "$n" -le 2 ]; then
-      echo '{"FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":true},{"DBClusterArn":"` + paris + `","IsWriter":false}]}'
-    elif [ "$n" -eq 3 ]; then
-      echo '{"FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":false},{"DBClusterArn":"` + paris + `","IsWriter":true}]}'
-    else
-      echo '{"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":false},{"DBClusterArn":"` + paris + `","IsWriter":true}]}'
-    fi ;;
-esac
-`
-
-func runWaitAuroraWriter(t *testing.T, timeout string) (string, error) {
-	t.Helper()
-
-	fake := t.TempDir()
-	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(fakeAWS), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command("bash", "-c", `set -euo pipefail
-source ./lib-management-api.sh
-camunda::wait_aurora_writer global "$TARGET" "$TIMEOUT"
-cat "$FAKE_DIR/calls"`)
-	cmd.Dir = ProcedureDir(t)
-	cmd.Env = append(os.Environ(),
-		"PATH="+fake+":"+os.Getenv("PATH"),
-		"FAKE_DIR="+fake,
-		"TARGET="+paris,
-		"TIMEOUT="+timeout,
-		"AURORA_WRITER_POLL_SECONDS=0")
-	out, err := cmd.CombinedOutput()
-	return string(out), err
-}
-
-func TestWaitAuroraWriterReturnsOnlyOnceSwitchoverFinished(t *testing.T) {
-	t.Parallel()
-
-	out, err := runWaitAuroraWriter(t, "60")
-	if err != nil {
-		t.Fatalf("wait failed: %v\n%s", err, out)
-	}
-	// The fake settles on its 4th describe call. Fewer calls means the wait
-	// returned while the switchover was still running.
-	if !strings.HasSuffix(strings.TrimSpace(out), "\n4") {
-		t.Fatalf("returned while the switchover was running\n%s", out)
-	}
-}
-
-func TestWaitAuroraWriterFailsOnTimeout(t *testing.T) {
-	t.Parallel()
-
-	out, err := runWaitAuroraWriter(t, "0")
-	if err == nil || !strings.Contains(out, "did not finish within 0s") {
-		t.Fatalf("expected a timeout error, got %v\n%s", err, out)
-	}
-}
-
-// Every procedure that moves the Aurora writer must wait for the global
-// cluster, not for the target cluster alone (#3572).
-func TestWriterMovesWaitForTheGlobalCluster(t *testing.T) {
-	t.Parallel()
-
-	for _, script := range []string{"failover.sh", "failback.sh"} {
-		body, err := os.ReadFile(filepath.Join(ProcedureDir(t), script))
-		if err != nil {
-			t.Fatal(err)
-		}
-		src := string(body)
-		if strings.Contains(src, "failover-global-cluster") && !strings.Contains(src, "camunda::wait_aurora_writer") {
-			t.Errorf("%s moves the writer without camunda::wait_aurora_writer", script)
-		}
-		if strings.Contains(src, "wait db-cluster-available") {
-			t.Errorf("%s waits on db-cluster-available, which returns before the switchover ends", script)
-		}
-	}
-}
-
-func TestWaitAuroraWriterRejectsEmptyTarget(t *testing.T) {
-	t.Parallel()
-	// Given: no writer exists and the caller has no target ARN.
-	fake := t.TempDir()
-	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte("#!/usr/bin/env bash\necho '{\"GlobalClusterMembers\":[]}'\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command("bash", "-c", `set -euo pipefail
-source ./lib-management-api.sh
-camunda::wait_aurora_writer global "" 5`)
-	cmd.Dir = ProcedureDir(t)
-	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "AURORA_WRITER_POLL_SECONDS=0")
-	// When
-	out, err := cmd.CombinedOutput()
-	// Then
-	if err == nil || !strings.Contains(string(out), "no target writer ARN") {
-		t.Fatalf("expected an empty-target error, got %v\n%s", err, out)
-	}
-}
+// The wait, settle and switchover helpers live in procedure/aurora.sh, which
+// is identical to the ECS dual-region copy. Their offline tests are in
+// aws/containers/ecs-dual-region-fargate/test/src/helpers/aurora_test.go,
+// which also checks that both copies match.
 
 func TestFailoverRejectsMissingWriter(t *testing.T) {
 	t.Parallel()
@@ -153,8 +55,9 @@ func TestFailoverRejectsMissingWriter(t *testing.T) {
 camunda::survivor_context() { echo survivor; }
 camunda::use_surviving_region() { :; }
 camunda::management() { echo '{}'; }
-camunda::wait_aurora_writer() { :; }
-camunda::settled_aurora_global() { echo '{"GlobalClusterMembers":[]}'; }
+`,
+		"aurora.sh": `aurora_settled_global() { echo '{"GlobalClusterMembers":[]}'; }
+aurora_switch_to() { :; }
 `,
 		"aws": "#!/usr/bin/env bash\necho '[]'\n",
 	} {
@@ -172,35 +75,5 @@ camunda::settled_aurora_global() { echo '{"GlobalClusterMembers":[]}'; }
 	// Then
 	if err == nil || !strings.Contains(string(out), "No Aurora writer ARN") {
 		t.Fatalf("expected a missing-writer error, got %v\n%s", err, out)
-	}
-}
-
-// A rerun can find the previous switchover early, while the lost region still
-// has IsWriter set. Deciding from that state starts a second switchover, which
-// AWS rejects. The helper must return only the settled membership.
-func TestSettledAuroraGlobalWaitsForTheSwitchover(t *testing.T) {
-	t.Parallel()
-
-	fake := t.TempDir()
-	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(fakeAWS), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command("bash", "-c", `set -euo pipefail
-source ./lib-management-api.sh
-camunda::settled_aurora_global global 60 | jq -r '.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn'`)
-	cmd.Dir = ProcedureDir(t)
-	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake, "AURORA_WRITER_POLL_SECONDS=0")
-	out, err := cmd.Output()
-	if err != nil || strings.TrimSpace(string(out)) != paris {
-		t.Fatalf("want the settled writer %s on stdout, got %v\n%s", paris, err, out)
-	}
-	for _, script := range []string{"failover.sh", "failback.sh"} {
-		body, err := os.ReadFile(filepath.Join(ProcedureDir(t), script))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !strings.Contains(string(body), "camunda::settled_aurora_global") {
-			t.Errorf("%s decides from the global cluster without camunda::settled_aurora_global", script)
-		}
 	}
 }

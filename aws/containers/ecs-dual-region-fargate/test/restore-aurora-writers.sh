@@ -20,8 +20,9 @@
 #      ${STATE_PREFIX}tfstate-<cluster>[-run<id>]/infra/terraform.tfstate, the
 #      object and timestamp the destroy gates on.
 #      AURORA_SETTLE_SECONDS (default 1200): the whole budget of one cluster,
-#      shared by settling a running switchover, retrying while replication
-#      sets up, and waiting for the move home.
+#      passed to aurora_switch_to (procedure/aurora.sh), which shares it
+#      between settling a running switchover, retrying while replication sets
+#      up, and waiting for the move home.
 #      RESTORE_BUDGET_SECONDS (default unlimited): the budget of the whole run.
 #      A cluster is only started if a full per-cluster budget still fits, so
 #      a step timeout set above it never kills a switchover midway.
@@ -38,6 +39,8 @@ MIN_AGE_HOURS="${2:?minimum age in hours required}"
 
 # shellcheck source=aws/containers/ecs-dual-region-fargate/procedure/zeebe_management_api.sh
 . "$(dirname "$0")/../procedure/zeebe_management_api.sh"
+# shellcheck source=aws/containers/ecs-dual-region-fargate/procedure/aurora.sh
+. "$(dirname "$0")/../procedure/aurora.sh"
 
 now=$(date -u +%s)
 failed=false
@@ -85,24 +88,6 @@ while read -r global; do
         failed=true
         continue
     fi
-    deadline=$((SECONDS + cluster_budget))
-    # A switchover still running shows the old writer flag. Let it settle,
-    # then decide from the settled membership.
-    # A failed read keeps the last known state, so it never looks settled.
-    while [ -n "$(echo "$global" | jq -r '.FailoverState.Status // ""')" ] && [ "$SECONDS" -lt "$deadline" ]; do
-        mgmt_log "$id: switchover in progress, waiting."
-        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
-        if fresh=$(aws rds describe-global-clusters --global-cluster-identifier "$id" \
-            --query 'GlobalClusters[0]' --output json); then
-            global=$fresh
-        fi
-    done
-    if [ -n "$(echo "$global" | jq -r '.FailoverState.Status // ""')" ]; then
-        mgmt_err "$id: still switching over, skipping it. terraform destroy may hang."
-        failed=true
-        continue
-    fi
-    writer=$(echo "$global" | jq -r '.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn')
     home=$(echo "$global" | jq -r --arg r "$REGION_0" \
         '[.GlobalClusterMembers[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
     if [ -z "$home" ]; then
@@ -110,20 +95,13 @@ while read -r global; do
         failed=true
         continue
     fi
-    if [ "$writer" != "$home" ]; then
-        mgmt_log "$id: writer is ${writer:-none}, switching it over to $home."
+    # The listing is enough when it shows a settled writer at home. Otherwise
+    # aurora_switch_to lets a running switchover settle and moves the writer.
+    writer=$(echo "$global" | jq -r '.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn')
+    if [ -n "$(echo "$global" | jq -r '.FailoverState.Status // ""')" ] || [ "$writer" != "$home" ]; then
+        mgmt_log "$id: writer is ${writer:-none}, making $home the writer."
         export AURORA_GLOBAL_CLUSTER_ID="$id"
-        # Right after a switchover, AWS refuses the next one while replication is
-        # still being set up ("Please retry"). Retry that error only, until the
-        # cluster deadline.
-        while ! err=$(aws rds failover-global-cluster --global-cluster-identifier "$id" \
-            --target-db-cluster-identifier "$home" --no-cli-pager 2>&1 >/dev/null) &&
-            [[ "$err" == *"replication setup is still in progress"* ]] && [ "$SECONDS" -lt "$deadline" ]; do
-            mgmt_log "$id: replication still setting up, retrying the switchover."
-            sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
-        done
-        [ -n "$err" ] && mgmt_err "$id: $err"
-        if [ -n "$err" ] || ! aurora_wait_writer "$home" "$((deadline > SECONDS ? deadline - SECONDS : 1))"; then
+        if ! aurora_switch_to "$home" "$cluster_budget"; then
             mgmt_err "$id: could not move the writer home, terraform destroy may hang."
             failed=true
             continue
