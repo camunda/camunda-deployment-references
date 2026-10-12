@@ -71,7 +71,9 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     #
     # The cross-region DNS gate in ../helm-values/camunda-values.yml derives its
     # per-pod hostnames from these contact points, so it inherits the dot too.
-    fqdn="${cluster_ids[$i]}.${CAMUNDA_RELEASE_NAME}-zeebe.${CAMUNDA_NAMESPACE}.svc.clusterset.local."
+    # The zone-aware chart renders one headless Service per zone,
+    # <release>-zeebe-<zone>, and names its pods after it.
+    fqdn="${cluster_ids[$i]}.${CAMUNDA_RELEASE_NAME}-zeebe-${zone_names[$i]}.${CAMUNDA_NAMESPACE}.svc.clusterset.local."
 
     export "REGION_${i}_ZEEBE_SERVICE_NAME=$fqdn"
 

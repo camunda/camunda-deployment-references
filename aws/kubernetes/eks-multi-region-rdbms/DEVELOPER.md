@@ -116,7 +116,7 @@ Almost always cross-region DNS. In order:
 ```bash
 ./submariner/verify-submariner.sh          # is Lighthouse up and wired into CoreDNS?
 ./submariner/diagnose-submariner.sh        # full dump incl. cross-cluster nslookup
-kubectl --context cluster-london -n camunda logs camunda-zeebe-0 -c wait-clusterset-dns
+kubectl --context cluster-london -n camunda logs camunda-zeebe-<zone>-0 -c wait-clusterset-dns
 ```
 
 The `wait-clusterset-dns` init container logs exactly which name it is waiting
@@ -145,7 +145,7 @@ camunda/camunda-platform-helm#6949).
 ### RDBMS connection failures
 
 ```bash
-kubectl --context cluster-london -n camunda logs camunda-zeebe-0 | grep -i -E 'jdbc|hikari|liquibase'
+kubectl --context cluster-london -n camunda logs camunda-zeebe-<zone>-0 | grep -i -E 'jdbc|hikari|liquibase'
 ```
 
 Common causes:
