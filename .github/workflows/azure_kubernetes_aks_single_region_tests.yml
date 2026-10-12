@@ -171,7 +171,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@fc5fa6ee1e142bf583e9f01e749bc31654ff07ac # 2.3.8
 
             - name: Import Secrets
               id: secrets
@@ -198,7 +198,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -272,7 +272,7 @@ jobs:
               if: failure() && steps.create_cluster.outcome == 'failure'
               continue-on-error: true
               timeout-minutes: 10
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -357,7 +357,7 @@ jobs:
 
             - name: 📤 Upload Azure Activity Log dump
               if: failure() && steps.azure_activity_log.outputs.dump-dir != ''
-              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
               with:
                   name: azure-activity-log-${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   path: ${{ steps.azure_activity_log.outputs.dump-dir }}
@@ -405,7 +405,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@ee6f294ac4b8da0147f4544ceddaacc89b72b50d # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -443,7 +443,7 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@fc5fa6ee1e142bf583e9f01e749bc31654ff07ac # 2.3.8
 
             - name: Import Secrets
               id: secrets
@@ -498,7 +498,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -690,11 +690,6 @@ jobs:
 
                   # Apply registry-harbor configuration (used in all scenarios for better performance)
                   yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/registry-harbor.yml\")" values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
-
-                  # TODO: [release-duty] drop this load together with the file it
-                  # reads; see camunda/camunda-platform-helm#7284.
-                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/image-overrides.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
                   # Add integration tests specific values
@@ -1053,7 +1048,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@fc5fa6ee1e142bf583e9f01e749bc31654ff07ac # 2.3.8
 
             - name: Import Secrets
               id: secrets
@@ -1071,7 +1066,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
 
             - name: Azure Login with OIDC
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
               if: env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 10
               with:
@@ -1144,7 +1139,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@fc5fa6ee1e142bf583e9f01e749bc31654ff07ac # 2.3.8
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

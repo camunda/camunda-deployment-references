@@ -28,7 +28,7 @@ inputs:
         description: Version of Kubernetes to install
         required: false
         # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
-        default: '1.36'
+        default: '1.37'
     np-desired-node-count:
         description: Desired number of nodes per regional node group
         required: false

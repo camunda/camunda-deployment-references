@@ -232,6 +232,13 @@
           }
         },
         "module.aks.azurerm_kubernetes_cluster_node_pool.user": {
+          "identity": {
+            "managed_cluster_name": null,
+            "name": null,
+            "resource_group_name": null,
+            "subscription_id": null
+          },
+          "identity_schema_version": 0,
           "mode": "managed",
           "name": "user",
           "provider_name": "registry.terraform.io/hashicorp/azurerm",
