@@ -29,6 +29,11 @@ DNS_WAIT_TIMEOUT="${DNS_WAIT_TIMEOUT:-300}"
 
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
 read -r -a zone_names <<<"$CAMUNDA_ZONE_NAMES"
+if [ "${#zone_names[@]}" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
+    echo "ERROR: CAMUNDA_ZONE_NAMES has ${#zone_names[@]} entries; expected at least $CAMUNDA_ACTIVE_REGIONS." >&2
+    echo "       It comes from the zone_names Terraform output; re-source export-terraform-outputs.sh." >&2
+    exit 1
+fi
 
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     context="${contexts[$i]}"
