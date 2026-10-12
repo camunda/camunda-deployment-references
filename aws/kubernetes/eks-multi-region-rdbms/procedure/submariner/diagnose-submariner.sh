@@ -49,8 +49,12 @@ echo "=============================================================="
 
 read -r -a cluster_ids <<<"${SUBMARINER_CLUSTER_IDS:-}"
 read -r -a zone_names <<<"${CAMUNDA_ZONE_NAMES:-}"
-if [ "${#cluster_ids[@]}" -lt "$CAMUNDA_ACTIVE_REGIONS" ] || [ "${#zone_names[@]}" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
-    echo "WARNING: SUBMARINER_CLUSTER_IDS or CAMUNDA_ZONE_NAMES has fewer than $CAMUNDA_ACTIVE_REGIONS entries. Skipping cross-cluster DNS probes."
+if [ "${#zone_names[@]}" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
+    echo "WARNING: CAMUNDA_ZONE_NAMES has ${#zone_names[@]} entries; expected $CAMUNDA_ACTIVE_REGIONS. Skipping cross-cluster DNS probes."
+    exit 0
+fi
+if [ "${#cluster_ids[@]}" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
+    echo "WARNING: SUBMARINER_CLUSTER_IDS has ${#cluster_ids[@]} entries; expected $CAMUNDA_ACTIVE_REGIONS. Skipping cross-cluster DNS probes."
     exit 0
 fi
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do

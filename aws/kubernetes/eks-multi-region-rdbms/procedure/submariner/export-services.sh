@@ -4,8 +4,9 @@ set -euo pipefail
 # Exports the Camunda services of every active cluster to the Submariner
 # ClusterSet, then waits for the resulting ServiceImports to appear.
 #
-# One service per region, the headless <release>-zeebe-<zone>: it carries Raft replication and the
-# per-pod DNS records the brokers dial each other on.
+# One service per region, the headless <release>-zeebe-<zone>: it carries Raft
+# replication and the per-pod DNS records the brokers dial each other on. The
+# chart renders it per zone in zone-aware mode.
 #
 # Headless is what makes this work. Lighthouse resolves a headless export to the
 # remote pod IPs, which the Transit Gateway routes because the VPC CIDRs are
@@ -45,17 +46,19 @@ echo
 echo "Waiting for Lighthouse ServiceImports to be published ..."
 
 deadline=$((SECONDS + DNS_WAIT_TIMEOUT))
-
+# Every cluster must import the service of every region.
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     context="${contexts[$i]}"
-    zeebe_svc="${CAMUNDA_RELEASE_NAME}-zeebe-${zone_names[$i]}"
-    while ! kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" get serviceimport "$zeebe_svc" >/dev/null 2>&1; do
-        if [ "$SECONDS" -ge "$deadline" ]; then
-            echo "WARNING: ServiceImport $zeebe_svc not visible on $context after ${DNS_WAIT_TIMEOUT}s." >&2
-            echo "         Broker startup is gated on clusterset DNS anyway (see helm-values/camunda-values.yml)." >&2
-            break
-        fi
-        sleep 5
+    for ((j = 0; j < CAMUNDA_ACTIVE_REGIONS; j++)); do
+        zeebe_svc="${CAMUNDA_RELEASE_NAME}-zeebe-${zone_names[$j]}"
+        while ! kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" get serviceimport "$zeebe_svc" >/dev/null 2>&1; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+                echo "WARNING: ServiceImport $zeebe_svc not visible on $context after ${DNS_WAIT_TIMEOUT}s." >&2
+                echo "         Broker startup is gated on clusterset DNS anyway (see helm-values/camunda-values.yml)." >&2
+                break
+            fi
+            sleep 5
+        done
     done
 done
 

@@ -104,6 +104,7 @@ export CAMUNDA_ZONE_REPLICAS
 # passed from outside overrides it -- `${VAR:-default}` treats an empty value as
 # unset. See camunda/camunda-platform-helm#6807.
 #
+# TODO: [release-duty] drop this commit pin and install the published chart once 8.10 is released.
 # renovate-helm-main: digest tracked against camunda-platform-helm main
 export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-a5ee96e435b83c3964552d94788fe1765e152b5a}"
 
