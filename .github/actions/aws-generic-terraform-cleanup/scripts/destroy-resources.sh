@@ -654,7 +654,10 @@ EOF
   for attempt in $(seq 1 $max_destroy_attempts); do
     # Stream to the group log as well: a pass killed by its budget never
     # returns, and only the streamed copy then shows the resource it hung on.
-    if output=$(terraform destroy -auto-approve -no-color 2>&1 | tee /dev/stderr); then
+    # Groups run in parallel, so tag each streamed line with its group and
+    # module. $output stays untagged for classify_destroy_error.
+    if output=$(terraform destroy -auto-approve -no-color 2>&1 |
+      tee >(sed -u "s/^/[$group_id][$module_name] | /" >&2)); then
       destroy_succeeded=true
       break
     fi
