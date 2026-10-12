@@ -76,7 +76,14 @@ for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     # Service per zone, both named <release>-zeebe-<zone>. Names longer than 59
     # characters get a digest from the chart instead, which this script cannot
     # predict, so refuse them.
-    zeebe_svc="${CAMUNDA_RELEASE_NAME}-zeebe-${zone_names[$i]}"
+    zone_name="${zone_names[$i]:-}"
+    if [ -z "$zone_name" ]; then
+        echo "ERROR: CAMUNDA_ZONE_NAMES has no entry for zone slot $i." >&2
+        echo "       It must name every one of the $CAMUNDA_REGION_SLOTS slots, not only the active ones." >&2
+        echo "       It comes from the zone_names Terraform output; re-source export-terraform-outputs.sh." >&2
+        exit 1
+    fi
+    zeebe_svc="${CAMUNDA_RELEASE_NAME}-zeebe-${zone_name}"
     if [ "${#zeebe_svc}" -gt 59 ]; then
         echo "ERROR: Zeebe service name '$zeebe_svc' is longer than 59 characters; shorten CAMUNDA_RELEASE_NAME or the zone name." >&2
         exit 1
@@ -109,13 +116,7 @@ export CAMUNDA_CLUSTER_INITIALCONTACTPOINTS="$contact_points"
 
 zones_json=""
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
-    zone_name="${zone_names[$i]:-}"
-    if [ -z "$zone_name" ]; then
-        echo "ERROR: CAMUNDA_ZONE_NAMES has no entry for zone slot $i." >&2
-        echo "       It must name every one of the $CAMUNDA_REGION_SLOTS slots, not only the active ones." >&2
-        echo "       It comes from the zone_names Terraform output; re-source export-terraform-outputs.sh." >&2
-        exit 1
-    fi
+    zone_name="${zone_names[$i]}"
 
     priority=$((ZONE_PRIORITY_BASE - i * ZONE_PRIORITY_STEP))
     if [ "$priority" -lt 1 ]; then

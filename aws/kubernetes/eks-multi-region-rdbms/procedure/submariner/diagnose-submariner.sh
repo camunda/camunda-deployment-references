@@ -49,6 +49,10 @@ echo "=============================================================="
 
 read -r -a cluster_ids <<<"${SUBMARINER_CLUSTER_IDS:-}"
 read -r -a zone_names <<<"${CAMUNDA_ZONE_NAMES:-}"
+if [ "${#zone_names[@]}" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
+    echo "WARNING: CAMUNDA_ZONE_NAMES has ${#zone_names[@]} entries; expected $CAMUNDA_ACTIVE_REGIONS. Skipping cross-cluster DNS probes."
+    exit 0
+fi
 if [ "${#cluster_ids[@]}" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
     echo "WARNING: SUBMARINER_CLUSTER_IDS has ${#cluster_ids[@]} entries; expected $CAMUNDA_ACTIVE_REGIONS. Skipping cross-cluster DNS probes."
     exit 0
@@ -56,7 +60,7 @@ fi
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     for ((j = 0; j < CAMUNDA_ACTIVE_REGIONS; j++)); do
         [ "$i" -eq "$j" ] && continue
-        target="${cluster_ids[$j]}.${CAMUNDA_RELEASE_NAME:-camunda}-zeebe-${zone_names[$j]:-}.${CAMUNDA_NAMESPACE:-camunda}.svc.clusterset.local"
+        target="${cluster_ids[$j]}.${CAMUNDA_RELEASE_NAME:-camunda}-zeebe-${zone_names[$j]}.${CAMUNDA_NAMESPACE:-camunda}.svc.clusterset.local"
         echo "--- ${contexts[$i]} -> $target"
         kubectl --context "${contexts[$i]}" -n "${CAMUNDA_NAMESPACE:-camunda}" \
             run "submariner-dns-probe-$i-$j" --rm -i --restart=Never \
