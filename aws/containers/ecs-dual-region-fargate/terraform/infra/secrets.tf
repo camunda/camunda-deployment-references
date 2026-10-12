@@ -150,12 +150,13 @@ resource "aws_secretsmanager_secret_version" "opensearch_password_region_1" {
     precondition {
       condition = alltrue([
         length(local.db_admin_password_effective) >= 8,
+        length(local.db_admin_password_effective) <= 128,
         can(regex("[A-Z]", local.db_admin_password_effective)),
         can(regex("[a-z]", local.db_admin_password_effective)),
         can(regex("[0-9]", local.db_admin_password_effective)),
         can(regex("[^A-Za-z0-9]", local.db_admin_password_effective)),
       ])
-      error_message = "OpenSearch needs a master password of at least 8 characters with an uppercase letter, a lowercase letter, a digit and a special character. Set db_admin_password to one, or regenerate the generated one with: terraform apply -replace='random_password.db_admin_password[0]'."
+      error_message = "OpenSearch needs a master password of 8 to 128 characters with an uppercase letter, a lowercase letter, a digit and a special character. Set db_admin_password to one, or regenerate the generated one with: terraform apply -replace='random_password.db_admin_password[0]'."
     }
   }
 }
