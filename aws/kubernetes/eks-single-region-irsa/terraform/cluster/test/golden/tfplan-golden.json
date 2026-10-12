@@ -332,7 +332,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.36.4-SUFFIX",
+                    "release_version": "1.37.0-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -356,7 +356,7 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.36",
+                    "version": "1.37",
                     "warm_pool_config": []
                   }
                 },
@@ -1009,7 +1009,7 @@
                 "remote_network_config": [],
                 "tags": null,
                 "timeouts": null,
-                "version": "1.36",
+                "version": "1.37",
                 "vpc_config": [
                   {
                     "endpoint_private_access": true,
@@ -1556,7 +1556,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "aws-ebs-csi-driver",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -1570,7 +1570,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "coredns",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -1584,7 +1584,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "kube-proxy",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -1598,7 +1598,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "vpc-cni",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -1631,7 +1631,7 @@
                 "create_duration": "30s",
                 "destroy_duration": null,
                 "triggers": {
-                  "kubernetes_version": "1.36"
+                  "kubernetes_version": "1.37"
                 }
               }
             }
@@ -3661,7 +3661,7 @@
             "enabled_cloudwatch_logs_exports": null,
             "engine": "aurora-postgresql",
             "engine_mode": "provisioned",
-            "engine_version": "18.4",
+            "engine_version": "18.6",
             "final_snapshot_identifier": null,
             "global_cluster_identifier": null,
             "iam_database_authentication_enabled": true,
@@ -3711,7 +3711,7 @@
             "custom_iam_instance_profile": null,
             "db_subnet_group_name": "cluster-name-pg-irsa",
             "engine": "aurora-postgresql",
-            "engine_version": "18.4",
+            "engine_version": "18.6",
             "force_destroy": false,
             "identifier": "cluster-name-pg-irsa-0",
             "instance_class": "db.t3.medium",
