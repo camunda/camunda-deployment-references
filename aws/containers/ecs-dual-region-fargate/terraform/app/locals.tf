@@ -206,6 +206,21 @@ locals {
     },
   ] : []
 
+  # Each region has its own OpenSearch domain, and a broker exports only the
+  # partitions it leads. With one exporter per domain, every broker writes to
+  # both, so each domain holds every record: users included, without which the
+  # other region rejects logins. Same layout as the EKS dual-region reference
+  # architecture. The passwords are in the task secrets.
+  opensearch_exporter_env_vars = local.infra.secondary_storage_type == "opensearch" ? concat([{
+    name  = "CAMUNDA_DATA_SECONDARYSTORAGE_AUTOCONFIGURECAMUNDAEXPORTER"
+    value = "false"
+    }], flatten([for r in ["0", "1"] : [
+      { name = "CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION${r}_CLASSNAME", value = "io.camunda.exporter.CamundaExporter" },
+      { name = "CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION${r}_ARGS_CONNECT_TYPE", value = "opensearch" },
+      { name = "CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION${r}_ARGS_CONNECT_URL", value = "https://${try(local.infra["opensearch_region_${r}_endpoint"], "")}" },
+      { name = "CAMUNDA_DATA_EXPORTERS_CAMUNDAREGION${r}_ARGS_CONNECT_USERNAME", value = local.infra.db_admin_username },
+  ]])) : []
+
   opensearch_env_vars_region_0 = local.infra.secondary_storage_type == "opensearch" ? [
     {
       name  = "CAMUNDA_DATA_SECONDARYSTORAGE_TYPE"
