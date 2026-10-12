@@ -12,8 +12,13 @@
 #                    ever touched. With RESTORE_EXACT_ID=true (the Go
 #                    test cleanup), <id-regex> is instead the exact identifier
 #                    of one global cluster, whatever its naming.
-#   <min-age-hours>  skip stacks younger than this (a test may still be running)
+#   <min-age-hours>  skip stacks whose infra state is younger than this, in
+#                    whole hours as the destroy counts them
 # Env: REGION_0 (home region), AWS_PROFILE / AWS_REGION as for the AWS CLI,
+#      STATE_BUCKET, STATE_BUCKET_REGION and STATE_PREFIX when <min-age-hours>
+#      is above 0: the age is read from the stack's infra state object,
+#      ${STATE_PREFIX}tfstate-<cluster>[-run<id>]/infra/terraform.tfstate, the
+#      object and timestamp the destroy gates on.
 #      AURORA_SETTLE_SECONDS (default 1200): the whole budget of one cluster,
 #      shared by settling a running switchover, retrying while replication
 #      sets up, and waiting for the move home.
@@ -79,21 +84,29 @@ while read -r global; do
     writer=$(echo "$global" | jq -r '.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn')
     home=$(echo "$global" | jq -r --arg r "$REGION_0" \
         '[.GlobalClusterMembers[] | select((.DBClusterArn | split(":")[3]) == $r)][0].DBClusterArn // empty')
-    if [ -z "$home" ]; then
-        continue
-    fi
     if [ "$MIN_AGE_HOURS" -gt 0 ]; then
-      if ! created=$(aws rds describe-db-clusters --region "$REGION_0" --db-cluster-identifier "$home" \
-        --query 'DBClusters[0].ClusterCreateTime' --output text) ||
-        ! created_s=$(date -u -d "$created" +%s 2>/dev/null); then
-        mgmt_err "$id: could not read the creation time of $home, skipping it."
+        # Gate on the infra state object the destroy gates on, not on the
+        # cluster's age: an old cluster with a fresh state is skipped by the
+        # destroy and must be left alone here too.
+        cluster=${id%-global-db}
+        modified=$(aws s3api list-objects-v2 --region "${STATE_BUCKET_REGION:?}" --bucket "${STATE_BUCKET:?}" \
+            --prefix "${STATE_PREFIX:?}tfstate-$cluster" --output json 2>/dev/null |
+            jq -r --arg re "/tfstate-$cluster(-run[0-9]+)?/infra/terraform[.]tfstate$" \
+            '[.Contents[]? | select(.Key | test($re)) | .LastModified] | max // empty')
+        if ! modified_s=$(jq -rn --arg t "$modified" '$t | sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z") | fromdateiso8601' 2>/dev/null); then
+            mgmt_log "$id: no readable infra state, the destroy skips it too, skipping."
+            continue
+        fi
+        # Whole hours, as the destroy counts them.
+        if [ $(((now - modified_s) / 3600)) -lt "$MIN_AGE_HOURS" ]; then
+            mgmt_log "$id: state younger than ${MIN_AGE_HOURS}h, skipping."
+            continue
+        fi
+    fi
+    if [ -z "$home" ]; then
+        mgmt_err "$id: no member in $REGION_0 to move the writer to, terraform destroy may hang."
         failed=true
         continue
-    fi
-      if [ $(((now - created_s) / 3600)) -lt "$MIN_AGE_HOURS" ]; then
-        mgmt_log "$id: younger than ${MIN_AGE_HOURS}h, skipping."
-        continue
-      fi
     fi
     if [ "$writer" != "$home" ]; then
         mgmt_log "$id: writer is ${writer:-none}, switching it over to $home."

@@ -103,10 +103,15 @@ esac`, "still switching over", "0"},
   *--global-cluster-identifier*) exit 1 ;;
   *describe-global-clusters*) echo '[` + stuck + `]' ;;
 esac`, "still switching over", "0"},
-		{"age unknown", `case "$*" in
+		{"no infra state", `case "$*" in
   *describe-global-clusters*) echo '[` + away + `]' ;;
-  *describe-db-clusters*) exit 1 ;;
-esac`, "could not read the creation time", "1"},
+  *list-objects-v2*) echo '{"Contents":[{"Key":"p/tfstate-e2e-fo-planned-123456-run1/vpc/terraform.tfstate","LastModified":"2000-01-01T00:00:00+00:00"}]}' ;;
+esac`, "no readable infra state", "1"},
+		{"fresh infra state", `case "$*" in
+  *describe-global-clusters*) echo '[` + away + `]' ;;
+  *list-objects-v2*) echo '{"Contents":[{"Key":"p/tfstate-e2e-fo-planned-123456-run1/infra/terraform.tfstate","LastModified":"'$(date -u +%Y-%m-%dT%H:%M:%S+00:00)'"}]}' ;;
+esac`, "state younger than 1h", "1"},
+		{"no home member", `echo '[{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}]'`, "no member in eu-west-2", "0"},
 		{"age with unit", `echo '[` + away + `]'`, "not a whole number of hours", "12h"},
 		{"negative age", `echo '[` + away + `]'`, "not a whole number of hours", "-1"},
 		{"oversized age", `echo '[` + away + `]'`, "not a whole number of hours", "99999999999999999999"},
@@ -119,7 +124,8 @@ esac`, "could not read the creation time", "1"},
 			}
 			cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "-123456-global-db$", tc.minAge)
 			cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
-				"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0", "AURORA_SETTLE_SECONDS=1")
+				"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0", "AURORA_SETTLE_SECONDS=1",
+				"STATE_BUCKET=b", "STATE_BUCKET_REGION=eu-central-1", "STATE_PREFIX=p/")
 			out, err := cmd.CombinedOutput()
 			calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
 			if err != nil || !strings.Contains(string(out), tc.want) || strings.Contains(string(calls), "failover-global-cluster") {
@@ -279,5 +285,35 @@ esac
 		strings.Contains(string(calls), "failover-global-cluster") || strings.Contains(string(calls), "cluster:a --") ||
 		strings.Contains(string(calls), "cluster:c --") || strings.Contains(string(calls), "delete-db-cluster") {
 		t.Fatalf("want reader b detached and reader c reported, got %v\n%s\n%s", err, calls, out)
+	}
+}
+
+// The age gate reads the infra state object the destroy gates on. An old
+// state is restored; its exact infra key is the one read.
+func TestRestoreAuroraWritersGatesOnTheInfraState(t *testing.T) {
+	t.Parallel()
+
+	fake := t.TempDir()
+	aws := `#!/usr/bin/env bash
+echo "$*" >> "$FAKE_DIR/calls"
+case "$*" in
+  *describe-global-clusters*--global-cluster-identifier*) echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true}]}' ;;
+  *describe-global-clusters*) echo '[{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}]' ;;
+  *list-objects-v2*) echo '{"Contents":[{"Key":"p/tfstate-e2e-fo-planned-123456-run1/infra/terraform.tfstate","LastModified":"2000-01-01T00:00:00+00:00"},{"Key":"p/tfstate-e2e-fo-planned-1234567-run1/infra/terraform.tfstate","LastModified":"2999-01-01T00:00:00+00:00"}]}' ;;
+  *describe-db-clusters*) echo 1 ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(aws), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "-123456-global-db$", "12")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0", "RESTORE_STRICT=true",
+		"STATE_BUCKET=b", "STATE_BUCKET_REGION=eu-central-1", "STATE_PREFIX=p/")
+	out, err := cmd.CombinedOutput()
+	calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
+	if err != nil || !strings.Contains(string(calls), "list-objects-v2 --region eu-central-1 --bucket b --prefix p/tfstate-e2e-fo-planned-123456") ||
+		!strings.Contains(string(calls), "failover-global-cluster --global-cluster-identifier e2e-fo-planned-123456-global-db") {
+		t.Fatalf("want the old infra state read and the writer moved home, got %v\n%s\n%s", err, calls, out)
 	}
 }
