@@ -84,6 +84,18 @@ aurora_switch_to() {
         return 0
     fi
 
+    # Settling may have used the whole budget: never start a switchover that
+
+    # could not be awaited, it would keep running after this returns an error.
+
+    if [ "${SECONDS}" -ge "${deadline}" ]; then
+
+        echo "ERROR: no time left to switch the Aurora writer to ${target_arn}." >&2
+
+        return 1
+
+    fi
+
     echo "    Planned switchover from ${writer:-none} to ${target_arn}." >&2
     # Right after a switchover, AWS refuses the next one while replication is
     # still being set up ("Please retry"). Retry that error only.

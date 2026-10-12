@@ -167,6 +167,28 @@ aurora_switch_to arn:aws:rds:eu-west-3:1:cluster:b 60`)
 	}
 }
 
+// Settling can use the whole budget. A switchover started then could not be
+// awaited and would keep running after the error, so none may start.
+func TestAuroraSwitchToStartsNothingWithoutBudget(t *testing.T) {
+	t.Parallel()
+
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(fakeSwitchAWS), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", "-c", `set -euo pipefail
+. ./aurora.sh
+aurora_switch_to arn:aws:rds:eu-west-3:1:cluster:b 0`)
+	cmd.Dir = filepath.Join("..", "..", "..", "procedure")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"AURORA_GLOBAL_CLUSTER_ID=g", "AURORA_WRITER_POLL_SECONDS=0")
+	out, err := cmd.CombinedOutput()
+	args, _ := os.ReadFile(filepath.Join(fake, "args"))
+	if err == nil || !strings.Contains(string(out), "no time left") || strings.Contains(string(args), "failover-global-cluster") {
+		t.Fatalf("want an error and no switchover, got %v\n%s\n%s", err, args, out)
+	}
+}
+
 func TestAuroraSwitchToFailsOnOtherErrors(t *testing.T) {
 	t.Parallel()
 
