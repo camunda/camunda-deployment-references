@@ -279,30 +279,26 @@ class CommandLineTest(unittest.TestCase):
             )
         self.assertEqual(result.returncode, 2)
 
-    def test_known_schema_gap_is_reported_as_ignored_not_unknown(self):
-        # Build the nested schema/values shape for a SCHEMA_GAPS entry so the
-        # test follows the constant instead of hard-coding one key path.
-        gap = sorted(validate_unknown_keys.SCHEMA_GAPS)[0]
+    def test_former_schema_gap_is_reported_when_not_declared(self):
+        gap = "orchestration.security.initialization.defaultRoles.admin.clients"
         schema, values = self.schema_and_values_for_gap(gap)
 
         result = self.run_script(schema, values)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("Ignoring 1 key(s)", result.stdout)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertNotIn("Ignoring", result.stdout)
         self.assertIn(gap, result.stdout)
 
-    def test_schema_gap_does_not_mask_a_real_unknown_key(self):
-        # Both must be present at once: a gap alone would pass even if the
-        # filter wrongly discarded every unknown key found beside it.
-        gap = sorted(validate_unknown_keys.SCHEMA_GAPS)[0]
+    def test_former_schema_gap_does_not_mask_another_unknown_key(self):
+        gap = "orchestration.security.initialization.defaultRoles.admin.clients"
         schema, values = self.schema_and_values_for_gap(gap)
         schema["properties"]["a"] = {"type": "object", "properties": {}}
         values["a"] = {"typo": 1}
 
         result = self.run_script(schema, values)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("Ignoring 1 key(s)", result.stdout)
+        self.assertNotIn("Ignoring", result.stdout)
         self.assertIn(gap, result.stdout)
-        self.assertIn("Found 1 unknown key(s)", result.stdout)
+        self.assertIn("Found 2 unknown key(s)", result.stdout)
         self.assertIn("- a.typo", result.stdout)
 
 
