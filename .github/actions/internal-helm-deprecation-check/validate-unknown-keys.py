@@ -25,13 +25,6 @@ import re
 import sys
 
 
-# Keys the chart honours at runtime but forgot to declare in values.schema.json.
-# Reporting them is a false positive: dropping them from our values would
-# silently change the deployment. Each entry needs a reason and must be removed
-# once the schema catches up.
-SCHEMA_GAPS = frozenset()
-
-
 def make_schema_strict(schema):
     """
     Recursively add additionalProperties: false to object schemas that enumerate
@@ -202,18 +195,6 @@ def main():
 
     strict_schema = make_schema_strict(schema)
     unknown_keys = find_unknown_keys(strict_schema, values)
-
-    ignored = sorted(k for k in unknown_keys if k in SCHEMA_GAPS)
-    unknown_keys = [k for k in unknown_keys if k not in SCHEMA_GAPS]
-
-    if ignored:
-        print(
-            f"Ignoring {len(ignored)} key(s) known to be missing from the chart "
-            "schema but honoured at runtime:\n"
-        )
-        for key_path in ignored:
-            print(f"  - {key_path}")
-        print("")
 
     if unknown_keys:
         print(f"Found {len(unknown_keys)} unknown key(s) in deployed values:\n")
