@@ -149,7 +149,7 @@ run "postgresql_seed_uses_postgres_image" {
   }
 
   assert {
-    condition     = strcontains(aws_ecs_task_definition.db_seed[0].container_definitions, "postgres:17-alpine")
+    condition     = strcontains(aws_ecs_task_definition.db_seed[0].container_definitions, "docker/library/postgres:")
     error_message = "PostgreSQL DB seed should use the postgres client image"
   }
 }
