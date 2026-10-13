@@ -29,7 +29,7 @@ Each cluster will be added to the kube config with the name of the cluster as co
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states.</p> | `true` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
-| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `false` | `main` |
+| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `false` | `stable/8.10` |
 | `tf-modules-path` | <p>Path where the tf rosa modules will be cloned</p> | `false` | `./.action-tf-modules/aws-openshift-rosa-hcp-dual-region-create/` |
 | `login` | <p>Authenticate the current kube context on the created clusters</p> | `false` | `true` |
 | `enable-vpc-peering` | <p>Whether or not to enable VPC Peering between the clusters</p> | `false` | `true` |
@@ -171,7 +171,7 @@ This action is a `composite` action.
     # Git revision of the tf modules to use
     #
     # Required: false
-    # Default: main
+    # Default: stable/8.10
 
     tf-modules-path:
     # Path where the tf rosa modules will be cloned
