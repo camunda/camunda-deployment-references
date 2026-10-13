@@ -135,6 +135,7 @@ runs:
           run: |
               set -euo pipefail
 
+              # TODO: [release-duty] remove source checkout and chart selection on the cut branch.
               if [[ "${INPUTS_HELM_VERSION}" =~ dev-latest ]]; then
                 # The pre-release dev chart is not published to the public Helm repo,
                 # so build it from source instead of pulling the private OCI registry:
@@ -240,6 +241,7 @@ runs:
               kube-context: ${{ inputs.cluster-0-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              # TODO: [release-duty] remove local-chart plumbing on the cut branch.
               local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
@@ -255,6 +257,7 @@ runs:
               kube-context: ${{ inputs.cluster-1-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              # TODO: [release-duty] remove local-chart plumbing on the cut branch.
               local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
