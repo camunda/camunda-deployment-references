@@ -50,11 +50,13 @@ Submit each change through a pull request. A maintainer merges the pull requests
    * Example for the `8.10` cut:
 
      ```sh
-      git branch stable/8.10 origin/main
-      git push origin stable/8.10
-      git worktree add -b chore/prepare-stable-8.10 debug/wt-cut-810 stable/8.10
-      git worktree add -b chore/prepare-main-8.11 debug/wt-main-811 origin/main
+     git branch stable/8.10 <cut-sha>
+     git push origin stable/8.10
+     git worktree add -b chore/prepare-stable-8.10 debug/wt-cut-810 stable/8.10
+     git worktree add -b chore/prepare-main-8.11 debug/wt-main-811 origin/main
      ```
+
+   * Create the `backport stable/8.x` label for the new stable branch.
 
 2. **Check release tasks and unmarked moving parts**
 
@@ -68,18 +70,17 @@ Submit each change through a pull request. A maintainer merges the pull requests
      git grep -n -E 'dev-latest|SNAPSHOT|renovate-helm-main|camunda-platform-8\.'
      git grep -n -E 'baseBranchPatterns|TESTS_.*PREVIOUS_VERSION|camunda_hub_cluster_version'
      git grep -n -E 'c8-sm-checks|blob/main|tree/main|docs/next' -- .github aws azure generic local docs
-     git grep -n -E 'gh-pages|workflow-scheduler|\.camunda-version|\.camunda-chart-version|\.target-branch'
+     git grep -n -E 'gh-pages|workflow-scheduler|\.camunda-version|\.target-branch'
      ```
 
    * Inspect Helm source pins, image pins, installation scripts, test fixtures, generated READMEs, and topology examples.
-   * Inspect release notes, documentation links, smoke-test tags, scheduler blocks, Renovate configuration, and artifact publishers.
+   * Inspect release notes, documentation links, smoke-test releases, scheduler blocks, Renovate configuration, and artifact publishers.
    * Record each retained development dependency and the condition that permits its replacement.
 
 3. **Set the stable branch metadata**
 
    * Set `.camunda-version` to the released minor, for example `8.10`.
    * Set `.target-branch` to `stable/8.x` on the stable branch only.
-   * If `.camunda-chart-version` exists, set it to the chart source directory's minor version.
 
 4. **Maintain `RELEASE-NOTES.md` on both branches**
 
@@ -97,11 +98,14 @@ Submit each change through a pull request. A maintainer merges the pull requests
    * Check that the registry publishes the next `dev-latest` tag.
    * Change `15-dev-latest` to `16-dev-latest` only when the 8.11 chart exists and the registry permits access.
    * Change each corresponding `camunda-platform` Renovate pattern from `versioning=regex:^15` to `versioning=regex:^16` at the same time.
-   * Keep `.camunda-chart-version` on the available source directory if upstream does not yet provide the next minor.
-   * Keep working chart pins until a verified replacement exists. Record the remaining prerequisite below.
+   * After checkout, source builders select `charts/camunda-platform-$(cat .camunda-version)` when that directory exists.
+   * Otherwise, they select the newest `charts/camunda-platform-8.*` directory with `sort -V`.
+   * The fallback prints a warning to stderr that names the expected and selected directories.
+   * Keep working chart pins until a verified replacement exists. Record remaining prerequisites in the pull-request description.
    * Check Docker Hub before selecting alpha or SNAPSHOT image tags. Components can publish different versions.
    * Keep working distribution versions if the next distribution does not exist.
-   * Set the EC2 upgrade-test previous versions to the latest stable minor.
+   * Change EC2 previous versions together with `TESTS_CAMUNDA_VERSION` and `TESTS_CONNECTORS_VERSION` when the next minor's distributions exist.
+   * Keep the previous versions on the preceding minor until then. This preserves a minor-version upgrade test.
 
 6. **Update workflow schedules**
 
@@ -109,10 +113,10 @@ Submit each change through a pull request. A maintainer merges the pull requests
    * Use the previous minor's blocks as a starting point.
    * Split weekly suites across hours. Use distinct names and a free weekday.
    * Stagger daily blocks by one hour between versions.
-   * Update the `main` block for the next development version.
    * Check each listed workflow against the new stable branch. Do not copy workflows that no longer exist.
+   * Every scheduled workflow needs `on.pull_request` on its target branch.
    * Include new architectures and their cleanup workflows. Exclude the five artifact publishers from stable schedules.
-   * Keep `main`'s native workflow schedules unless a separate change requires their removal.
+   * Use the scheduler only for stable branches. Keep `main`'s native workflow schedules.
 
 7. **Update Renovate branch patterns**
 
@@ -122,8 +126,7 @@ Submit each change through a pull request. A maintainer merges the pull requests
 
    * On `main`, in `.github/renovate.json5`, update the `baseBranchPatterns` list:
      * Add the newly created `stable/8.x` branch.
-      * Remove branches whose maintenance period ended. Check the [release policy](https://camunda.com/release-policy/) and the version's release announcements.
-   * Remove those branches from the scheduler configuration too.
+     * Follow step 12 for branches whose maintenance period ended.
    * Inspect [infraex-common-config](https://github.com/camunda/infraex-common-config/blob/main/default.json5) for branch-specific rules.
    * Its current preset uses generic `/^stable\/8\..*/` rules, not a rule for each minor.
    * No per-version preset change is necessary unless that configuration changes.
@@ -180,9 +183,8 @@ Submit each change through a pull request. A maintainer merges the pull requests
 10. **Release the smoke-test scripts**
 
     * Open a pull request in `camunda/c8-sm-checks` to update `ZEEBE_DEFAULT_VERSION` in `checks/zeebe/connectivity.sh` to the released minor.
-    * Check the scripts before publishing a new tag. This repository uses tags, not maintenance branches.
-    * Update the `c8-sm-checks` tag references here after that tag exists.
-    * Do not invent the next tag or change references before publication.
+    * Check the scripts, then tag a release in `camunda/c8-sm-checks`.
+    * Keep this repository's `c8-sm-checks` references on `main`.
 
 11. **Check and coordinate the release pull requests**
 
@@ -205,25 +207,6 @@ Submit each change through a pull request. A maintainer merges the pull requests
     * Do not remove the Git branch or published history as part of this checklist.
     * Check that scheduler YAML parses. Test its matrix selection without creating or closing pull requests.
     * Record all remaining dependencies on the retired branch in the pull request.
-
-### 8.11 development prerequisites
-
-Checked on 2026-10-13:
-
-* `.camunda-version` targets `8.11`. `.camunda-chart-version` remains `8.10` so source builds select an existing directory.
-* [Upstream Chart.yaml](https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform-8.10/Chart.yaml) declares chart `15.1.0` and application `8.10.x`.
-* Upstream `main` has no `charts/camunda-platform-8.11` directory. Keep the verified source commit and `15-dev-latest` fallback references.
-* An anonymous manifest request for `16-dev-latest` returned HTTP 401, including after the registry's token exchange.
-* The [public Helm index](https://helm.camunda.io/index.yaml) lists `15.0.0` from 2026-10-08 and `15.1.0` from 2026-10-12.
-* Keep source builds on development `main`. Remove them on the stable preparation branch when the published chart meets each architecture's requirements.
-* Recheck upstream and the registry before changing the chart directory, `dev-latest` tags, or Renovate chart-major patterns.
-* Docker Hub publishes `8.11-SNAPSHOT` for [Camunda](https://hub.docker.com/r/camunda/camunda/tags?name=8.11), [Connectors](https://hub.docker.com/r/camunda/connectors-bundle/tags?name=8.11), and [Optimize](https://hub.docker.com/r/camunda/optimize/tags?name=8.11).
-* No 8.11 alpha tag appeared in those lists. Identity and Hub had no 8.11 tags.
-* ECS dual-region uses the verified 8.11 SNAPSHOT images. Other working GA defaults remain until their next-version configuration is available.
-* EC2 and Debian retain Camunda `8.10.3` and Connectors `8.10.0`. No `8.11.0-alpha1` GitHub release exists for either distribution.
-* [8.7 release announcements](https://unsupported.docs.camunda.io/8.7/docs/reference/announcements-release-notes/870/870-announcements/) give 2026-10-13 as the end of standard maintenance.
-* The documentation now marks 8.7 unmaintained. Remove `stable/8.7` from Renovate and scheduler targets.
-* `c8-sm-checks` still defaults to Zeebe `8.9` and its latest tag is `v1.4.0`. Complete step 10 separately.
 
 ---
 

@@ -142,8 +142,8 @@ CI emits complementary operational signals:
 
 ## Workflow Scheduling
 
-Schedules are defined in `.github/workflows-config/workflow-scheduler.yml`. Tests are staggered by:
-- Camunda version (8.8, 8.9, 8.10, and 8.11 development)
+Stable-branch schedules use `.github/workflows-config/workflow-scheduler.yml`. The `main` branch uses native workflow crons. Tests are staggered by:
+- Camunda version (8.8, 8.9, and 8.10)
 - Day of week
 - Time of day
 
@@ -186,24 +186,4 @@ All reusable CI logic lives in `.github/actions/`. Each action has:
 
 ## Release Process
 
-Follow [MAINTENANCE.md](../MAINTENANCE.md#release-duty) for the full procedure.
-
-1. Record the cut commit. Create `stable/8.x` and separate preparation worktrees.
-2. Check `release-duty` markers and unmarked moving parts on both branches.
-3. Set the stable branch's `.camunda-version` and `.target-branch` to the released minor and `stable/8.x`.
-4. Add the released section to `RELEASE-NOTES.md` on both branches. Keep those sections in sync.
-5. Set `main` to the next minor. Keep its `.target-branch` on `main`.
-6. Check upstream chart directories, chart versions, registries, and image tags before changing versions.
-7. Keep `.camunda-chart-version` on the available source minor until upstream publishes the next chart directory.
-8. Add stable scheduler blocks. Update the `main` blocks and stagger each version's jobs.
-9. Check every scheduled workflow on the target branch. Exclude removed workflows and stable artifact publishers.
-10. Add the new stable branch to `main`'s Renovate configuration. Remove branches whose maintenance ended from Renovate and scheduling.
-11. Replace the stable Renovate configuration with its pointer stub. Check the shared preset for any branch-specific changes.
-12. Remove the five `gh-pages` publishers from the stable branch. Keep `main` as the only producer.
-13. Open a `camunda-docs` pull request for versioned links to `stable/8.x`. Keep next-version links in `docs/` on `main`.
-14. Update `c8-sm-checks`' default Zeebe minor. Publish a tested tag before changing tag references here.
-15. Run the repository checks. Record deferred prerequisites and let maintainers merge the checked pull requests.
-
-For 8.11, chart builds still use the available 8.10 source directory.
-Do not select `16-dev-latest` or change chart-major Renovate patterns until upstream and registry checks succeed.
-See [8.11 development prerequisites](../MAINTENANCE.md#811-development-prerequisites) for the evidence and remaining work.
+Follow [MAINTENANCE.md#release-duty](../MAINTENANCE.md#release-duty) for the release procedure.
