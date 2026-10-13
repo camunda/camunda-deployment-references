@@ -292,15 +292,18 @@ anything. Change both together.
 ```bash
 terraform init -reconfigure \
   -backend-config="bucket=<bucket>" \
-  -backend-config="key=aws/kubernetes/eks-multi-region-rdbms/<new-name>/clusters.tfstate" \
+  -backend-config="key=<prefix>/tfstate-<new-name>/clusters.tfstate" \
   -backend-config="region=<state-region>"
 terraform apply -var cluster_name=<new-name>
 ```
 
 **Leave the old state object where it is.** It is not litter, it is the
 cleanup's index: `destroy-resources.sh` discovers what to destroy by listing
-`tfstate-<group>/` objects under the bucket prefix, then runs `terraform
-destroy` per group once the state is old enough. Delete it and the sweep has
+`tfstate-<group>/` objects under the prefix the cleanup workflow scans, then
+runs `terraform destroy` per group once the state is old enough. That only
+holds if the key follows the CI layout, `<prefix>/tfstate-<cluster_name>/clusters.tfstate`,
+under that prefix; a state stored anywhere else is invisible to the sweep, and
+its leftovers are yours to remove. Delete it and the sweep has
 nothing to find, so the IAM roles, log groups and KMS aliases it would have
 removed leak until someone deletes them by hand. Keeping it is what lets the
 automation finish the job the next night.
