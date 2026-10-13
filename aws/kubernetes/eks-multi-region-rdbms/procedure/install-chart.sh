@@ -9,48 +9,26 @@ set -euo pipefail
 # Expects the per-region values files produced by assemble-envsubst-values.sh in
 # the current directory.
 
-# Warn that this deploys an unreleased, in-development chart (to stderr).
-# TODO: [release-duty] remove this pre-release warning at release.
-cat >&2 <<'PRERELEASE_WARNING'
-
-  ############################################################################
-  #  ⚠  PRE-RELEASE — NOT A STABLE CAMUNDA RELEASE                           #
-  #                                                                          #
-  #  This deploys an unreleased, in-development Camunda 8 chart.             #
-  #  It may be unstable or fail to start — that is expected here.            #
-  #                                                                          #
-  #  Need a stable, supported setup? Follow the Administrator quickstart:    #
-  #  https://docs.camunda.io/docs/self-managed/quickstart/administrator-quickstart/
-  ############################################################################
-
-PRERELEASE_WARNING
-
 : "${CLUSTER_CONTEXTS:?CLUSTER_CONTEXTS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_NAMESPACE:?CAMUNDA_NAMESPACE must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_RELEASE_NAME:?CAMUNDA_RELEASE_NAME must be set, source export_environment_prerequisites.sh}"
+: "${HELM_CHART_REF:?HELM_CHART_REF must be set, source export_environment_prerequisites.sh}"
+: "${HELM_CHART_VERSION:?HELM_CHART_VERSION must be set, source export_environment_prerequisites.sh}"
 
 # yq is required below to resolve the broker image for the cross-region DNS gate.
 # Check it up front so we fail fast with a clear message before the network-heavy
-# chart source-build, instead of a generic "command not found" mid-install.
+# chart download, instead of a generic "command not found" mid-install.
 if ! command -v yq >/dev/null 2>&1; then
     echo "ERROR: 'yq' is required to resolve the broker image for the cross-region DNS gate but was not found in PATH." >&2
     exit 1
 fi
 
-# Build the chart from source so no registry authentication is required; prints
-# the local chart directory. The build helper is shared with the generic
-# Kubernetes guide.
-_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
-
 # Resolve the broker image of the chart being installed so the cross-region
 # DNS-gate initContainer (see helm-values/camunda-values.yml) reuses the exact
 # same image as the broker: already pulled on the node, no extra pull, and no
 # hardcoded tag to maintain.
-# TODO: [release-duty] resolve the broker image from the public chart
-# `camunda/camunda-platform` instead of the source-built chart.
-BROKER_IMAGE="$(helm show values "$LOCAL_CHART" |
+BROKER_IMAGE="$(helm show values camunda-platform --repo "$HELM_CHART_REF" --version "$HELM_CHART_VERSION" |
     yq -r '(.orchestration.image // .zeebe.image) | ([.registry, .repository] | map(. // "") | map(select(. != "")) | join("/")) + ":" + .tag')"
 
 broker_image_repo="${BROKER_IMAGE%:*}"
@@ -92,7 +70,9 @@ install_slot() {
 
     echo "Installing $CAMUNDA_RELEASE_NAME into ${contexts[$slot]}/$CAMUNDA_NAMESPACE (region slot $slot)"
     helm upgrade --install \
-        "$CAMUNDA_RELEASE_NAME" "$LOCAL_CHART" \
+        "$CAMUNDA_RELEASE_NAME" camunda-platform \
+        --repo "$HELM_CHART_REF" \
+        --version "$HELM_CHART_VERSION" \
         --kube-context "${contexts[$slot]}" \
         --namespace "$CAMUNDA_NAMESPACE" \
         -f "$values" "${extra_args[@]}"
@@ -105,13 +85,3 @@ else
         install_slot "$i"
     done
 fi
-
-# TODO: [release-duty] remove the source-build above and use the public chart:
-#
-#   helm repo add camunda https://helm.camunda.io --force-update
-#   helm repo update
-#   helm upgrade --install "$CAMUNDA_RELEASE_NAME" camunda/camunda-platform \
-#     --version "$HELM_CHART_VERSION" \
-#     --kube-context "${contexts[$slot]}" \
-#     --namespace "$CAMUNDA_NAMESPACE" \
-#     -f "generated-values-region-${slot}.yml"

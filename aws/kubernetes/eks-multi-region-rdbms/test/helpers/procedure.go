@@ -134,7 +134,8 @@ func (e Env) Vars() []string {
 		"CAMUNDA_RDBMS_USERNAME":     e.RdbmsUsername,
 		"CAMUNDA_RDBMS_PASSWORD":     e.RdbmsPassword,
 		"AURORA_GLOBAL_CLUSTER_ID":   e.AuroraGlobalID,
-		"CAMUNDA_HELM_CHART_GIT_REF": ChartGitRef(),
+		"HELM_CHART_VERSION":         ChartVersion(),
+		"HELM_CHART_REF":             GetEnv("HELM_CHART_REF", "https://helm.camunda.io"),
 		// Forwarded as-is, with no fallback. The chart's demo/demo admin login
 		// caused INC-5340, so an unset credential has to surface as the
 		// procedure refusing to run; camunda::_basic_auth does exactly that.
@@ -254,18 +255,18 @@ func GetEnv(key, fallback string) string {
 	return fallback
 }
 
-var chartGitRefPattern = regexp.MustCompile(`(?m)^export CAMUNDA_HELM_CHART_GIT_REF="\$\{CAMUNDA_HELM_CHART_GIT_REF:-([^}"]+)\}"`)
+var chartVersionPattern = regexp.MustCompile(`(?m)^export HELM_CHART_VERSION="\$\{HELM_CHART_VERSION:-([^}"]+)\}"`)
 
-// ChartGitRef returns the Helm chart pin that the procedures use.
+// ChartVersion returns the published Helm chart version that the procedures use.
 //
 // The value is read from procedure/export_environment_prerequisites.sh instead
 // of being repeated here. That script is what a user sources, so it owns the
-// pin; the tests run one procedure at a time and never source it, which is why
-// the value has to be read rather than inherited. Repeating the commit would
+// version; the tests run one procedure at a time and never source it, which is why
+// the value has to be read rather than inherited. Repeating the version would
 // let the harness and the documented procedure drift onto different charts
 // without anything failing. An explicit environment override still wins.
-func ChartGitRef() string {
-	if ref, ok := os.LookupEnv("CAMUNDA_HELM_CHART_GIT_REF"); ok && ref != "" {
+func ChartVersion() string {
+	if ref, ok := os.LookupEnv("HELM_CHART_VERSION"); ok && ref != "" {
 		return ref
 	}
 
@@ -280,9 +281,9 @@ func ChartGitRef() string {
 		panic("cannot read the Helm chart pin: " + err.Error())
 	}
 
-	match := chartGitRefPattern.FindSubmatch(content)
+	match := chartVersionPattern.FindSubmatch(content)
 	if match == nil {
-		panic("no CAMUNDA_HELM_CHART_GIT_REF default found in " + path)
+		panic("no HELM_CHART_VERSION default found in " + path)
 	}
 	return string(match[1])
 }

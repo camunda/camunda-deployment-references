@@ -8,19 +8,15 @@ import (
 	"testing"
 )
 
-// The Helm chart pin has two readers: the procedure a user sources and this
-// test harness. They have to resolve to the same commit, or CI validates a
+// The Helm chart version has two readers: the procedure a user sources and this
+// test harness. They have to resolve to the same release, or CI validates a
 // chart nobody deploys.
-func TestChartGitRefComesFromTheProcedure(t *testing.T) {
-	t.Setenv("CAMUNDA_HELM_CHART_GIT_REF", "")
+func TestChartVersionComesFromTheProcedure(t *testing.T) {
+	t.Setenv("HELM_CHART_VERSION", "")
 
 	dir := ProcedureDir(t)
-	// Matched on the `${VAR:-default}` structure rather than by splitting on a
-	// character: the default is a commit SHA today, but a tag such as
-	// camunda-platform-8.10-15.0.0-alpha3 contains the separators a naive cut
-	// would break on, and this check has to survive that.
 	cmd := exec.Command("bash", "-c",
-		`sed -n 's/^export CAMUNDA_HELM_CHART_GIT_REF="\${CAMUNDA_HELM_CHART_GIT_REF:-\(.*\)}"$/\1/p' export_environment_prerequisites.sh | head -1`)
+		`sed -n 's/^export HELM_CHART_VERSION="\${HELM_CHART_VERSION:-\(.*\)}"$/\1/p' export_environment_prerequisites.sh | head -1`)
 	cmd.Dir = dir
 
 	out, err := cmd.Output()
@@ -30,17 +26,17 @@ func TestChartGitRefComesFromTheProcedure(t *testing.T) {
 
 	want := strings.TrimSpace(string(out))
 	if want == "" {
-		t.Fatal("no CAMUNDA_HELM_CHART_GIT_REF default found in the procedure")
+		t.Fatal("no HELM_CHART_VERSION default found in the procedure")
 	}
-	if got := ChartGitRef(); got != want {
+	if got := ChartVersion(); got != want {
 		t.Fatalf("chart pin drifted: harness has %q, procedure has %q", got, want)
 	}
 }
 
-func TestChartGitRefHonoursAnExplicitOverride(t *testing.T) {
-	t.Setenv("CAMUNDA_HELM_CHART_GIT_REF", "my-branch")
+func TestChartVersionHonoursAnExplicitOverride(t *testing.T) {
+	t.Setenv("HELM_CHART_VERSION", "15.0.0")
 
-	if got := ChartGitRef(); got != "my-branch" {
+	if got := ChartVersion(); got != "15.0.0" {
 		t.Fatalf("expected the override to win, got %q", got)
 	}
 }
