@@ -13,7 +13,7 @@ For Renovate PRs, automatically detects if cert-manager is modified.
 | `manual-wildcard-cert` | <p>Manual override to use wildcard certificate (takes precedence)</p> | `false` | `""` |
 | `is-renovate-pr` | <p>Whether this is a Renovate bot PR</p> | `true` | `""` |
 | `is-schedule` | <p>Whether this is a scheduled run</p> | `true` | `""` |
-| `base-ref` | <p>Base branch reference for diff comparison</p> | `false` | `main` |
+| `base-ref` | <p>Base branch reference for diff comparison</p> | `false` | `stable/8.10` |
 
 
 ## Outputs
@@ -55,5 +55,5 @@ This action is a `composite` action.
     # Base branch reference for diff comparison
     #
     # Required: false
-    # Default: main
+    # Default: stable/8.10
 ```
