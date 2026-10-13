@@ -25,7 +25,7 @@ Then use `main` for the next unreleased version, `8.12`.
 To avoid confusion, the repository contains a `.target-branch` file at its root.
 
 * This file contains the **name of the branch that should be targeted for merge requests**.
-* GitHub Actions and CI pipelines read this file to automatically detect the correct branch.
+* GitHub Actions and CI pipelines read this file to automatically detect the target branch.
 * Example content of `.target-branch`:
 
 ```
@@ -81,13 +81,16 @@ Submit each change through a pull request. A maintainer merges the pull requests
 
    * Set `.camunda-version` to the released minor, for example `8.10`.
    * Set `.target-branch` to `stable/8.x` on the stable branch only.
+   * Change marked action branch defaults and lint push filters to `stable/8.x` on the cut branch.
+   * Keep `c8-sm-checks` references on `main`. Do not add a cut-switch marker to that default.
 
 4. **Maintain `RELEASE-NOTES.md` on both branches**
 
    * Add the released version section at the cut.
    * Group changes by reference architecture. Cite merged pull requests and state facts only.
    * Use the first-parent history from the previous branch point to the recorded cut commit.
-   * Keep the released section in sync on `main` and `stable/8.x`.
+   * Keep the released section identical on `main` and `stable/8.x`.
+   * Add backported user-visible fixes to that section on both branches.
    * Add the next version's `(unreleased)` section on `main`.
 
 5. **Prepare `main` for the next version**
@@ -115,7 +118,7 @@ Submit each change through a pull request. A maintainer merges the pull requests
    * Stagger daily blocks by one hour between versions.
    * Check each listed workflow against the new stable branch. Do not copy workflows that no longer exist.
    * Every scheduled workflow needs `on.pull_request` on its target branch.
-   * Include new architectures and their cleanup workflows. Exclude the five artifact publishers from stable schedules.
+   * Include new architectures and their cleanup workflows. Exclude dev-only workflows from stable schedules.
    * Use the scheduler only for stable branches. Keep `main`'s native workflow schedules.
 
 7. **Update Renovate branch patterns**
@@ -126,7 +129,7 @@ Submit each change through a pull request. A maintainer merges the pull requests
 
    * On `main`, in `.github/renovate.json5`, update the `baseBranchPatterns` list:
      * Add the newly created `stable/8.x` branch.
-     * Follow step 12 for branches whose maintenance period ended.
+     * Follow step 13 for branches whose maintenance period ended.
    * Inspect [infraex-common-config](https://github.com/camunda/infraex-common-config/blob/main/default.json5) for branch-specific rules.
    * Its current preset uses generic `/^stable\/8\..*/` rules, not a rule for each minor.
    * No per-version preset change is necessary unless that configuration changes.
@@ -150,20 +153,22 @@ Submit each change through a pull request. A maintainer merges the pull requests
       The inherited list cannot control Renovate on the stable branch.
       Put maintenance-branch rules on `main`, scoped with `matchBaseBranches`.
 
-8. **Remove the `gh-pages` publishers from the new branch**
+8. **Remove dev-only workflows and chart source builds from the cut branch**
 
-   On `stable/8.x`, remove the five artifact publishers.
-   Find their markers with `git grep -l 'TODO: \[release-duty\] delete this workflow'`.
+   On `stable/8.x`, remove the five `gh-pages` publishers and the alpha availability watcher.
+   Find all dev-only workflow markers with `git grep -l 'TODO: \[release-duty\] delete this workflow' -- .github/workflows`.
+   Remove any additional workflow whose marker requires deletion at the cut.
 
    ```sh
    git rm .github/workflows/internal_openshift_artifact_rosa_versions.yml \
           .github/workflows/internal_openshift_artifact_acm_versions.yml \
           .github/workflows/internal_aws_artifact_aurora_versions.yml \
           .github/workflows/internal_aws_artifact_opensearch_versions.yml \
-          .github/workflows/internal_bitnami_artifact_image_versions.yml
+          .github/workflows/internal_bitnami_artifact_image_versions.yml \
+          .github/workflows/internal_global_alpha_availability_check.yml
    ```
 
-   These workflows publish version artifacts to this repository's single `gh-pages` branch.
+   The five publishers write version artifacts to this repository's single `gh-pages` branch.
    The shared Renovate preset reads one URL per artifact for every repository and branch.
    A later publication replaces the shared artifact. Keep `main` as the only producer.
 
@@ -172,6 +177,22 @@ Submit each change through a pull request. A maintainer merges the pull requests
    Maintenance-branch runs replaced shared artifacts with incomplete data until `main` published them again the next night.
    Scheduled workflows run only on the default branch.
    Pull-request runs caused these replacements until #3145. Manual dispatch remained possible until #3153, #3154, and #3155.
+
+   The alpha watcher checks development SNAPSHOT pins. Stable branches use published versions and do not need this watcher.
+
+   * Remove both `build-camunda-chart.sh` helpers on the cut branch.
+   * Replace their installation callers with the published chart and an explicit chart version.
+   * Remove source checkout, commit pins, chart selection blocks, and local-chart environment variables from actions and workflows.
+   * Remove the `local-chart-path` input, schema autodetection, and caller plumbing from the Helm deprecation action.
+   * Preserve schema validation. Adapt test guards to inspect the published chart instead of requiring a source checkout.
+   * Remove source-build Makefile hints, the chart selection self-test, and its local pre-commit hook.
+   * Search for remaining source-build references:
+
+     ```sh
+     git grep -n -E 'build-camunda-chart|renovate-helm-main|CHART_CHECKOUT|LOCAL_CHART|local-chart-path|HELM_CHART_REF|\.camunda-platform-helm'
+     ```
+
+   * Record each retained match and its reason in the cut pull request.
 
 9. **Update the versioned Camunda documentation**
 
@@ -193,7 +214,26 @@ Submit each change through a pull request. A maintainer merges the pull requests
     * Record prerequisite pull requests and deferred version changes in the pull-request descriptions.
     * Let maintainers merge the checked pull requests. Do not merge automatically.
 
-12. **Retire a maintenance branch**
+12. **Publish the repository tag and GitHub Release**
+
+    * Wait for a maintainer to merge the cut pull request and required backports into `stable/8.x`.
+    * For 8.10, wait for #3671 and #3669 to merge.
+    * Record the release commit on `stable/8.x`. Use that commit, not the original unprepared branch point.
+    * Check that the version section in `RELEASE-NOTES.md` is identical on both branches.
+    * Copy only that section into a notes file under `debug/` in the release worktree.
+    * Create an annotated tag named `8.x.0`. Publish that tag before creating the GitHub Release.
+    * Follow the `*.*.*` tag ruleset. Do not replace an existing tag or force-push a tag.
+    * Example for 8.10, using the recorded release commit:
+
+      ```sh
+      git tag -a 8.10.0 <release-sha> -m "Camunda Reference Architectures 8.10.0"
+      git push origin refs/tags/8.10.0
+      gh release create 8.10.0 --verify-tag --notes-file debug/release-8.10.md
+      ```
+
+    * Use `8.x.y` for patch releases. Add their user-visible fixes to both branches before publishing the corresponding tag and release.
+
+13. **Retire a maintenance branch**
 
     * Record the retirement decision and the release-policy evidence.
     * Remove the branch from `baseBranchPatterns` in `main`'s `.github/renovate.json5`.

@@ -1,4 +1,5 @@
 ---
+# TODO: [release-duty] delete this workflow from the new stable/8.x at the cut.
 # This workflow checks if alpha1 Docker tags are available for Camunda images
 # that are still using SNAPSHOT versions in the repository.
 # It runs daily and sends a Slack notification when alpha1 becomes available.
