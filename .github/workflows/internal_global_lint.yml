@@ -5,6 +5,7 @@ on:
     workflow_dispatch:
     pull_request:
     push:
+        # TODO: [release-duty] switch to the new stable/8.x on the cut branch.
         branches: [main]
 
 jobs:
