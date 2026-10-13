@@ -11,5 +11,5 @@ terraform_backend_bucket     = "golden-not-used"
 terraform_backend_key_prefix = "golden-not-used/"
 
 # Keep version-only changes outside the infrastructure golden plan.
-camunda_image    = "camunda/camunda:8.10-SNAPSHOT"
-connectors_image = "camunda/connectors-bundle:8.10-SNAPSHOT"
+camunda_image    = "camunda/camunda:8.10-SNAPSHOT"           # alpha-availability-check:ignore
+connectors_image = "camunda/connectors-bundle:8.10-SNAPSHOT" # alpha-availability-check:ignore
