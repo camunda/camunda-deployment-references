@@ -362,11 +362,13 @@ func runStuckSwitch(t *testing.T, script string, env ...string) (string, int, st
 
 // #3676: a switchover that ended with the writer elsewhere cannot finish
 // later, so the wait fails on the first settled read, not after the timeout.
+// It returns 2: a rerun settles and switches again, nothing needs unplanned
+// recovery.
 func TestAuroraWaitWriterFailsWhenTheSwitchoverEndedElsewhere(t *testing.T) {
 	t.Parallel()
 	out, code, args := runStuckSwitch(t, "aurora_wait_writer arn:aws:rds:eu-west-3:1:cluster:b 60",
 		"AURORA_WRITER_POLL_SECONDS=0")
-	if code != 1 || !strings.Contains(out, "ended without moving the writer") || strings.Count(args, "describe-global-clusters") != 1 {
+	if code != 2 || !strings.Contains(out, "ended without moving the writer") || strings.Count(args, "describe-global-clusters") != 1 {
 		t.Fatalf("want an immediate failure, got exit %d\n%s\n%s", code, args, out)
 	}
 }
