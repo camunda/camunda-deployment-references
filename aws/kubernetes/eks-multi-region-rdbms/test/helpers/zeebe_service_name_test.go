@@ -78,3 +78,29 @@ func TestGenerateZeebeHelmValuesRejectsShortZoneList(t *testing.T) {
 		t.Fatalf("expected the missing-zone error, got:\n%s", output)
 	}
 }
+
+// A short zone list must fail with an actionable error, not an unbound variable.
+func TestExportServicesRejectsShortZoneList(t *testing.T) {
+	t.Parallel()
+
+	env := Env{
+		RegionSlots:        3,
+		ActiveRegions:      2,
+		BrokersPerRegion:   2,
+		ClusterContexts:    []string{"cluster-london", "cluster-paris"},
+		SubmarinerClusters: []string{"london", "paris", "zurich"},
+		ZoneNames:          []string{"london"},
+		Namespace:          "camunda",
+		ReleaseName:        "camunda",
+	}
+
+	dir := ProcedureDir(t)
+	cmd := exec.Command("bash", filepath.Join(dir, "submariner", "export-services.sh"))
+	cmd.Dir = dir
+	cmd.Env = env.Vars()
+
+	output, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(output), "CAMUNDA_ZONE_NAMES has 1 entries") {
+		t.Fatalf("expected the zone-list error, got err=%v:\n%s", err, output)
+	}
+}
