@@ -135,7 +135,7 @@ func (e Env) Vars() []string {
 		"CAMUNDA_RDBMS_PASSWORD":     e.RdbmsPassword,
 		"AURORA_GLOBAL_CLUSTER_ID":   e.AuroraGlobalID,
 		"HELM_CHART_VERSION":         ChartVersion(),
-		"HELM_CHART_REF":             GetEnv("HELM_CHART_REF", "https://helm.camunda.io"),
+		"HELM_CHART_REF":             procedureEnv("HELM_CHART_REF"),
 		// Forwarded as-is, with no fallback. The chart's demo/demo admin login
 		// caused INC-5340, so an unset credential has to surface as the
 		// procedure refusing to run; camunda::_basic_auth does exactly that.
@@ -255,8 +255,6 @@ func GetEnv(key, fallback string) string {
 	return fallback
 }
 
-var chartVersionPattern = regexp.MustCompile(`(?m)^export HELM_CHART_VERSION="\$\{HELM_CHART_VERSION:-([^}"]+)\}"`)
-
 // ChartVersion returns the published Helm chart version that the procedures use.
 //
 // The value is read from procedure/export_environment_prerequisites.sh instead
@@ -266,7 +264,11 @@ var chartVersionPattern = regexp.MustCompile(`(?m)^export HELM_CHART_VERSION="\$
 // let the harness and the documented procedure drift onto different charts
 // without anything failing. An explicit environment override still wins.
 func ChartVersion() string {
-	if ref, ok := os.LookupEnv("HELM_CHART_VERSION"); ok && ref != "" {
+	return procedureEnv("HELM_CHART_VERSION")
+}
+
+func procedureEnv(key string) string {
+	if ref, ok := os.LookupEnv(key); ok && ref != "" {
 		return ref
 	}
 
@@ -281,9 +283,10 @@ func ChartVersion() string {
 		panic("cannot read the Helm chart pin: " + err.Error())
 	}
 
-	match := chartVersionPattern.FindSubmatch(content)
+	pattern := regexp.MustCompile(`(?m)^export ` + regexp.QuoteMeta(key) + `="\$\{` + regexp.QuoteMeta(key) + `:-([^}"]+)\}"`)
+	match := pattern.FindSubmatch(content)
 	if match == nil {
-		panic("no HELM_CHART_VERSION default found in " + path)
+		panic("no " + key + " default found in " + path)
 	}
 	return string(match[1])
 }

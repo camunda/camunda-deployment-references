@@ -41,6 +41,29 @@ func TestChartVersionHonoursAnExplicitOverride(t *testing.T) {
 	}
 }
 
+func TestChartRefComesFromTheProcedure(t *testing.T) {
+	t.Setenv("HELM_CHART_REF", "")
+
+	cmd := exec.Command("bash", "-c",
+		`source ./export_environment_prerequisites.sh >/dev/null; printf '%s' "$HELM_CHART_REF"`)
+	cmd.Dir = ProcedureDir(t)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("cannot read the chart repository from the procedure: %v", err)
+	}
+
+	if got := procedureEnv("HELM_CHART_REF"); got != string(out) {
+		t.Fatalf("chart repository drifted: harness has %q, procedure has %q", got, out)
+	}
+}
+
+func TestChartRefHonoursAnExplicitOverride(t *testing.T) {
+	t.Setenv("HELM_CHART_REF", "https://charts.example.com")
+
+	vars := Env{RegionSlots: 3, ActiveRegions: 3, BrokersPerRegion: 2}.Vars()
+	assertVar(t, vars, "HELM_CHART_REF", "https://charts.example.com")
+}
+
 // A variable already exported by the developer's shell must not survive into a
 // procedure the harness configures, or the test asserts against an environment
 // it does not control.
