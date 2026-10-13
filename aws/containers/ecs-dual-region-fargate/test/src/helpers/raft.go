@@ -11,10 +11,29 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gruntwork-io/terratest/modules/logger"
+	"github.com/gruntwork-io/terratest/modules/terraform"
 )
+
+// AdminPassword reads the infra/ output admin_user_password without logging
+// it: terratest logs every command's output by default. In GitHub Actions the
+// value is also masked, since the procedures print it in their hints.
+func AdminPassword(t *testing.T, infraOpts *terraform.Options) string {
+	t.Helper()
+
+	quiet := *infraOpts
+	quiet.Logger = logger.Discard
+	password := terraform.Output(t, &quiet, "admin_user_password")
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		fmt.Printf("::add-mask::%s\n", password)
+	}
+	return password
+}
 
 // Topology is the relevant subset of the Zeebe REST /v2/topology response.
 // Fields we don't assert on are omitted to keep the struct flexible across
@@ -24,7 +43,7 @@ type Topology struct {
 		NodeID     int `json:"nodeId"`
 		Partitions []struct {
 			PartitionID int    `json:"partitionId"`
-			Role        string `json:"role"` // "leader" | "follower" | "inactive" (lowercase in /v2/topology)
+			Role        string `json:"role"` // "leader" | "follower" | "inactive"
 		} `json:"partitions"`
 	} `json:"brokers"`
 	ClusterSize       int `json:"clusterSize"`
@@ -41,7 +60,10 @@ type Topology struct {
 // credentials; without them every poll returns 401 and the wait can only time out.
 //
 // Fails the test on timeout. Poll interval defaults to 30s.
-func WaitForRaftQuorum(t *testing.T, albEndpoint, username, password string, expectedBrokers, expectedPartitions int, timeout time.Duration) Topology {
+//
+// The endpoint requires basic auth: adminPassword is the infra/ output
+// admin_user_password, for the "admin" user.
+func WaitForRaftQuorum(t *testing.T, albEndpoint, adminPassword string, expectedBrokers, expectedPartitions int, timeout time.Duration) Topology {
 	t.Helper()
 
 	deadline := time.Now().Add(timeout)
@@ -50,7 +72,7 @@ func WaitForRaftQuorum(t *testing.T, albEndpoint, username, password string, exp
 
 	var lastTopology Topology
 	for attempt := 1; time.Now().Before(deadline); attempt++ {
-		topo, err := fetchTopology(url, username, password)
+		topo, err := fetchTopology(url, adminPassword)
 		if err != nil {
 			t.Logf("[attempt %d] topology fetch failed: %v", attempt, err)
 			time.Sleep(pollInterval)
@@ -74,13 +96,13 @@ func WaitForRaftQuorum(t *testing.T, albEndpoint, username, password string, exp
 	return Topology{} // unreachable
 }
 
-func fetchTopology(url, username, password string) (Topology, error) {
+func fetchTopology(url, adminPassword string) (Topology, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return Topology{}, err
 	}
-	req.SetBasicAuth(username, password)
+	req.SetBasicAuth("admin", adminPassword)
 	resp, err := client.Do(req)
 	if err != nil {
 		return Topology{}, err
@@ -103,9 +125,9 @@ func fetchTopology(url, username, password string) (Topology, error) {
 	return topo, nil
 }
 
-// countLeaders returns how many partitions have exactly one leader. A plain
-// sum of leader entries would let a split-brain partition (two leaders) make
-// up for a leaderless one and pass the expectedPartitions check.
+// countLeaders returns how many partitions have exactly one leader. A summed
+// leader count can reach the expected total with one partition led twice and
+// another not led at all.
 func countLeaders(topo Topology) int {
 	perPartition := map[int]int{}
 	for _, b := range topo.Brokers {
@@ -115,11 +137,11 @@ func countLeaders(topo Topology) int {
 			}
 		}
 	}
-	healthy := 0
+	settled := 0
 	for _, n := range perPartition {
 		if n == 1 {
-			healthy++
+			settled++
 		}
 	}
-	return healthy
+	return settled
 }
