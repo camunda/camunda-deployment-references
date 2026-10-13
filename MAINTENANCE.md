@@ -10,13 +10,15 @@ The repository [https://github.com/camunda/camunda-deployment-references](https:
 
 For example, consider the following branches:
 
-* `main/`
-* `stable/8.6`
-* `stable/8.5`
+* `main`
+* `stable/8.10`
+* `stable/8.9`
 
-Where `8.6` is the latest stable version and `8.7` is the next one. The branch to target for merge requests should be `main` since it represents the upcoming version.
+Here, `8.10` is the latest stable version and `8.11` is the next version.
+Target `main` for changes to the upcoming version.
 
-When `8.7` becomes the new stable version, we create the `stable/8.7` branch from `main` and then `main` will be used for the next unreleased version (`8.8`).
+When `8.11` becomes stable, create `stable/8.11` from `main`.
+Then use `main` for the next unreleased version, `8.12`.
 
 ### Target branch tracking (`.target-branch`)
 
@@ -188,6 +190,21 @@ Submit each change through a pull request. A maintainer merges the pull requests
     * Check the released section of `RELEASE-NOTES.md` against both branches.
     * Record prerequisite pull requests and deferred version changes in the pull-request descriptions.
     * Let maintainers merge the checked pull requests. Do not merge automatically.
+
+12. **Retire a maintenance branch**
+
+    * Record the retirement decision and the release-policy evidence.
+    * Remove the branch from `baseBranchPatterns` in `main`'s `.github/renovate.json5`.
+    * Remove all its weekly and daily blocks from `.github/workflows-config/workflow-scheduler.yml`.
+    * Check the scheduler consumer for hardcoded branch lists and validation rules.
+    * Search `.github`, `docs`, root Markdown files, `justfile`, and `scripts` for the retired branch and minor version.
+    * Check backport configuration, Slack routing, matrices, labels, issue templates, and documentation examples.
+    * Remove the branch from automatic maintained-version lists. Update examples that describe the current maintained set.
+    * Keep historical facts and parser-test inputs. Record a decision for each remaining match.
+    * Keep generic backport and Slack rules when they also serve historical or explicit manual operations.
+    * Do not remove the Git branch or published history as part of this checklist.
+    * Check that scheduler YAML parses. Test its matrix selection without creating or closing pull requests.
+    * Record all remaining dependencies on the retired branch in the pull request.
 
 ### 8.11 development prerequisites
 
