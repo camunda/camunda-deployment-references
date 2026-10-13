@@ -136,7 +136,7 @@ Customers with existing VPCs can skip greenfield VPC creation by setting `byo_vp
 
 ## Failover / Failback
 
-Both scripts drive the zone-aware [Zones API](https://docs.camunda.io/docs/next/self-managed/components/orchestration-cluster/zeebe/operations/management-api/):
+Both scripts drive the zone-aware [Zones API](https://docs.camunda.io/docs/8.10/self-managed/components/orchestration-cluster/zeebe/operations/management-api/):
 failover force-removes the lost zone, failback re-adds it. The zone names are
 the AWS region names, set by `CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_*_NAME`
 in `terraform/app/locals.tf`.
@@ -340,5 +340,5 @@ partition leadership back to region 0.
 
 - [ECS single-region reference](../ecs-single-region-fargate/)
 - [EKS dual-region reference](../../kubernetes/eks-dual-region/)
-- [Camunda dual-region docs](https://docs.camunda.io/docs/next/self-managed/concepts/multi-region/dual-region/)
+- [Camunda dual-region docs](https://docs.camunda.io/docs/8.10/self-managed/concepts/multi-region/dual-region/)
 - [Aurora Global Database](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database.html)
