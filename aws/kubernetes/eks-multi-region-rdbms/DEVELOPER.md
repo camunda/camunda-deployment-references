@@ -260,17 +260,28 @@ LoadBalancer services and Submariner gateway resources first.
 
 ### After the nightly sweep took your cluster
 
-`aws_eks_multi_region_rdbms_daily_cleanup.yml` runs at **04:00 UTC** over every
-region the architecture can use, `eu-west-2`, `eu-west-3`, `eu-central-2` and
-`eu-south-1`, so a cluster left running overnight is gone in the morning — but
-**its Terraform state is not**. Reusing that state the next day puts you in the
-worst position: Terraform believes in resources that no longer exist.
+Two cleanups run against these regions, and only one of them reads Terraform
+state:
+
+- The account-wide cloud-nuke in `infraex-common-config`
+  (`aws_nightly_cleanup.yml`) runs at **05:00 UTC**. It deletes resources older
+  than 12 hours in `eu-west-2`, `eu-west-3` and `eu-central-2` every day, and
+  everything in `eu-south-1` on Saturdays. It does not know about Terraform, so
+  a cluster left running overnight is gone in the morning — but **its Terraform
+  state is not**.
+- This repository's `aws_eks_multi_region_rdbms_daily_cleanup.yml` runs at
+  **04:00 UTC** over `eu-west-2`, `eu-west-3`, `eu-central-2` and `eu-south-1`.
+  It runs `terraform destroy` from the CI state and deletes the state object
+  when the destroy succeeds. A state stays behind only when that destroy fails.
+
+Either way, reusing that state the next day puts you in the worst position:
+Terraform believes in resources that no longer exist.
 
 Do not try to reconcile it. `terraform apply -refresh-only` fails outright on
 the half-emptied state, because the EKS module reads attributes off a cluster
 that has gone.
 
-The cleanup also does not remove everything. It clears VPCs, EKS clusters,
+Cloud-nuke also does not remove everything. It clears VPCs, EKS clusters,
 Aurora and Transit Gateways, but these survive and are exactly what a fresh
 apply collides with:
 
