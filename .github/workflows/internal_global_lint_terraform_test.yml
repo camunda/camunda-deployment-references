@@ -10,7 +10,7 @@ on:
             - aws/**/*.tf
             - aws/**/*.tftest.hcl
     push:
-        branches: [main]
+        branches: [stable/8.10]
 
 # limit to a single execution per actor of this workflow
 concurrency:
