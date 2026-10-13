@@ -145,14 +145,12 @@ runs:
                 # needs no manual switch here (the workflow's helm-version flips to a
                 # released value and this block is bypassed).
                 #
-                # A commit rather than a tag: the suites need the
-                # `orchestration.partitioning` rename (camunda/camunda-platform-helm#7179)
-                # and the ingress-nginx compatibility flag (#7145), both merged but
-                # unreleased. The newest tag, 15.0.0-alpha5, predates both.
-                # TODO: [release-duty] switch to the public chart when 8.10 is released.
+                # Keep the working source build until an 8.11 chart exists.
+                # Chart source version is separate from the development target.
+                # TODO: [release-duty] use a published chart for the target minor when available.
                 # renovate-helm-main: digest tracked against camunda-platform-helm main
                 CHART_GIT_REF="d219258ede0878a137be955e32c2237cff14f62c"
-                CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
+                CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-chart-version")"
                 CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"
                 # `git clone --branch` resolves a branch or a tag, never a commit, so
                 # the pinned SHA is fetched into an empty repository instead.

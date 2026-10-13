@@ -55,16 +55,16 @@ fi
 
 _chart_src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _repo_root="$_chart_src_dir/../../../.."
-_camunda_version="$(cat "$_repo_root/.camunda-version")"
+_camunda_version="$(cat "$_repo_root/.camunda-chart-version")"
 
 _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda-platform-helm.git}"
 # Consume the rolling chart from the camunda-platform-helm main branch. The pin
 # below is a commit on that branch, bumped by Renovate as main moves, rather than
-# a published tag: the guide needs the Camunda Hub keys this branch migrates to,
-# which no released 8.10 tag carries yet.
+# a published tag. Main still has only the 8.10 chart. Keep this working source
+# until an 8.11 chart exists. See MAINTENANCE.md, "8.11 development prerequisites".
 # renovate-helm-main: digest tracked against camunda-platform-helm main
 _chart_default_git_ref="d219258ede0878a137be955e32c2237cff14f62c"
-# TODO: [release-duty] drop the source build and install the published chart once 8.10 is released.
+# TODO: [release-duty] use a published chart for the target minor when available.
 _chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-$_chart_default_git_ref}"
 _default_checkout_dir="$(cd "$_chart_src_dir/.." && pwd)/.camunda-platform-helm"
 _chart_checkout_dir="${CAMUNDA_HELM_CHART_CHECKOUT_DIR:-$_default_checkout_dir}"
