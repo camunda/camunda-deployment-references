@@ -17,7 +17,7 @@ All C8 SM checks can be individually enabled/disabled via inputs.
 
 | name | description | required | default |
 | --- | --- | --- | --- |
-| `tests-c8-sm-checks-repo-ref` | <p>The branch, tag or commit to checkout for c8-sm-checks</p> | `false` | `4d5e4b82dd3329db41b347c4a32a25a405bfb79e` |
+| `tests-c8-sm-checks-repo-ref` | <p>The branch, tag or commit to checkout for c8-sm-checks</p> | `false` | `main` |
 | `tests-c8-sm-checks-repo-path` | <p>Path to clone the c8-sm-checks repository</p> | `false` | `./.c8-sm-checks` |
 | `camunda-version` | <p>The version of the Camunda to test</p> | `true` | `""` |
 | `camunda-domain` | <p>The domain to use for the tests</p> | `false` | `""` |
@@ -63,7 +63,7 @@ This action is a `composite` action.
     # The branch, tag or commit to checkout for c8-sm-checks
     #
     # Required: false
-    # Default: 4d5e4b82dd3329db41b347c4a32a25a405bfb79e
+    # Default: main
 
     tests-c8-sm-checks-repo-path:
     # Path to clone the c8-sm-checks repository
