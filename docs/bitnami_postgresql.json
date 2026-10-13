@@ -283,6 +283,10 @@
       "newDigest": "sha256:204b6fad8672d944ad5f0150a6c23ed4f7303e535bec676eb396102e93ac5b45"
     },
     {
+      "version": "14.24.0-debian-12-r20",
+      "newDigest": "sha256:5631a956022be5e078a4389f9dda075bac77831e48704c36d84243fd8c05bc27"
+    },
+    {
       "version": "15.15.0-debian-12-r0",
       "newDigest": "sha256:fc2e864ca5117330c010054894e62ab8855bb425d8139c9ab969975cf726dfa0"
     },
@@ -559,6 +563,10 @@
       "newDigest": "sha256:31f64a8c4d4687213d5ffb0ceda9577ee09364dc16f4e109085434d3fd55e77b"
     },
     {
+      "version": "15.19.0-debian-12-r22",
+      "newDigest": "sha256:e7f7e5de36eeffc6333c7dd0086003b52e8415cda14a73820e2f641c95b4ef67"
+    },
+    {
       "version": "16.11.0-debian-12-r0",
       "newDigest": "sha256:760d6a0a2a490cae41b6fd1b74c8cb3207bbffc5ea7e6725f92a75542a44a1b6"
     },
@@ -825,6 +833,10 @@
     {
       "version": "16.15.0-debian-12-r20",
       "newDigest": "sha256:f4346417509f8565084b25df44751dbd90373ca49dc69c7405b5b141df60046e"
+    },
+    {
+      "version": "16.15.0-debian-12-r21",
+      "newDigest": "sha256:08be690c9b41cc6f108ab80d0da54281ae734e4378efb6357c5eac564d4874cf"
     },
     {
       "version": "17.6.0-debian-12-r28",
