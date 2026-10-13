@@ -17,7 +17,7 @@ description: >
 inputs:
     tests-c8-sm-checks-repo-ref:
         description: The branch, tag or commit to checkout for c8-sm-checks
-        default: main
+        default: 4d5e4b82dd3329db41b347c4a32a25a405bfb79e
     tests-c8-sm-checks-repo-path:
         description: Path to clone the c8-sm-checks repository
         default: ./.c8-sm-checks
