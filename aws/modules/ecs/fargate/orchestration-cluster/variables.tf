@@ -198,9 +198,7 @@ variable "service_timeouts" {
 variable "image" {
   description = "The container image to use for the Camunda orchestration cluster"
   type        = string
-  # TODO: [release-duty] before the release, update the below versions to the stable release!
-  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
-  # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)(-alpha(?<prerelease>[1-9]|[1-4][0-9]|50))?$
+  # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)$
   default = "camunda/camunda:8.10.3"
 }
 
@@ -288,9 +286,7 @@ variable "restore_backup_id" {
 variable "restore_container_image" {
   description = "Container image for the restore init container. Required when restore_enabled is true."
   type        = string
-  # TODO: [release-duty] before the release, update the below versions to the stable release!
-  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
-  # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)(-alpha(?<prerelease>[1-9]|[1-4][0-9]|50))?$
+  # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)$
   default = "camunda/camunda:8.10.3"
 }
 
