@@ -1,6 +1,5 @@
 ---
 schedules:
-    # Everyday schedules are staggered by 1 hour to avoid GitHub Actions rate limits
     - name: Tuesday schedules 8.8
       branch: stable/8.8
       cron_every_day: Tuesday
@@ -25,6 +24,7 @@ schedules:
           # Local Kubernetes Kind Single Region
           - .github/workflows/local_kubernetes_kind_single_region_tests.yml
 
+    # Everyday schedules are staggered by 1 hour to avoid GitHub Actions rate limits
     - name: Everyday schedules 8.8
       branch: stable/8.8
       cron_every_day:
@@ -57,7 +57,6 @@ schedules:
           - .github/workflows/aws_common_procedure_s3_bucket.yml
           - .github/workflows/aws_compute_ec2_single_region_tests.yml
           - .github/workflows/aws_ecs_single_region_fargate_tests.yml
-          - .github/workflows/aws_kubernetes_eks_dual_region_teleport_tests.yml
           - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
 
     - name: Thursday schedules 8.10 part 3
@@ -77,58 +76,6 @@ schedules:
       branch: stable/8.10
       cron_every_day:
       cron_every_hours: '5'
-      workflow_files:
-          - .github/workflows/internal_global_links.yml
-          - .github/workflows/aws_cognito_daily_cleanup.yml
-          - .github/workflows/aws_compute_ec2_single_region_daily_cleanup.yml
-          - .github/workflows/aws_ecs_single_region_fargate_daily_cleanup.yml
-          - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
-          - .github/workflows/aws_rosa_hcp_dual_region_daily_cleanup.yml
-          - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
-          - .github/workflows/aws_eks_single_region_daily_cleanup.yml
-          - .github/workflows/aws_kubernetes_eks_dual_region_daily_cleanup.yml
-          - .github/workflows/aws_eks_multi_region_rdbms_daily_cleanup.yml
-          - .github/workflows/azure_aks_single_region_daily_cleanup.yml
-
-    - name: Sunday schedules main 8.11
-      branch: main
-      cron_every_day: Sunday
-      cron_every_hours: '22'
-      workflow_files:
-          - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
-          - .github/workflows/aws_openshift_rosa_hcp_dual_region_tests.yml
-          - .github/workflows/aws_modules_eks_rds_os_tests.yml
-          - .github/workflows/aws_modules_eks_rds_os_create_destruct_tests.yml
-          - .github/workflows/aws_kubernetes_eks_single_region_tests.yml
-
-    - name: Sunday schedules main 8.11 part 2
-      branch: main
-      cron_every_day: Sunday
-      cron_every_hours: '23'
-      workflow_files:
-          - .github/workflows/aws_common_procedure_s3_bucket.yml
-          - .github/workflows/aws_compute_ec2_single_region_tests.yml
-          - .github/workflows/aws_ecs_single_region_fargate_tests.yml
-          - .github/workflows/aws_kubernetes_eks_dual_region_teleport_tests.yml
-          - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
-
-    - name: Sunday schedules main 8.11 part 3
-      branch: main
-      cron_every_day: Monday
-      cron_every_hours: '0'
-      workflow_files:
-          - .github/workflows/azure_kubernetes_aks_single_region_tests.yml
-          - .github/workflows/generic_kubernetes_operator_based_test.yml
-          - .github/workflows/local_kubernetes_kind_single_region_tests.yml
-          - .github/workflows/local_kind_operator_based_postgresql_tests.yml
-          - .github/workflows/aws_eks_multi_region_rdbms_tests.yml
-          - .github/workflows/aws_ecs_dual_region_fargate_integration.yml
-          - .github/workflows/aws_ecs_dual_region_fargate_failover.yml
-
-    - name: Everyday schedules main 8.11
-      branch: main
-      cron_every_day:
-      cron_every_hours: '6'
       workflow_files:
           - .github/workflows/internal_global_links.yml
           - .github/workflows/aws_cognito_daily_cleanup.yml
@@ -175,7 +122,6 @@ schedules:
           # AWS ECS Single Region
           - .github/workflows/aws_ecs_single_region_fargate_tests.yml
           # AWS EKS Dual Region
-          - .github/workflows/aws_kubernetes_eks_dual_region_teleport_tests.yml
           - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
 
     # Thursday 00:00, i.e. the hour after part 2 — the day rolls over, the suite
