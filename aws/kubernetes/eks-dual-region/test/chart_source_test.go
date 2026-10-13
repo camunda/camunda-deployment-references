@@ -8,10 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPartitioningValuesRequireLocalChart(t *testing.T) {
-	err := validatePartitioningChart("camunda/camunda-platform")
-
-	assert.ErrorContains(t, err, "is not a local chart directory")
+func TestPartitioningValuesAcceptPublishedChart(t *testing.T) {
+	bin := t.TempDir()
+	helm := "#!/bin/sh\nmkdir -p \"$7/camunda-platform\"\nprintf '%s' '{\"properties\":{\"orchestration\":{\"properties\":{\"partitioning\":{}}}}}' > \"$7/camunda-platform/values.schema.json\"\n"
+	assert.NoError(t, os.WriteFile(filepath.Join(bin, "helm"), []byte(helm), 0o700))
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	assert.NoError(t, validatePartitioningChart("camunda/camunda-platform"))
 }
 
 func TestPartitioningValuesRejectOCIReference(t *testing.T) {
