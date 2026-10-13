@@ -198,10 +198,10 @@ func TestAuroraSwitchToRetriesNothingPastTheDeadline(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(fakeSwitchAWS), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("bash", "-c", `. ./aurora.sh; aurora_switch_to arn:aws:rds:eu-west-3:1:cluster:b 1`)
+	cmd := exec.Command("bash", "-c", `. ./aurora.sh; aurora_switch_to arn:aws:rds:eu-west-3:1:cluster:b 3`)
 	cmd.Dir = filepath.Join("..", "..", "..", "procedure")
 	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
-		"FAKE_RETRIES=99", "AURORA_GLOBAL_CLUSTER_ID=g", "AURORA_WRITER_POLL_SECONDS=2")
+		"FAKE_RETRIES=99", "AURORA_GLOBAL_CLUSTER_ID=g", "AURORA_WRITER_POLL_SECONDS=4")
 	out, err := cmd.CombinedOutput()
 	args, _ := os.ReadFile(filepath.Join(fake, "args"))
 	if err == nil || strings.Count(string(args), "failover-global-cluster") != 1 || !strings.Contains(string(out), "none was started") {

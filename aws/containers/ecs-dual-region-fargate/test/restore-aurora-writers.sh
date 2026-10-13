@@ -12,13 +12,14 @@
 #                    ever touched. With RESTORE_EXACT_ID=true (the Go
 #                    test cleanup), <id-regex> is instead the exact identifier
 #                    of one global cluster, whatever its naming.
-#   <min-age-hours>  skip stacks whose infra state is younger than this, in
-#                    whole hours as the destroy counts them
+#   <min-age-hours>  skip stacks whose newest app or infra state is younger
+#                    than this, in whole hours as the destroy counts them
 # Env: REGION_0 (home region), AWS_PROFILE / AWS_REGION as for the AWS CLI,
 #      STATE_BUCKET, STATE_BUCKET_REGION and STATE_PREFIX when <min-age-hours>
-#      is above 0: the age is read from the stack's infra state object,
-#      ${STATE_PREFIX}tfstate-<cluster>[-run<id>]/infra/terraform.tfstate, the
-#      object and timestamp the destroy gates on.
+#      is above 0: the age is the newest LastModified of the stack's
+#      ${STATE_PREFIX}tfstate-<cluster>[-run<id>]/{app,infra}/terraform.tfstate
+#      objects. The destroy handles app before infra and stops the stack at
+#      the first fresh one, so a fresh app state skips an old infra state.
 #      AURORA_SETTLE_SECONDS (default 1200): the whole budget of one cluster,
 #      passed to aurora_switch_to (procedure/aurora.sh), which shares it
 #      between settling a running switchover, retrying while replication sets
