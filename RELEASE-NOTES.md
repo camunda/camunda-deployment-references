@@ -22,7 +22,6 @@ Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fi
 - Multi-region bootstrap now declares only running zones. New regions join through the zone management API ([#3547](https://github.com/camunda/camunda-deployment-references/pull/3547)).
 - Multi-region service exports now address the chart's per-zone Zeebe Services ([#3658](https://github.com/camunda/camunda-deployment-references/pull/3658), [#3662](https://github.com/camunda/camunda-deployment-references/pull/3662)).
 - Replaced ingress-nginx with Project Contour in the single-region reference ([#2623](https://github.com/camunda/camunda-deployment-references/pull/2623)).
-- Enabled encryption on gp3 EBS StorageClasses ([#2189](https://github.com/camunda/camunda-deployment-references/pull/2189)).
 - Multi-region failover drains brokers and removes the lost zone ([#3546](https://github.com/camunda/camunda-deployment-references/pull/3546)). Failback validates the partition distribution before re-adding a zone ([#3483](https://github.com/camunda/camunda-deployment-references/pull/3483)).
 - Multi-region failover and failback wait until the Aurora global switchover completes, and the procedures wait for the requested zone change ([#3578](https://github.com/camunda/camunda-deployment-references/pull/3578), [#3661](https://github.com/camunda/camunda-deployment-references/pull/3661)).
 - Dual-region failback excludes Elasticsearch security feature state from snapshot restores to preserve credentials ([#3335](https://github.com/camunda/camunda-deployment-references/pull/3335)).
@@ -43,7 +42,7 @@ Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fi
 
 - Installs Camunda 8.10 GA ([#3637](https://github.com/camunda/camunda-deployment-references/pull/3637)).
 - Removed hardcoded demo credentials from service configuration templates ([#2423](https://github.com/camunda/camunda-deployment-references/pull/2423)).
-- Added authenticated artifact downloads and fixed installation error handling ([#2213](https://github.com/camunda/camunda-deployment-references/pull/2213), [#2397](https://github.com/camunda/camunda-deployment-references/pull/2397)).
+- Added authenticated artifact downloads and fixed installation error handling ([#2397](https://github.com/camunda/camunda-deployment-references/pull/2397)).
 - Migrated service configuration to unified `CAMUNDA_*` properties ([#3501](https://github.com/camunda/camunda-deployment-references/pull/3501)).
 
 ### Generic Kubernetes and local Kind
