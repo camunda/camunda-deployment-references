@@ -82,7 +82,7 @@ jobs:
                       {
                       "conflict_resolution": "draft_commit_conflicts"
                       }
-                  # matches label 'backport stable/8.7'
+                  # matches label 'backport stable/8.10'
                   label_pattern: ^backport ([^ ]+)$
                   # see https://github.com/korthout/backport-action#pull_description
                   pull_description: |-
