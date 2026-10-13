@@ -114,7 +114,10 @@ else
     members_json="$(aws rds describe-global-clusters \
         --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
         --query 'GlobalClusters[0].GlobalClusterMembers' --output json \
-        --region "$recovered_region" 2>/dev/null || echo '[]')"
+        --region "$recovered_region")" || {
+        echo "ERROR: could not read the Aurora Global Database $AURORA_GLOBAL_CLUSTER_ID; see the AWS error above." >&2
+        exit 1
+    }
 
     member_count="$(echo "$members_json" | jq 'length')"
     echo "    Global cluster members: $member_count"
