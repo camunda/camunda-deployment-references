@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Run `terraform test` only in directories whose .tf or .tftest.hcl files have
+# Run `terraform test` only in directories whose .tf, .tfvars or .tftest.hcl files have
 # changed in the staged diff. Designed for use as a pre-commit hook entry.
 #
 # Behavior:
-#   1. Find staged .tf and .tftest.hcl files via git diff --cached.
+#   1. Find staged .tf, .tfvars and .tftest.hcl files via git diff --cached.
 #   2. For each such file, walk up to find the nearest ancestor directory
 #      that contains a tests/ subdirectory with at least one .tftest.hcl file.
 #   3. Deduplicate, run `terraform init -backend=false` then `terraform test`
@@ -25,7 +25,7 @@
 set -euo pipefail
 
 # Collect staged terraform-related files (added, modified, or renamed).
-STAGED=$(git diff --cached --name-only --diff-filter=ACMR -- '*.tf' '*.tftest.hcl' 2>/dev/null || true)
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR -- '*.tf' '*.tfvars' '*.tftest.hcl' 2>/dev/null || true)
 
 if [[ -z $STAGED ]]; then
     exit 0

@@ -29,13 +29,13 @@ _chart_src_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Repo root computed relative to this script (generic/kubernetes/single-region/
 # procedure), so the helper works even without a .git dir (e.g. a source archive).
 _repo_root="$(cd "$_chart_src_dir/../../../.." && pwd)"
-_camunda_version="$(cat "$_repo_root/.camunda-chart-version")"
+_camunda_version="$(cat "$_repo_root/.camunda-version")"
 
 _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda-platform-helm.git}"
 # Consume the rolling chart from the camunda-platform-helm main branch. The pin
 # below is a commit on that branch, bumped by Renovate as main moves, rather than
-# a published tag. Main still has only the 8.10 chart. Keep this working source
-# until an 8.11 chart exists. See MAINTENANCE.md, "8.11 development prerequisites".
+# a published tag. Select the target minor after checkout, with a warning if
+# only an earlier chart directory exists. See MAINTENANCE.md, "Release duty".
 # renovate-helm-main: digest tracked against camunda-platform-helm main
 _chart_default_git_ref="d219258ede0878a137be955e32c2237cff14f62c"
 # TODO: [release-duty] use a published chart for the target minor when available.
@@ -148,12 +148,20 @@ if ! touch "$_chart_checkout_dir/$_clone_marker"; then
     exit 1
 fi
 
+# Select chart directory.
 _local_chart="$_chart_checkout_dir/charts/camunda-platform-$_camunda_version"
 if [[ ! -d "$_local_chart" ]]; then
-    echo "ERROR: chart 'camunda-platform-$_camunda_version' not found on ref '$_chart_git_ref'." >&2
-    echo "       Expected directory: $_local_chart" >&2
-    exit 1
+    _expected_chart="$_local_chart"
+    _local_chart="$(for _candidate in "$_chart_checkout_dir"/charts/camunda-platform-8.*; do
+        if [[ -d "$_candidate" ]]; then printf '%s\n' "$_candidate"; fi
+    done | sort -V | tail -n 1)"
+    if [[ -z "$_local_chart" ]]; then
+        echo "ERROR: expected $_expected_chart; no charts/camunda-platform-8.* directory exists." >&2
+        exit 1
+    fi
+    echo "WARN: expected $_expected_chart is missing; using $_local_chart instead." >&2
 fi
+# End chart selection.
 
 # Resolve the file:// "common" dependency locally (no registry auth); logs to stderr.
 helm dependency update "$_local_chart" >&2
