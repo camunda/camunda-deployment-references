@@ -22,6 +22,19 @@ module "opensearch_region_0" {
   advanced_security_master_user_name               = var.db_admin_username
   advanced_security_master_user_password           = local.db_admin_password_effective
 
+  # Without a domain policy every request is denied (403). Fine-grained access
+  # control with the master user does the authentication, as in the other
+  # reference architectures.
+  access_policies = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { AWS = "*" }
+      Action    = "es:*"
+      Resource  = "arn:aws:es:${data.aws_region.region_0.region}:${data.aws_caller_identity.current.account_id}:domain/${local.prefix_region_0}-opensearch/*"
+    }]
+  })
+
   tags = {
     Name = "${local.prefix_region_0}-opensearch"
   }
@@ -50,6 +63,19 @@ module "opensearch_region_1" {
   advanced_security_internal_user_database_enabled = true
   advanced_security_master_user_name               = var.db_admin_username
   advanced_security_master_user_password           = local.db_admin_password_effective
+
+  # Without a domain policy every request is denied (403). Fine-grained access
+  # control with the master user does the authentication, as in the other
+  # reference architectures.
+  access_policies = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { AWS = "*" }
+      Action    = "es:*"
+      Resource  = "arn:aws:es:${data.aws_region.region_1.region}:${data.aws_caller_identity.current.account_id}:domain/${local.prefix_region_1}-opensearch/*"
+    }]
+  })
 
   tags = {
     Name = "${local.prefix_region_1}-opensearch"
