@@ -21,17 +21,11 @@ func runPartitioning(t *testing.T, clusterJSON string) (string, error) {
 	return string(out), err
 }
 
-// Both spellings resolve. The API is renaming `/cluster/partition-distribution`
-// to `/cluster/partitioning`, but the engine the reference architecture deploys
-// today, `camunda/camunda:8.10.0-alpha5`, still answers with the old one — the
-// same engine on either side of the chart pin bump. The fallback goes away with
-// the release that carries the rename; see the release-duty note on the function.
-func TestPartitioningReadsBothSpellings(t *testing.T) {
+func TestPartitioningReadsReleasedResponse(t *testing.T) {
 	t.Parallel()
 
 	for name, cluster := range map[string]string{
-		"pre-rename": `{"partitionDistribution":{"zones":[{"name":"paris"},{"name":"london"}]}}`,
-		"renamed":    `{"partitioning":{"zones":[{"name":"paris"},{"name":"london"}]}}`,
+		"renamed": `{"partitioning":{"zones":[{"name":"paris"},{"name":"london"}]}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -59,6 +53,7 @@ func TestPartitioningRejectsUnusableResponses(t *testing.T) {
 
 	for name, cluster := range map[string]string{
 		"no partitioning field": `{"brokers":[{"nodeId":0}]}`,
+		"pre-release field":     `{"partitionDistribution":{"zones":[{"name":"paris"}]}}`,
 		"unnamed zone entries":  `{"partitioning":{"zones":["paris"]}}`,
 		"empty zone list":       `{"partitioning":{"zones":[]}}`,
 		"blank zone name":       `{"partitioning":{"zones":[{"name":""}]}}`,
