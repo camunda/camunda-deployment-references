@@ -427,3 +427,53 @@ mgmt_topology_summary() { :; }
 		t.Fatalf("want the AWS error, got %v\n%s", err, out)
 	}
 }
+
+// #3677: failover.sh must not send the operator to the data-losing unplanned
+// recovery when aurora_switch_to returns 2 (a rerun finishes the move).
+func TestFailoverHintFollowsTheSwitchResult(t *testing.T) {
+	t.Parallel()
+	body, err := os.ReadFile(filepath.Join("..", "..", "..", "procedure", "failover.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		rc         string
+		wantUnplan bool
+	}{{"2", false}, {"1", true}} {
+		t.Run("rc="+tc.rc, func(t *testing.T) {
+			t.Parallel()
+			// Given: the zone is already gone and the writer is in the failed region.
+			fake := t.TempDir()
+			for name, content := range map[string]string{
+				"failover.sh": string(body),
+				"zeebe_management_api.sh": `mgmt_log() { echo "$*"; }
+mgmt_err() { echo "$*" >&2; }
+mgmt_topology_summary() { :; }
+mgmt_tunnel_open() { :; }
+mgmt_tunnel_close() { :; }
+mgmt_zone_present() { return 1; }
+`,
+				"aurora.sh": `aurora_settled_global() { echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'; }
+aurora_switch_to() { return "$FAKE_RC"; }
+`,
+				"aws":  "#!/usr/bin/env bash\necho available\n",
+				"curl": "#!/usr/bin/env bash\n",
+			} {
+				if err := os.WriteFile(filepath.Join(fake, name), []byte(content), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cmd := exec.Command("bash", filepath.Join(fake, "failover.sh"), "--failed-region", "0", "--keep-tasks")
+			cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_RC="+tc.rc,
+				"REGION_0=eu-west-2", "REGION_1=eu-west-3", "CLUSTER_0=c0-cluster", "CLUSTER_1=c1-cluster",
+				"AURORA_GLOBAL_CLUSTER_ID=g", "ALB_ENDPOINT_0=a0", "ALB_ENDPOINT_1=a1", "ADMIN_USER=u", "ADMIN_PASS=p")
+			// When
+			out, err := cmd.CombinedOutput()
+			// Then
+			if err == nil || !strings.Contains(string(out), "did not complete") ||
+				strings.Contains(string(out), "unplanned recovery procedure") != tc.wantUnplan {
+				t.Fatalf("want failure with unplanned hint=%v, got %v\n%s", tc.wantUnplan, err, out)
+			}
+		})
+	}
+}
