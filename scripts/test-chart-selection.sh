@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# TODO: [release-duty] delete this self-test with the source-build helpers on the cut branch.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

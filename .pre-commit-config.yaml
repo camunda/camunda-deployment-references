@@ -89,6 +89,7 @@ repos:
 
     - repo: local
       hooks:
+          # TODO: [release-duty] remove this hook with the source-build helpers on the cut branch.
           - id: chart-selection-selftest
             name: Chart directory selection self-test
             entry: bash scripts/test-chart-selection.sh
