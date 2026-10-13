@@ -39,9 +39,9 @@ aurora_settled_global() {
 # failover-global-cluster returns while the switchover is still pending, and
 # the target cluster reports "available" before the writer moves. Poll the
 # global cluster until the target is the writer and no FailoverState is left.
-# A failed read counts as "not done yet". Returns 1 when the switchover ended
-# with another writer (a second call can cancel it), and 2 when it still runs
-# at the timeout.
+# A failed read counts as "not done yet". Returns 2 when a rerun can finish
+# the move: the switchover still runs at the timeout, or it ended with another
+# writer (a second call can cancel it).
 aurora_wait_writer() {
     local target_arn=$1 max_wait=${2:-900} region global_json writer state
     [ -n "${target_arn}" ] || { echo "ERROR: no target writer ARN" >&2; return 1; }
@@ -59,8 +59,8 @@ aurora_wait_writer() {
         fi
         if [ -n "${writer}" ] && [ -z "${state}" ]; then
             echo "ERROR: the Aurora switchover to ${target_arn} ended without moving the writer" \
-                "(writer: ${writer}). Another switchover request may have cancelled it." >&2
-            return 1
+                "(writer: ${writer}). Another switchover request may have cancelled it; rerun the script." >&2
+            return 2
         fi
         if [ "${SECONDS}" -ge "${deadline}" ]; then
             echo "ERROR: the Aurora switchover to ${target_arn} did not finish within ${max_wait}s" \
@@ -78,8 +78,8 @@ aurora_wait_writer() {
 # Makes the target the writer, and is safe to rerun: it lets a running
 # switchover settle, does nothing when the target is already the writer, and
 # otherwise runs a planned switchover and waits until it finished. The timeout
-# covers all of it. Returns 2 when a switchover still runs at the timeout:
-# the writer is about to move, so a rerun, not unplanned recovery, finishes it.
+# covers all of it. Returns 2 when a rerun can finish the move (see
+# aurora_wait_writer), so callers must not point to unplanned recovery.
 aurora_switch_to() {
     local target_arn=$1 max_wait=${2:-900} region global_json writer out
     [ -n "${target_arn}" ] || { echo "ERROR: no target writer ARN" >&2; return 1; }

@@ -228,16 +228,13 @@ move_aurora_writer() {
   fi
   # The status read above can still say "available" early in an outage. A
   # rejected or stalled switchover gets the same guidance.
-  # Exit code 2: the switchover still runs and a rerun finishes it, so the
+  # Exit code 2 means a rerun finishes the move (the helper says so), so the
   # data-losing unplanned recovery would be the wrong advice.
   local rc=0
   aurora_switch_to "${TARGET_ARN}" || rc=$?
-  if [[ "${rc}" -eq 2 ]]; then
-    err "The planned switchover to ${SURVIVING_AWS_REGION} is still running. Rerun this script to finish."
-    exit 1
-  elif [[ "${rc}" -ne 0 ]]; then
+  if [[ "${rc}" -ne 0 ]]; then
     err "The planned switchover to ${SURVIVING_AWS_REGION} did not complete."
-    aurora_unplanned_hint
+    [[ "${rc}" -eq 2 ]] || aurora_unplanned_hint
     exit 1
   fi
   AURORA_SUMMARY="writer moved to ${SURVIVING_AWS_REGION}"
