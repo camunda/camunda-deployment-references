@@ -103,12 +103,18 @@ aurora_switch_to() {
         --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
         --target-db-cluster-identifier "${target_arn}" \
         --region "${region}" --no-cli-pager 2>&1 >/dev/null); do
-        if [[ "${out}" != *"replication setup is still in progress"* ]] || [ "${SECONDS}" -ge "${deadline}" ]; then
+        if [[ "${out}" != *"replication setup is still in progress"* ]]; then
             echo "ERROR: ${out}" >&2
             return 1
         fi
         echo "    Replication is still being set up, retrying the switchover." >&2
         sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+        # Check after the sleep: a retry past the deadline could start a
+        # switchover that nothing waits for.
+        if [ "${SECONDS}" -ge "${deadline}" ]; then
+            echo "ERROR: no budget left to retry the switchover to ${target_arn}; none was started. Last error: ${out}" >&2
+            return 1
+        fi
     done
     aurora_wait_writer "${target_arn}" "$((deadline > SECONDS ? deadline - SECONDS : 0))"
 }
