@@ -274,7 +274,8 @@ state:
   It runs `terraform destroy` from the CI state and deletes the state object
   when the destroy succeeds. A state stays behind only when that destroy fails.
 
-Either way, reusing that state the next day puts you in the worst position:
+If a state object is left behind, from cloud-nuke or from a failed destroy,
+reusing it the next day puts you in the worst position:
 Terraform believes in resources that no longer exist.
 
 Do not try to reconcile it. `terraform apply -refresh-only` fails outright on
@@ -305,7 +306,7 @@ terraform init -reconfigure \
   -backend-config="bucket=<bucket>" \
   -backend-config="key=<prefix>/tfstate-<new-name>/clusters.tfstate" \
   -backend-config="region=<state-region>"
-terraform apply -var cluster_name=<new-name>
+terraform apply -var "cluster_name=<new-name>"
 ```
 
 **Leave the old state object where it is.** It is not litter, it is the
