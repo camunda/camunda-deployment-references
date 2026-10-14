@@ -403,13 +403,22 @@ FAILBACK_SETTLED="
 # target even on a healthy failback.
 if TOPOLOGY=$(mgmt_topology_settled "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
       "${LEADER_SETTLE_TIMEOUT}" "${FAILBACK_SETTLED}"); then
-    log "✓ ${TARGET_BROKERS} brokers, every partition led, no idle brokers."
+    SETTLED=true
 else
-    BROKERS=$(mgmt_topology_count "${TOPOLOGY}" '.brokers | length')
-    PARTITIONS=$(mgmt_topology_count "${TOPOLOGY}" "${PARTITION_FILTER}")
-    LEADERS=$(mgmt_topology_count "${TOPOLOGY}" "${LEADER_FILTER}")
-    IDLE=$(mgmt_topology_count "${TOPOLOGY}" "${IDLE_FILTER}")
+    SETTLED=false
+fi
 
+# Counted on both paths: the closing summary reports them whatever happened,
+# and under `set -u` a name left unset in the success branch aborts the script
+# after the failback has already finished.
+BROKERS=$(mgmt_topology_count "${TOPOLOGY}" '.brokers | length')
+PARTITIONS=$(mgmt_topology_count "${TOPOLOGY}" "${PARTITION_FILTER}")
+LEADERS=$(mgmt_topology_count "${TOPOLOGY}" "${LEADER_FILTER}")
+IDLE=$(mgmt_topology_count "${TOPOLOGY}" "${IDLE_FILTER}")
+
+if [ "${SETTLED}" = true ]; then
+    log "✓ ${BROKERS} brokers, ${PARTITIONS} partitions, ${LEADERS} leaders, no idle brokers."
+else
     if [ -z "${TOPOLOGY}" ]; then
         err "${SURVIVING_ALB} stopped answering within ${LEADER_SETTLE_TIMEOUT}s, so the failback could not be confirmed."
     elif [ "${BROKERS}" -ne "${TARGET_BROKERS}" ]; then

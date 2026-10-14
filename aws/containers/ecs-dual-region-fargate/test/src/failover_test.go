@@ -61,7 +61,7 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 			"aws_profile":        awsProfile,
 			"region_0":           region0,
 			"region_1":           region1,
-			"networking_mode":    "transit_gateway",
+			"networking_mode":    "vpc_peering",
 			"single_nat_gateway": true,
 			"default_tags":       commonTags,
 		},
