@@ -717,7 +717,6 @@ EOF
 }
 
 
-# Fetch all group IDs
 # tag_stream prefixes each line with its group and module. Module names hold a
 # `/` (app/terraform), so `/` cannot be the sed delimiter.
 tag_stream() {
@@ -812,6 +811,7 @@ if [[ "$SELFTEST" == true ]]; then
   exit $?
 fi
 
+# Fetch all group IDs
 all_objects=$(aws s3 ls "s3://$BUCKET/$KEY_PREFIX" --recursive)
 aws_exit_code=$?
 
