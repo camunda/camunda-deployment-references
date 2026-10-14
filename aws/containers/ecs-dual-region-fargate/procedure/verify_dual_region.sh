@@ -54,8 +54,16 @@ if [[ -n "${FAILED_REGION}" && "${FAILED_REGION}" != "0" && "${FAILED_REGION}" !
 fi
 
 # Matches terraform/app/locals.tf: 4 brokers and 2 replicas per region.
+#
+# In failed-region mode the broker count is deliberately not asserted. The
+# drained region's brokers stay in cluster membership for a while hosting zero
+# replicas — a live failover reported brokers=8 alongside clusterSize=4 and
+# replicationFactor=2 — so pinning it to 4 rejects a survivor that is perfectly
+# healthy and only waiting on ECS task teardown. The replication factor and
+# per-partition leadership are what actually prove the zone left the
+# distribution, and those are still asserted.
 if [[ -n "${FAILED_REGION}" ]]; then
-    EXPECTED_BROKERS=4
+    EXPECTED_BROKERS=""
     EXPECTED_REPLICATION_FACTOR=2
 else
     EXPECTED_BROKERS=8
@@ -181,7 +189,9 @@ check_topology() {
 
     local broker_count
     broker_count=$(echo "${topology}" | jq '.brokers | length')
-    if [ "${broker_count}" = "${EXPECTED_BROKERS}" ]; then
+    if [ -z "${EXPECTED_BROKERS}" ]; then
+        echo "  ℹ️  Region ${label}: ${broker_count} brokers in membership (not asserted after a failover)"
+    elif [ "${broker_count}" = "${EXPECTED_BROKERS}" ]; then
         check "Region ${label}: cluster has ${broker_count} brokers (expected ${EXPECTED_BROKERS})" 0
     else
         check "Region ${label}: cluster has ${broker_count} brokers (expected ${EXPECTED_BROKERS})" 1
@@ -204,7 +214,11 @@ check_topology() {
     fi
 
     local leader_count
-    leader_count=$(echo "${topology}" | jq '[.brokers[].partitions[] | select(.role == "leader") | .partitionId] | unique | length')
+    # Partitions holding exactly one leader. `unique | length` would count a
+    # partition with two leaders once and report success on a split brain.
+    leader_count=$(echo "${topology}" | jq '
+        [.brokers[].partitions[] | select(.role == "leader") | .partitionId]
+        | group_by(.) | map(select(length == 1)) | length')
     if [ "${leader_count}" = "${EXPECTED_PARTITIONS}" ]; then
         check "Region ${label}: ${leader_count}/${EXPECTED_PARTITIONS} partitions have a leader" 0
     else

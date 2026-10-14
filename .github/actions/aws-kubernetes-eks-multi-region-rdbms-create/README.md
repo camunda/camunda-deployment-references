@@ -18,7 +18,7 @@ architecture down.
 | `cluster-name` | <p>Base name of the clusters. Each region appends its short name.</p> | `true` | `""` |
 | `aws-region` | <p>Region of the first region slot, used for the AWS CLI default.</p> | `false` | `eu-west-2` |
 | `active-region-count` | <p>Number of region slots to deploy. Must be the slot count or the slot count minus one; see the reference architecture README for why.</p> | `false` | `3` |
-| `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.36` |
+| `kubernetes-version` | <p>Version of Kubernetes to install</p> | `false` | `1.37` |
 | `np-desired-node-count` | <p>Desired number of nodes per regional node group</p> | `false` | `3` |
 | `single-nat-gateway` | <p>Whether to use a single NAT gateway per region. True in CI to save on IPs.</p> | `false` | `true` |
 | `database-instance-class` | <p>Aurora instance class. Kept small in CI.</p> | `false` | `db.r6g.large` |
@@ -75,7 +75,7 @@ This action is a `composite` action.
     # Version of Kubernetes to install
     #
     # Required: false
-    # Default: 1.36
+    # Default: 1.37
 
     np-desired-node-count:
     # Desired number of nodes per regional node group

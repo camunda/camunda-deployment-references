@@ -13,6 +13,12 @@
 terraform {
   required_version = ">= 1.6.0"
 
+  # The ECS dual-region BYO VPC test passes the bucket, key and region, so its
+  # cleanup can reclaim this state when a run is killed.
+  backend "s3" {
+    encrypt = true
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -31,7 +37,7 @@ data "aws_availability_zones" "region_1" {
 
 module "vpc_region_0" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "v6.6.1"
+  version = "v6.7.3"
 
   providers = { aws = aws.region_0 }
 
@@ -54,7 +60,7 @@ module "vpc_region_0" {
 
 module "vpc_region_1" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "v6.6.1"
+  version = "v6.7.3"
 
   providers = { aws = aws.region_1 }
 

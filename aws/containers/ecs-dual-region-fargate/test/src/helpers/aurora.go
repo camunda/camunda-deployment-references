@@ -1,11 +1,6 @@
-// Aurora Global helpers — used by the failover/failback tests to observe the
-// writer region and the global cluster's health. Nothing here mutates the
-// cluster: procedure/failover.sh performs the promotion, and the tests assert
-// on what it did.
-//
-// Everything shells out to the AWS CLI through awsJSON (see ecs.go) rather
-// than pulling in the SDK: the procedure scripts use the CLI, so the tests
-// observe the system the same way an operator following the runbook does.
+// Aurora Global helpers — used by failover/failback tests to assert on
+// writer region changes. Shells out to `aws rds describe-global-clusters`
+// rather than pulling in the AWS SDK to keep dependency footprint small.
 package helpers
 
 import (
@@ -14,68 +9,70 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
-type globalClusterMember struct {
-	DBClusterArn string `json:"DBClusterArn"`
-	// IsWriter, not IsClusterWriter. describe-global-clusters returns IsWriter
-	// on GlobalClusterMembers; IsClusterWriter belongs to DBClusterMembers,
-	// the instances inside one cluster. With the wrong tag this unmarshals
-	// false for every member and AuroraWriterRegion fails with "no writer
-	// member found" before the runbooks are ever exercised. The shell path
-	// (procedure/failover.sh) always used .IsWriter, which is why the live run
-	// promoted correctly while the Go tests could not have.
-	IsWriter bool `json:"IsWriter"`
-}
-
-// globalCluster is the subset of describe-global-clusters the tests assert on.
-type globalCluster struct {
-	Status  string                `json:"Status"`
-	Members []globalClusterMember `json:"GlobalClusterMembers"`
-}
-
-// auroraGlobal fetches the global cluster once. AuroraWriterRegion and
-// AuroraGlobalClusterStatus used to issue a CLI call each, with a different
-// --query against the same API call; one response carries both.
-func auroraGlobal(t *testing.T, awsProfile, globalClusterID string) globalCluster {
-	t.Helper()
-	raw := awsJSON(t, awsProfile,
-		"rds", "describe-global-clusters",
-		"--global-cluster-identifier", globalClusterID,
-		"--query", "GlobalClusters[0].{Status:Status,GlobalClusterMembers:GlobalClusterMembers}",
-		"--output", "json",
-	)
-	var gc globalCluster
-	if err := json.Unmarshal(raw, &gc); err != nil {
-		t.Fatalf("parse describe-global-clusters JSON: %v\n%s", err, raw)
+// ParseAuroraWriterRegion reads the `GlobalClusters[0]` object returned by
+// `aws rds describe-global-clusters` and returns the writer's region. It fails
+// while a switchover or failover is in progress: a procedure that reports a
+// writer move as complete must already have waited for it (#3572).
+func ParseAuroraWriterRegion(raw []byte) (string, error) {
+	var global struct {
+		FailoverState *struct {
+			Status string `json:"Status"`
+		} `json:"FailoverState"`
+		GlobalClusterMembers []struct {
+			DBClusterArn string `json:"DBClusterArn"`
+			IsWriter     bool   `json:"IsWriter"`
+		} `json:"GlobalClusterMembers"`
 	}
-	return gc
-}
-
-// AuroraWriterRegion returns the AWS region (e.g. "eu-west-2") of the current
-// writer cluster in the specified Aurora Global cluster.
-func AuroraWriterRegion(t *testing.T, awsProfile, globalClusterID string) string {
-	t.Helper()
-	for _, m := range auroraGlobal(t, awsProfile, globalClusterID).Members {
+	if err := json.Unmarshal(raw, &global); err != nil {
+		return "", fmt.Errorf("parse describe-global-clusters JSON: %w\n%s", err, raw)
+	}
+	if global.FailoverState != nil && global.FailoverState.Status != "" {
+		return "", fmt.Errorf("Aurora switchover still in progress (%s)", global.FailoverState.Status)
+	}
+	for _, m := range global.GlobalClusterMembers {
 		if m.IsWriter {
 			region := regionFromDBClusterARN(m.DBClusterArn)
 			if region == "" {
-				t.Fatalf("could not extract region from writer ARN %q", m.DBClusterArn)
+				return "", fmt.Errorf("could not extract region from writer ARN %q", m.DBClusterArn)
 			}
-			return region
+			return region, nil
 		}
 	}
-	t.Fatalf("no writer member found in global cluster %s", globalClusterID)
-	return "" // unreachable
+	return "", fmt.Errorf("no writer member in %s", raw)
 }
 
-// AuroraGlobalClusterStatus returns the Status field of the global cluster.
-func AuroraGlobalClusterStatus(t *testing.T, awsProfile, globalClusterID string) string {
+// AuroraWriterRegion returns the AWS region (e.g. "eu-west-2") of the current
+// writer cluster in the specified Aurora Global cluster. It reads once and
+// does not retry, and fails the test if a switchover is still in progress.
+func AuroraWriterRegion(t *testing.T, awsProfile, globalClusterID string) string {
 	t.Helper()
-	return auroraGlobal(t, awsProfile, globalClusterID).Status
+	args := []string{
+		"rds", "describe-global-clusters",
+		"--global-cluster-identifier", globalClusterID,
+		"--query", "GlobalClusters[0]",
+		"--output", "json",
+	}
+	if awsProfile != "" {
+		args = append(args, "--profile", awsProfile)
+	}
+
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command("aws", args...)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("aws rds describe-global-clusters failed: %v\n%s", err, stderr.String())
+	}
+
+	region, err := ParseAuroraWriterRegion(stdout.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return region
 }
 
 // regionFromDBClusterARN extracts the region from an ARN of the form
@@ -88,79 +85,81 @@ func regionFromDBClusterARN(arn string) string {
 	return parts[3]
 }
 
-// RunProcedureScript runs one of the procedure/*.sh scripts with env layered
-// on top of the minimal host environment from baseOSEnv. Build env with
-// ProcedureEnv, which sources the scripts' own prerequisites.
-//
-// Output is streamed as the script runs rather than buffered to the end: a
-// failover takes minutes, and a silent log for that long is indistinguishable
-// from a hang.
+// RunProcedureScript runs one of the procedure/*.sh scripts the way the README
+// does: it first sources export_environment_prerequisites.sh, which reads the
+// variables every procedure requires (clusters, ALB endpoints, admin
+// password, ...) from the infra/ state in env["TF_DIR"]. The test's own
+// environment is inherited, so the AWS CLI keeps its credentials. Fails the
+// test on non-zero exit.
 func RunProcedureScript(t *testing.T, scriptPath string, env map[string]string, extraArgs ...string) {
 	t.Helper()
 
-	cmd := exec.Command(scriptPath, extraArgs...)
-	cmd.Env = append(cmd.Env, baseOSEnv()...)
+	if env["TF_DIR"] == "" {
+		t.Fatal("RunProcedureScript needs TF_DIR, the infra/ state directory")
+	}
+	cmd := exec.Command("bash", append([]string{"-c",
+		`. "$(dirname "$0")/export_environment_prerequisites.sh" >/dev/null && exec "$0" "$@"`,
+		scriptPath}, extraArgs...)...)
+	cmd.Env = os.Environ()
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	prefix := filepath.Base(scriptPath)
-	cmd.Stdout = &logWriter{t: t, prefix: prefix}
-	cmd.Stderr = &logWriter{t: t, prefix: prefix}
-
+	var combined bytes.Buffer
+	cmd.Stdout = &combined
+	cmd.Stderr = &combined
 	t.Logf("Running %s %v", scriptPath, extraArgs)
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("%s failed: %v (see the streamed output above)", scriptPath, err)
+		t.Fatalf("%s failed: %v\n%s", scriptPath, err, combined.String())
 	}
-	t.Logf("%s succeeded", scriptPath)
+	t.Logf("%s succeeded:\n%s", scriptPath, combined.String())
 }
 
-// baseOSEnv returns the subset of the host environment the procedure scripts
-// need. PATH alone is not enough: the scripts call `aws --profile <name>`,
-// which resolves the profile through HOME/AWS_CONFIG_FILE/
-// AWS_SHARED_CREDENTIALS_FILE. Without those the CLI reports the profile as
-// nonexistent and every script aborts on its first AWS call.
-func baseOSEnv() []string {
-	keys := []string{
-		"PATH",
-		"HOME",
-		"AWS_CONFIG_FILE",
-		"AWS_SHARED_CREDENTIALS_FILE",
-		"AWS_PROFILE",
-		"AWS_REGION",
-		"AWS_DEFAULT_REGION",
-		"AWS_ACCESS_KEY_ID",
-		"AWS_SECRET_ACCESS_KEY",
-		"AWS_SESSION_TOKEN",
-		"TERM",
-	}
-	env := make([]string, 0, len(keys))
-	for _, k := range keys {
-		if v, ok := os.LookupEnv(k); ok {
-			env = append(env, k+"="+v)
+// ScaleDownRegion scales every ECS service of a cluster to zero tasks, the way
+// a region outage leaves it, so a test can run failover.sh --keep-tasks.
+func ScaleDownRegion(t *testing.T, awsProfile, region, cluster string) {
+	t.Helper()
+
+	aws := func(args ...string) string {
+		args = append(args, "--region", region)
+		if awsProfile != "" {
+			args = append(args, "--profile", awsProfile)
 		}
-	}
-	return env
-}
-
-// logWriter forwards whole lines to t.Log as the child process emits them.
-type logWriter struct {
-	t      *testing.T
-	prefix string
-	buf    bytes.Buffer
-}
-
-func (w *logWriter) Write(p []byte) (int, error) {
-	w.t.Helper()
-	w.buf.Write(p)
-	for {
-		line, err := w.buf.ReadString('\n')
+		out, err := exec.Command("aws", args...).CombinedOutput()
 		if err != nil {
-			// Partial line — put it back and wait for the rest.
-			w.buf.WriteString(line)
-			break
+			t.Fatalf("aws %v failed: %v\n%s", args, err, out)
 		}
-		w.t.Logf("[%s] %s", w.prefix, strings.TrimRight(line, "\n"))
+		return string(out)
 	}
-	return len(p), nil
+	services := strings.Fields(aws("ecs", "list-services", "--cluster", cluster,
+		"--query", "serviceArns[]", "--output", "text"))
+	for _, service := range services {
+		aws("ecs", "update-service", "--cluster", cluster, "--service", service,
+			"--desired-count", "0", "--no-cli-pager")
+	}
+	// update-service returns before the tasks stop. Wait until they have, so the
+	// brokers are really gone when failover.sh --keep-tasks removes the zone.
+	// services-stable takes at most 10 services per call.
+	for i := 0; i < len(services); i += 10 {
+		aws(append([]string{"ecs", "wait", "services-stable", "--cluster", cluster, "--services"},
+			services[i:min(i+10, len(services))]...)...)
+	}
+}
+
+// RestoreAuroraWriterHome runs test/restore-aurora-writers.sh for one global
+// cluster. It is safe in t.Cleanup: it waits for a switchover in progress,
+// never calls t.Fatal, and reports a failure with t.Errorf so the state
+// destroys registered before it still run.
+func RestoreAuroraWriterHome(t *testing.T, scriptPath, awsProfile, region0, globalClusterID string) {
+	t.Helper()
+	cmd := exec.Command("bash", scriptPath, globalClusterID, "0")
+	cmd.Env = append(os.Environ(), "REGION_0="+region0, "RESTORE_STRICT=true", "RESTORE_EXACT_ID=true")
+	if awsProfile != "" {
+		cmd.Env = append(cmd.Env, "AWS_PROFILE="+awsProfile)
+	}
+	out, err := cmd.CombinedOutput()
+	t.Logf("%s %s:\n%s", scriptPath, globalClusterID, out)
+	if err != nil {
+		t.Errorf("restoring the Aurora writer of %s: %v", globalClusterID, err)
+	}
 }

@@ -3664,6 +3664,7 @@
       "type": "terraform_data",
       "values": {
         "input": "jdbc:aws-wrapper:postgresql://camunda-global.cluster-r00000000000.eu-west-2.rds.amazonaws.com:5432/camunda?failoverTimeoutMs=60000&globalClusterInstanceHostPatterns=?.r00000000000.eu-west-2.rds.amazonaws.com,?.r11111111111.eu-west-3.rds.amazonaws.com&sslmode=require&wrapperPlugins=initialConnection,iam,failover",
+        "store": null,
         "triggers_replace": null
       }
     }

@@ -10,7 +10,11 @@
 package src
 
 import (
+	"fmt"
+	"path/filepath"
+	"runtime"
 	"testing"
+	"time"
 
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
@@ -19,44 +23,85 @@ import (
 )
 
 func TestEndToEnd_BYO_VPC_TGW_RDBMS(t *testing.T) {
-	f := helpers.NewFixture(t, "byo-vpc", "transit_gateway", "rdbms")
+	t.Parallel()
 
-	// Step 1: stand up the throwaway VPCs that stand in for a customer-owned pair.
-	vpcs := helpers.SetupBYOVPCs(t, f.CallerDir, f.ClusterPrefix, f.AWSProfile, f.Region0, f.Region1, f.Tags)
-	// t.Cleanup, not defer: a function's defers run *before* the testing
-	// framework's cleanups, so `defer` here destroyed the customer VPCs while
-	// app/infra/vpc were still standing in them — every dependent destroy then
-	// failed and leaked. Registering before ApplyAllThreeStates puts this last
-	// in LIFO order, which is exactly when it should run.
-	t.Cleanup(func() { vpcs.DestroyBYOVPCs(t) })
+	awsProfile := envOrDefault("TEST_AWS_PROFILE", "infraex")
+	region0 := envOrDefault("TEST_REGION_0", "eu-west-2")
+	region1 := envOrDefault("TEST_REGION_1", "eu-west-3")
+	clusterPrefix := envOrDefault("TEST_CLUSTER_PREFIX", fmt.Sprintf("e2e-byo-%s", helpers.RunTag()))
+	raftTimeoutMin := envIntOrDefault(t, "TEST_RAFT_TIMEOUT_MIN", 30)
+	backendBucket := envOrDefault("TEST_BACKEND_BUCKET", "tests-ra-aws-rosa-hcp-tf-state-eu-central-1")
+	backendRegion := envOrDefault("TEST_BACKEND_REGION", "eu-central-1")
 
-	// Step 2: switch the vpc/ layer to consume them instead of creating its own.
-	f.Options.VPCVars["byo_vpc"] = true
-	delete(f.Options.VPCVars, "single_nat_gateway") // no NAT to create in BYO mode
-	for k, v := range vpcs.ToTFVars(t) {
-		f.Options.VPCVars[k] = v
+	_, thisFile, _, _ := runtime.Caller(0)
+	thisDir := filepath.Dir(thisFile)
+	paths := helpers.IsolatedStatePaths(t, thisDir)
+
+	commonTags := map[string]interface{}{
+		"Test":    "true",
+		"RunID":   clusterPrefix,
+		"Owner":   "terratest",
+		"Purpose": "ecs-dual-region-e2e-byo-vpc",
 	}
 
-	// ApplyAllThreeStates registers each state's destroy with t.Cleanup, so a
-	// failure partway through still tears down what was created.
-	vpcOpts, _, appOpts := helpers.ApplyAllThreeStates(t, f.Paths, f.Options)
+	// Step 1: Spin up the throwaway VPCs that simulate a customer-owned VPC pair.
+	fixture := helpers.SetupBYOVPCs(t, paths.Fixture, clusterPrefix, awsProfile, region0, region1, commonTags,
+		map[string]interface{}{
+			"bucket": backendBucket,
+			"region": backendRegion,
+			"key":    helpers.BackendKeyPrefix(clusterPrefix) + "fixture/terraform.tfstate",
+		})
+
+	// Build the vpc/ tfvars: byo_vpc = true + the fixture outputs.
+	vpcVars := map[string]interface{}{
+		"cluster_name":    clusterPrefix,
+		"aws_profile":     awsProfile,
+		"region_0":        region0,
+		"region_1":        region1,
+		"networking_mode": "transit_gateway",
+		"byo_vpc":         true,
+		"default_tags":    commonTags,
+	}
+	for k, v := range fixture.ToTFVars(t) {
+		vpcVars[k] = v
+	}
+
+	opts := helpers.ApplyOptions{
+		VPCVars: vpcVars,
+		InfraVars: map[string]interface{}{
+			"cluster_name":           clusterPrefix,
+			"aws_profile":            awsProfile,
+			"region_0":               region0,
+			"region_1":               region1,
+			"secondary_storage_type": "rdbms",
+			"s3_force_destroy":       true,
+			"default_tags":           commonTags,
+		},
+		AppVars: map[string]interface{}{
+			"aws_profile":  awsProfile,
+			"default_tags": commonTags,
+		},
+		BackendBucket:    backendBucket,
+		BackendRegion:    backendRegion,
+		BackendKeyPrefix: helpers.BackendKeyPrefix(clusterPrefix),
+	}
+
+	vpcOpts, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
+	adminPassword := helpers.AdminPassword(t, infraOpts)
 
 	albEndpoint := terraform.Output(t, appOpts, "region_0_alb_endpoint")
 	require.NotEmpty(t, albEndpoint)
 
-	adminPass := helpers.SensitiveOutput(t, appOpts, "admin_user_password")
-	require.NotEmpty(t, adminPass, "admin_user_password is needed to poll /v2/topology")
-
 	t.Logf("Waiting for Raft quorum at %s ...", albEndpoint)
-	topo := helpers.WaitForRaftQuorum(t, albEndpoint, "admin", adminPass, brokersBothZones, partitionCount, f.RaftTimeout)
+	topo := helpers.WaitForRaftQuorum(t, albEndpoint, adminPassword, 8, 8, time.Duration(raftTimeoutMin)*time.Minute)
 
-	require.Len(t, topo.Brokers, brokersBothZones)
-	require.Equal(t, partitionCount, topo.PartitionsCount)
-	require.Equal(t, rfBothZones, topo.ReplicationFactor)
+	require.Len(t, topo.Brokers, 8)
+	require.Equal(t, 8, topo.PartitionsCount)
+	require.Equal(t, 4, topo.ReplicationFactor)
 
 	// BYO-specific assertion: the vpc/ state should re-export the supplied VPC IDs.
 	require.Equal(t,
-		vpcs.ToTFVars(t)["region_0_vpc_id"],
+		fixture.ToTFVars(t)["region_0_vpc_id"],
 		terraform.Output(t, vpcOpts, "region_0_vpc_id"),
 		"vpc/ state should re-export the supplied region_0_vpc_id in BYO mode")
 }

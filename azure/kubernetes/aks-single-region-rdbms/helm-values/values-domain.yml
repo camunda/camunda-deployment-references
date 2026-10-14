@@ -9,7 +9,7 @@
 # - OIDC: generic/kubernetes/single-region/helm-values/values-oidc.yml + values-oidc-domain.yml
 #
 # Differences from Elasticsearch variant:
-# - Elasticsearch is disabled
+# - No Elasticsearch: the ECK operator overlay is not applied
 # - Optimize is disabled (requires Elasticsearch)
 # - Orchestration uses RDBMS secondary storage with Azure Flexible Server PostgreSQL
 #

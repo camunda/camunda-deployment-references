@@ -68,20 +68,12 @@ env:
     # TODO: [release-duty] before the release, update the below versions to the stable release!
     # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
     # TODO: [release-duty] Adjust the previous version to the previous stable release, 8.9 --> 8.8, for 8.8 would stick to 8.8
-    # Pre-GA: the all-in-one installer ships 8.10.0-SNAPSHOT, so this must carry the
-    # "-SNAPSHOT" suffix. The upgrade test keys its pre-release gate (and the final
-    # version assertion) off this string; without the suffix the gate stays off and the
-    # 8.9 -> 8.10.0-SNAPSHOT upgrade is rejected (IncompatibleVersionException). Revert to
-    # the GA version at release time (see release-duty TODOs above).
-    # TODO: [release-duty] at 8.10 GA, drop the "-SNAPSHOT" suffix here (revert TESTS_CAMUNDA_VERSION to 8.10.0).
-    # Parked: pre-GA snapshot, see the release-duty TODOs above.
-    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.10(\.(?<patch>\d+))?$ renovate-inert-ok
-    TESTS_CAMUNDA_VERSION: 8.10.0-SNAPSHOT
+    # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.10(\.(?<patch>\d+))?$
+    TESTS_CAMUNDA_VERSION: 8.10.3
     TESTS_CAMUNDA_PREVIOUS_VERSION: 8.9.0 # Version to be used for upgrade tests, not updated automatically
 
-    # Parked: pre-GA snapshot, see the release-duty TODOs above.
-    # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.10(\.(?<patch>\d+))?$ renovate-inert-ok
-    TESTS_CONNECTORS_VERSION: 8.10.0-SNAPSHOT
+    # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.10(\.(?<patch>\d+))?$
+    TESTS_CONNECTORS_VERSION: 8.10.0
     TESTS_CONNECTORS_PREVIOUS_VERSION: 8.9.0 # Version to be used for upgrade tests, not updated automatically
 
 jobs:
@@ -112,7 +104,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -139,7 +131,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -197,7 +189,7 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
 
             - name: Install zbctl
               run: |
@@ -313,36 +305,10 @@ jobs:
                   go install gotest.tools/gotestsum@latest
 
                   # Run all tests except TestSetup and TestTeardown
-                  set +e
                   go run gotest.tools/gotestsum@latest --junitfile tests.xml -- --timeout=120m --skip 'TestSetup|TestTeardown'
-                  rc=$?
-                  set -e
-
-                  if [[ "${rc}" -eq 0 ]]; then
-                      exit 0
-                  fi
-
-                  # TODO: [release-duty] remove this SNAPSHOT upgrade-flake tolerance at 8.10 GA -- the
-                  # upgrade then runs GA -> GA and must fail loudly (this block would otherwise hide it).
-                  # Tolerate ONLY the documented upstream flake: on a SNAPSHOT build the in-place
-                  # upgrade (TestCamundaUpgrade) can fail because the daily Camunda SNAPSHOT artifact is
-                  # broken upstream, independent of this repo (see TestCamundaUpgrade in
-                  # default_ec2_test.go). In that single case we keep the job green with a loud warning;
-                  # any other failure -- or an additional failing test -- still fails the job.
-                  install_version=$(grep -E '^CAMUNDA_VERSION=' ../../procedure/camunda-install.sh | head -1 | sed -E 's/.*:-"?([^"}]*)"?\}?.*/\1/' || true)
-                  failing=$(python3 ../print-failed-tests.py tests.xml || true)
-                  echo "[INFO] install_version='${install_version}' failing_tests='${failing}'"
-                  if [[ "${install_version}" == *SNAPSHOT* && "${failing}" == "TestCamundaUpgrade" ]]; then
-                      echo "::warning::Tolerated SNAPSHOT upgrade flake (TestCamundaUpgrade) - broken upstream daily artifact, see default_ec2_test.go"
-                      echo "tolerated=true" >> "$GITHUB_OUTPUT"
-                      exit 0
-                  fi
-                  exit "${rc}"
 
             - name: 🔥 Run Camunda Smoke Test
-              # Skip when the upgrade flake was tolerated above: the broker is intentionally left in a
-              # known-broken state, so the smoke test would fail and defeat the tolerance.
-              if: env.TESTS_ENABLED == 'true' && steps.terratest.outputs.tolerated != 'true'
+              if: env.TESTS_ENABLED == 'true'
               timeout-minutes: 15
               uses: ./.github/actions/camunda-smoke-test
               with:
@@ -364,7 +330,7 @@ jobs:
                   sed 's/\n/&#xA;/g' > "./tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-filtered.xml"
             - name: Upload test reports
               if: always()
-              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
               with:
                   name: test-reports-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS }}-${{ matrix.distro.name }}
                   path: ${{ github.workspace }}/aws/compute/ec2-single-region/test/src/tests-${{ steps.camunda-version.outputs.TESTS_CAMUNDA_VERSION_HYPHENS
@@ -392,7 +358,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
 
             - name: Configure AWS CLI
               if: env.CLEANUP_CLUSTERS == 'true'
@@ -434,7 +400,7 @@ jobs:
             SNAPSHOT_ERROR: ${{ steps.determine-if-failed-tests-include-snapshot.outputs.SNAPSHOT_ERROR }}
         steps:
             - name: Download artifacts
-              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+              uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
               with:
                   pattern: test-reports-*
                   path: /tmp/testreports
@@ -488,7 +454,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

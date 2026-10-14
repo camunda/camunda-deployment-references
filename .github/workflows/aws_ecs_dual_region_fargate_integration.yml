@@ -1,15 +1,14 @@
 ---
-name: Tests - Terratest - AWS Containers ECS Dual Region Fargate
+name: Tests - Integration - AWS Containers ECS Dual Region Fargate
 
-# The full Terratest sweep: every test in
-# aws/containers/ecs-dual-region-fargate/test/src, each applying its own
-# vpc/ → infra/ → app/ stack against the sandbox AWS account, waiting for
-# Raft quorum, asserting, then destroying.
+# End-to-end Terratest suite. Applies the full vpc/ → infra/ → app/ stack
+# against the sandbox AWS account, waits for Raft quorum, asserts on Zeebe
+# topology, then destroys.
 #
-# Dispatch-only, and deliberately so: the suite is several clusters' worth of
-# spend per run. The pull-request lane is
-# aws_ecs_dual_region_fargate_tests.yml, which covers one combination on one
-# cluster — that workflow owns the "Tests - Integration - ..." display name.
+# NOT yet enabled on a schedule. Runs on pull requests that touch the stack,
+# its procedures or its tests (skip with the `skip_<workflow>` label), and via
+# workflow_dispatch. To schedule it, add a row to
+# .github/workflows-config/workflow-scheduler.yml.
 
 on:
     workflow_dispatch:
@@ -24,10 +23,25 @@ on:
                 required: false
                 default: false
                 type: boolean
+    pull_request:
+        paths:
+            - .github/workflows/aws_ecs_dual_region_fargate_integration.yml
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .tool-versions
+            - aws/containers/ecs-dual-region-fargate/procedure/**
+            - aws/containers/ecs-dual-region-fargate/terraform/**
+            - '!aws/containers/ecs-dual-region-fargate/terraform/*/test/golden/**'
+            - aws/containers/ecs-dual-region-fargate/test/**
+            - aws/modules/ecs/**
+            - aws/modules/aurora-global/**
 
+# Never cancel a running suite: after a cancellation GitHub kills the job within
+# minutes, before "Destroy the states of this run" can finish, and the stacks
+# leak until the daily sweep. A new push waits for the previous run instead.
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+    cancel-in-progress: false
 
 env:
     AWS_PROFILE: infraex
@@ -49,40 +63,16 @@ jobs:
               uses: ./.github/actions/internal-triage-skip
 
     integration:
-        name: ${{ matrix.test }}
         runs-on: ubuntu-latest
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        # One test: provision, assert, destroy.
-        timeout-minutes: 120
-        # One test per runner leg, not all of them in one `go test`.
-        #
-        # The suite is serial within a process — every test drives
-        # `terraform init -reconfigure` against the same three module
-        # directories (see test/src/doc.go) — and each test provisions and
-        # destroys a complete dual-region stack, roughly 45-60 minutes. Run
-        # end to end that is several hours, well past any job budget. A matrix
-        # gives each test its own runner and therefore its own checkout, so the
-        # shared-directory race does not apply across legs and the wall clock
-        # is one test, not all of them.
-        #
-        # max-parallel bounds how many full stacks exist at once, which is the
-        # real limit here: Elastic IPs and NAT gateways per region run out
-        # before anything else does.
-        strategy:
-            fail-fast: false
-            max-parallel: 2
-            matrix:
-                test: >-
-                    ${{ inputs.test_name != ''
-                    && fromJSON(format('["{0}"]', inputs.test_name))
-                    || fromJSON('["TestEndToEnd_Greenfield_TGW_RDBMS","TestEndToEnd_Greenfield_VpcPeering_OpenSearch"]') }}
+        timeout-minutes: 300
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -92,12 +82,6 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
-            # The failover/failback tests shell out to procedure/failover.sh
-            # and procedure/failback.sh, which reach the Zeebe management API
-            # over ECS Exec.
-            - name: Install session-manager-plugin
-              uses: ./.github/actions/internal-install-session-manager-plugin
 
             - name: Cache Go modules
               uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -116,16 +100,36 @@ jobs:
                   TEST_ENABLE_LOAD_TESTS: ${{ inputs.enable_load_tests }}
                   TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
-                  MATRIX_TEST: ${{ matrix.test }}
+                  # Suffixes every state group of this run, and names its stacks.
+                  TEST_RUN_ID: ${{ github.run_id }}
+                  INPUTS_TEST_NAME: ${{ inputs.test_name }}
               run: |
                   set -e
-                  # The dispatch input overrides the matrix leg, so a single
-                  # test can still be run on demand without editing the matrix.
-                  TEST_FILTER="${MATRIX_TEST}"
-                  # `go test -run` exits 0 when the pattern matches nothing, so a
-                  # typo'd dispatch would report success having tested nothing.
-                  if ! grep -rqE "func ${TEST_FILTER}\\(" ./*_test.go; then
-                      echo "::error::no test named ${TEST_FILTER} in $(pwd)"
-                      exit 1
+                  TEST_FILTER="${INPUTS_TEST_NAME}"
+                  if [[ -z "$TEST_FILTER" ]]; then
+                      go test -v -timeout 150m -run 'TestEndToEnd_Greenfield_' ./...
+                  else
+                      go test -v -timeout 150m -run "$TEST_FILTER" ./...
                   fi
-                  go test -v -timeout 110m -run "^${TEST_FILTER}$" ./...
+
+            # t.Cleanup destroys each stack when the tests end normally. It does not run
+            # when go test times out or the job is cancelled, so reclaim this run's
+            # states here too. The daily cleanup catches what this step cannot reach.
+            - name: Destroy the states of this run
+              if: always()
+              timeout-minutes: 130
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              env:
+                  TF_VAR_region_0: eu-west-2
+                  TF_VAR_region_1: eu-west-3
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BACKEND_REGION }}
+                  tf-bucket-key-prefix: aws/containers/ecs-dual-region-fargate/
+                  max-age-hours: '0'
+                  target: run${{ github.run_id }}/
+                  fail-on-not-found: 'false'
+                  modules-order: app/terraform,infra/terraform,vpc/terraform,fixture/terraform
+                  destroy-pass-timeout-minutes: '60'
+                  retry-destroy-pass-timeout-minutes: '60'
+                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate

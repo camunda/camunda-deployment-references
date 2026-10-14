@@ -640,25 +640,12 @@ EOF
   local destroy_succeeded=false
   local handler
   for attempt in $(seq 1 $max_destroy_attempts); do
-    echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts}"
-
-    # Stream the destroy as it runs, and keep a copy for the classifier.
-    #
-    # This used to be `output=$(terraform destroy ...)`. Command substitution
-    # buffers the whole run in memory and only ever reaches the log on a normal
-    # return, so a pass stopped by the caller's `timeout` discarded every line
-    # — the one case where the output matters most. A 2026-10-07 ECS
-    # dual-region sweep spent 75 minutes inside one module and left nothing
-    # behind but "Destroying module", so which resource was slow could not be
-    # answered at all. Each group already writes to its own log file, which is
-    # what gets uploaded, so streaming costs no interleaving there.
-    local destroy_log="${temp_dir}/destroy-attempt-${attempt}.log"
-    local destroy_rc=0
-    terraform destroy -auto-approve 2>&1 | tee "$destroy_log"
-    destroy_rc=${PIPESTATUS[0]}
-    output=$(cat "$destroy_log" 2>/dev/null || true)
-
-    if [[ "$destroy_rc" -eq 0 ]]; then
+    # Stream to the group log as well: a pass killed by its budget never
+    # returns, and only the streamed copy then shows the resource it hung on.
+    # Groups run in parallel, so tag each streamed line with its group and
+    # module. $output stays untagged for classify_destroy_error.
+    if output=$(terraform destroy -auto-approve -no-color 2>&1 |
+      tee >(sed -u "s/^/[$group_id][$module_name] | /" >&2)); then
       destroy_succeeded=true
       break
     fi
@@ -1026,7 +1013,11 @@ for group_id in $groups; do
         if [ "$age_hours" -ge "$MIN_AGE_IN_HOURS" ]; then
           destroy_module "$group_id" "$module" || exit 1
         else
-          echo "[$group_id][$module] Skipping (age < $MIN_AGE_IN_HOURS hours)"
+          # The modules below this one hold resources it depends on: destroying
+          # them under a live state fails (a VPC still holding RDS ENIs), so
+          # leave the rest of the group for a later run.
+          echo "[$group_id][$module] Skipping it and the modules after it (age < $MIN_AGE_IN_HOURS hours)"
+          break
         fi
       else
         echo "[$group_id][$module] Not found, skipping..."

@@ -126,10 +126,7 @@ source ../../procedure/export_environment_prerequisites.sh
 # 5. Verify cross-region DNS resolution (if enable_cross_region_dns_resolver = true)
 ../../procedure/test_cross_region_dns.sh
 
-# 6. Deploy the health-check process (verify_dual_region.sh asserts it exists)
-../../procedure/deploy_health_check_process.sh
-
-# 7. Verify dual-region health
+# 6. Verify dual-region health
 ../../procedure/verify_dual_region.sh
 ```
 
@@ -144,31 +141,13 @@ failover force-removes the lost zone, failback re-adds it. The zone names are
 the AWS region names, set by `CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_*_NAME`
 in `terraform/app/locals.tf`.
 
-Each zone contributes `replication_factor / 2` = 2 replicas, so the
-cluster-wide factor is 4 with both zones and 2 while one is removed. That
-number is the signal that the distribution really changed: brokers disappear
-whenever a region is scaled down, but the factor only moves if the zone left
-the persisted distribution.
-
-They also move the **database**. Aurora Global has a single writer region, so
-losing the writer's region leaves the database read-only until a survivor is
-promoted — AWS performs no planned switchover on its own, and the JDBC failover
-plugin can only discover a writer that exists. `failover.sh` promotes it when
-the writer was in the failed region, and `failback.sh --switch-writer` brings it
-home. This matches `aws/kubernetes/eks-multi-region-rdbms`.
-
-An *unplanned* loss where the failed region's cluster no longer answers cannot
-be switched over at all: `failover-global-cluster` needs it reachable. Recovery
-is then AWS's detach-and-promote procedure, which is **lossy and one-way** — so
-it is left to an operator rather than automated in a runbook.
-
 ```bash
 # Prerequisites for both
 . ./procedure/export_environment_prerequisites.sh
 brew install --cask session-manager-plugin   # macOS
 
-# Fail region 0 away: scale its tasks to 0, promote the region 1 database,
-# then force-remove the zone
+# Fail region 0 away: scale its tasks to 0, force-remove the zone, and move the
+# Aurora writer to region 1 if it was in region 0
 ./procedure/failover.sh --failed-region 0
 
 # Validate the request without changing anything
@@ -177,7 +156,11 @@ brew install --cask session-manager-plugin   # macOS
 # The region is already down, so skip the ECS scale-down
 ./procedure/failover.sh --failed-region 0 --keep-tasks
 
-# Check the surviving region: 4 brokers, replicationFactor 2, all partitions led
+# The region is gone, Aurora included: also leave the writer alone, then
+# follow the AWS unplanned recovery procedure for Aurora
+./procedure/failover.sh --failed-region 0 --keep-tasks --keep-writer
+
+# Check the surviving region: replicationFactor 2 and every partition led
 ./procedure/verify_dual_region.sh --failed-region 0
 
 # Restore region 0: scale it up, then re-add the zone
@@ -295,30 +278,48 @@ open http://localhost:8080
 
 #### Teardown after a failover
 
-After a failover the writer is in the surviving region — `failover.sh` promotes
-it — so the Aurora Global cluster is no longer in the topology Terraform
-recorded, and a global cluster cannot be deleted while it still has members.
+Aurora Global Database never moves its writer across regions on its own.
+`failover.sh` moves it to the surviving region when it was in the failed one,
+and `failback.sh --switch-writer` moves it back. Both run a planned switchover,
+which needs the current Aurora primary to still be healthy. If the failed
+region's Aurora cluster is down too, `failover.sh` stops and points to the
+[Aurora Global Database unplanned recovery procedure](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html).
+Pass `--keep-writer` in that case to skip the switchover and let the script
+finish.
 
-`db_force_destroy` (default `true`) handles this: the provider detaches every
-member before deleting the global cluster, in dependency order and with the
-state left consistent. No manual runbook is needed.
+While the writer is away from region 0, Terraform still expects the original
+topology and `terraform destroy` may hang on the Aurora resources.
 
-If you set `db_force_destroy = false` for a real workload, a post-failover
-`terraform destroy` will stop on the global cluster. Detach the members
-yourself and re-run:
+`db_force_destroy` (default `true`) covers the usual case: the provider detaches
+every global-cluster member before deleting it, in dependency order and with the
+state left consistent. If you set it to `false` for a real workload, detach the
+members yourself and re-run:
 
 ```bash
-# For each member ARN in the global cluster
+# 1. Remove both clusters from the Global cluster
 aws rds remove-from-global-cluster \
   --global-cluster-identifier <global-id> \
-  --db-cluster-identifier <member-cluster-arn>
+  --db-cluster-identifier <region-0-cluster-arn>
 
-terraform -chdir=terraform/infra destroy
+# 2. Delete instances in both regions (skip-final-snapshot for dev)
+aws rds delete-db-instance --db-instance-identifier <r0-instance> --skip-final-snapshot --region <region-0>
+aws rds delete-db-instance --db-instance-identifier <r1-instance> --skip-final-snapshot --region <region-1>
+
+# 3. Wait for instances to delete, then delete clusters
+aws rds delete-db-cluster --db-cluster-identifier <r0-cluster> --skip-final-snapshot --region <region-0>
+aws rds delete-db-cluster --db-cluster-identifier <r1-cluster> --skip-final-snapshot --region <region-1>
+
+# 4. Delete the global cluster
+aws rds delete-global-cluster --global-cluster-identifier <global-id>
+
+# 5. Remove Aurora resources from Terraform state and proceed with destroy
+terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster_instance.primary[0]'
+terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster_instance.secondary[0]'
+terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster.primary'
+terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster.secondary'
+terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_global_cluster.this'
+terraform -chdir=terraform/infra destroy -auto-approve
 ```
-
-CI never hits this path: it deploys with the default, and
-`.github/workflows/aws_ecs_dual_region_fargate_daily_cleanup.yml` sweeps
-anything an interrupted run leaves behind.
 
 ## Load test overlay (optional)
 

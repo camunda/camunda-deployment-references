@@ -12,12 +12,6 @@
 #   6. Polls the change to COMPLETED and verifies partitions are hosted       #
 #   7. Optionally switches the Aurora writer back                             #
 #                                                                             #
-# Pair --switch-writer with a failover that moved the writer. failover.sh     #
-# promotes the surviving Aurora member when the writer was in the region it   #
-# is failing away from, so after the default failover the writer sits in the  #
-# surviving region; without --switch-writer this script restores the brokers  #
-# and leaves it there, which is a valid end state but not a symmetric one.    #
-#                                                                             #
 # Why step 5 is not optional                                                  #
 #   Failover force-removed the zone, which also dropped it from the persisted  #
 #   partition distribution. Restarted brokers rejoin cluster membership but,   #
@@ -55,6 +49,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # shellcheck source=SCRIPTDIR/zeebe_management_api.sh
 . "${SCRIPT_DIR}/zeebe_management_api.sh"
+# shellcheck source=SCRIPTDIR/aurora.sh
+. "${SCRIPT_DIR}/aurora.sh"
 
 ###############################################################################
 # Argument parsing                                                            #
@@ -119,7 +115,7 @@ get_global_cluster_members() {
     aws rds describe-global-clusters \
         --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
         --query 'GlobalClusters[0].GlobalClusterMembers' \
-        --output json 2>/dev/null || echo "[]"
+        --output json --region "${RECOVERED_AWS_REGION}" 2>/dev/null || echo "[]"
 }
 
 ###############################################################################
@@ -382,47 +378,27 @@ fi
 mgmt_topology_summary "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
   "AFTER failback — ${RECOVERED_ZONE} restored"
 
-# Re-election lags the cluster change: the change reaching COMPLETED means the
-# zone is back in the persisted distribution, not that every partition has
-# already chosen a leader among the restored replicas. A failover run measured
-# 5 of 8 partitions led the instant its change completed, with the rest
-# following inside a minute, so a single read here fails a healthy failback.
-# Poll on the same terms the failover path uses.
-SETTLE_TIMEOUT=300
-SETTLE_POLL_INTERVAL=10
-waited=0
-BROKERS=0; PARTITIONS=0; LEADERS=0; IDLE=0
+TOPOLOGY=$(curl -sf --max-time 20 -u "${ADMIN_USER}:${ADMIN_PASS}" \
+  "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
+BROKERS=$(echo "${TOPOLOGY}" | jq '.brokers | length' 2>/dev/null || echo 0)
+PARTITIONS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[].partitionId] | unique | length' 2>/dev/null || echo 0)
+LEADERS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[] | select(.role == "leader")] | length' 2>/dev/null || echo 0)
+IDLE=$(echo "${TOPOLOGY}" | jq --arg z "${RECOVERED_ZONE}" \
+  '[.brokers[] | select(.brokerId | startswith($z + "_")) | select((.partitions | length) == 0)] | length' 2>/dev/null || echo 0)
 
-while :; do
-  TOPOLOGY=$(curl -sf --max-time 20 -u "${ADMIN_USER}:${ADMIN_PASS}" \
-    "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
-  BROKERS=$(echo "${TOPOLOGY}" | jq '.brokers | length' 2>/dev/null || echo 0)
-  PARTITIONS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[].partitionId] | unique | length' 2>/dev/null || echo 0)
-  # Partitions holding exactly one leader, not leader entries: two leaders on
-  # one partition must not make up for none on another.
-  LEADERS=$(echo "${TOPOLOGY}" | jq '
-    [.brokers[].partitions[] | select(.role == "leader") | .partitionId]
-    | group_by(.) | map(select(length == 1)) | length' 2>/dev/null || echo 0)
-  IDLE=$(echo "${TOPOLOGY}" | jq --arg z "${RECOVERED_ZONE}" \
-    '[.brokers[] | select(.brokerId | startswith($z + "_")) | select((.partitions | length) == 0)] | length' 2>/dev/null || echo 0)
-
-  if [ "${BROKERS}" -eq "${TARGET_BROKERS}" ] && [ "${IDLE}" -eq 0 ] \
-     && [ "${PARTITIONS}" -gt 0 ] && [ "${LEADERS}" -eq "${PARTITIONS}" ]; then
-    log "✓ ${BROKERS} brokers, ${PARTITIONS} partitions, ${LEADERS} leaders, no idle brokers (after ${waited}s)."
-    break
-  fi
-
-  if [ "${waited}" -ge "${SETTLE_TIMEOUT}" ]; then
-    err "Cluster did not settle within ${SETTLE_TIMEOUT}s."
-    err "  brokers=${BROKERS}/${TARGET_BROKERS} partitions=${PARTITIONS} led=${LEADERS} idle=${IDLE}"
-    [ "${IDLE}" -ne 0 ] && err "  Idle ${RECOVERED_ZONE} brokers host no partitions — the zone re-add did not take effect."
+if [ "${BROKERS}" -ne "${TARGET_BROKERS}" ]; then
+    err "Expected ${TARGET_BROKERS} brokers, found ${BROKERS}."
     exit 1
-  fi
-
-  log "  [${waited}s] brokers=${BROKERS}/${TARGET_BROKERS} led=${LEADERS}/${PARTITIONS} idle=${IDLE}, waiting..."
-  sleep "${SETTLE_POLL_INTERVAL}"
-  waited=$((waited + SETTLE_POLL_INTERVAL))
-done
+fi
+if [ "${IDLE}" -ne 0 ]; then
+    err "${IDLE} ${RECOVERED_ZONE} broker(s) host no partitions — the zone re-add did not take effect."
+    exit 1
+fi
+if [ "${LEADERS}" -ne "${PARTITIONS}" ]; then
+    err "Only ${LEADERS} of ${PARTITIONS} partitions have a leader — not settled yet."
+    exit 1
+fi
+log "✓ ${BROKERS} brokers, ${PARTITIONS} partitions, ${LEADERS} leaders, no idle brokers."
 
 ###############################################################################
 # Step 7: Optionally switch the Aurora writer back                            #
@@ -445,50 +421,13 @@ if [ "${SWITCH_WRITER}" = "true" ]; then
         # to be gated too: promoting the writer is not a validation step.
         log "  --dry-run given, not moving the writer."
     else
-        aws rds failover-global-cluster \
-            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-            --target-db-cluster-identifier "${MEMBER_ARN}" \
-            --no-cli-pager
-        sleep 15
-        wait_aurora_available "$(echo "${MEMBER_ARN}" | awk -F':' '{print $7}')" "${RECOVERED_AWS_REGION}"
-        log "Aurora writer moved to ${RECOVERED_AWS_REGION}."
-
-        # Aurora reporting the cluster available is not the same as the
-        # application being usable again: the JDBC pool has to rediscover the
-        # writer, and authenticated /v2/* requests stall until it does. Without
-        # this wait the summary below claims success while an operator
-        # following the runbook still gets hangs. The CI lane learned this the
-        # hard way and carried its own wait; the runbook is the right home for
-        # it, so both now rely on the same one.
-        log "  Waiting for the API to answer authenticated requests promptly..."
-        RECONNECT_ALB="${ALB_ENDPOINT_0}"
-        [ "${FAILED_REGION}" = "1" ] && RECONNECT_ALB="${ALB_ENDPOINT_1}"
-        fast=0
-        settled=false
-        for _ in $(seq 1 60); do
-            probe=$(curl -s -o /dev/null -w '%{http_code} %{time_total}' --max-time 10 \
-                -u "${ADMIN_USER}:${ADMIN_PASS}" "http://${RECONNECT_ALB}/v2/topology") || true
-            # Five consecutive sub-2s 200s: one fast answer can land between
-            # stalls while the pool is still failing connections over.
-            if [ "${probe%% *}" = "200" ] && awk -v s="${probe##* }" 'BEGIN { exit !(s < 2) }'; then
-                fast=$((fast + 1))
-                if [ "${fast}" -ge 5 ]; then
-                    settled=true
-                    break
-                fi
-            else
-                fast=0
-            fi
-            sleep 5
-        done
-        if [ "${settled}" = true ]; then
-            log "  ✓ API is answering promptly through ${RECONNECT_ALB}."
-        else
-            err "API did not answer authenticated requests promptly within 5 minutes"
-            err "of the writer switch. The database moved; the application has not"
-            err "caught up. Re-check with: ./verify_dual_region.sh"
+        # Safe on a rerun: a running switchover settles first, and a writer
+        # already in place is left alone.
+        if ! aurora_switch_to "${MEMBER_ARN}"; then
+            err "Could not move the Aurora writer to ${RECOVERED_AWS_REGION}."
             exit 1
         fi
+        log "Aurora writer is in ${RECOVERED_AWS_REGION}."
     fi
 else
     log ""

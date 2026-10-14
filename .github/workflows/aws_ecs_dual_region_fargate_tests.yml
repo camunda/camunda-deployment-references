@@ -389,7 +389,7 @@ jobs:
                   destroy-pass-timeout-minutes: '120'
 
                   modules-order: app/terraform,infra/terraform,vpc/terraform
-                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-ecs
+                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate
                   cleanup-regions: ${{ env.REGION_0 }} ${{ env.REGION_1 }}
                   fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
 

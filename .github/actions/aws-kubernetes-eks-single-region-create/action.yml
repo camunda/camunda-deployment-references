@@ -17,7 +17,7 @@ inputs:
         description: Version of Kubernetes to install
         required: false
         # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
-        default: '1.36'
+        default: '1.37'
     single-nat-gateway:
         description: Whether to use a single NAT gateway or not. Default is true for our tests to save on IPs.
         default: 'true'
@@ -107,7 +107,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
 
         - name: Set Terraform variables
           id: set-terraform-variables

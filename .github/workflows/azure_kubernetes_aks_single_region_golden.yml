@@ -60,7 +60,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
 
             - name: Import Secrets
               id: secrets
@@ -90,7 +90,7 @@ jobs:
               run: echo "MODULE_DIR=./azure/kubernetes/${{ matrix.module }}" | tee -a "$GITHUB_ENV"
 
             - name: Azure Login with OIDC
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
