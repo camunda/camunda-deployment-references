@@ -55,31 +55,11 @@ go test --count=1 -v -timeout 120m -run TestAWSDNSChaining
 
 ### Running Tests
 
-(Optional) Allows overwriting the version to use for Camunda 8, e.g. dev-latest.
-Otherwise defaults to published Helm versions and the latest stable release.
+The tests use the published Camunda 8.10 chart. Set `HELM_CHART_VERSION` to override the default within chart major 15.
 
 ```bash
-# Overwriting to the pre-release (dev) chart. It isn't published to the public Helm
-# repo, so build it from source (no private registry) and point HELM_CHART_NAME at the
-# local chart directory — the test installs from a local path (see InstallUpgradeC8Helm).
-# Note: this pins a commit rather than a release tag, because the suites need the
-# ingress-nginx compatibility flag (camunda/camunda-platform-helm#7145), which is
-# merged but not in any published 8.10 tag yet. `git clone --branch` resolves a
-# branch or a tag but never a commit, hence the fetch below. The deployed image
-# tags come from GLOBAL_IMAGE_TAG.
-export HELM_CHART_VERSION=15-dev-latest
-CHART_DIR="$(mktemp -d)"
-git init --quiet "$CHART_DIR"
-git -C "$CHART_DIR" remote add origin https://github.com/camunda/camunda-platform-helm.git
-# renovate-helm-main: digest tracked against camunda-platform-helm main
-git -C "$CHART_DIR" fetch --depth 1 origin d219258ede0878a137be955e32c2237cff14f62c
-git -C "$CHART_DIR" checkout --detach FETCH_HEAD
-helm dependency update "$CHART_DIR/charts/camunda-platform-8.10"
-export HELM_CHART_NAME="$CHART_DIR/charts/camunda-platform-8.10"
-export GLOBAL_IMAGE_TAG=SNAPSHOT
-
-# Otherwise it's sufficient to set the helm chart version or rely on the default.
-export HELM_CHART_VERSION=14.0.0
+export HELM_CHART_VERSION=15.1.0
+export HELM_CHART_NAME=camunda/camunda-platform
 ```
 
 - Deploy the dual-region setup

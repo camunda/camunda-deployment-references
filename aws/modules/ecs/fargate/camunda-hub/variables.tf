@@ -155,20 +155,14 @@ variable "service_timeouts" {
 variable "restapi_image" {
   description = "The container image for the Camunda Hub REST API + web UI (formerly Web Modeler restapi/webapp)"
   type        = string
-  # TODO: [release-duty] before the release, update the below versions to the stable release!
-  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
-  # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
-  # renovate: datasource=docker depName=camunda/hub versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
+  # renovate: datasource=docker depName=camunda/hub versioning=regex:^8\.10\.(?<patch>\d+)$
   default = "camunda/hub:8.10.2"
 }
 
 variable "websockets_image" {
   description = "The container image for the Camunda Hub websockets (Pusher relay)"
   type        = string
-  # TODO: [release-duty] before the release, update the below versions to the stable release!
-  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
-  # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
-  # renovate: datasource=docker depName=camunda/hub-websockets versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
+  # renovate: datasource=docker depName=camunda/hub-websockets versioning=regex:^8\.10\.(?<patch>\d+)$
   default = "camunda/hub-websockets:8.10.2"
 }
 

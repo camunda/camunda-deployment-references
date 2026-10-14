@@ -26,49 +26,20 @@ assert_no_duplicate_extra_configuration() {
     return 1
 }
 
-# Warn that this deploys an unreleased, in-development chart (to stderr).
-# TODO: [release-duty] remove this pre-release warning at release.
-cat >&2 <<'PRERELEASE_WARNING'
-
-  ############################################################################
-  #  ⚠  PRE-RELEASE — NOT A STABLE CAMUNDA RELEASE                           #
-  #                                                                          #
-  #  This deploys an unreleased, in-development Camunda 8 chart.             #
-  #  It may be unstable or fail to start — that is expected here.            #
-  #                                                                          #
-  #  Need a stable, supported setup? Follow the Administrator quickstart:    #
-  #  https://docs.camunda.io/docs/self-managed/quickstart/administrator-quickstart/
-  ############################################################################
-
-PRERELEASE_WARNING
-
 # yq is required below to resolve the broker image for the cross-region DNS gate.
 # Check it up front so we fail fast with a clear message before the network-heavy
-# chart source-build, instead of a generic "command not found" mid-install.
+# chart download, instead of a generic "command not found" mid-install.
 if ! command -v yq >/dev/null 2>&1; then
   echo "ERROR: 'yq' is required to resolve the broker image for the cross-region DNS gate but was not found in PATH." >&2
   exit 1
 fi
-
-# Build the chart from source so no registry authentication is required; prints the
-# local chart directory. The build helper is shared with the generic k8s guide.
-_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-# Consume the rolling chart from the camunda-platform-helm main branch. The pin
-# below is a commit on that branch, bumped by Renovate as main moves; without it
-# the shared build helper falls back to its own default, a released chart tag.
-# renovate-helm-main: digest tracked against camunda-platform-helm main
-export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-d219258ede0878a137be955e32c2237cff14f62c}"
-LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
 
 # Resolve the broker image of the chart being installed so the cross-region
 # DNS-gate initContainer (see helm-values/values-base.yml) reuses the exact
 # same image as the broker — already pulled on the node, no extra pull, and no
 # hardcoded tag to maintain. The generated values carry a literal ${BROKER_IMAGE}
 # placeholder (passed through the first envsubst via ${DOLLAR}); resolve it here.
-# TODO: [release-duty] before the release, resolve the broker image from the public
-# chart `camunda/camunda-platform` instead of the source-built chart, consistent with
-# the install commands at the bottom of this file.
-BROKER_IMAGE="$(helm show values "$LOCAL_CHART" \
+BROKER_IMAGE="$(helm show values camunda-platform --repo https://helm.camunda.io --version "$HELM_CHART_VERSION" \
   | yq -r '(.orchestration.image // .zeebe.image) | ([.registry, .repository] | map(. // "") | map(select(. != "")) | join("/")) + ":" + .tag')"
 # Guard against a malformed result (e.g. unexpected chart values shape) so we never
 # substitute an invalid image into the generated values and fail later with a confusing
@@ -95,34 +66,17 @@ for region_values in generated-values-region-0.yml generated-values-region-1.yml
 done
 
 helm upgrade --install \
-  "$CAMUNDA_RELEASE_NAME" "$LOCAL_CHART" \
+  "$CAMUNDA_RELEASE_NAME" camunda-platform \
+  --repo https://helm.camunda.io \
+  --version "$HELM_CHART_VERSION" \
   --kube-context "$CLUSTER_0" \
   --namespace "$CAMUNDA_NAMESPACE_0" \
   -f generated-values-region-0.yml
 
 helm upgrade --install \
-  "$CAMUNDA_RELEASE_NAME" "$LOCAL_CHART" \
+  "$CAMUNDA_RELEASE_NAME" camunda-platform \
+  --repo https://helm.camunda.io \
+  --version "$HELM_CHART_VERSION" \
   --kube-context "$CLUSTER_1" \
   --namespace "$CAMUNDA_NAMESPACE_1" \
   -f generated-values-region-1.yml
-
-# TODO: [release-duty] before the release, remove the source-build above and
-# uncomment the installation instruction below
-
-# # --force-update keeps this idempotent under `set -e` if the repo already exists.
-# helm repo add camunda https://helm.camunda.io --force-update
-# helm repo update
-
-# helm upgrade --install \
-#    "$CAMUNDA_RELEASE_NAME" camunda/camunda-platform \
-#   --version "$HELM_CHART_VERSION" \
-#   --kube-context "$CLUSTER_0" \
-#   --namespace "$CAMUNDA_NAMESPACE_0" \
-#   -f generated-values-region-0.yml
-
-# helm upgrade --install \
-#   "$CAMUNDA_RELEASE_NAME" camunda/camunda-platform \
-#   --version "$HELM_CHART_VERSION" \
-#   --kube-context "$CLUSTER_1" \
-#   --namespace "$CAMUNDA_NAMESPACE_1" \
-#   -f generated-values-region-1.yml

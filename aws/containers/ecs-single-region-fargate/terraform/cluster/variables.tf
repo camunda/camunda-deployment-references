@@ -259,20 +259,14 @@ variable "camunda_license_key" {
 variable "camunda_hub_restapi_image" {
   type        = string
   description = "Container image for the Camunda Hub REST API + web UI. Registry credentials are only attached when this points at registry.camunda.cloud (private); public Docker Hub images pull without credentials."
-  # TODO: [release-duty] before the release, update the below versions to the stable release!
-  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
-  # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
-  # renovate: datasource=docker depName=camunda/hub versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
+  # renovate: datasource=docker depName=camunda/hub versioning=regex:^8\.10\.(?<patch>\d+)$
   default = "camunda/hub:8.10.2"
 }
 
 variable "camunda_hub_websockets_image" {
   type        = string
   description = "Container image for the Camunda Hub websockets relay. Registry credentials are only attached when this (or the restapi image) points at registry.camunda.cloud (private)."
-  # TODO: [release-duty] before the release, update the below versions to the stable release!
-  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
-  # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
-  # renovate: datasource=docker depName=camunda/hub-websockets versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
+  # renovate: datasource=docker depName=camunda/hub-websockets versioning=regex:^8\.10\.(?<patch>\d+)$
   default = "camunda/hub-websockets:8.10.2"
 }
 

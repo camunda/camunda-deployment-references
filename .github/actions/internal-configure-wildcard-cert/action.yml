@@ -18,7 +18,7 @@ inputs:
     base-ref:
         description: Base branch reference for diff comparison
         required: false
-        default: main
+        default: stable/8.10
 
 outputs:
     use-wildcard-cert:

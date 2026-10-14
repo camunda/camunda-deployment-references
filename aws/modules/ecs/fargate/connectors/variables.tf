@@ -149,10 +149,7 @@ variable "service_timeouts" {
 variable "image" {
   description = "The container image to use for the Camunda Connectors"
   type        = string
-  # TODO: [release-duty] before the release, update the below versions to the stable release!
-  # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
-  # TODO: [release-duty] remove the alpha suffix from the regex for stable versions
-  # renovate: datasource=docker depName=camunda/connectors-bundle versioning=regex:^8\.10(?:\.(?<patch>\d+))?(?:-alpha(?<prerelease>\d+))?$
+  # renovate: datasource=docker depName=camunda/connectors-bundle versioning=regex:^8\.10\.(?<patch>\d+)$
   default = "camunda/connectors-bundle:8.10.0"
 }
 

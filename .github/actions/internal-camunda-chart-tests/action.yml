@@ -17,6 +17,9 @@ description: >
 inputs:
     tests-c8-sm-checks-repo-ref:
         description: The branch, tag or commit to checkout for c8-sm-checks
+        # Every branch, stable/8.x included, tracks c8-sm-checks main on purpose:
+        # the checks are expected to adapt to the Camunda version they test, so
+        # there is no per-release pin to bump at release time.
         default: main
     tests-c8-sm-checks-repo-path:
         description: Path to clone the c8-sm-checks repository

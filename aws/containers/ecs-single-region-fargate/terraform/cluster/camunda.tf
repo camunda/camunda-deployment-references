@@ -368,8 +368,8 @@ locals {
   # Cluster generation reported to Camunda Hub. Values >= 8.8 select the REST/gRPC
   # cluster API (and drop the legacy url.zeebe requirement); a blank value makes the
   # app fail to start on `camunda.modeler.clusters[0].version`.
-  # TODO: [release-duty] keep in sync with the orchestration cluster image tag.
-  camunda_hub_cluster_version = "8.10.0"
+  # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)$
+  camunda_hub_cluster_version = "8.10.3"
 
   # Orchestration cluster registration for Camunda Hub, in the `components[]` schema
   # introduced by 8.10 (camundaPlatform.defaultWebModelerCluster in the reference chart).

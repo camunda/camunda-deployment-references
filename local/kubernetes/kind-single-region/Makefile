@@ -134,8 +134,7 @@ domain.infra: cluster.create ingress.deploy coredns.config hosts.add certs.gener
 	@echo "  Before installing Camunda, create the required credentials secret (camunda-credentials):"
 	@echo "    make identity-secrets.create"
 	@echo "  Deploy Camunda with your own values:"
-	@echo "    helm upgrade --install camunda <LOCAL_CHART> -n camunda --create-namespace -f your-values.yaml   # <LOCAL_CHART>: run ./procedure/build-camunda-chart.sh (prints the local chart path)"
-	@# TODO: [release-duty] at GA, revert the hint above to the published chart (helm upgrade --install camunda camunda-platform --repo https://helm.camunda.io --version <CHART_VERSION> ...); the pre-release build-camunda-chart.sh is deleted then.
+	@echo "    helm upgrade --install camunda camunda-platform --repo https://helm.camunda.io --version <CHART_VERSION> -n camunda --create-namespace -f your-values.yaml"
 	@echo ""
 
 .PHONY: no-domain.infra
@@ -145,8 +144,7 @@ no-domain.infra: cluster.create hosts.add-keycloak operators.deploy-no-domain
 	@echo "  Before installing Camunda, create the required credentials secret (camunda-credentials):"
 	@echo "    make identity-secrets.create"
 	@echo "  Deploy Camunda with your own values:"
-	@echo "    helm upgrade --install camunda <LOCAL_CHART> -n camunda --create-namespace -f your-values.yaml   # <LOCAL_CHART>: run ./procedure/build-camunda-chart.sh (prints the local chart path)"
-	@# TODO: [release-duty] at GA, revert the hint above to the published chart (helm upgrade --install camunda camunda-platform --repo https://helm.camunda.io --version <CHART_VERSION> ...); the pre-release build-camunda-chart.sh is deleted then.
+	@echo "    helm upgrade --install camunda camunda-platform --repo https://helm.camunda.io --version <CHART_VERSION> -n camunda --create-namespace -f your-values.yaml"
 	@echo ""
 
 .PHONY: no-domain.clean

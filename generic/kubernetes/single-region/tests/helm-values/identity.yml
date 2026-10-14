@@ -1,5 +1,5 @@
 ---
-# TODO: [release-duty] when release update the link with the related Camunda version of the release
+# yamllint disable-line rule:line-length
 # keep it synced with https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform-8.10/test/integration/scenarios/common/values-integration-test.yaml
 # it generates the CI user used to connect to the platform
 identity:

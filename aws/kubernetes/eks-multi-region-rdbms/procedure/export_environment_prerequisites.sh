@@ -93,26 +93,9 @@ if [ -z "${CAMUNDA_ZONE_REPLICAS:-}" ]; then
 fi
 export CAMUNDA_ZONE_REPLICAS
 
-# Consume the rolling chart from the camunda-platform-helm main branch, like the
-# other architectures. The pin below is a commit on that branch, bumped by
-# Renovate as main moves; zone awareness is in no released chart, so a tag pin
-# cannot carry `orchestration.partitioning.scheme: zone-aware`.
-#
-# Hand-assembling CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_* against a released
-# chart is not an alternative: that chart derives the node ID from `regions` and
-# `regionId`, which is the arithmetic zone awareness replaces, and no value
-# passed from outside overrides it -- `${VAR:-default}` treats an empty value as
-# unset. See camunda/camunda-platform-helm#6807.
-#
-# TODO: [release-duty] drop this commit pin and install the published chart once 8.10 is released.
-# renovate-helm-main: digest tracked against camunda-platform-helm main
-export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-d219258ede0878a137be955e32c2237cff14f62c}"
-
-# TODO: [release-duty] drop the source build and switch HELM_CHART_REF to
-# https://helm.camunda.io once 8.10 is generally available.
-# renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io renovate-inert-ok
-export HELM_CHART_VERSION="${HELM_CHART_VERSION:-15-dev-latest}"
-export HELM_CHART_REF="${HELM_CHART_REF:-oci://registry.camunda.cloud/team-distribution/camunda-platform}"
+# renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
+export HELM_CHART_VERSION="${HELM_CHART_VERSION:-15.1.0}"
+export HELM_CHART_REF="${HELM_CHART_REF:-https://helm.camunda.io}"
 
 ###############################################################################
 # Secondary storage                                                           #

@@ -203,12 +203,6 @@ mgmt_request() {
 # an empty string and jq's "?" swallows a missing field, so without the explicit
 # unreadable case a dropped tunnel is indistinguishable from a removed zone and
 # every post-operation check passes.
-#
-# Both spellings are accepted. The 8.10 engine answers with .partitioning, but
-# 8.10.0-alpha5 still answers with .partitionDistribution, which is the same
-# trap camunda::partitioning guards against on the Kubernetes side.
-# TODO [release-duty]: drop .partitionDistribution once no supported engine
-# emits it.
 mgmt_zone_present() {
     local zone="$1" body
     body=$(mgmt_get /actuator/cluster)
@@ -216,7 +210,7 @@ mgmt_zone_present() {
 
     local names
     names=$(echo "${body}" \
-        | jq -r '(.partitioning // .partitionDistribution).zones[]?.name' 2>/dev/null) || return 2
+        | jq -r '.partitioning.zones[]?.name' 2>/dev/null) || return 2
     [ -n "${names}" ] || return 2
 
     echo "${names}" | grep -qxF "${zone}"
