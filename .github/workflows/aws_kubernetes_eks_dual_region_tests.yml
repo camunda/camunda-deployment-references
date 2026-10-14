@@ -115,7 +115,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@fc5fa6ee1e142bf583e9f01e749bc31654ff07ac # 2.3.8
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -145,7 +145,7 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@fc5fa6ee1e142bf583e9f01e749bc31654ff07ac # 2.3.8
 
             - name: Import Secrets
               id: secrets
@@ -287,7 +287,7 @@ jobs:
                   } >> "$GITHUB_ENV"
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@fc5fa6ee1e142bf583e9f01e749bc31654ff07ac # 2.3.8
 
             - name: Import Secrets
               id: secrets
@@ -514,7 +514,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@fc5fa6ee1e142bf583e9f01e749bc31654ff07ac # 2.3.8
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -631,7 +631,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@fc5fa6ee1e142bf583e9f01e749bc31654ff07ac # 2.3.8
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
