@@ -657,7 +657,7 @@ EOF
     # Groups run in parallel, so tag each streamed line with its group and
     # module. $output stays untagged for classify_destroy_error.
     if output=$(terraform destroy -auto-approve -no-color 2>&1 |
-      tee >(sed -u "s/^/[$group_id][$module_name] | /" >&2)); then
+      tee >(tag_stream "$group_id" "$module_name" >&2)); then
       destroy_succeeded=true
       break
     fi
@@ -718,6 +718,12 @@ EOF
 
 
 # Fetch all group IDs
+# tag_stream prefixes each line with its group and module. Module names hold a
+# `/` (app/terraform), so `/` cannot be the sed delimiter.
+tag_stream() {
+  sed -u "s#^#[$1][$2] | #"
+}
+
 # destroy_selftest checks classify_destroy_error against the verbatim error text
 # each case was written for, and that every handler it can name exists.
 #
@@ -755,6 +761,9 @@ destroy_selftest() {
     "$(classify_destroy_error "$delete_conflict" cluster)" "remediate_iam_attachments"
   _expect "CLUSTERS-MGMT-404 -> already gone" \
     "$(classify_destroy_error "$gone" cluster)" "already_gone"
+
+  _expect "log tag keeps a module path with a slash" \
+    "$(printf 'x\n' | tag_stream e2e-run1 app/terraform)" "[e2e-run1][app/terraform] | x"
 
   # A 404 only means "already gone" for a cluster module; anywhere else it is
   # an unclassified failure and must not be swallowed as success.
