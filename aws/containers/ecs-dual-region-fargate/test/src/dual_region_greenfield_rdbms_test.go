@@ -35,7 +35,11 @@ func TestEndToEnd_Greenfield_TGW_RDBMS(t *testing.T) {
 	awsProfile := envOrDefault("TEST_AWS_PROFILE", "infraex")
 	region0 := envOrDefault("TEST_REGION_0", "eu-west-2")
 	region1 := envOrDefault("TEST_REGION_1", "eu-west-3")
+<<<<<<< HEAD
 	clusterPrefix := envOrDefault("TEST_CLUSTER_PREFIX", fmt.Sprintf("e2e-tgw-rdbms-%s", strings.ToLower(random.UniqueId())))
+=======
+	clusterPrefix := helpers.ClusterPrefix(t, "tgw-rdbms")
+>>>>>>> 10dae2f (fix(ecs): keep dual-region resource names unique per CI run (#3675))
 	backendBucket := envOrDefault("TEST_BACKEND_BUCKET", "tests-ra-aws-rosa-hcp-tf-state-eu-central-1")
 	backendRegion := envOrDefault("TEST_BACKEND_REGION", "eu-central-1")
 	raftTimeoutMin := envIntOrDefault(t, "TEST_RAFT_TIMEOUT_MIN", 30)
