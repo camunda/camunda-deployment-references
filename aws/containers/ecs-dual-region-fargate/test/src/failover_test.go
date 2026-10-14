@@ -34,6 +34,7 @@ func TestUnplannedFailover(t *testing.T) {
 // runFailoverTest is the shared body for planned and unplanned failover.
 func runFailoverTest(t *testing.T, label, failoverFlag string) {
 	t.Helper()
+	started := time.Now()
 
 	awsProfile := envOrDefault("TEST_AWS_PROFILE", "infraex")
 	region0 := envOrDefault("TEST_REGION_0", "eu-west-2")
@@ -83,6 +84,10 @@ func runFailoverTest(t *testing.T, label, failoverFlag string) {
 		BackendKeyPrefix: helpers.BackendKeyPrefix(clusterPrefix),
 	}
 
+	defer helpers.CaptureBrokerLogsOnFailure(t, helpers.BrokerLogs{
+		Profile: awsProfile, Region: region1,
+		LogGroup: fmt.Sprintf("/ecs/%s-r1-oc-camunda", clusterPrefix), Start: started,
+	})
 	_, infraOpts, appOpts := helpers.ApplyAllThreeStates(t, paths, opts)
 	adminPassword := helpers.AdminPassword(t, infraOpts)
 
