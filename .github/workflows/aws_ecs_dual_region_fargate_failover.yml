@@ -119,7 +119,14 @@ jobs:
                   REGION_0: eu-west-2
                   RUN_ID: ${{ github.run_id }}
               run: |
-                  ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh "-${RUN_ID: -6}-global-db\$" 0
+                  digits=0123456789abcdefghijklmnopqrstuvwxyz
+                  number=$RUN_ID
+                  tag=''
+                  while (( number > 0 )); do
+                      tag="${digits:number%36:1}${tag}"
+                      number=$((number / 36))
+                  done
+                  ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh "-${tag}-global-db\$" 0
 
             # t.Cleanup destroys each stack when the tests end normally. It does not run
             # when go test times out or the job is cancelled, so reclaim this run's

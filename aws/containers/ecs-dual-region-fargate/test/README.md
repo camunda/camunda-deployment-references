@@ -34,9 +34,9 @@ Override defaults with env vars:
 | `TEST_AWS_PROFILE` | `infraex` | AWS profile to pass into each state's `aws_profile` tfvar |
 | `TEST_REGION_0` | `eu-west-2` | Region 0 (overrideable for capacity issues) |
 | `TEST_REGION_1` | `eu-west-3` | Region 1 |
-| `TEST_CLUSTER_PREFIX` | random `e2e-XXXXXX` | Prefix passed to `cluster_name`. Determines AWS resource naming. |
+| `TEST_CLUSTER_PREFIX` | suite prefix with a random suffix | Local override for `cluster_name`. CI ignores this override to keep concurrent suites separate. |
 | `TEST_RAFT_TIMEOUT_MIN` | `30` | Minutes to wait for the 8-broker quorum to form. |
-| `TEST_RUN_ID` | unset | CI run ID. Adds `-run<id>` to the state group. Its last six digits form the resource-name suffix. |
+| `TEST_RUN_ID` | unset | CI run ID. Adds `-run<id>` to the state group. The full base36 ID forms the resource-name suffix. |
 
 ## Cleanup
 
@@ -62,6 +62,14 @@ Their backend configuration does not identify the isolated test states.
 
 The workflows set `TEST_RUN_ID` to the GitHub run ID.
 This separates state groups and lets cleanup select one run without selecting another.
+
+CI resource prefixes use `e2e-<suite-code>-<base36-run-id>` and must fit within 14 characters.
+The suite codes are `t` (RDBMS), `o` (OpenSearch), `b` (BYO-VPC), `p` (planned failover), and `u` (unplanned failover).
+Failback uses `n` without a writer switch and `s` with a writer switch.
+This keeps the full run ID inside the load-balancer prefix and the target-group prefix after Terraform truncation.
+The failover workflow uses the same base36 suffix to select Aurora clusters for cleanup.
+State keys retain the full decimal run ID, so the daily cleanup also finds earlier test stacks.
+Local runs keep their existing suite prefixes, random six-character suffixes, and prefix overrides.
 
 - `aws_ecs_dual_region_fargate_integration.yml` runs the greenfield tests on matching pull requests and manual dispatches.
 - `aws_ecs_dual_region_fargate_failover.yml` runs the failover and failback tests on matching pull requests and manual dispatches.
