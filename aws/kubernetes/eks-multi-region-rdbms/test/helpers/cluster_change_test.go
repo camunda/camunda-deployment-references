@@ -1,10 +1,43 @@
 package helpers
 
 import (
+	"bytes"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
 )
+
+func TestWaitForClusterChangeTimeoutDumpsRequestedChange(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []string{"pretty", "raw-failure"} {
+		t.Run(mode, func(t *testing.T) {
+			// Given: the cluster summary omits operation details available by change ID.
+			cmd := exec.Command("bash", "-c", `set -euo pipefail
+source ./lib-management-api.sh
+camunda::management() {
+    case "$3" in
+        /actuator/cluster) echo '{"pendingChange":{"id":7}}' ;;
+        /actuator/cluster/changes/7)
+            if [ "$MODE" = raw-failure ]; then echo 'unavailable survivor_2'; return 1; fi
+            echo '{"status":"IN_PROGRESS","pending":[{"brokerId":"survivor_2"}]}' ;;
+        *) return 1 ;;
+    esac
+}
+camunda::wait_for_cluster_change ctx 7 0`)
+			cmd.Dir = ProcedureDir(t)
+			cmd.Env = append(os.Environ(), "MODE="+mode)
+			var stderr bytes.Buffer
+			cmd.Stderr = &stderr
+			// When
+			_, err := cmd.Output()
+			// Then
+			if err == nil || !strings.Contains(stderr.String(), "survivor_2") {
+				t.Fatalf("expected timeout and requested change on stderr: %v\n%s", err, stderr.String())
+			}
+		})
+	}
+}
 
 // The management API still reports the previous change as COMPLETED for a
 // moment after a new one is requested. The wait must hold out for the change

@@ -402,6 +402,9 @@ camunda::wait_for_cluster_change() {
         if [ "$SECONDS" -ge "$deadline" ]; then
             echo "ERROR: cluster change did not complete within ${timeout}s." >&2
             echo "$cluster" >&2
+            local change
+            change="$(camunda::management "$context" GET "/actuator/cluster/changes/$change_id")" || true
+            echo "$change" | jq . >&2 2>/dev/null || echo "$change" >&2
             return 1
         fi
 
