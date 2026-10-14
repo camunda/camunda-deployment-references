@@ -64,6 +64,8 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib-management-api.sh"
+# shellcheck source=SCRIPTDIR/aurora.sh
+. "$SCRIPT_DIR/aurora.sh"
 
 read -r -a aws_regions <<<"$AWS_REGIONS"
 
@@ -134,13 +136,22 @@ else
     echo
     echo "--> Database: inspecting the Aurora Global Database $AURORA_GLOBAL_CLUSTER_ID"
 
-    members_json="$(aws rds describe-global-clusters \
-        --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-        --query 'GlobalClusters[0].GlobalClusterMembers' --output json)"
+    # A rerun can find the previous run's switchover still going: decide from
+    # the settled membership, never start a second switchover.
+    lost_region="${aws_regions[$LOST_SLOT]}"
+    surviving_region="${aws_regions[$((LOST_SLOT == 0 ? 1 : 0))]}"
+    if ! global_json="$(aurora_settled_global "$surviving_region")"; then
+        echo "ERROR: could not read a settled Aurora global cluster." >&2
+        exit 1
+    fi
+    members_json="$(echo "$global_json" | jq '.GlobalClusterMembers')"
 
     writer_arn="$(echo "$members_json" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')"
+    if [ -z "$writer_arn" ]; then
+        echo "ERROR: No Aurora writer ARN in the global cluster." >&2
+        exit 1
+    fi
     writer_region="$(echo "$writer_arn" | cut -d: -f4)"
-    lost_region="${aws_regions[$LOST_SLOT]}"
 
     echo "    current writer region: $writer_region"
 
@@ -159,17 +170,7 @@ else
             echo "    --dry-run: would promote $target_arn, doing nothing."
         else
             echo "    Planned switchover to $target_arn"
-            aws rds failover-global-cluster \
-                --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-                --target-db-cluster-identifier "$target_arn"
-
-            echo "    Waiting for the promoted cluster to become available ..."
-            # An Aurora cluster ARN has no slashes, so there is no identifier to cut
-            # out of it. `--db-cluster-identifier` takes the ARN as it stands.
-            target_region="$(echo "$target_arn" | cut -d: -f4)"
-            aws rds wait db-cluster-available \
-                --region "$target_region" \
-                --db-cluster-identifier "$target_arn"
+            aurora_switch_to "$target_arn"
 
             echo "    Promotion complete."
             echo
