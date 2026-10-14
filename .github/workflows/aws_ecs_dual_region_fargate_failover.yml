@@ -9,7 +9,9 @@ name: Tests - Failover - AWS Containers ECS Dual Region Fargate
 # across Camunda versions is intentional — fewer concurrent deploys, lower
 # AWS spend. Schedule added once the suite passes against the sandbox.
 #
-# NOT yet scheduled. Invoke via workflow_dispatch until validated.
+# NOT yet scheduled. Runs on pull requests that touch the stack, its
+# procedures or its tests (skip with the `skip_<workflow>` label), and via
+# workflow_dispatch.
 
 on:
     workflow_dispatch:
@@ -19,10 +21,25 @@ on:
                 required: false
                 default: ''
                 type: string
+    pull_request:
+        paths:
+            - .github/workflows/aws_ecs_dual_region_fargate_failover.yml
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .tool-versions
+            - aws/containers/ecs-dual-region-fargate/procedure/**
+            - aws/containers/ecs-dual-region-fargate/terraform/**
+            - '!aws/containers/ecs-dual-region-fargate/terraform/*/test/golden/**'
+            - aws/containers/ecs-dual-region-fargate/test/**
+            - aws/modules/ecs/**
+            - aws/modules/aurora-global/**
 
+# Never cancel a running suite: after a cancellation GitHub kills the job within
+# minutes, before "Destroy the states of this run" can finish, and the stacks
+# leak until the daily sweep. A new push waits for the previous run instead.
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+    cancel-in-progress: false
 
 env:
     AWS_PROFILE: infraex
@@ -47,7 +64,7 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        timeout-minutes: 150
+        timeout-minutes: 315
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -79,6 +96,8 @@ jobs:
                   TEST_REGION_1: eu-west-3
                   TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
+                  # Suffixes every state group of this run, and names its stacks.
+                  TEST_RUN_ID: ${{ github.run_id }}
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
               run: |
                   set -e
@@ -88,3 +107,38 @@ jobs:
                   else
                       go test -v -timeout 120m -run "$TEST_FILTER" ./...
                   fi
+
+            # A run killed after failover.sh can leave the Aurora writer in region 1,
+            # where terraform destroy may hang. Move it home before the destroy.
+            - name: Move the Aurora writers of this run home
+              if: always()
+              timeout-minutes: 45
+              env:
+                  # Stops starting clusters 5 minutes before the step timeout.
+                  RESTORE_BUDGET_SECONDS: '2400'
+                  REGION_0: eu-west-2
+                  RUN_ID: ${{ github.run_id }}
+              run: |
+                  ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh "-${RUN_ID: -6}-global-db\$" 0
+
+            # t.Cleanup destroys each stack when the tests end normally. It does not run
+            # when go test times out or the job is cancelled, so reclaim this run's
+            # states here too. The daily cleanup catches what this step cannot reach.
+            - name: Destroy the states of this run
+              if: always()
+              timeout-minutes: 130
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              env:
+                  TF_VAR_region_0: eu-west-2
+                  TF_VAR_region_1: eu-west-3
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BACKEND_REGION }}
+                  tf-bucket-key-prefix: aws/containers/ecs-dual-region-fargate/
+                  max-age-hours: '0'
+                  target: run${{ github.run_id }}/
+                  fail-on-not-found: 'false'
+                  modules-order: app/terraform,infra/terraform,vpc/terraform,fixture/terraform
+                  destroy-pass-timeout-minutes: '60'
+                  retry-destroy-pass-timeout-minutes: '60'
+                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate

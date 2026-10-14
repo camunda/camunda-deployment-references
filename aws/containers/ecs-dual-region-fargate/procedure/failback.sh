@@ -49,6 +49,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # shellcheck source=SCRIPTDIR/zeebe_management_api.sh
 . "${SCRIPT_DIR}/zeebe_management_api.sh"
+# shellcheck source=SCRIPTDIR/aurora.sh
+. "${SCRIPT_DIR}/aurora.sh"
 
 ###############################################################################
 # Argument parsing                                                            #
@@ -113,7 +115,7 @@ get_global_cluster_members() {
     aws rds describe-global-clusters \
         --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
         --query 'GlobalClusters[0].GlobalClusterMembers' \
-        --output json 2>/dev/null || echo "[]"
+        --output json --region "${RECOVERED_AWS_REGION}" 2>/dev/null || echo "[]"
 }
 
 ###############################################################################
@@ -419,13 +421,13 @@ if [ "${SWITCH_WRITER}" = "true" ]; then
         # to be gated too: promoting the writer is not a validation step.
         log "  --dry-run given, not moving the writer."
     else
-        aws rds failover-global-cluster \
-            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
-            --target-db-cluster-identifier "${MEMBER_ARN}" \
-            --no-cli-pager
-        sleep 15
-        wait_aurora_available "$(echo "${MEMBER_ARN}" | awk -F':' '{print $7}')" "${RECOVERED_AWS_REGION}"
-        log "Aurora writer moved to ${RECOVERED_AWS_REGION}."
+        # Safe on a rerun: a running switchover settles first, and a writer
+        # already in place is left alone.
+        if ! aurora_switch_to "${MEMBER_ARN}"; then
+            err "Could not move the Aurora writer to ${RECOVERED_AWS_REGION}."
+            exit 1
+        fi
+        log "Aurora writer is in ${RECOVERED_AWS_REGION}."
     fi
 else
     log ""
