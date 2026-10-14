@@ -197,6 +197,10 @@
     {
       "version": "26.8.0-debian-12-r3",
       "newDigest": "sha256:9dc15d5cb1ec2470d3ad2ee05d2a66340408859ae2f8ec69fa79a40b0ed8c9bf"
+    },
+    {
+      "version": "26.8.1-debian-12-r0",
+      "newDigest": "sha256:aaaa99342e065bbd546b5b92af33096c43704708aa7e6faeb8f4e5fb5241867a"
     }
   ]
 }
