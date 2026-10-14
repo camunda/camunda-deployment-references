@@ -81,6 +81,7 @@ schedules:
           - .github/workflows/aws_cognito_daily_cleanup.yml
           - .github/workflows/aws_compute_ec2_single_region_daily_cleanup.yml
           - .github/workflows/aws_ecs_single_region_fargate_daily_cleanup.yml
+          - .github/workflows/aws_ecs_dual_region_fargate_daily_cleanup.yml
           - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
           - .github/workflows/aws_rosa_hcp_dual_region_daily_cleanup.yml
           - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
