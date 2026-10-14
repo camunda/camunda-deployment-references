@@ -942,6 +942,76 @@ destroy_selftest() {
     echo "skip cloud-nuke scoping check: yq unavailable"
   fi
 
+  # The last-module guard decides whether cloud-nuke may run at all. Nuking
+  # before the VPC owner's turn deletes subnets and ENIs that the states still
+  # queued behind it have in their own plans, so the guard is asserted against
+  # a realistic ORDERED_MODULES rather than trusted.
+  (
+    RETRY_DESTROY=true
+    CLEANUP_REGIONS="eu-west-2"
+    # Subshell-local on purpose: the selftest must not leak its ORDERED_MODULES
+    # into the real destruction order below.
+    # shellcheck disable=SC2030
+    ORDERED_MODULES=(app/terraform infra/terraform vpc/terraform)
+
+    early=$(nuke_vpcs_in_cleanup_regions g infra/terraform "$(mktemp -d)" 2>&1)
+    case "$early" in
+      *"Skipping the cloud-nuke fallback"*) echo "ok   cloud-nuke skipped while a later module still owns the VPC" ;;
+      *) echo "FAIL cloud-nuke ran for infra/terraform, before vpc/terraform was destroyed"; exit 1 ;;
+    esac
+
+    # The owner's turn must reach the nuke. Stop at the first thing it does
+    # after the guard, so the case needs no cloud-nuke binary.
+    last=$(nuke_vpcs_in_cleanup_regions g vpc/terraform "$(mktemp -d)" 2>&1)
+    case "$last" in
+      *"Skipping the cloud-nuke fallback"*) echo "FAIL cloud-nuke never runs: the VPC owner was skipped too"; exit 1 ;;
+      *"running cloud-nuke on the declared regions"*) echo "ok   cloud-nuke runs for the module that owns the VPC" ;;
+      *) echo "FAIL cloud-nuke guard produced neither outcome: $last"; exit 1 ;;
+    esac
+  ) || failures=$((failures + 1))
+
+  # The instance-lookup branch resolves an instance name to a global cluster
+  # through three chained describe calls. A wrong ARN field index or regex
+  # yields an empty result, the handler reports "nothing to detach" and
+  # returns 0, and the retry loop then exhausts itself with the global cluster
+  # still blocking the destroy — silently, and billing throughout.
+  (
+    fake_bin=$(mktemp -d)
+    cat >"$fake_bin/aws" <<'FAKE'
+#!/usr/bin/env bash
+case "$*" in
+  *"describe-global-clusters --query"*) echo "my-global-db" ;;
+  *"--global-cluster-identifier my-global-db --query"*)
+    echo "arn:aws:rds:eu-west-3:1:cluster:member-r1" ;;
+  # Region-sensitive on purpose: the member lives in eu-west-3, so a lookup
+  # that reads the wrong ARN field queries the wrong region and finds nothing.
+  *"describe-db-clusters --region eu-west-3 --db-cluster-identifier member-r1"*) echo "the-instance" ;;
+  *describe-db-clusters*) ;;
+  *remove-from-global-cluster*) echo "REMOVE $*" >>"$FAKE_CALLS" ;;
+esac
+FAKE
+    chmod +x "$fake_bin/aws"
+    export FAKE_CALLS="$fake_bin/calls"
+    : >"$FAKE_CALLS"
+    PATH="$fake_bin:$PATH"
+
+    # No "RDS Global Cluster (...)" in the text, so only the instance-lookup
+    # branch can find the owner.
+    err_text="Error: deleting RDS Cluster Instance (the-instance): Cannot delete the last instance of the master cluster"
+    out=$(remediate_aurora_global g infra/terraform "$err_text" 2>&1)
+
+    # The region matters as much as the ARN: remove-from-global-cluster has to
+    # go to the member's own region, which after a failover is not AWS_REGION.
+    if grep -q "remove-from-global-cluster" "$FAKE_CALLS" &&
+       grep -q -- "--region eu-west-3" "$FAKE_CALLS" &&
+       grep -q "arn:aws:rds:eu-west-3:1:cluster:member-r1" "$FAKE_CALLS"; then
+      echo "ok   Aurora handler resolves a global cluster from the instance name"
+    else
+      echo "FAIL Aurora handler detached nothing from an instance-only error: $out"
+      exit 1
+    fi
+  ) || failures=$((failures + 1))
+
   [[ "$failures" -eq 0 ]] || return 1
 }
 
@@ -1011,6 +1081,9 @@ for group_id in $groups; do
     echo "[$group_id] Processing group"
 
     # Use the ORDER parameter for modules cleanup
+    # SC2031: the only writer is the selftest subshell above, which exits
+    # before this runs and is isolated precisely so it cannot reach here.
+    # shellcheck disable=SC2031
     for module in "${ORDERED_MODULES[@]}"; do
       key="$KEY_PREFIX""tfstate-$group_id/${module}.tfstate"
       if aws s3 ls "s3://$BUCKET/$key" >/dev/null 2>&1; then

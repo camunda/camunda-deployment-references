@@ -105,6 +105,8 @@ jobs:
             pull-requests: write # internal-triage-skip creates the skip labels and posts the checklist comment
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  persist-credentials: false
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
@@ -150,6 +152,8 @@ jobs:
             CLUSTER_NAME: ${{ needs.triage.outputs.cluster_name }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  persist-credentials: false
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -221,7 +225,15 @@ jobs:
                       echo "AURORA_GLOBAL_CLUSTER_ID=${AURORA_GLOBAL_CLUSTER_ID}"
                       echo "AURORA_ENGINE=${AURORA_ENGINE}"
                       echo "ADMIN_USER=${ADMIN_USER}"
-                      echo "ADMIN_PASS=${ADMIN_PASS}"
+                  } >> "$GITHUB_ENV"
+
+                  # Heredoc form: a newline inside the value would otherwise be
+                  # read as the start of a second KEY=VALUE entry, injecting an
+                  # environment variable into every later step in the job.
+                  {
+                      echo "ADMIN_PASS<<CREV_EOF"
+                      echo "${ADMIN_PASS}"
+                      echo "CREV_EOF"
                   } >> "$GITHUB_ENV"
 
             # The app-layer services are created with wait_for_steady_state, so
@@ -292,8 +304,43 @@ jobs:
             # the application's JDBC connections are still failing over to it
             # (failoverTimeoutMs=60000). Basic auth reads users from that database,
             # so every request stalls for tens of seconds in that window, and a
-            # 10-second smoke test then creates a single instance. Wait until
-            # authenticated requests are fast again.
+            # 10-second smoke test then creates a single instance. The comment
+            # used to end here, describing a wait that was never implemented.
+            - name: Wait for authenticated requests to be fast again
+              if: env.TESTS_ENABLED == 'true'
+              shell: bash
+              timeout-minutes: 5
+              run: |
+                  set -euo pipefail
+
+                  # Three consecutive fast authenticated reads, not one: the
+                  # JDBC pool fails over connection by connection, so a single
+                  # quick answer can come from a connection that already
+                  # migrated while the next request still blocks.
+                  REQUIRED_STREAK=3
+                  FAST_SECONDS=2
+                  DEADLINE=$((SECONDS + 240))
+                  streak=0
+
+                  while [ "${streak}" -lt "${REQUIRED_STREAK}" ]; do
+                      if [ "${SECONDS}" -ge "${DEADLINE}" ]; then
+                          echo "::error::Authenticated requests to ${ALB_ENDPOINT_0} did not settle within 240s after the writer switch."
+                          exit 1
+                      fi
+                      elapsed=$(curl -s -o /dev/null -w '%{time_total}' \
+                          --max-time 30 -u "${ADMIN_USER}:${ADMIN_PASS}" \
+                          "http://${ALB_ENDPOINT_0}/v2/topology" || echo 999)
+                      if awk "BEGIN { exit !(${elapsed} < ${FAST_SECONDS}) }"; then
+                          streak=$((streak + 1))
+                          echo "  ${elapsed}s — fast (${streak}/${REQUIRED_STREAK})"
+                      else
+                          [ "${streak}" -eq 0 ] || echo "  ${elapsed}s — slow again, streak reset"
+                          streak=0
+                          sleep 5
+                      fi
+                  done
+                  echo "Authenticated requests are fast again."
+
             - name: Smoke test — region 0 after the failback
               if: env.TESTS_ENABLED == 'true'
               uses: ./.github/actions/camunda-smoke-test
@@ -342,6 +389,8 @@ jobs:
         timeout-minutes: 180
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  persist-credentials: false
 
             - name: Configure AWS CLI
               if: env.DELETE_CLUSTERS == 'true'
@@ -405,6 +454,8 @@ jobs:
             pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  persist-credentials: false
 
             - name: Prevent other runs for renovate
               if: ${{ env.IS_RENOVATE_PR == 'true' }}
