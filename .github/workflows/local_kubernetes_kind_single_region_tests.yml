@@ -111,6 +111,15 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+            # DEBUG ONLY, do not merge (#3673): SSH into the aws-core-8 runner.
+            - name: Debug session (tmate)
+              if: strategy.job-index == 0
+              uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113 # v3.24
+              timeout-minutes: 60
+              with:
+                  detached: true
+                  limit-access-to-actor: true
+
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
 
