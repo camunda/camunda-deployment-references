@@ -229,10 +229,9 @@ mgmt_zone_present() {
 # prescribes. Returns 0 only on COMPLETED.
 mgmt_wait_change() {
     local change_id="$1" timeout="${2:-900}"
-    local elapsed=0 status completed total
+    local elapsed=0 status completed total body=""
 
     while [ "${elapsed}" -lt "${timeout}" ]; do
-        local body
         body=$(mgmt_get "/actuator/cluster/changes/${change_id}")
 
         if [ -n "${body}" ]; then
@@ -269,6 +268,7 @@ mgmt_wait_change() {
     done
 
     mgmt_err "Timed out after ${timeout}s waiting for change ${change_id}."
+    echo "${body}" | jq . >&2 2>/dev/null || echo "${body}" >&2
     return 1
 }
 
