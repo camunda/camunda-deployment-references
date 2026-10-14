@@ -215,8 +215,7 @@ jobs:
                       channel=C076N4G1162   # infraex-alerts
                       # Raw Slack form. `@infraex-medic` is plain text in a
                       # chat.postMessage payload and notifies nobody, which is how
-                      # it shipped. The subteam id is the one already used by
-                      # internal_global_alpha_availability_check.yml.
+                      # it shipped. Use the infraex-medic Slack subteam ID.
                       mention=" cc <!subteam^S06NTRBMWUD>"
                   else
                       channel=C07E4FF6YMB   # infraex-alerts-test

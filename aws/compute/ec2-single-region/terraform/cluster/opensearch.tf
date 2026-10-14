@@ -17,7 +17,7 @@ locals {
 }
 module "opensearch_domain" {
   // for additional information on the module, see:
-  // https://github.com/camunda/camunda-deployment-references/tree/main/aws/modules/opensearch
+  // https://github.com/camunda/camunda-deployment-references/tree/stable/8.10/aws/modules/opensearch
 
   # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/opensearch"

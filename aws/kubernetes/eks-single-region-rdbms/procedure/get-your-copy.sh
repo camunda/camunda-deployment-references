@@ -4,7 +4,7 @@
 # CI overrides the branch so the suite copies the revision under test; a
 # reference architecture introduced by a pull request is not on the published
 # branch yet, and the clone would land on a tree without this directory.
-BRANCH="${REF_ARCH_BRANCH:-main}"  # TODO: [release-duty] before the release, update this!
+BRANCH="${REF_ARCH_BRANCH:-stable/8.10}"
 
 git clone --depth 1 --branch "$BRANCH" https://github.com/camunda/camunda-deployment-references.git
 

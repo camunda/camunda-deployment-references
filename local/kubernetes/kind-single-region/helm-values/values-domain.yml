@@ -145,14 +145,6 @@ camundaHub:
     enabled: true
     contextPath: /modeler
 
-    # TODO: [release-duty] drop this SNAPSHOT pin once
-    # camunda/camunda-platform-helm#6567 is fixed. The chart's default Hub image
-    # rejects the `hub`/`admin` cluster app types introduced in chart 15.x; the
-    # rolling SNAPSHOT tag for camunda/hub and camunda/hub-websockets accepts
-    # them.
-    image:
-        tag: SNAPSHOT
-
     restapi:
         # The Pusher secret and app key must come from an existing secret.
         # Without this, the chart auto-generates a new random Pusher secret on

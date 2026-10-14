@@ -22,7 +22,7 @@ This action will also install Terraform and awscli. It will output the Aurora cl
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states</p> | `false` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
-| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `false` | `main` |
+| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `false` | `stable/8.10` |
 | `tf-modules-path` | <p>Path where the tf Aurora modules will be cloned</p> | `false` | `./.action-tf-modules/aurora/` |
 | `tf-cli-config-credentials-hostname` | <p>The hostname of a HCP Terraform/Terraform Enterprise instance to place within the credentials block of the Terraform CLI configuration file. Defaults to <code>app.terraform.io</code>.</p> | `false` | `app.terraform.io` |
 | `tf-cli-config-credentials-token` | <p>The API token for a HCP Terraform/Terraform Enterprise instance to place within the credentials block of the Terraform CLI configuration file.</p> | `false` | `""` |
@@ -126,7 +126,7 @@ This action is a `composite` action.
     # Git revision of the tf modules to use
     #
     # Required: false
-    # Default: main
+    # Default: stable/8.10
 
     tf-modules-path:
     # Path where the tf Aurora modules will be cloned

@@ -24,7 +24,7 @@ If the cluster is private, a VPN setup can also be configured.
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
 | `s3-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on aws-region</p> | `false` | `""` |
 | `s3-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
-| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `main` |
+| `tf-modules-revision` | <p>Git revision of the tf modules to use</p> | `true` | `stable/8.10` |
 | `tf-modules-path` | <p>Path where the tf rosa modules will be cloned</p> | `true` | `./.action-tf-modules/aws-openshift-rosa-hcp-single-region-create/` |
 | `login` | <p>Authenticate the current kube context on the created cluster</p> | `true` | `true` |
 | `cleanup-tf-modules-path` | <p>Whether to clean up the tf modules path</p> | `false` | `false` |
@@ -130,7 +130,7 @@ This action is a `composite` action.
     # Git revision of the tf modules to use
     #
     # Required: true
-    # Default: main
+    # Default: stable/8.10
 
     tf-modules-path:
     # Path where the tf rosa modules will be cloned

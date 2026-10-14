@@ -57,7 +57,7 @@ inputs:
 
     tf-modules-revision:
         description: Git revision of the tf modules to use
-        default: main
+        default: stable/8.10
 
     tf-modules-path:
         description: Path where the tf OpenSearch modules will be cloned

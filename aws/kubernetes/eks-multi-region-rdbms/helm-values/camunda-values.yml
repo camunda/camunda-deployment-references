@@ -158,7 +158,7 @@ orchestration:
         # routine, so it is not optional here.
         # The four settings below are set as env vars rather than chart
         # keys so they apply regardless of whether the chart exposes them.
-        # https://docs.camunda.io/docs/next/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
+        # https://docs.camunda.io/docs/8.10/self-managed/concepts/databases/relational-db/database-configuration/#multi-region-support
         - name: CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED
           value: 'true'
 

@@ -5,7 +5,7 @@ on:
     workflow_dispatch:
     pull_request:
     push:
-        branches: [main]
+        branches: [stable/8.10]
 
 jobs:
     lint:
@@ -13,6 +13,5 @@ jobs:
         with:
             # Runs Renovate over the repository and fails on an annotation it reads and then
             # drops as unusable -- a dependency that looks tracked and can never be updated.
-            # Pins deliberately parked on a development version carry `renovate-inert-ok`.
             check-renovate-lookup: true
         secrets: inherit

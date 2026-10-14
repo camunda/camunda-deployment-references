@@ -163,7 +163,7 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
         environment = concat(
           [
             # This module currently sets RESTORE_ARGS only to the backupId flag. For other supported restore options, see:
-            # https://docs.camunda.io/docs/next/self-managed/operational-guides/backup-restore/rdbms/rdbms-restore/#restore-options
+            # https://docs.camunda.io/docs/8.10/self-managed/operational-guides/backup-restore/rdbms/rdbms-restore/#restore-options
             { name = "RESTORE_ARGS", value = var.restore_backup_id != "" ? "--backupId=${var.restore_backup_id}" : "" }
           ],
           local.base_environment_variables,

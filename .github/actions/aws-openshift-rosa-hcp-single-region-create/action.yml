@@ -51,7 +51,7 @@ inputs:
         default: ''
     tf-modules-revision:
         description: Git revision of the tf modules to use
-        default: main
+        default: stable/8.10
         required: true
     tf-modules-path:
         description: Path where the tf rosa modules will be cloned

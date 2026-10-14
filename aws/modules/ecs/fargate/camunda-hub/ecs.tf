@@ -10,7 +10,7 @@ locals {
   # Readiness path on the restapi management port (8091). This is a fixed Spring
   # Boot Actuator endpoint served at the root of the management port and is NOT
   # prefixed by the application context path (which only applies to the app port
-  # 8081). See https://docs.camunda.io/docs/next/self-managed/components/hub/monitoring/#available-endpoints
+  # 8081). See https://docs.camunda.io/docs/8.10/self-managed/components/hub/monitoring/#available-endpoints
   restapi_health_path = "/health/readiness"
 
   # CAMUNDA_LICENSE_KEY is injected into both containers when a secret is provided.

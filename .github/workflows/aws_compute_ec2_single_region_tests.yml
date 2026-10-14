@@ -65,9 +65,6 @@ env:
 
     TESTS_ENABLED: ${{ github.event.inputs.enable_tests || 'true' }}
 
-    # TODO: [release-duty] before the release, update the below versions to the stable release!
-    # TODO: [release-duty] adjust renovate comment to bump the minor version to the new stable release
-    # TODO: [release-duty] Adjust the previous version to the previous stable release, 8.9 --> 8.8, for 8.8 would stick to 8.8
     # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.10(\.(?<patch>\d+))?$
     TESTS_CAMUNDA_VERSION: 8.10.3
     TESTS_CAMUNDA_PREVIOUS_VERSION: 8.9.0 # Version to be used for upgrade tests, not updated automatically
@@ -396,8 +393,6 @@ jobs:
         needs:
             - integration-tests
             - triage
-        outputs:
-            SNAPSHOT_ERROR: ${{ steps.determine-if-failed-tests-include-snapshot.outputs.SNAPSHOT_ERROR }}
         steps:
             - name: Download artifacts
               uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -405,19 +400,6 @@ jobs:
                   pattern: test-reports-*
                   path: /tmp/testreports
                   merge-multiple: true
-            - name: Determine if failed tests include SNAPSHOT
-              id: determine-if-failed-tests-include-snapshot
-              run: |
-                  set -euo pipefail
-                  file=$(find /tmp/testreports -name "*SNAPSHOT*.xml" -type f)
-                  echo "Found file: $file"
-                  if grep -q "FAIL" "$file"; then
-                    echo "File containing 'SNAPSHOT' with FAIL exists"
-                    echo "SNAPSHOT_ERROR=true" >> "$GITHUB_OUTPUT"
-                  else
-                    echo "No file containing 'SNAPSHOT' or with FAIL found"
-                    echo "SNAPSHOT_ERROR=false" >> "$GITHUB_OUTPUT"
-                  fi
             - name: Run test-summary
               uses: test-summary/action@37b508cfee6d4d080eedd00b5bb240a6a784a6a5 # v2
               with:

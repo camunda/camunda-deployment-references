@@ -108,4 +108,4 @@ If you are interested in contributing to Camunda Reference Architectures, see th
 
 ## License
 
-Apache-2.0 Licensed. See [LICENSE](https://github.com/camunda/camunda-deployment-references/blob/main/LICENSE).
+Apache-2.0 Licensed. See [LICENSE](https://github.com/camunda/camunda-deployment-references/blob/stable/8.10/LICENSE).
