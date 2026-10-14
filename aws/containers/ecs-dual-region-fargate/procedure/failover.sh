@@ -62,6 +62,11 @@ set -euo pipefail
 : "${ADMIN_USER:?ADMIN_USER must be set (default: admin)}"
 : "${ADMIN_PASS:?ADMIN_PASS must be set}"
 
+# How long Step 6 waits for every partition to report a single leader. The
+# zone removal and the Aurora switchover both disrupt the surviving region
+# briefly, so this is a settle window, not a health budget.
+LEADER_SETTLE_TIMEOUT="${LEADER_SETTLE_TIMEOUT:-180}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # shellcheck source=SCRIPTDIR/zeebe_management_api.sh
 . "${SCRIPT_DIR}/zeebe_management_api.sh"
@@ -350,18 +355,42 @@ move_aurora_writer
 # Step 6: Verify leaders                                                      #
 ###############################################################################
 
+# Every partition must hold exactly one leader. `unique | length` counts a
+# partition that reports two leaders once, so it passes a split brain.
+# shellcheck disable=SC2016  # $partitions and $led are jq variables, not shell ones
+LEADERS_SETTLED='
+  ([.brokers[].partitions[].partitionId] | unique | length) as $partitions |
+  ([.brokers[].partitions[] | select(.role == "leader") | .partitionId]
+     | group_by(.) | map(select(length == 1)) | length) as $led |
+  $partitions > 0 and $led == $partitions'
+
+# Polled rather than read once: the surviving region reconnects to the new
+# Aurora writer right after the switchover above, and its ALB can refuse
+# connections while it does.
+if TOPOLOGY=$(mgmt_topology_settled "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
+      "${LEADER_SETTLE_TIMEOUT}" "${LEADERS_SETTLED}"); then
+  SETTLED=true
+else
+  SETTLED=false
+fi
+
 mgmt_topology_summary "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
   "AFTER failover — ${FAILED_ZONE} removed"
 
-TOPOLOGY=$(curl -sf --max-time 20 -u "${ADMIN_USER}:${ADMIN_PASS}" \
-  "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
-LEADERS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[] | select(.role == "leader")] | length' 2>/dev/null || echo 0)
-PARTITIONS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[].partitionId] | unique | length' 2>/dev/null || echo 0)
+PARTITIONS=$(mgmt_topology_count "${TOPOLOGY}" \
+  '[.brokers[].partitions[].partitionId] | unique | length')
+LEADERS=$(mgmt_topology_count "${TOPOLOGY}" \
+  '[.brokers[].partitions[] | select(.role == "leader") | .partitionId]
+     | group_by(.) | map(select(length == 1)) | length')
 
-if [[ "${LEADERS}" -eq "${PARTITIONS}" ]] && [[ "${PARTITIONS}" -gt 0 ]]; then
+if [ "${SETTLED}" = true ]; then
   log "✓ Every partition has a leader (${LEADERS}/${PARTITIONS})."
+elif [ -z "${TOPOLOGY}" ]; then
+  err "${SURVIVING_ALB} stopped answering within ${LEADER_SETTLE_TIMEOUT}s, so leadership could not be confirmed."
+  err "The zone removal itself succeeded; re-check with: ./verify_dual_region.sh"
+  exit 1
 else
-  err "Only ${LEADERS} of ${PARTITIONS} partitions have a leader — cluster not yet settled."
+  err "Only ${LEADERS} of ${PARTITIONS} partitions have exactly one leader after ${LEADER_SETTLE_TIMEOUT}s — cluster not yet settled."
   err "Re-check with: ./verify_dual_region.sh"
   exit 1
 fi
