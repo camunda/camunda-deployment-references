@@ -217,29 +217,49 @@ Submit each change through a pull request. A maintainer merges the pull requests
 
 12. **Publish the repository tag and GitHub Release**
 
-    * Wait for a maintainer to merge the cut pull request and required backports into `stable/8.x`.
-    * For 8.10, wait for #3671 and #3669 to merge.
-    * Record the release commit on `stable/8.x`. Use that commit, not the original unprepared branch point.
+    The workflow `.github/workflows/internal_global_release_stable_branches.yml` does this step automatically.
+    It runs each day and on manual dispatch.
+
+    * The workflow reads the maintained branches from the `stable/*` entries of `baseBranchPatterns` in `main`'s `.github/renovate.json5`. It does not keep a separate list.
+    * For each branch, it compares the `## 8.x` section of `RELEASE-NOTES.md` at the branch head with the same section at the last released tag of that minor. It ignores whitespace changes.
+    * It publishes a release only when that section changed. A branch without the section gets no release. A branch whose head is already released gets no release.
+    * It does not publish a release when the combined commit status of the branch head is `failure`.
+    * Tags have the name `8.x-YYwWWa`, like a Minecraft snapshot. `YY` is the two-digit ISO year and `WW` the ISO week. `a` is the first release of that week. Later releases in the same week use `b`, `c`. The workflow skips each letter that a tag or release already uses.
+    * When a tag exists without a release, the workflow uses that tag if it points to the branch head. If it points to a different commit, the workflow fails.
+    * The workflow creates an annotated tag, then the GitHub Release. The release notes are the full, current `8.x` section and a link to the changes since the last release.
+    * Only the release of the highest maintained minor gets the `Latest` badge.
+    * A failed scheduled run sends a Slack alert.
+    * The first release of 8.10 used `8.10.0`, before this scheme. Do not create new `8.x.y` tags.
+
+    To publish a release, amend the `8.x` section on both `main` and `stable/8.x` after user-visible fixes reach `stable/8.x`. The next daily run publishes it.
+
+    To run the workflow for one branch, or to see its decision without a release, use manual dispatch:
+
+    ```sh
+    gh workflow run internal_global_release_stable_branches.yml -f branch=stable/8.10 -f dry_run=true
+    ```
+
+    With `dry_run=true`, the workflow shows the decision, the tag name, and the release notes. It creates no tag and no release.
+    Pull-request runs always use the dry run.
+
+    If the workflow cannot run, do the same steps manually:
+
+    * Record the release commit on `stable/8.x`.
     * Check that the version section in `RELEASE-NOTES.md` is identical on both branches.
     * Copy only that section into a notes file under `debug/` in the release worktree.
-    * Create an annotated tag named `8.x-YYwWWa`, like a Minecraft snapshot: `YY` is the two-digit year, `WW` the ISO week, and `a` the first release of that week. Use `b`, `c` for later releases in the same week. Get the week with `date +%gw%V`.
-    * Publish that tag before creating the GitHub Release. Do not replace an existing tag or force-push a tag.
-    * The first release of 8.10 used `8.10.0`, before this scheme. Do not create new `8.x.y` tags.
+    * Get the week with `date +%gw%V`. Publish the tag before you create the GitHub Release. Do not replace an existing tag or force-push a tag.
     * Example for an 8.10 release in ISO week 42 of 2026, using the recorded release commit:
 
       ```sh
       git tag -a 8.10-26w42a <release-sha> -m "Camunda Reference Architectures 8.10-26w42a"
       git push origin refs/tags/8.10-26w42a
-      gh release create 8.10-26w42a --verify-tag --title "Camunda 8.10 (26w42a)" --notes-file debug/release-8.10.md
+      gh release create 8.10-26w42a --verify-tag --title "Camunda 8.10 (8.10-26w42a)" --notes-file debug/release-8.10.md
       ```
-
-    * The notes file holds the full, current `8.x` section. Each release of a minor shows the cumulative section.
-    * Publish a new tag and release after user-visible fixes reach `stable/8.x` and the section is amended on both branches.
 
 13. **Retire a maintenance branch**
 
     * Record the retirement decision and the release-policy evidence.
-    * Remove the branch from `baseBranchPatterns` in `main`'s `.github/renovate.json5`.
+    * Remove the branch from `baseBranchPatterns` in `main`'s `.github/renovate.json5`. This also stops its automatic GitHub Releases (step 12).
     * Remove all its weekly and daily blocks from `.github/workflows-config/workflow-scheduler.yml`.
     * Check the scheduler consumer for hardcoded branch lists and validation rules.
     * Search `.github`, `docs`, root Markdown files, `justfile`, and `scripts` for the retired branch and minor version.
