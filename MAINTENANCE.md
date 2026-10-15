@@ -90,7 +90,8 @@ Submit each change through a pull request. A maintainer merges the pull requests
    * Group changes by reference architecture. Cite merged pull requests and state facts only.
    * Use the first-parent history from the previous branch point to the recorded cut commit.
    * Keep the released section identical on `main` and `stable/8.x`.
-   * Add backported user-visible fixes to that section on both branches.
+   * Keep one section per minor. Do not add a section for a patch or a rebuild.
+   * Add backported user-visible fixes to that section on both branches, in the same pull request as the backport or right after it.
    * Add the next version's `(unreleased)` section on `main`.
 
 5. **Prepare `main` for the next version**
@@ -221,17 +222,19 @@ Submit each change through a pull request. A maintainer merges the pull requests
     * Record the release commit on `stable/8.x`. Use that commit, not the original unprepared branch point.
     * Check that the version section in `RELEASE-NOTES.md` is identical on both branches.
     * Copy only that section into a notes file under `debug/` in the release worktree.
-    * Create an annotated tag named `8.x.0`. Publish that tag before creating the GitHub Release.
-    * Follow the `*.*.*` tag ruleset. Do not replace an existing tag or force-push a tag.
-    * Example for 8.10, using the recorded release commit:
+    * Create an annotated tag named `8.x-YYwWWa`, like a Minecraft snapshot: `YY` is the two-digit year, `WW` the ISO week, and `a` the first release of that week. Use `b`, `c` for later releases in the same week. Get the week with `date +%gw%V`.
+    * Publish that tag before creating the GitHub Release. Do not replace an existing tag or force-push a tag.
+    * The first release of 8.10 used `8.10.0`, before this scheme. Do not create new `8.x.y` tags.
+    * Example for an 8.10 release in ISO week 42 of 2026, using the recorded release commit:
 
       ```sh
-      git tag -a 8.10.0 <release-sha> -m "Camunda Reference Architectures 8.10.0"
-      git push origin refs/tags/8.10.0
-      gh release create 8.10.0 --verify-tag --notes-file debug/release-8.10.md
+      git tag -a 8.10-26w42a <release-sha> -m "Camunda Reference Architectures 8.10-26w42a"
+      git push origin refs/tags/8.10-26w42a
+      gh release create 8.10-26w42a --verify-tag --title "Camunda 8.10 (26w42a)" --notes-file debug/release-8.10.md
       ```
 
-    * Use `8.x.y` for patch releases. Add their user-visible fixes to both branches before publishing the corresponding tag and release.
+    * The notes file holds the full, current `8.x` section. Each release of a minor shows the cumulative section.
+    * Publish a new tag and release after user-visible fixes reach `stable/8.x` and the section is amended on both branches.
 
 13. **Retire a maintenance branch**
 
