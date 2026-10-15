@@ -298,7 +298,69 @@ classify_destroy_error() {
     echo remediate_broken_trust_policy
   elif [[ "$output" == *"DeleteConflict"* && "$output" == *"policy attached to entities"* ]]; then
     echo remediate_iam_attachments
+  elif [[ -n "$(extract_s3_bucket_names "$output")" ]]; then
+    echo remediate_s3_versions
   fi
+}
+
+# Only accept names from the specific failed force-destroy operation, not other
+# bucket names mentioned elsewhere in the Terraform output.
+extract_s3_bucket_names() {
+  local bucket
+  while IFS= read -r bucket; do
+    [[ "$bucket" =~ ^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$ ]] || continue
+    [[ "$bucket" == *..* || "$bucket" == *.-* || "$bucket" == *-.* ]] && continue
+    [[ "$bucket" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && continue
+    printf '%s\n' "$bucket"
+  done < <(awk 'BEGIN { RS="Error:" }
+    /ListObjectVersions/ && /bufio.Scanner: token too long/ {
+      if (match($0, /emptying S3 Bucket \([^)]*\)/)) {
+        name=substr($0, RSTART, RLENGTH)
+        sub(/^emptying S3 Bucket \(/, "", name); sub(/\)$/, "", name)
+        print name
+      }
+    }' <<< "$1") | sort -u
+}
+
+# Bypass the provider HTTP logger's Scanner limit. Drain one bounded page at a
+# time, then list from the beginning again: deleting versions invalidates the
+# need for continuation markers and keeps each delete request below 1000 items.
+# shellcheck disable=SC2329,SC2317
+remediate_s3_versions() {
+  local group_id="$1" module_name="$2" output="$3"
+  local buckets bucket region page payload result iteration
+  buckets=$(extract_s3_bucket_names "$output")
+  [[ -n "$buckets" ]] || return 1
+  while IFS= read -r bucket; do
+    region=$(aws s3api get-bucket-location --bucket "$bucket" \
+      --query LocationConstraint --output text --no-cli-pager) || return 1
+    case "$region" in
+      None|null) region=us-east-1 ;;
+      EU) region=eu-west-1 ;;
+    esac
+    echo "[$group_id][$module_name] Emptying versioned bucket $bucket in $region before retry..."
+    for ((iteration=0; iteration<1000; iteration++)); do
+      page=$(aws s3api list-object-versions --bucket "$bucket" --region "$region" \
+        --max-keys 500 --no-paginate --output json --no-cli-pager) || return 1
+      payload=$(jq -ce '{Objects: [(.Versions[]?, .DeleteMarkers[]?) | {Key, VersionId}], Quiet: true}
+        | select((.Objects | length) <= 500)' <<< "$page") || return 1
+      if [[ "$(jq '.Objects | length' <<< "$payload")" -eq 0 ]]; then
+        [[ "$(jq -r '.IsTruncated // false' <<< "$page")" == false ]] || return 1
+        break
+      fi
+      result=$(aws s3api delete-objects --bucket "$bucket" --region "$region" \
+        --delete file:///dev/stdin --output json --no-cli-pager <<< "$payload") || return 1
+      # DeleteObjects can return HTTP 200 with per-object failures.
+      if ! jq -e '(.Errors // []) | length == 0' <<< "$result" >/dev/null; then
+        echo "[$group_id][$module_name] S3 deletion failed: $result" >&2
+        return 1
+      fi
+    done
+    if [[ "$iteration" -eq 1000 ]]; then
+      echo "[$group_id][$module_name] S3 cleanup page limit reached for $bucket" >&2
+      return 1
+    fi
+  done <<< "$buckets"
 }
 
 # The remediations below share one signature -- group_id, module_name, output --
@@ -748,7 +810,91 @@ destroy_selftest() {
   local trust_policy="status is 400, code is 'CLUSTERS-MGMT-400' ... Failed to delete cluster: Please make sure IAM role 'arn:aws:iam::000000000000:role/EXAMPLE-account-HCP-ROSA-Installer-Role' exists, and add it to the trust policy"
   local gone="Error: status is 404, identifier is '404', code is 'CLUSTERS-MGMT-404'"
   local delete_conflict="Error: deleting IAM Policy (arn:aws:iam::000000000000:policy/EXAMPLE-external-dns-policy): DeleteConflict: Cannot delete a policy attached to entities."
+  local s3_scanner="Error: emptying S3 Bucket (eks-dual-36687d47d-7ce10-elastic-backup): listing S3 bucket (...) object versions: operation error S3: ListObjectVersions, https response error StatusCode: 200, RequestID: 8YBJSRFA8EBDPG48, ... decomposing response: bufio.Scanner: token too long"
   local unknown="Error: Invalid provider configuration"
+
+  _expect "S3 version listing scanner failure -> empty bucket" \
+    "$(classify_destroy_error "$s3_scanner" clusters)" "remediate_s3_versions"
+  _expect "S3 bucket name extracted from destroy error" \
+    "$(extract_s3_bucket_names "$s3_scanner")" "eks-dual-36687d47d-7ce10-elastic-backup"
+  _expect "unrelated scanner failure has no handler" \
+    "$(classify_destroy_error 'Error: reading IAM Policy: bufio.Scanner: token too long' clusters)" ""
+  local invalid_bucket
+  for invalid_bucket in 'bad;command' 'bad/name' 'UPPERCASE' '-bad' 'bad-' 'a..b' 'ab' '192.168.0.1'; do
+    _expect "reject invalid bucket $invalid_bucket" \
+      "$(extract_s3_bucket_names "${s3_scanner/eks-dual-36687d47d-7ce10-elastic-backup/$invalid_bucket}")" ""
+  done
+  _expect "unrelated bucket error is not extracted" \
+    "$(extract_s3_bucket_names 'Error: emptying S3 Bucket (unrelated-bucket): AccessDenied')" ""
+  _expect "multiple failed buckets are deduplicated" \
+    "$(extract_s3_bucket_names "$s3_scanner"$'\n\n'"$s3_scanner")" "eks-dual-36687d47d-7ce10-elastic-backup"
+  _expect "another error block cannot supply the scanner failure" \
+    "$(extract_s3_bucket_names 'Error: emptying S3 Bucket (unrelated-bucket): AccessDenied
+Error: ListObjectVersions: bufio.Scanner: token too long')" ""
+
+  # The subshell's aws function intercepts every call; no cloud access is possible.
+  if (
+    test_dir=$(mktemp -d "${TMPDIR:-.}/s3-selftest.XXXXXX") || exit 1
+    trap 'rm -rf "$test_dir"' EXIT
+    printf '0\n' > "$test_dir/page"
+    mode=success
+    aws() {
+      local operation="$2" request count
+      shift 2
+      printf '%s\n' "$operation" >> "$test_dir/calls"
+      [[ "$*" == *'--bucket eks-dual-36687d47d-7ce10-elastic-backup'* ]] || return 1
+      case "$operation" in
+        get-bucket-location) echo eu-west-2 ;;
+        list-object-versions)
+          [[ "$*" == *'--region eu-west-2 --max-keys 500 --no-paginate'* ]] || return 1
+          [[ "$mode" != list_failure ]] || return 1
+          count=$(< "$test_dir/page")
+          printf '%s\n' "$((count + 1))" > "$test_dir/page"
+          case "$count" in
+            0) jq -nc '{IsTruncated:true, Versions:[range(0;499) | {Key:("snapshot/\"\\\n" + tostring), VersionId:"v1"}],
+                 DeleteMarkers:[{Key:"snapshot/deleted", VersionId:"marker1"}]}' ;;
+            1) echo '{"Versions":[{"Key":"snapshot/null","VersionId":"null"}]}' ;;
+            *) echo '{"IsTruncated":false}' ;;
+          esac ;;
+        delete-objects)
+          [[ "$*" == *'--region eu-west-2'* ]] || return 1
+          while [[ $# -gt 0 ]]; do
+            if [[ "$1" == --delete && "$2" == file:///dev/stdin ]]; then
+              request=$(</dev/stdin)
+              break
+            fi
+            shift
+          done
+          jq -e '.Quiet == true and (.Objects | length > 0 and length <= 500)
+            and all(.Objects[]; (.Key | type == "string") and (.VersionId | type == "string"))' \
+            <<< "$request" >/dev/null || return 1
+          printf '%s\n' "$request" >> "$test_dir/deleted"
+          if [[ "$mode" == delete_failure ]]; then
+            echo '{"Errors":[{"Code":"AccessDenied"}]}'
+          else
+            echo '{}'
+          fi ;;
+        *) return 1 ;;
+      esac
+    }
+    remediate_s3_versions test clusters "$s3_scanner" || exit 1
+    [[ "$(< "$test_dir/page")" == 3 ]] || exit 1
+    jq -se 'map(.Objects) | add | length == 501 and
+      any(.[]; .VersionId == "marker1") and any(.[]; .VersionId == "null")' \
+      "$test_dir/deleted" >/dev/null || exit 1
+    printf '0\n' > "$test_dir/page"
+    mode=delete_failure
+    if remediate_s3_versions test clusters "$s3_scanner"; then exit 1; fi
+    mode=list_failure
+    if remediate_s3_versions test clusters "$s3_scanner"; then exit 1; fi
+    calls=$(wc -l < "$test_dir/calls")
+    if remediate_s3_versions test clusters 'Error: emptying S3 Bucket (bad;command)'; then exit 1; fi
+    [[ "$(wc -l < "$test_dir/calls")" == "$calls" ]] || exit 1
+  ); then
+    _expect "S3 handler drains bounded pages, versions and markers; rejects API failures" ok ok
+  else
+    _expect "S3 handler drains bounded pages, versions and markers; rejects API failures" failed ok
+  fi
 
   _expect "DependencyViolation -> vpc dependencies" \
     "$(classify_destroy_error "$dep_violation" clusters)" "remediate_vpc_dependencies"
@@ -774,7 +920,7 @@ destroy_selftest() {
   # Every handler the classifier can name has to be callable, or the loop would
   # dispatch into nothing and the error would look recovered.
   for got in remediate_vpc_dependencies remediate_orphaned_oidc \
-             remediate_broken_trust_policy remediate_iam_attachments; do
+             remediate_broken_trust_policy remediate_iam_attachments remediate_s3_versions; do
     if declare -F "$got" >/dev/null; then
       echo "ok   handler $got is defined"
     else
