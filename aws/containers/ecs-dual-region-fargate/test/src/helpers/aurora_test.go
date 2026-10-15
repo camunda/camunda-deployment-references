@@ -88,7 +88,8 @@ func TestWriterMovesGoThroughAuroraSwitchTo(t *testing.T) {
 			if strings.Contains(src, "rds failover-global-cluster") {
 				t.Errorf("%s/%s calls failover-global-cluster itself instead of aurora_switch_to", dir, script)
 			}
-			if !strings.Contains(src, "aurora_switch_to") {
+			// aurora_planned_switch calls aurora_switch_to after its health check.
+			if !strings.Contains(src, "aurora_switch_to") && !strings.Contains(src, "aurora_planned_switch") {
 				t.Errorf("%s/%s does not move the writer with aurora_switch_to", dir, script)
 			}
 		}
@@ -107,15 +108,15 @@ func TestWriterMovesGoThroughAuroraSwitchTo(t *testing.T) {
 }
 
 // fakeSwitchAWS starts with the writer in eu-west-2. failover-global-cluster
-// fails FAKE_RETRIES times with the "replication setup" error, then moves the
-// writer to eu-west-3.
+// fails FAKE_RETRIES times with FAKE_REJECT (default: the "replication setup"
+// error), then moves the writer to eu-west-3.
 const fakeSwitchAWS = `#!/usr/bin/env bash
 echo "$*" >> "$FAKE_DIR/args"
 case "$*" in
   *failover-global-cluster*)
     n=$(grep -c failover-global-cluster "$FAKE_DIR/args")
     if [ "$n" -le "${FAKE_RETRIES:-0}" ]; then
-      echo "The switchover request is not successful because replication setup is still in progress. Please retry the request later." >&2
+      echo "${FAKE_REJECT:-The switchover request is not successful because replication setup is still in progress. Please retry the request later.}" >&2
       exit 254
     fi
     touch "$FAKE_DIR/switched" ;;
@@ -132,12 +133,14 @@ func TestAuroraSwitchTo(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		name, retries, already string
-		wantSwitches           int
+		name, retries, already, reject string
+		wantSwitches                   int
 	}{
-		{"moves the writer", "0", "", 1},
-		{"retries while replication sets up", "2", "", 3},
-		{"leaves a writer already in place", "0", "yes", 0},
+		{"moves the writer", "0", "", "", 1},
+		{"retries while replication sets up", "2", "", "", 3},
+		// Seen about 1s after a cancelled switchover.
+		{"retries while the target is modifying", "1", "", "An error occurred (InvalidDBClusterStateFault) when calling the FailoverGlobalCluster operation: The global cluster can't switch over because the target DB cluster is in the modifying state.", 2},
+		{"leaves a writer already in place", "0", "yes", "", 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -150,7 +153,7 @@ func TestAuroraSwitchTo(t *testing.T) {
 aurora_switch_to arn:aws:rds:eu-west-3:1:cluster:b 60`)
 			cmd.Dir = filepath.Join("..", "..", "..", "procedure")
 			cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
-				"FAKE_RETRIES="+tc.retries, "FAKE_ALREADY="+tc.already,
+				"FAKE_RETRIES="+tc.retries, "FAKE_ALREADY="+tc.already, "FAKE_REJECT="+tc.reject,
 				"AURORA_GLOBAL_CLUSTER_ID=g", "AURORA_WRITER_POLL_SECONDS=0")
 			out, err := cmd.CombinedOutput()
 			args, _ := os.ReadFile(filepath.Join(fake, "args"))
@@ -436,6 +439,11 @@ func TestFailoverHintFollowsTheSwitchResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The real helpers decide the hint; only the AWS-facing reads are faked.
+	helpers, err := os.ReadFile(filepath.Join("..", "..", "..", "procedure", "aurora.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, tc := range []struct {
 		rc         string
 		wantUnplan bool
@@ -453,7 +461,8 @@ mgmt_tunnel_open() { :; }
 mgmt_tunnel_close() { :; }
 mgmt_zone_present() { return 1; }
 `,
-				"aurora.sh": `aurora_settled_global() { echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'; }
+				"aurora.sh": string(helpers) + `
+aurora_settled_global() { echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'; }
 aurora_switch_to() { return "$FAKE_RC"; }
 `,
 				"aws":  "#!/usr/bin/env bash\necho available\n",
