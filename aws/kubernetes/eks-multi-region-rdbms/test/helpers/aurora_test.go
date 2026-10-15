@@ -98,7 +98,7 @@ camunda::survivor_context() { echo survivor; }
 camunda::use_surviving_region() { :; }
 camunda::zone_name() { echo z; }
 camunda::management() { echo '{}'; }
-camunda::partitioning() { echo '{"zones":[{"name":"z"}]}'; }
+camunda::partitioning() { cat >/dev/null; echo '{"zones":[{"name":"z"}]}'; }
 `,
 		"aurora.sh":                     "",
 		"generate-zeebe-helm-values.sh": "",
