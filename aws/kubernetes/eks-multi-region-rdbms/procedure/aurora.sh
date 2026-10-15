@@ -124,3 +124,47 @@ aurora_switch_to() {
     done
     aurora_wait_writer "${target_arn}" "$((deadline > SECONDS ? deadline - SECONDS : 0))"
 }
+
+# aurora_unplanned_hint
+#
+# Points to the AWS unplanned recovery, the only way to move a writer whose
+# region is down. That recovery can lose data: never print this for a
+# switchover that a rerun finishes.
+aurora_unplanned_hint() {
+    echo "Follow the Aurora Global Database unplanned recovery procedure:" >&2
+    echo "  https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html" >&2
+    echo "Camunda keeps processing; exporting waits until a writer is available." >&2
+    echo "When the Aurora primary is down as well, rerun the script with --keep-writer." >&2
+}
+
+# aurora_planned_switch <writer-arn> <target-arn>
+#
+# Planned switchover out of the writer's region. It needs that writer to be
+# available, so the status is checked first. Returns aurora_switch_to's code:
+# 2 means a rerun finishes the move. Every other failure gets the
+# unplanned-recovery hint.
+aurora_planned_switch() {
+    local writer_arn=$1 target_arn=$2 region status rc=0
+    region=$(echo "${writer_arn}" | cut -d: -f4)
+    # Keep the AWS error: denied permissions are not an outage.
+    if ! status=$(aws rds describe-db-clusters --region "${region}" \
+        --db-cluster-identifier "${writer_arn}" \
+        --query 'DBClusters[0].Status' --output text); then
+        echo "ERROR: could not read the Aurora writer in ${region} (AWS error above). If ${region} is down, a planned switchover cannot run." >&2
+        aurora_unplanned_hint
+        return 1
+    fi
+    if [ "${status}" != "available" ]; then
+        echo "ERROR: the Aurora writer in ${region} is ${status}, so a planned switchover cannot run." >&2
+        aurora_unplanned_hint
+        return 1
+    fi
+    # The status can still say "available" early in an outage: a rejected or
+    # stalled switchover gets the same hint.
+    aurora_switch_to "${target_arn}" || rc=$?
+    if [ "${rc}" -ne 0 ]; then
+        echo "ERROR: the planned switchover to ${target_arn} did not complete." >&2
+        [ "${rc}" -eq 2 ] || aurora_unplanned_hint
+    fi
+    return "${rc}"
+}
