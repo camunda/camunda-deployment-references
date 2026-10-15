@@ -229,13 +229,14 @@ mgmt_zone_present() {
 # prescribes. Returns 0 only on COMPLETED.
 mgmt_wait_change() {
     local change_id="$1" timeout="${2:-900}"
-    local elapsed=0 status completed total
+    local elapsed=0 status completed total last_body=""
 
     while [ "${elapsed}" -lt "${timeout}" ]; do
         local body
         body=$(mgmt_get "/actuator/cluster/changes/${change_id}")
 
         if [ -n "${body}" ]; then
+            last_body="${body}"
             status=$(echo "${body}" | jq -r '.status // empty' 2>/dev/null)
             completed=$(echo "${body}" | jq -r '[.completed // [] | length] | first' 2>/dev/null)
             total=$(echo "${body}" | jq -r '((.completed // [] | length) + (.pending // [] | length))' 2>/dev/null)
@@ -269,6 +270,15 @@ mgmt_wait_change() {
     done
 
     mgmt_err "Timed out after ${timeout}s waiting for change ${change_id}."
+    # Print what it is stuck on before returning. In CI the cluster is
+    # destroyed seconds after this, so "inspect GET .../changes/<id>" is advice
+    # nobody can follow; a stall at 6/13 with no operation named is not
+    # diagnosable after the fact.
+    if [ -n "${last_body}" ]; then
+        mgmt_err "Last state of change ${change_id} — next pending operations:"
+        echo "${last_body}" | jq '{status, completed: (.completed // [] | length),
+            pending: (.pending // [] | .[0:3])}' 2>/dev/null || echo "${last_body}"
+    fi
     return 1
 }
 

@@ -1,5 +1,9 @@
 ---
-name: Tests - Integration - AWS Containers ECS Dual Region Fargate
+# Must differ from aws_ecs_dual_region_fargate_integration.yml: the concurrency
+# group below is keyed on github.workflow, which is this display name, so a
+# shared name put both workflows in one group and GitHub cancelled whichever
+# queued second — the Terratest integration suite never ran on a pull request.
+name: Tests - Integration - AWS Containers ECS Dual Region Fargate Failover Lifecycle
 
 # Greenfield dual-region happy path, on one cluster, end to end:
 #

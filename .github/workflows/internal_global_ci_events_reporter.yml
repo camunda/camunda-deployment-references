@@ -28,6 +28,7 @@ on:
             - Tests - Integration - Local Kubernetes Kind Single Region
             - Tests - Integration - Local Kind Operator Based PostgreSQL
             - Tests - Integration - AWS Containers ECS Dual Region Fargate
+            - Tests - Integration - AWS Containers ECS Dual Region Fargate Failover Lifecycle
             - Tests - Integration - Teleport - AWS Kubernetes EKS Dual Region
             - Tests - Integration - AWS EKS Cluster with an AuroraDB and OpenSearch creation and destruction
             - Tests - Integration - AWS S3 bucket for Terraform backend
