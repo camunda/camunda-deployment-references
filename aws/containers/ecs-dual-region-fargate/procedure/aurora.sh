@@ -102,16 +102,18 @@ aurora_switch_to() {
 
     echo "    Planned switchover from ${writer:-none} to ${target_arn}." >&2
     # Right after a switchover, AWS refuses the next one while replication is
-    # still being set up ("Please retry"). Retry that error only.
+    # still being set up ("Please retry"). Right after a cancelled switchover,
+    # it refuses it while the target is "in the modifying state". Both clear
+    # within seconds: retry those errors only.
     while ! out=$(aws rds failover-global-cluster \
         --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
         --target-db-cluster-identifier "${target_arn}" \
         --region "${region}" --no-cli-pager 2>&1 >/dev/null); do
-        if [[ "${out}" != *"replication setup is still in progress"* ]]; then
+        if [[ "${out}" != *"replication setup is still in progress"* && "${out}" != *"in the modifying state"* ]]; then
             echo "ERROR: ${out}" >&2
             return 1
         fi
-        echo "    Replication is still being set up, retrying the switchover." >&2
+        echo "    The global cluster is not ready for a switchover yet, retrying." >&2
         sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
         # Check after the sleep: a retry past the deadline could start a
         # switchover that nothing waits for.

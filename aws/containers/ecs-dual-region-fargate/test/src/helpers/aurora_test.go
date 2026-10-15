@@ -107,15 +107,15 @@ func TestWriterMovesGoThroughAuroraSwitchTo(t *testing.T) {
 }
 
 // fakeSwitchAWS starts with the writer in eu-west-2. failover-global-cluster
-// fails FAKE_RETRIES times with the "replication setup" error, then moves the
-// writer to eu-west-3.
+// fails FAKE_RETRIES times with FAKE_REJECT (default: the "replication setup"
+// error), then moves the writer to eu-west-3.
 const fakeSwitchAWS = `#!/usr/bin/env bash
 echo "$*" >> "$FAKE_DIR/args"
 case "$*" in
   *failover-global-cluster*)
     n=$(grep -c failover-global-cluster "$FAKE_DIR/args")
     if [ "$n" -le "${FAKE_RETRIES:-0}" ]; then
-      echo "The switchover request is not successful because replication setup is still in progress. Please retry the request later." >&2
+      echo "${FAKE_REJECT:-The switchover request is not successful because replication setup is still in progress. Please retry the request later.}" >&2
       exit 254
     fi
     touch "$FAKE_DIR/switched" ;;
@@ -132,12 +132,14 @@ func TestAuroraSwitchTo(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		name, retries, already string
-		wantSwitches           int
+		name, retries, already, reject string
+		wantSwitches                   int
 	}{
-		{"moves the writer", "0", "", 1},
-		{"retries while replication sets up", "2", "", 3},
-		{"leaves a writer already in place", "0", "yes", 0},
+		{"moves the writer", "0", "", "", 1},
+		{"retries while replication sets up", "2", "", "", 3},
+		// Seen about 1s after a cancelled switchover.
+		{"retries while the target is modifying", "1", "", "An error occurred (InvalidDBClusterStateFault) when calling the FailoverGlobalCluster operation: The global cluster can't switch over because the target DB cluster is in the modifying state.", 2},
+		{"leaves a writer already in place", "0", "yes", "", 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -150,7 +152,7 @@ func TestAuroraSwitchTo(t *testing.T) {
 aurora_switch_to arn:aws:rds:eu-west-3:1:cluster:b 60`)
 			cmd.Dir = filepath.Join("..", "..", "..", "procedure")
 			cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
-				"FAKE_RETRIES="+tc.retries, "FAKE_ALREADY="+tc.already,
+				"FAKE_RETRIES="+tc.retries, "FAKE_ALREADY="+tc.already, "FAKE_REJECT="+tc.reject,
 				"AURORA_GLOBAL_CLUSTER_ID=g", "AURORA_WRITER_POLL_SECONDS=0")
 			out, err := cmd.CombinedOutput()
 			args, _ := os.ReadFile(filepath.Join(fake, "args"))
