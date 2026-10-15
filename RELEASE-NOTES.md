@@ -4,6 +4,15 @@
 
 Changes will appear here during the development cycle.
 
+## 8.10.1
+
+Fixes backported to `stable/8.10` after `8.10.0`.
+
+### AWS ECS Fargate and AWS EKS
+
+- Aurora switchover helpers fail at once when a second switchover cancels the pending one, instead of waiting 900 seconds. They return `2` and ask for a rerun when a switchover is still running at the timeout ([#3681](https://github.com/camunda/camunda-deployment-references/pull/3681), backport [#3682](https://github.com/camunda/camunda-deployment-references/pull/3682)).
+- `failback.sh` reports the AWS error when `describe-global-clusters` fails. Before, it read the error as an empty topology ([#3681](https://github.com/camunda/camunda-deployment-references/pull/3681), backport [#3682](https://github.com/camunda/camunda-deployment-references/pull/3682)).
+
 ## 8.10
 
 Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fixes backported to `stable/8.10` since.
