@@ -135,14 +135,21 @@ func TestFailoverGuardsThePlannedSwitchover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The real helpers decide the hint; only the AWS-facing calls are faked.
+	helpers, err := os.ReadFile(filepath.Join(ProcedureDir(t), "aurora.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, tc := range []struct {
 		name, flag, status, switchRC string
 		wantRC                       int
 		wantSwitch, wantHint         bool
 	}{
 		{"switches a healthy writer", "", "available", "0", 0, true, false},
-		{"refuses a writer that is down", "", "unreachable", "0", 1, false, true},
-		{"leaves the writer with --keep-writer", "--keep-writer", "unreachable", "0", 0, false, false},
+		{"refuses a writer that is down", "", "stopped", "0", 1, false, true},
+		// A denied read is not an outage: the AWS error must stay visible.
+		{"shows a failed AWS read", "", "denied", "0", 1, false, true},
+		{"leaves the writer with --keep-writer", "--keep-writer", "denied", "0", 0, false, false},
 		{"asks for a rerun when the switchover is still running", "", "available", "2", 2, true, false},
 		{"points to unplanned recovery when the switchover fails", "", "available", "1", 1, true, true},
 	} {
@@ -157,10 +164,11 @@ camunda::survivor_context() { echo survivor; }
 camunda::use_surviving_region() { :; }
 camunda::management() { echo '{}'; }
 `,
-				"aurora.sh": `aurora_settled_global() { echo '{"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":true},{"DBClusterArn":"` + paris + `","IsWriter":false}]}'; }
+				"aurora.sh": string(helpers) + `
+aurora_settled_global() { echo '{"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":true},{"DBClusterArn":"` + paris + `","IsWriter":false}]}'; }
 aurora_switch_to() { echo "$1" >> "$FAKE_DIR/switches"; return "$FAKE_SWITCH_RC"; }
 `,
-				"aws":                        "#!/usr/bin/env bash\n[ \"$FAKE_STATUS\" = unreachable ] && exit 254\necho \"$FAKE_STATUS\"\n",
+				"aws":                        "#!/usr/bin/env bash\nif [ \"$FAKE_STATUS\" = denied ]; then echo 'An error occurred (AccessDenied) when calling the DescribeDBClusters operation' >&2; exit 254; fi\necho \"$FAKE_STATUS\"\n",
 				"verify-degraded-cluster.sh": "#!/usr/bin/env bash\n",
 			} {
 				if err := os.WriteFile(filepath.Join(fake, name), []byte(content), 0o755); err != nil {
@@ -189,6 +197,9 @@ aurora_switch_to() { echo "$1" >> "$FAKE_DIR/switches"; return "$FAKE_SWITCH_RC"
 			}
 			if got := strings.Contains(string(out), "unplanned recovery procedure:"); got != tc.wantHint {
 				t.Errorf("unplanned-recovery hint: %v, want %v", got, tc.wantHint)
+			}
+			if tc.status == "denied" && tc.flag == "" && !strings.Contains(string(out), "AccessDenied") {
+				t.Error("the AWS error is hidden")
 			}
 			if t.Failed() {
 				t.Logf("output:\n%s", out)

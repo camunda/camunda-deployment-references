@@ -88,7 +88,8 @@ func TestWriterMovesGoThroughAuroraSwitchTo(t *testing.T) {
 			if strings.Contains(src, "rds failover-global-cluster") {
 				t.Errorf("%s/%s calls failover-global-cluster itself instead of aurora_switch_to", dir, script)
 			}
-			if !strings.Contains(src, "aurora_switch_to") {
+			// aurora_planned_switch calls aurora_switch_to after its health check.
+			if !strings.Contains(src, "aurora_switch_to") && !strings.Contains(src, "aurora_planned_switch") {
 				t.Errorf("%s/%s does not move the writer with aurora_switch_to", dir, script)
 			}
 		}
@@ -438,6 +439,11 @@ func TestFailoverHintFollowsTheSwitchResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The real helpers decide the hint; only the AWS-facing reads are faked.
+	helpers, err := os.ReadFile(filepath.Join("..", "..", "..", "procedure", "aurora.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, tc := range []struct {
 		rc         string
 		wantUnplan bool
@@ -455,7 +461,8 @@ mgmt_tunnel_open() { :; }
 mgmt_tunnel_close() { :; }
 mgmt_zone_present() { return 1; }
 `,
-				"aurora.sh": `aurora_settled_global() { echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'; }
+				"aurora.sh": string(helpers) + `
+aurora_settled_global() { echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'; }
 aurora_switch_to() { return "$FAKE_RC"; }
 `,
 				"aws":  "#!/usr/bin/env bash\necho available\n",

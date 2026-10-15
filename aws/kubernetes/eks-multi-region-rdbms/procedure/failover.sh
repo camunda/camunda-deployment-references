@@ -74,13 +74,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 read -r -a aws_regions <<<"$AWS_REGIONS"
 
-aurora_unplanned_hint() {
-    echo "Follow the Aurora Global Database unplanned recovery procedure:" >&2
-    echo "  https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html" >&2
-    echo "Zeebe keeps processing; exporting waits until a writer is available." >&2
-    echo "When the Aurora primary is down as well, rerun with --keep-writer to finish the other steps." >&2
-}
-
 camunda::require_slot "$LOST_SLOT" "the lost region slot"
 
 survivor_context="$(camunda::survivor_context "$LOST_SLOT")"
@@ -186,29 +179,8 @@ else
         if [ "$DRY_RUN" = true ]; then
             echo "    --dry-run: would promote $target_arn, doing nothing."
         else
-            # A planned switchover needs the current primary to be healthy. If
-            # the lost region's Aurora cluster is down too, only AWS's unplanned
-            # recovery can move the writer, and that can lose data.
-            writer_status="$(aws rds describe-db-clusters --region "$lost_region" \
-                --db-cluster-identifier "$writer_arn" \
-                --query 'DBClusters[0].Status' --output text 2>/dev/null || echo unreachable)"
-            if [ "$writer_status" != "available" ]; then
-                echo "ERROR: the Aurora writer in $lost_region is $writer_status, so a planned switchover cannot run." >&2
-                aurora_unplanned_hint
-                exit 1
-            fi
-
             echo "    Planned switchover to $target_arn"
-            # The status read above can still say "available" early in an
-            # outage: a rejected or stalled switchover gets the same guidance.
-            # Exit code 2 means a rerun finishes the move (the helper says so).
-            rc=0
-            aurora_switch_to "$target_arn" || rc=$?
-            if [ "$rc" -ne 0 ]; then
-                echo "ERROR: the planned switchover to $target_arn did not complete." >&2
-                [ "$rc" -eq 2 ] || aurora_unplanned_hint
-                exit "$rc"
-            fi
+            aurora_planned_switch "$writer_arn" "$target_arn" || exit $?
 
             echo "    Promotion complete."
             echo
