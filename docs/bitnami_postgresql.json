@@ -287,6 +287,10 @@
       "newDigest": "sha256:5631a956022be5e078a4389f9dda075bac77831e48704c36d84243fd8c05bc27"
     },
     {
+      "version": "14.24.0-debian-12-r21",
+      "newDigest": "sha256:5866431a29627ba91a97bf65dbd781d48891101819924b115d67a12e7397040b"
+    },
+    {
       "version": "15.15.0-debian-12-r0",
       "newDigest": "sha256:fc2e864ca5117330c010054894e62ab8855bb425d8139c9ab969975cf726dfa0"
     },
@@ -567,6 +571,10 @@
       "newDigest": "sha256:e7f7e5de36eeffc6333c7dd0086003b52e8415cda14a73820e2f641c95b4ef67"
     },
     {
+      "version": "15.19.0-debian-12-r23",
+      "newDigest": "sha256:e814d67787b012eda563e4e8d4d73d3b52b11472b6d0a61ad1d3cf834bdf4f71"
+    },
+    {
       "version": "16.11.0-debian-12-r0",
       "newDigest": "sha256:760d6a0a2a490cae41b6fd1b74c8cb3207bbffc5ea7e6725f92a75542a44a1b6"
     },
@@ -841,6 +849,10 @@
     {
       "version": "16.15.0-debian-12-r22",
       "newDigest": "sha256:bcd215be6370d1e59089dad6e340dd8b5acfecf827561b7433d8be8258754e52"
+    },
+    {
+      "version": "16.15.0-debian-12-r23",
+      "newDigest": "sha256:bb024d679e152de4a57cddc89a80af44fd94a56d0501e507630f38ec69f76d81"
     },
     {
       "version": "17.6.0-debian-12-r28",
@@ -1135,6 +1147,10 @@
       "newDigest": "sha256:d613ec189c892bba1dbc339fcc08a7f62b53f46a59eddbdf12849c07dfa2bafd"
     },
     {
+      "version": "17.11.0-debian-12-r21",
+      "newDigest": "sha256:02310108c2eb62ac0751ae135e9bd31f4f0ce920677557addd88b75b9a20b62e"
+    },
+    {
       "version": "18.0.0-debian-12-r16",
       "newDigest": "sha256:1c4144964df608d7ef3d9101ccaf92f762a4e704415944b94cae0215d8a2b698"
     },
@@ -1397,6 +1413,14 @@
     {
       "version": "18.6.0-debian-12-r19",
       "newDigest": "sha256:cb3d40f438e7eb07b70d5ee3312a187317f00f84bb2ee982ae2d3bfa624d6822"
+    },
+    {
+      "version": "18.6.0-debian-12-r20",
+      "newDigest": "sha256:1f8d8e2957ce8435fa2806b8e300370b554f6fd2105381bd1471ed322555bbc2"
+    },
+    {
+      "version": "18.6.0-debian-12-r21",
+      "newDigest": "sha256:e7ab4f1152ff4b83ff85b2fd26a95a82fd6da708fec6b1f04399e0ed006cd757"
     }
   ]
 }
