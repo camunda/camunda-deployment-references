@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Handles the loss of one region.
 #
-#   ./failover.sh <lost-region-slot> [--drain-brokers] [--dry-run]
+#   ./failover.sh <lost-region-slot> [--drain-brokers] [--keep-writer] [--dry-run]
 #
 # With at least three zones and a layout where no single zone holds half the
 # replicas, losing one region leaves every partition with a majority of its
@@ -20,10 +20,13 @@ set -euo pipefail
 #
 #   * If the writer was NOT in the lost region, nothing to do.
 #   * Planned (region still reachable): `failover-global-cluster` performs a
-#     switchover with no data loss.
+#     switchover with no data loss. It needs the old writer to be `available`;
+#     the script checks that first.
 # An unplanned Aurora Global Database failover is not automated here: detaching
 # a member changes topology outside Terraform, and this module deliberately
 # ignores that membership field. Follow the AWS recovery procedure instead.
+# When the lost region's Aurora is down too, pass `--keep-writer` to skip the
+# switchover and still run the Zeebe steps.
 #
 # `--drain-brokers` additionally force-removes the lost zone from the Zeebe
 # cluster, through `DELETE /actuator/cluster/zones/<zone>`. That is one atomic
@@ -43,17 +46,19 @@ set -euo pipefail
 : "${CAMUNDA_BROKERS_PER_REGION:?CAMUNDA_BROKERS_PER_REGION must be set, source export_environment_prerequisites.sh}"
 
 if [ $# -lt 1 ]; then
-    echo "usage: $0 <lost-region-slot> [--drain-brokers] [--dry-run]" >&2
+    echo "usage: $0 <lost-region-slot> [--drain-brokers] [--keep-writer] [--dry-run]" >&2
     exit 1
 fi
 
 LOST_SLOT="$1"
 shift
 DRAIN_BROKERS=false
+KEEP_WRITER=false
 DRY_RUN=false
 for arg in "$@"; do
     case "$arg" in
     --drain-brokers) DRAIN_BROKERS=true ;;
+    --keep-writer) KEEP_WRITER=true ;;
     --dry-run) DRY_RUN=true ;;
     *)
         echo "unknown argument: $arg" >&2
@@ -68,6 +73,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/aurora.sh"
 
 read -r -a aws_regions <<<"$AWS_REGIONS"
+
+aurora_unplanned_hint() {
+    echo "Follow the Aurora Global Database unplanned recovery procedure:" >&2
+    echo "  https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html" >&2
+    echo "Zeebe keeps processing; exporting waits until a writer is available." >&2
+    echo "When the Aurora primary is down as well, rerun with --keep-writer to finish the other steps." >&2
+}
 
 camunda::require_slot "$LOST_SLOT" "the lost region slot"
 
@@ -132,6 +144,11 @@ if [ -z "${AURORA_GLOBAL_CLUSTER_ID:-}" ]; then
     echo "    Bring-your-own RDBMS: promote a surviving replica with your own tooling."
     echo "    Camunda needs no reconfiguration as long as the JDBC URL keeps resolving"
     echo "    to the current writer."
+elif [ "$KEEP_WRITER" = true ]; then
+    echo
+    echo "--> Database: --keep-writer given, leaving the Aurora writer where it is."
+    echo "    If it was in ${aws_regions[$LOST_SLOT]}, recover it with the Aurora Global Database"
+    echo "    unplanned recovery procedure; exporting waits until a writer is available."
 else
     echo
     echo "--> Database: inspecting the Aurora Global Database $AURORA_GLOBAL_CLUSTER_ID"
@@ -169,8 +186,29 @@ else
         if [ "$DRY_RUN" = true ]; then
             echo "    --dry-run: would promote $target_arn, doing nothing."
         else
+            # A planned switchover needs the current primary to be healthy. If
+            # the lost region's Aurora cluster is down too, only AWS's unplanned
+            # recovery can move the writer, and that can lose data.
+            writer_status="$(aws rds describe-db-clusters --region "$lost_region" \
+                --db-cluster-identifier "$writer_arn" \
+                --query 'DBClusters[0].Status' --output text 2>/dev/null || echo unreachable)"
+            if [ "$writer_status" != "available" ]; then
+                echo "ERROR: the Aurora writer in $lost_region is $writer_status, so a planned switchover cannot run." >&2
+                aurora_unplanned_hint
+                exit 1
+            fi
+
             echo "    Planned switchover to $target_arn"
-            aurora_switch_to "$target_arn"
+            # The status read above can still say "available" early in an
+            # outage: a rejected or stalled switchover gets the same guidance.
+            # Exit code 2 means a rerun finishes the move (the helper says so).
+            rc=0
+            aurora_switch_to "$target_arn" || rc=$?
+            if [ "$rc" -ne 0 ]; then
+                echo "ERROR: the planned switchover to $target_arn did not complete." >&2
+                [ "$rc" -eq 2 ] || aurora_unplanned_hint
+                exit "$rc"
+            fi
 
             echo "    Promotion complete."
             echo
