@@ -30,7 +30,7 @@ export AWS_ES_BUCKET_REGION=""
 # The Helm release name used for installing Camunda 8 in both Kubernetes clusters
 export CAMUNDA_RELEASE_NAME=camunda
 
-# Parked: retain the working chart until an 8.11 chart exists.
+# Retain this dev selector until the 8.11 registry chart is verified.
 # renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io renovate-inert-ok
 export HELM_CHART_VERSION="15-dev-latest"
 # TODO: [release-duty] before the release, update this!
