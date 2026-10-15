@@ -10,6 +10,7 @@ on:
             - aws/**/*.tf
             - aws/**/*.tftest.hcl
     push:
+        # TODO: [release-duty] switch to the new stable/8.x on the cut branch.
         branches: [main]
 
 # limit to a single execution per actor of this workflow

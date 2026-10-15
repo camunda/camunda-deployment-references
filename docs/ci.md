@@ -142,8 +142,8 @@ CI emits complementary operational signals:
 
 ## Workflow Scheduling
 
-Schedules are defined in `.github/workflows-config/workflow-scheduler.yml`. Tests are staggered by:
-- Camunda version (8.7, 8.8, 8.9, 8.10)
+Stable-branch schedules use `.github/workflows-config/workflow-scheduler.yml`. The `main` branch uses native workflow crons. Tests are staggered by:
+- Camunda version (8.8, 8.9, and 8.10)
 - Day of week
 - Time of day
 
@@ -186,10 +186,4 @@ All reusable CI logic lives in `.github/actions/`. Each action has:
 
 ## Release Process
 
-1. Cut `stable/8.x` from `main`
-2. Update `.camunda-version` to the new version
-3. Update `.target-branch` to point to `stable/8.x`
-4. Add schedules for the new version in `workflow-scheduler.yml`
-5. Prepare `main` for next version: bump `dev-latest` tag, update Renovate regex patterns
-6. Update `renovate.json5` `baseBranchPatterns` to include new stable branch
-7. Resolve all `TODO [release-duty]` markers in the codebase
+Follow [MAINTENANCE.md#release-duty](../MAINTENANCE.md#release-duty) for the release procedure.

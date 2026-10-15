@@ -51,6 +51,7 @@ inputs:
         default: ''
     tf-modules-revision:
         description: Git revision of the tf modules to use
+        # TODO: [release-duty] switch to the new stable/8.x on the cut branch.
         default: main
         required: true
     tf-modules-path:

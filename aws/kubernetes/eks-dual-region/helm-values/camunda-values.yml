@@ -2,7 +2,7 @@
 # Chart values for the Camunda Platform 8 Helm chart.
 # This file deliberately contains only the values that differ from the defaults.
 # For changes and documentation, use your favorite diff tool to compare it with:
-# https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform/values.yaml
+# https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform-8.10/values.yaml
 
 # This is an example values.yml for a dual-region setup and might require resource tuning from your side
 #

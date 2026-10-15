@@ -9,3 +9,9 @@ aws_profile = null # uses default AWS credential chain (env vars, default profil
 # never actually contacted — they only satisfy the required-variable check.
 terraform_backend_bucket     = "golden-not-used"
 terraform_backend_key_prefix = "golden-not-used/"
+
+# Keep version-only changes outside the infrastructure golden plan.
+# TODO: move these pins to 8.11-SNAPSHOT once main deploys 8.11 images, and regenerate the golden plan.
+# TODO: [release-duty] on the cut branch, pin these to the released 8.x images and regenerate the golden plan.
+camunda_image    = "camunda/camunda:8.10-SNAPSHOT"           # alpha-availability-check:ignore
+connectors_image = "camunda/connectors-bundle:8.10-SNAPSHOT" # alpha-availability-check:ignore
