@@ -328,3 +328,152 @@ aurora_settled_global eu-west-3 60 | jq -r '.GlobalClusterMembers[] | select(.Is
 		t.Fatalf("want the settled writer on stdout, got %v\n%s", err, out)
 	}
 }
+
+// fakeStuckAWS keeps the writer in eu-west-2. Once failover-global-cluster
+// ran, the switchover stays "switching-over" (FAKE_STUCK) or is gone without a
+// move, as when a second call targeting the current writer cancels it.
+const fakeStuckAWS = `#!/usr/bin/env bash
+echo "$*" >> "$FAKE_DIR/args"
+case "$*" in
+  *failover-global-cluster*) touch "$FAKE_DIR/started" ;;
+  *)
+    if [ -f "$FAKE_DIR/started" ] && [ -n "${FAKE_STUCK:-}" ]; then
+      echo '{"FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'
+    else
+      echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'
+    fi ;;
+esac
+`
+
+func runStuckSwitch(t *testing.T, script string, env ...string) (string, int, string) {
+	t.Helper()
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(fakeStuckAWS), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", "-c", "set -euo pipefail\n. ./aurora.sh\n"+script)
+	cmd.Dir = filepath.Join("..", "..", "..", "procedure")
+	cmd.Env = append(append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"AURORA_GLOBAL_CLUSTER_ID=g"), env...)
+	out, _ := cmd.CombinedOutput()
+	args, _ := os.ReadFile(filepath.Join(fake, "args"))
+	return string(out), cmd.ProcessState.ExitCode(), string(args)
+}
+
+// #3676: a switchover that ended with the writer elsewhere cannot finish
+// later, so the wait fails on the first settled read, not after the timeout.
+// It returns 2: a rerun settles and switches again, nothing needs unplanned
+// recovery.
+func TestAuroraWaitWriterFailsWhenTheSwitchoverEndedElsewhere(t *testing.T) {
+	t.Parallel()
+	out, code, args := runStuckSwitch(t, "aurora_wait_writer arn:aws:rds:eu-west-3:1:cluster:b 60",
+		"AURORA_WRITER_POLL_SECONDS=0")
+	if code != 2 || !strings.Contains(out, "ended without moving the writer") || strings.Count(args, "describe-global-clusters") != 1 {
+		t.Fatalf("want an immediate failure, got exit %d\n%s\n%s", code, args, out)
+	}
+}
+
+// #3677: out of budget while its own switchover still runs, the helper
+// returns 2 and says to rerun, so callers do not send the operator to the
+// unplanned (data-losing) recovery.
+func TestAuroraSwitchToReportsARunningSwitchover(t *testing.T) {
+	t.Parallel()
+	out, code, args := runStuckSwitch(t, "aurora_switch_to arn:aws:rds:eu-west-3:1:cluster:b 2",
+		"AURORA_WRITER_POLL_SECONDS=1", "FAKE_STUCK=yes")
+	if code != 2 || !strings.Contains(out, "still switching-over") || !strings.Contains(out, "rerun") ||
+		strings.Count(args, "failover-global-cluster") != 1 {
+		t.Fatalf("want exit 2 and a rerun hint, got exit %d\n%s\n%s", code, args, out)
+	}
+}
+
+// #3677: settling a switchover that outlives the budget is the same case.
+func TestAuroraSettledGlobalReportsARunningSwitchover(t *testing.T) {
+	t.Parallel()
+	out, code, _ := runStuckSwitch(t, "touch \"$FAKE_DIR/started\"; aurora_settled_global eu-west-3 0",
+		"AURORA_WRITER_POLL_SECONDS=0", "FAKE_STUCK=yes")
+	if code != 2 || !strings.Contains(out, "rerun") {
+		t.Fatalf("want exit 2 and a rerun hint, got exit %d\n%s", code, out)
+	}
+}
+
+// #3678: a failed AWS read is not an empty global cluster. failback.sh must
+// show the AWS error instead of "not found or has no members".
+func TestFailbackReportsAWSReadErrors(t *testing.T) {
+	t.Parallel()
+	fake := t.TempDir()
+	body, err := os.ReadFile(filepath.Join("..", "..", "..", "procedure", "failback.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string]string{
+		"failback.sh": string(body),
+		"zeebe_management_api.sh": `mgmt_log() { echo "$*"; }
+mgmt_err() { echo "$*" >&2; }
+mgmt_topology_summary() { :; }
+`,
+		"aurora.sh": "",
+		"aws":       "#!/usr/bin/env bash\necho 'An error occurred (ExpiredTokenException): token expired' >&2\nexit 254\n",
+	} {
+		if err := os.WriteFile(filepath.Join(fake, name), []byte(content), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cmd := exec.Command("bash", filepath.Join(fake, "failback.sh"), "--failed-region", "0")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"),
+		"REGION_0=eu-west-2", "REGION_1=eu-west-3", "CLUSTER_0=c0-cluster", "CLUSTER_1=c1-cluster",
+		"AURORA_GLOBAL_CLUSTER_ID=g", "ALB_ENDPOINT_0=a0", "ALB_ENDPOINT_1=a1", "ADMIN_USER=u", "ADMIN_PASS=p")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "ExpiredTokenException") || strings.Contains(string(out), "no members") {
+		t.Fatalf("want the AWS error, got %v\n%s", err, out)
+	}
+}
+
+// #3677: failover.sh must not send the operator to the data-losing unplanned
+// recovery when aurora_switch_to returns 2 (a rerun finishes the move).
+func TestFailoverHintFollowsTheSwitchResult(t *testing.T) {
+	t.Parallel()
+	body, err := os.ReadFile(filepath.Join("..", "..", "..", "procedure", "failover.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		rc         string
+		wantUnplan bool
+	}{{"2", false}, {"1", true}} {
+		t.Run("rc="+tc.rc, func(t *testing.T) {
+			t.Parallel()
+			// Given: the zone is already gone and the writer is in the failed region.
+			fake := t.TempDir()
+			for name, content := range map[string]string{
+				"failover.sh": string(body),
+				"zeebe_management_api.sh": `mgmt_log() { echo "$*"; }
+mgmt_err() { echo "$*" >&2; }
+mgmt_topology_summary() { :; }
+mgmt_tunnel_open() { :; }
+mgmt_tunnel_close() { :; }
+mgmt_zone_present() { return 1; }
+`,
+				"aurora.sh": `aurora_settled_global() { echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":false}]}'; }
+aurora_switch_to() { return "$FAKE_RC"; }
+`,
+				"aws":  "#!/usr/bin/env bash\necho available\n",
+				"curl": "#!/usr/bin/env bash\n",
+			} {
+				if err := os.WriteFile(filepath.Join(fake, name), []byte(content), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cmd := exec.Command("bash", filepath.Join(fake, "failover.sh"), "--failed-region", "0", "--keep-tasks")
+			cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_RC="+tc.rc,
+				"REGION_0=eu-west-2", "REGION_1=eu-west-3", "CLUSTER_0=c0-cluster", "CLUSTER_1=c1-cluster",
+				"AURORA_GLOBAL_CLUSTER_ID=g", "ALB_ENDPOINT_0=a0", "ALB_ENDPOINT_1=a1", "ADMIN_USER=u", "ADMIN_PASS=p")
+			// When
+			out, err := cmd.CombinedOutput()
+			// Then
+			if err == nil || !strings.Contains(string(out), "did not complete") ||
+				strings.Contains(string(out), "unplanned recovery procedure") != tc.wantUnplan {
+				t.Fatalf("want failure with unplanned hint=%v, got %v\n%s", tc.wantUnplan, err, out)
+			}
+		})
+	}
+}

@@ -77,3 +77,51 @@ aurora_switch_to() { :; }
 		t.Fatalf("expected a missing-writer error, got %v\n%s", err, out)
 	}
 }
+
+// #3678: a failed AWS read is not a broken global database. failback.sh must
+// show the AWS error, not send the operator to unplanned recovery.
+func TestFailbackReportsAWSReadErrors(t *testing.T) {
+	t.Parallel()
+	// Given: a zone that was never removed and an AWS CLI with expired credentials.
+	fake := t.TempDir()
+	body, err := os.ReadFile(filepath.Join(ProcedureDir(t), "failback.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(fake, "submariner"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	files := map[string]string{
+		"failback.sh": string(body),
+		"lib-management-api.sh": `camunda::require_slot() { :; }
+camunda::survivor_context() { echo survivor; }
+camunda::use_surviving_region() { :; }
+camunda::zone_name() { echo z; }
+camunda::management() { echo '{}'; }
+camunda::partitioning() { echo '{"zones":[{"name":"z"}]}'; }
+`,
+		"aurora.sh":                     "",
+		"generate-zeebe-helm-values.sh": "",
+		"aws":                           "#!/usr/bin/env bash\necho 'An error occurred (ExpiredTokenException): token expired' >&2\nexit 254\n",
+	}
+	for _, stub := range []string{"setup-namespaces.sh", "create-rdbms-secret.sh", "assemble-envsubst-values.sh",
+		"install-chart.sh", "submariner/export-services.sh", "check-cluster-topology.sh"} {
+		files[stub] = "#!/usr/bin/env bash\n"
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(fake, name), []byte(content), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cmd := exec.Command("bash", filepath.Join(fake, "failback.sh"), "0")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"),
+		"CLUSTER_CONTEXTS=a b c", "AWS_REGIONS=eu-west-2 eu-west-3 eu-central-1",
+		"CAMUNDA_ACTIVE_REGIONS=3", "CAMUNDA_REGION_SLOTS=3", "CAMUNDA_BROKERS_PER_REGION=2",
+		"AURORA_GLOBAL_CLUSTER_ID=g")
+	// When
+	out, err := cmd.CombinedOutput()
+	// Then
+	if err == nil || !strings.Contains(string(out), "ExpiredTokenException") || strings.Contains(string(out), "unplanned-recovery") {
+		t.Fatalf("want the AWS error, got %v\n%s", err, out)
+	}
+}
