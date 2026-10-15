@@ -38,58 +38,6 @@ schedules:
           - .github/workflows/aws_compute_ec2_single_region_daily_cleanup.yml
           - .github/workflows/azure_aks_single_region_daily_cleanup.yml
 
-    - name: Thursday schedules 8.10
-      branch: stable/8.10
-      cron_every_day: Thursday
-      cron_every_hours: '22'
-      workflow_files:
-          - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
-          - .github/workflows/aws_openshift_rosa_hcp_dual_region_tests.yml
-          - .github/workflows/aws_modules_eks_rds_os_tests.yml
-          - .github/workflows/aws_modules_eks_rds_os_create_destruct_tests.yml
-          - .github/workflows/aws_kubernetes_eks_single_region_tests.yml
-
-    - name: Thursday schedules 8.10 part 2
-      branch: stable/8.10
-      cron_every_day: Thursday
-      cron_every_hours: '23'
-      workflow_files:
-          - .github/workflows/aws_common_procedure_s3_bucket.yml
-          - .github/workflows/aws_compute_ec2_single_region_tests.yml
-          - .github/workflows/aws_ecs_single_region_fargate_tests.yml
-          - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
-
-    - name: Thursday schedules 8.10 part 3
-      branch: stable/8.10
-      cron_every_day: Friday
-      cron_every_hours: '0'
-      workflow_files:
-          - .github/workflows/azure_kubernetes_aks_single_region_tests.yml
-          - .github/workflows/generic_kubernetes_operator_based_test.yml
-          - .github/workflows/local_kubernetes_kind_single_region_tests.yml
-          - .github/workflows/local_kind_operator_based_postgresql_tests.yml
-          - .github/workflows/aws_eks_multi_region_rdbms_tests.yml
-          - .github/workflows/aws_ecs_dual_region_fargate_integration.yml
-          - .github/workflows/aws_ecs_dual_region_fargate_failover.yml
-
-    - name: Everyday schedules 8.10
-      branch: stable/8.10
-      cron_every_day:
-      cron_every_hours: '5'
-      workflow_files:
-          - .github/workflows/internal_global_links.yml
-          - .github/workflows/aws_cognito_daily_cleanup.yml
-          - .github/workflows/aws_compute_ec2_single_region_daily_cleanup.yml
-          - .github/workflows/aws_ecs_single_region_fargate_daily_cleanup.yml
-          - .github/workflows/aws_ecs_dual_region_fargate_daily_cleanup.yml
-          - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
-          - .github/workflows/aws_rosa_hcp_dual_region_daily_cleanup.yml
-          - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
-          - .github/workflows/aws_eks_single_region_daily_cleanup.yml
-          - .github/workflows/aws_kubernetes_eks_dual_region_daily_cleanup.yml
-          - .github/workflows/aws_eks_multi_region_rdbms_daily_cleanup.yml
-          - .github/workflows/azure_aks_single_region_daily_cleanup.yml
-
     # The 8.9 suite is the largest of the weekly blocks. Dispatching all fourteen
     # workflows in the same instant made every job race the others for the same
     # unauthenticated github.com fetches during tooling install, and two of them
@@ -155,4 +103,57 @@ schedules:
           - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
           - .github/workflows/aws_eks_single_region_daily_cleanup.yml
           - .github/workflows/aws_kubernetes_eks_dual_region_daily_cleanup.yml
+          - .github/workflows/azure_aks_single_region_daily_cleanup.yml
+
+
+    - name: Thursday schedules 8.10
+      branch: stable/8.10
+      cron_every_day: Thursday
+      cron_every_hours: '22'
+      workflow_files:
+          - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
+          - .github/workflows/aws_openshift_rosa_hcp_dual_region_tests.yml
+          - .github/workflows/aws_modules_eks_rds_os_tests.yml
+          - .github/workflows/aws_modules_eks_rds_os_create_destruct_tests.yml
+          - .github/workflows/aws_kubernetes_eks_single_region_tests.yml
+
+    - name: Thursday schedules 8.10 part 2
+      branch: stable/8.10
+      cron_every_day: Thursday
+      cron_every_hours: '23'
+      workflow_files:
+          - .github/workflows/aws_common_procedure_s3_bucket.yml
+          - .github/workflows/aws_compute_ec2_single_region_tests.yml
+          - .github/workflows/aws_ecs_single_region_fargate_tests.yml
+          - .github/workflows/aws_kubernetes_eks_dual_region_tests.yml
+
+    - name: Thursday schedules 8.10 part 3
+      branch: stable/8.10
+      cron_every_day: Friday
+      cron_every_hours: '0'
+      workflow_files:
+          - .github/workflows/azure_kubernetes_aks_single_region_tests.yml
+          - .github/workflows/generic_kubernetes_operator_based_test.yml
+          - .github/workflows/local_kubernetes_kind_single_region_tests.yml
+          - .github/workflows/local_kind_operator_based_postgresql_tests.yml
+          - .github/workflows/aws_eks_multi_region_rdbms_tests.yml
+          - .github/workflows/aws_ecs_dual_region_fargate_integration.yml
+          - .github/workflows/aws_ecs_dual_region_fargate_failover.yml
+
+    - name: Everyday schedules 8.10
+      branch: stable/8.10
+      cron_every_day:
+      cron_every_hours: '5'
+      workflow_files:
+          - .github/workflows/internal_global_links.yml
+          - .github/workflows/aws_cognito_daily_cleanup.yml
+          - .github/workflows/aws_compute_ec2_single_region_daily_cleanup.yml
+          - .github/workflows/aws_ecs_single_region_fargate_daily_cleanup.yml
+          - .github/workflows/aws_ecs_dual_region_fargate_daily_cleanup.yml
+          - .github/workflows/aws_rosa_hcp_single_region_daily_cleanup.yml
+          - .github/workflows/aws_rosa_hcp_dual_region_daily_cleanup.yml
+          - .github/workflows/aws_modules_eks_rds_os_daily_cleanup.yml
+          - .github/workflows/aws_eks_single_region_daily_cleanup.yml
+          - .github/workflows/aws_kubernetes_eks_dual_region_daily_cleanup.yml
+          - .github/workflows/aws_eks_multi_region_rdbms_daily_cleanup.yml
           - .github/workflows/azure_aks_single_region_daily_cleanup.yml
