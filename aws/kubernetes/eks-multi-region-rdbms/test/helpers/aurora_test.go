@@ -98,7 +98,7 @@ camunda::survivor_context() { echo survivor; }
 camunda::use_surviving_region() { :; }
 camunda::zone_name() { echo z; }
 camunda::management() { echo '{}'; }
-camunda::partitioning() { echo '{"zones":[{"name":"z"}]}'; }
+camunda::partitioning() { cat >/dev/null; echo '{"zones":[{"name":"z"}]}'; }
 `,
 		"aurora.sh":                     "",
 		"generate-zeebe-helm-values.sh": "",
@@ -123,5 +123,87 @@ camunda::partitioning() { echo '{"zones":[{"name":"z"}]}'; }
 	// Then
 	if err == nil || !strings.Contains(string(out), "ExpiredTokenException") || strings.Contains(string(out), "unplanned-recovery") {
 		t.Fatalf("want the AWS error, got %v\n%s", err, out)
+	}
+}
+
+// #3679: like ECS failover.sh, EKS failover.sh checks the old writer before a
+// planned switchover, offers --keep-writer, and keeps the data-losing
+// unplanned-recovery advice away from a switchover that a rerun finishes.
+func TestFailoverGuardsThePlannedSwitchover(t *testing.T) {
+	t.Parallel()
+	body, err := os.ReadFile(filepath.Join(ProcedureDir(t), "failover.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The real helpers decide the hint; only the AWS-facing calls are faked.
+	helpers, err := os.ReadFile(filepath.Join(ProcedureDir(t), "aurora.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, flag, status, switchRC string
+		wantRC                       int
+		wantSwitch, wantHint         bool
+	}{
+		{"switches a healthy writer", "", "available", "0", 0, true, false},
+		{"refuses a writer that is down", "", "stopped", "0", 1, false, true},
+		// A denied read is not an outage: the AWS error must stay visible.
+		{"shows a failed AWS read", "", "denied", "0", 1, false, true},
+		{"leaves the writer with --keep-writer", "--keep-writer", "denied", "0", 0, false, false},
+		{"asks for a rerun when the switchover is still running", "", "available", "2", 2, true, false},
+		{"points to unplanned recovery when the switchover fails", "", "available", "1", 1, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// Given: the writer in the lost slot 0 (London), Paris surviving.
+			fake := t.TempDir()
+			for name, content := range map[string]string{
+				"failover.sh": string(body),
+				"lib-management-api.sh": `camunda::require_slot() { :; }
+camunda::survivor_context() { echo survivor; }
+camunda::use_surviving_region() { :; }
+camunda::management() { echo '{}'; }
+`,
+				"aurora.sh": string(helpers) + `
+aurora_settled_global() { echo '{"GlobalClusterMembers":[{"DBClusterArn":"` + london + `","IsWriter":true},{"DBClusterArn":"` + paris + `","IsWriter":false}]}'; }
+aurora_switch_to() { echo "$1" >> "$FAKE_DIR/switches"; return "$FAKE_SWITCH_RC"; }
+`,
+				"aws":                        "#!/usr/bin/env bash\nif [ \"$FAKE_STATUS\" = denied ]; then echo 'An error occurred (AccessDenied) when calling the DescribeDBClusters operation' >&2; exit 254; fi\necho \"$FAKE_STATUS\"\n",
+				"verify-degraded-cluster.sh": "#!/usr/bin/env bash\n",
+			} {
+				if err := os.WriteFile(filepath.Join(fake, name), []byte(content), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			args := []string{filepath.Join(fake, "failover.sh"), "0"}
+			if tc.flag != "" {
+				args = append(args, tc.flag)
+			}
+			cmd := exec.Command("bash", args...)
+			cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+				"FAKE_STATUS="+tc.status, "FAKE_SWITCH_RC="+tc.switchRC,
+				"CLUSTER_CONTEXTS=a b c", "AWS_REGIONS=eu-west-2 eu-west-3 eu-central-1",
+				"CAMUNDA_ACTIVE_REGIONS=3", "CAMUNDA_REGION_SLOTS=3", "CAMUNDA_BROKERS_PER_REGION=2",
+				"CAMUNDA_ZONE_REPLICAS=2 2 1", "CAMUNDA_REPLICATION_FACTOR=5", "AURORA_GLOBAL_CLUSTER_ID=g")
+			// When
+			out, _ := cmd.CombinedOutput()
+			// Then
+			switches, _ := os.ReadFile(filepath.Join(fake, "switches"))
+			if rc := cmd.ProcessState.ExitCode(); rc != tc.wantRC {
+				t.Errorf("exit code %d, want %d", rc, tc.wantRC)
+			}
+			if got := strings.TrimSpace(string(switches)) == paris; got != tc.wantSwitch {
+				t.Errorf("switched to Paris: %v, want %v (calls: %q)", got, tc.wantSwitch, switches)
+			}
+			if got := strings.Contains(string(out), "unplanned recovery procedure:"); got != tc.wantHint {
+				t.Errorf("unplanned-recovery hint: %v, want %v", got, tc.wantHint)
+			}
+			if tc.status == "denied" && tc.flag == "" && !strings.Contains(string(out), "AccessDenied") {
+				t.Error("the AWS error is hidden")
+			}
+			if t.Failed() {
+				t.Logf("output:\n%s", out)
+			}
+		})
 	}
 }
