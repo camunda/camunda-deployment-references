@@ -719,16 +719,30 @@ EOF
 # describes. Previously the `clusters` gate achieved this by accident, because
 # `clusters` was last for every architecture that reached here; an order like
 # `app/terraform,infra/terraform,vpc/terraform` does not have that property.
+# module_state_exists <group_id> <module> — whether the group still has a state
+# for <module>. The same test the destruction loop uses to decide what to run.
+module_state_exists() {
+  aws s3 ls "s3://$BUCKET/${KEY_PREFIX}tfstate-$1/$2.tfstate" >/dev/null 2>&1
+}
+
 nuke_vpcs_in_cleanup_regions() {
   local group_id="$1" module_name="$2" temp_dir="$3"
 
   [[ "$RETRY_DESTROY" == "true" && -n "${CLEANUP_REGIONS:-}" ]] || return 0
 
-  local last_module="${ORDERED_MODULES[${#ORDERED_MODULES[@]} - 1]}"
-  if [[ "$module_name" != "$last_module" ]]; then
-    echo "[$group_id][$module_name] Skipping the cloud-nuke fallback: '$last_module' owns the VPC and has not been destroyed yet."
-    return 0
-  fi
+  # The VPC owner is the last module this group actually has, not the last one
+  # declared. A greenfield ECS group has no fixture/terraform state, so gating
+  # on the declared order meant the module that holds the VPC was never the
+  # "last" one and the fallback never ran for it. A later module that still
+  # has a state still holds resources inside the VPC, so it must go first.
+  local m seen=false
+  for m in "${ORDERED_MODULES[@]}"; do
+    if [[ "$seen" == true ]] && module_state_exists "$group_id" "$m"; then
+      echo "[$group_id][$module_name] Skipping the cloud-nuke fallback: '$m' still has a state and is destroyed after this one."
+      return 0
+    fi
+    [[ "$m" == "$module_name" ]] && seen=true
+  done
 
   echo "[$group_id][$module_name] Retry: running cloud-nuke on the declared regions as fallback..."
 
@@ -952,7 +966,9 @@ destroy_selftest() {
     # Subshell-local on purpose: the selftest must not leak its ORDERED_MODULES
     # into the real destruction order below.
     # shellcheck disable=SC2030
-    ORDERED_MODULES=(app/terraform infra/terraform vpc/terraform)
+    ORDERED_MODULES=(app/terraform infra/terraform vpc/terraform fixture/terraform)
+    # A greenfield group: every declared module but the BYO-VPC fixture.
+    module_state_exists() { [[ "$2" != fixture/terraform ]]; }
 
     early=$(nuke_vpcs_in_cleanup_regions g infra/terraform "$(mktemp -d)" 2>&1)
     case "$early" in
@@ -960,8 +976,10 @@ destroy_selftest() {
       *) echo "FAIL cloud-nuke ran for infra/terraform, before vpc/terraform was destroyed"; exit 1 ;;
     esac
 
-    # The owner's turn must reach the nuke. Stop at the first thing it does
-    # after the guard, so the case needs no cloud-nuke binary.
+    # vpc/terraform is the owner here even though fixture/terraform is declared
+    # after it: the group has no fixture state. Gating on the declared order
+    # skipped it, so greenfield groups never reached the fallback. Stop at the
+    # first thing it does after the guard, so the case needs no cloud-nuke.
     last=$(nuke_vpcs_in_cleanup_regions g vpc/terraform "$(mktemp -d)" 2>&1)
     case "$last" in
       *"Skipping the cloud-nuke fallback"*) echo "FAIL cloud-nuke never runs: the VPC owner was skipped too"; exit 1 ;;
