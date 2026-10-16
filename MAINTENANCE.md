@@ -240,7 +240,7 @@ Submit each change through a pull request. A maintainer merges the pull requests
     ```
 
     With `dry_run=true`, the workflow shows the decision, the tag name, and the release notes. It creates no tag and no release.
-    Pull-request runs always use the dry run.
+    Pull-request runs and runs from a ref other than `main` always use the dry run.
 
     If the workflow cannot run, do the same steps manually:
 

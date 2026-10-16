@@ -29,10 +29,10 @@ on:
             - .github/workflows/internal_global_release_stable_branches.yml
             - .github/scripts/release-stable-branches.sh
 
-# Releases of different minors are independent, but two runs must not race for
-# the same tag letter.
+# Two publishing runs must not race for the same tag letter, whatever their
+# ref. Pull-request dry runs publish nothing and keep a group per ref.
 concurrency:
-    group: ${{ github.workflow }}-${{ github.ref }}
+    group: ${{ github.workflow }}${{ github.event_name == 'pull_request' && format('-{0}', github.ref) || '' }}
     cancel-in-progress: false
 
 permissions:
@@ -89,7 +89,9 @@ jobs:
             - name: Release
               env:
                   GH_TOKEN: ${{ github.token }}
-                  DRY_RUN: ${{ github.event_name == 'pull_request' || inputs.dry_run == true }}
+                  # Only main publishes: another ref reads its own, possibly stale,
+                  # renovate branch list and could release a retired minor.
+                  DRY_RUN: ${{ github.ref != 'refs/heads/main' || inputs.dry_run == true }}
                   BRANCH: ${{ matrix.branch }}
               run: bash .github/scripts/release-stable-branches.sh release "${BRANCH}"
 
