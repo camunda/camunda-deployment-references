@@ -68,6 +68,15 @@ next_free_tag() {
     return 1
 }
 
+release_tags() {
+    # <minor> <published|all>, stdin: `gh release list --json tagName,isDraft`.
+    # Tag names of that minor's releases. Drafts are not a baseline, but they
+    # still reserve their tag name.
+    local minor="$1" which="$2"
+    jq -r --arg re "^${minor//./\\.}(-[0-9]{2}w[0-9]{2}[a-z]|\\.[0-9]+)$" --arg which "$which" \
+        '.[] | select(.tagName | test($re)) | select($which == "all" or (.isDraft | not)) | .tagName'
+}
+
 is_latest() {
     # <minor> <JSON branch list>: "true" when <minor> is the highest
     # maintained minor, so only its release carries the Latest badge.
@@ -133,6 +142,13 @@ EOF
     _expect "all letters used fails" \
         "$(printf '8.1-26w42%s\n' {a..z} | { next_free_tag 8.1-26w42 2>/dev/null || echo exhausted; })" "exhausted"
 
+    local releases='[{"tagName":"8.10-26w42a","isDraft":false},{"tagName":"8.10-26w43a","isDraft":true},
+        {"tagName":"8.10.0","isDraft":false},{"tagName":"8.1-26w42a","isDraft":false},{"tagName":"0.4.0","isDraft":false}]'
+    _expect "published releases of the minor only, drafts excluded" \
+        "$(release_tags 8.10 published <<<"$releases" | tr '\n' ' ')" "8.10-26w42a 8.10.0 "
+    _expect "drafts still reserve their tag name" \
+        "$(release_tags 8.10 all <<<"$releases" | tr '\n' ' ')" "8.10-26w42a 8.10-26w43a 8.10.0 "
+
     _expect "highest maintained minor is latest" "$(is_latest 8.10 '["stable/8.9","stable/8.10"]')" "true"
     _expect "lower minor is not latest" "$(is_latest 8.9 '["stable/8.9","stable/8.10"]')" "false"
 
@@ -147,8 +163,7 @@ release_branch() {
     local repo="${GITHUB_REPOSITORY:-camunda/camunda-deployment-references}"
     local dry_run="${DRY_RUN:-true}"
     local renovate="${RENOVATE_CONFIG:-.github/renovate.json5}"
-    local minor maintained head current releases tags last="" previous state
-    local tag reuse=false tag_sha latest notes tag_object
+    local minor maintained head current releases published last="" previous state tag latest notes tag_object
 
     [[ "$branch" =~ ^stable/(8\.[0-9]+)$ ]] || { echo "::error::not a stable branch: ${branch}" >&2; return 1; }
     minor="${BASH_REMATCH[1]}"
@@ -169,27 +184,23 @@ release_branch() {
         return 0
     fi
 
-    # Baseline = newest *released* tag of this minor, by tag date. A tag left
-    # without a release by a failed run is not a baseline: it is retried.
-    local re="^${minor//./\\.}(-[0-9]{2}w[0-9]{2}[a-z]|\\.[0-9]+)$"
-    releases=$(gh release list -R "$repo" --limit 1000 --json tagName --jq '.[].tagName' | grep -E "$re" || true)
-    tags=$(gh api --paginate "repos/${repo}/git/matching-refs/tags/${minor}" --jq '.[].ref | ltrimstr("refs/tags/")' | grep -E "$re" || true)
-    if [[ -n "$releases" ]]; then
-        local -a release_refs=()
-        local name
-        while IFS= read -r name; do release_refs+=("refs/tags/${name}"); done <<<"$releases"
-        last=$(git for-each-ref --sort=-creatordate --format='%(refname:short)' "${release_refs[@]}" | head -n 1)
+    # Assigned on its own line so that a failed API call stops the run instead
+    # of looking like "no previous release".
+    releases=$(gh release list -R "$repo" --limit 1000 --json tagName,isDraft)
+    # Baseline = newest published release of this minor, by tag date. A tag
+    # left without a release by a failed run is not a baseline: it is retried.
+    published=$(release_tags "$minor" published <<<"$releases" | sed 's|^|refs/tags/|')
+    if [[ -n "$published" ]]; then
+        # shellcheck disable=SC2086 # one ref per line, tag names hold no spaces
+        last=$(git for-each-ref --sort=-creatordate --format='%(refname:short)' $published | head -n 1)
     fi
     echo "${branch}: last release ${last:-none}"
 
+    # Also covers "head already released": the same commit has the same section.
     if [[ -n "$last" ]]; then
         previous=$(git show "${last}:RELEASE-NOTES.md" 2>/dev/null | extract_section "$minor" || true)
         if ! section_changed "$previous" "$current"; then
             echo "::notice::${branch}: '## ${minor}' unchanged since ${last}, no release."
-            return 0
-        fi
-        if [[ "$(git rev-parse "${last}^{commit}")" == "$head" ]]; then
-            echo "::notice::${branch}: head is already released as ${last}, no release."
             return 0
         fi
     fi
@@ -202,40 +213,31 @@ release_branch() {
         return 0
     fi
 
-    tag=$(next_free_tag "$(week_tag "$minor")" <<<"$releases")
-    if grep -qxF "$tag" <<<"$tags"; then
-        tag_sha=$(git rev-parse "refs/tags/${tag}^{commit}")
-        if [[ "$tag_sha" != "$head" ]]; then
-            echo "::error::tag ${tag} exists without a release on ${tag_sha}, expected ${head}." >&2
+    tag=$(release_tags "$minor" all <<<"$releases" | next_free_tag "$(week_tag "$minor")")
+    # A tag without a release is left by a failed run: reuse it on the same commit.
+    if tag_object=$(git rev-parse -q --verify "refs/tags/${tag}^{commit}"); then
+        if [[ "$tag_object" != "$head" ]]; then
+            echo "::error::tag ${tag} exists without a release on ${tag_object}, expected ${head}." >&2
             return 1
         fi
-        reuse=true
+        tag_object=reuse
     fi
     latest=$(is_latest "$minor" "$maintained")
+    notes="$current"
+    [[ -z "$last" ]] || notes+=$'\n\n'"**Full changelog**: https://github.com/${repo}/compare/${last}...${tag}"
 
-    notes="${RUNNER_TEMP:-debug}/release-notes-${minor}.md"
-    {
-        echo "$current"
-        if [[ -n "$last" ]]; then
-            echo
-            echo "**Full changelog**: https://github.com/${repo}/compare/${last}...${tag}"
-        fi
-    } >"$notes"
-
-    echo "${branch}: release ${tag} on ${head} (reuse tag: ${reuse}, latest: ${latest}, dry run: ${dry_run})"
-    echo "----- notes -----"
-    cat "$notes"
-    echo "-----------------"
+    echo "${branch}: release ${tag} on ${head} (reuse tag: $([[ "$tag_object" == reuse ]] && echo true || echo false), latest: ${latest}, dry run: ${dry_run})"
+    printf -- '----- notes -----\n%s\n-----------------\n' "$notes"
     [[ "$dry_run" == "false" ]] || return 0
 
-    if [[ "$reuse" == "false" ]]; then
+    if [[ "$tag_object" != reuse ]]; then
         # Annotated, like the tags created by hand before this workflow.
         tag_object=$(gh api "repos/${repo}/git/tags" -f tag="$tag" -f object="$head" -f type=commit \
             -f message="Camunda Reference Architectures ${tag}" --jq .sha)
         gh api "repos/${repo}/git/refs" -f ref="refs/tags/${tag}" -f sha="$tag_object" >/dev/null
     fi
     gh release create "$tag" -R "$repo" --verify-tag --title "Camunda ${minor} (${tag})" \
-        --notes-file "$notes" --latest="$latest"
+        --notes-file - --latest="$latest" <<<"$notes"
 }
 
 case "${1:-}" in
