@@ -219,6 +219,13 @@ jobs:
             - name: Create K8S cluster and login
               uses: ./.github/actions/azure-kubernetes-aks-single-region-create
               id: create_cluster
+              # Request fresh GitHub assertions during Terraform token refreshes, not through the CLI cache.
+              env:
+                  ARM_USE_OIDC: 'true'
+                  ARM_USE_CLI: 'false'
+                  ARM_CLIENT_ID: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  ARM_TENANT_ID: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  ARM_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
               timeout-minutes: 180
@@ -986,6 +993,12 @@ jobs:
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 125
+              env:
+                  ARM_USE_OIDC: 'true'
+                  ARM_USE_CLI: 'false'
+                  ARM_CLIENT_ID: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  ARM_TENANT_ID: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  ARM_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
