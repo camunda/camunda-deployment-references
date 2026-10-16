@@ -37,8 +37,8 @@ _chart_git_url="${CAMUNDA_HELM_CHART_GIT_URL:-https://github.com/camunda/camunda
 # a published tag. Select the target minor after checkout, with a warning if
 # only an earlier chart directory exists. See MAINTENANCE.md, "Release duty".
 # renovate-helm-main: digest tracked against camunda-platform-helm main
-_chart_default_git_ref="d219258ede0878a137be955e32c2237cff14f62c"
-# TODO: [release-duty] use a published chart for the target minor when available.
+_chart_default_git_ref="87a90bc4079e2968ec20234593d5f510ba19c6e8"
+# TODO: [release-duty] use the published 8.11 chart (16.x) when available.
 _chart_git_ref="${CAMUNDA_HELM_CHART_GIT_REF:-$_chart_default_git_ref}"
 _default_checkout_dir="$_repo_root/.camunda-platform-helm"
 _chart_checkout_dir="${CAMUNDA_HELM_CHART_CHECKOUT_DIR:-$_default_checkout_dir}"

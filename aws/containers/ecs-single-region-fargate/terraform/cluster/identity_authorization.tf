@@ -17,7 +17,7 @@
 # Helm chart renders them outside its `authIssuerType == "KEYCLOAK"` guard.
 #
 # The preset and role definitions below are copied from the reference Helm chart
-# (camunda-platform-helm, charts/camunda-platform-8.10/templates/identity/configmap.yaml)
+# (camunda-platform-helm, charts/camunda-platform-8.11/templates/identity/configmap.yaml)
 # so this reference architecture stays in lockstep with it.
 
 variable "enable_camunda_hub_authorization" {

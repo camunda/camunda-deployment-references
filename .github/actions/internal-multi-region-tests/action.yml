@@ -147,9 +147,9 @@ runs:
                 # released value and this block is bypassed).
                 #
                 # Select the target minor after checkout, or the newest available chart.
-                # TODO: [release-duty] use a published chart for the target minor when available.
+                # TODO: [release-duty] use the published 8.11 chart (16.x) when available.
                 # renovate-helm-main: digest tracked against camunda-platform-helm main
-                CHART_GIT_REF="d219258ede0878a137be955e32c2237cff14f62c"
+                CHART_GIT_REF="87a90bc4079e2968ec20234593d5f510ba19c6e8"
                 _camunda_version="$(cat .camunda-version)"
                 mkdir -p debug
                 CHART_CHECKOUT="$(mktemp -d "$PWD/debug/chart-checkout.XXXXXX")/camunda-platform-helm"
