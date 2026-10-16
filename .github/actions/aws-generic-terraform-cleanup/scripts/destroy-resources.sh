@@ -350,8 +350,9 @@ remediate_s3_versions() {
       fi
       result=$(aws s3api delete-objects --bucket "$bucket" --region "$region" \
         --delete file:///dev/stdin --output json --no-cli-pager <<< "$payload") || return 1
-      # DeleteObjects can return HTTP 200 with per-object failures.
-      if ! jq -e '(.Errors // []) | length == 0' <<< "$result" >/dev/null; then
+      # DeleteObjects can return HTTP 200 with per-object failures. With
+      # Quiet:true a full success prints nothing, so only check a non-empty body.
+      if [[ -n "$result" ]] && ! jq -e '(.Errors // []) | length == 0' <<< "$result" >/dev/null; then
         echo "[$group_id][$module_name] S3 deletion failed: $result" >&2
         return 1
       fi
@@ -872,7 +873,7 @@ Error: ListObjectVersions: bufio.Scanner: token too long')" ""
           if [[ "$mode" == delete_failure ]]; then
             echo '{"Errors":[{"Code":"AccessDenied"}]}'
           else
-            echo '{}'
+            : # Quiet:true success: the AWS CLI prints nothing.
           fi ;;
         *) return 1 ;;
       esac
