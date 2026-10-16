@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # The Camunda 8 Helm Chart version
-# Parked: retain the working chart until an 8.11 chart exists.
+# Retain this dev selector until the 8.11 registry chart is verified.
 # renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io renovate-inert-ok
 export CAMUNDA_HELM_CHART_VERSION="15-dev-latest"
 # TODO: [release-duty] before the release, update this!
