@@ -17,7 +17,7 @@ set -euo pipefail
 # whole script, so every cluster queued behind it was silently skipped and the
 # job went red with no cluster deleted.
 ghost_selftest() {
-  local tmp failures=0 out rc
+  local tmp failures=0 out rc delete_error
   tmp=$(mktemp -d)
   # Expanded at definition time on purpose, so the directory still goes away if
   # the selftest aborts under `set -e` before reaching the end. It runs from a
@@ -41,6 +41,13 @@ ghost_selftest() {
   cat >"$tmp/bin/rosa" <<'STUB'
 #!/bin/bash
 case "$*" in
+  "delete cluster -c ghost-a "*)
+    if [[ -n "${STUB_DELETE_ERROR:-}" ]]; then
+      echo "$STUB_DELETE_ERROR" >&2
+      exit 7
+    fi
+    echo "stub rosa $*"
+    ;;
   "list cluster --output json")
     cat <<'JSON'
 [{"id":"a","name":"ghost-a","region":{"id":"eu-west-1"},"creation_timestamp":"2000-01-01T00:00:00Z",
@@ -129,6 +136,42 @@ STUB
   _expect "the cluster behind it is still deleted" \
     "$(grep -c '💣 Deleting cluster: ghost-a' <<<"$out" || true)" "1"
   _expect "a long-stuck cluster does not fail the run" "$rc" "0"
+
+  for delete_error in \
+      "ERR: Failed to get cluster 'ghost-a': There is no cluster with identifier or name 'ghost-a'" \
+      "ERR: Failed to get cluster 'ghost-a': CLUSTERS-MGMT-404"; do
+    rc=0
+    out=$(PATH="$tmp/bin:$PATH" RHCS_TOKEN=stub \
+          DEREGISTER_MAX_ATTEMPTS=1 DEREGISTER_INTERVAL=0 \
+          STUB_DELETE_ERROR="$delete_error" \
+          bash "$SELF" 0 2>&1) || rc=$?
+
+    _expect "already-gone delete succeeds: $delete_error" "$rc" "0"
+    _expect "already-gone cluster skips deregistration wait" \
+      "$(grep -c 'Waiting for cluster ghost-a' <<<"$out" || true)" "0"
+    _expect "already-gone cluster deletes operator roles" \
+      "$(grep -c 'stub rosa delete operator-roles --prefix ghost-a-operator' <<<"$out" || true)" "1"
+    _expect "already-gone cluster deletes account roles" \
+      "$(grep -c 'stub rosa delete account-roles --prefix ghost-a-account' <<<"$out" || true)" "1"
+    _expect "later cluster is still deleted after not-found" \
+      "$(grep -c 'stub rosa delete cluster -c ghost-b ' <<<"$out" || true)" "1"
+  done
+
+  rc=0
+  out=$(PATH="$tmp/bin:$PATH" RHCS_TOKEN=stub \
+        DEREGISTER_MAX_ATTEMPTS=1 DEREGISTER_INTERVAL=0 \
+        STUB_DELETE_ERROR="ERR: connection refused" \
+        bash "$SELF" 0 2>&1) || rc=$?
+
+  _expect "other delete errors fail the run through FAILED" "$rc" "1"
+  _expect "delete error output is preserved" \
+    "$(grep -c 'ERR: connection refused' <<<"$out" || true)" "1"
+  _expect "failed delete preserves its roles" \
+    "$(grep -c 'stub rosa delete .*roles --prefix ghost-a-' <<<"$out" || true)" "0"
+  _expect "later cluster is still deleted after failure" \
+    "$(grep -c 'stub rosa delete cluster -c ghost-b ' <<<"$out" || true)" "1"
+  _expect "later cluster still cleans up account roles after failure" \
+    "$(grep -c 'stub rosa delete account-roles --prefix ghost-b-account' <<<"$out" || true)" "1"
 
   [[ "$failures" -eq 0 ]] || return 1
 }
@@ -464,14 +507,38 @@ while read -r cluster; do
   fi
 
   echo "💣 Deleting cluster: $cluster_name"
+<<<<<<< HEAD
   AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --best-effort --watch
+=======
+  # Do NOT pass --watch: it blocks for the full ~60 min AWS teardown and
+  # starves later clusters in the matrix. The polling loop below is the
+  # supported wait mechanism.
+  cluster_deregistered=false
+  delete_rc=0
+  delete_out=$(AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --best-effort 2>&1) || delete_rc=$?
+  echo "$delete_out"
+  if [ "$delete_rc" -ne 0 ]; then
+    if [[ "$delete_out" == *"There is no cluster with identifier or name"* || "$delete_out" == *"CLUSTERS-MGMT-404"* ]]; then
+      echo "  ℹ️ Cluster $cluster_name is already gone; proceeding with role cleanup."
+      cluster_deregistered=true
+    else
+      echo "  ❌ Could not delete cluster $cluster_name (exit $delete_rc); leaving it for the next run."
+      FAILED=1
+      continue
+    fi
+  fi
+>>>>>>> f737114 (fix(ci): handle already-gone ghost ROSA clusters (#3721))
 
   # Wait for the cluster to be fully deregistered from ROSA API
   # rosa delete cluster can return before the cluster is fully removed,
   # which causes operator-roles deletion to fail with "clusters using Operator Roles Prefix"
-  echo "⏳ Waiting for cluster $cluster_name to be fully deregistered..."
-  cluster_deregistered=false
+  if [ "$cluster_deregistered" != true ]; then
+    echo "⏳ Waiting for cluster $cluster_name to be fully deregistered..."
+  fi
   for i in $(seq 1 "$DEREGISTER_MAX_ATTEMPTS"); do
+    if [ "$cluster_deregistered" = true ]; then
+      break
+    fi
     # Capture `rosa list clusters` separately so we can distinguish a
     # transient failure (API/network hiccup) from a true "cluster not found".
     # Piping it straight into grep loses the exit status: a failed list
