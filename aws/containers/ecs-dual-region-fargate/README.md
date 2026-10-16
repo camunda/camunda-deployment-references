@@ -160,6 +160,9 @@ brew install --cask session-manager-plugin   # macOS
 # follow the AWS unplanned recovery procedure for Aurora
 ./procedure/failover.sh --failed-region 0 --keep-tasks --keep-writer
 
+# Check the surviving region: replicationFactor 2 and every partition led
+./procedure/verify_dual_region.sh --failed-region 0
+
 # Restore region 0: scale it up, then re-add the zone
 ./procedure/failback.sh --failed-region 0
 
@@ -285,8 +288,12 @@ Pass `--keep-writer` in that case to skip the switchover and let the script
 finish.
 
 While the writer is away from region 0, Terraform still expects the original
-topology and `terraform destroy` may hang on the Aurora resources. To work
-around this:
+topology and `terraform destroy` may hang on the Aurora resources.
+
+`db_force_destroy` (default `true`) covers the usual case: the provider detaches
+every global-cluster member before deleting it, in dependency order and with the
+state left consistent. If you set it to `false` for a real workload, detach the
+members yourself and re-run:
 
 ```bash
 # 1. Remove both clusters from the Global cluster
