@@ -154,8 +154,15 @@ jobs:
             - name: Delete clusters
               id: delete_clusters
               continue-on-error: true
-              timeout-minutes: 90 # Auth token have a max lifetime of 60 - 90 minutes
+              timeout-minutes: 90
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
+              # Terraform refreshes via GitHub OIDC; azure/login remains required for the CLI fallback.
+              env:
+                  ARM_USE_OIDC: 'true'
+                  ARM_USE_CLI: 'false'
+                  ARM_CLIENT_ID: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  ARM_TENANT_ID: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  ARM_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -185,6 +192,11 @@ jobs:
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               env:
                   RETRY_DESTROY: 'true' # trigger az deletion of rg
+                  ARM_USE_OIDC: 'true'
+                  ARM_USE_CLI: 'false'
+                  ARM_CLIENT_ID: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  ARM_TENANT_ID: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  ARM_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
