@@ -100,6 +100,11 @@ jobs:
               uses: ./.github/actions/internal-terraform-golden-plan
               env:
                   GH_TOKEN: ${{ github.token }}
+                  ARM_USE_OIDC: 'true'
+                  ARM_USE_CLI: 'false'
+                  ARM_CLIENT_ID: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  ARM_TENANT_ID: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  ARM_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
               with:
                   module-dir: ${{ env.MODULE_DIR }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
