@@ -142,6 +142,12 @@ jobs:
                   echo "✅ 'go mod tidy' completed successfully"
 
             - name: Run just regenerate all golden files
+              env:
+                  ARM_USE_OIDC: 'true'
+                  ARM_USE_CLI: 'false'
+                  ARM_CLIENT_ID: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  ARM_TENANT_ID: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  ARM_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
               run: |
                   echo "Running 'just regenerate-golden-file-all'..."
                   just regenerate-golden-file-all
