@@ -507,15 +507,9 @@ while read -r cluster; do
   fi
 
   echo "💣 Deleting cluster: $cluster_name"
-<<<<<<< HEAD
-  AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --best-effort --watch
-=======
-  # Do NOT pass --watch: it blocks for the full ~60 min AWS teardown and
-  # starves later clusters in the matrix. The polling loop below is the
-  # supported wait mechanism.
   cluster_deregistered=false
   delete_rc=0
-  delete_out=$(AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --best-effort 2>&1) || delete_rc=$?
+  delete_out=$(AWS_REGION="$region_id" rosa delete cluster -c "$cluster_name" -y --best-effort --watch 2>&1) || delete_rc=$?
   echo "$delete_out"
   if [ "$delete_rc" -ne 0 ]; then
     if [[ "$delete_out" == *"There is no cluster with identifier or name"* || "$delete_out" == *"CLUSTERS-MGMT-404"* ]]; then
@@ -527,7 +521,6 @@ while read -r cluster; do
       continue
     fi
   fi
->>>>>>> f737114 (fix(ci): handle already-gone ghost ROSA clusters (#3721))
 
   # Wait for the cluster to be fully deregistered from ROSA API
   # rosa delete cluster can return before the cluster is fully removed,
