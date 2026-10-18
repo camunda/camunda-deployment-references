@@ -24,7 +24,7 @@ delta 0.18.2
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
 eksctl 0.225.0
 
-golang 1.26.8
+golang 1.26.9
 
 # renovate: datasource=github-tags depName=fullstorydev/grpcurl
 grpcurl 1.9.4
@@ -41,7 +41,7 @@ kind 0.31.0
 
 kubectl 1.35.9
 
-kustomize 5.8.2 # used by the tests
+kustomize 5.8.3 # used by the tests
 
 # renovate: datasource=github-tags depName=FiloSottile/mkcert
 mkcert 1.4.4
