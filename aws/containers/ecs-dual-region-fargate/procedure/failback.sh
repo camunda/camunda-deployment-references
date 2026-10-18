@@ -115,11 +115,15 @@ wait_aurora_available() {
     return 1
 }
 
+# A failed read is not an empty global cluster: fail with the AWS error.
 get_global_cluster_members() {
     aws rds describe-global-clusters \
         --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
         --query 'GlobalClusters[0].GlobalClusterMembers' \
-        --output json --region "${RECOVERED_AWS_REGION}" 2>/dev/null || echo "[]"
+        --output json --region "${RECOVERED_AWS_REGION}" || {
+        err "Could not read the Aurora Global Database ${AURORA_GLOBAL_CLUSTER_ID}; see the AWS error above."
+        return 1
+    }
 }
 
 ###############################################################################
@@ -142,7 +146,7 @@ mgmt_topology_summary "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
 log ""
 log "=== Step 1: Ensure ${RECOVERED_AWS_REGION} is an Aurora Global DB member ==="
 
-MEMBERS=$(get_global_cluster_members)
+MEMBERS=$(get_global_cluster_members) || exit 1
 MEMBER_COUNT=$(echo "${MEMBERS}" | jq 'length')
 
 if [ "${MEMBER_COUNT}" = "0" ]; then
@@ -474,7 +478,7 @@ fi
 FINAL_WRITER=$(aws rds describe-global-clusters \
     --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
     --query 'GlobalClusters[0].GlobalClusterMembers[?IsWriter==`true`].DBClusterArn' \
-    --output text 2>/dev/null | awk -F':' '{print $4}')
+    --output text --region "${SURVIVING_AWS_REGION}" 2>/dev/null | awk -F':' '{print $4}')
 
 log ""
 log "════════════════════════════════════════════════════════════════"

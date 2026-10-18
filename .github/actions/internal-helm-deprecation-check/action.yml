@@ -66,6 +66,7 @@ inputs:
             See: https://github.com/camunda/camunda-platform-helm/issues/4564
         required: false
         default: 'true'
+    # TODO: [release-duty] remove this input and its source-build schema plumbing on the cut branch.
     local-chart-path:
         description: |
             Optional path to a locally source-built chart directory (one that
@@ -422,6 +423,7 @@ runs:
               # .camunda-platform-helm (single-region/generic/kind). Fall back to the
               # public Helm repo for released charts. The private OCI registry is
               # intentionally no longer used here.
+              # TODO: [release-duty] remove local-chart selection and autodetection on the cut branch.
               LOCAL_CHART_PATH="${INPUTS_LOCAL_CHART_PATH}"
               SCHEMA_PATH=""
               # Autodetect the source-build checkout produced by the shared

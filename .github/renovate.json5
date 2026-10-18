@@ -31,9 +31,9 @@
   ],
   customManagers: [
     {
-      // The 8.10 chart pin is a camunda-platform-helm *commit*, not a release tag: the
-      // reference architectures need changes that are merged upstream but not in any
-      // published tag. The shared preset's inline annotation cannot express that. Its
+      // Development chart pins track a camunda-platform-helm *commit*, not a release tag.
+      // Keep the working source until the next minor chart exists and passes registry checks.
+      // The shared preset's inline annotation cannot express that. Its
       // matchString only captures a digest in `@sha256:` form, so a bare 40-character git
       // SHA lands in `currentValue`, where `git-refs` cannot resolve it -- Renovate reads
       // the annotation and then drops it, which is exactly what `check-renovate-lookup`
@@ -68,8 +68,8 @@
   baseBranchPatterns: [
     'main',
     // TODO: [release-duty] remove branches whose maintenance period has ended and add the new stable branch
-    'stable/8.7',
     'stable/8.8',
     'stable/8.9',
+    'stable/8.10',
   ]
 }

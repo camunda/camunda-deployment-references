@@ -113,13 +113,6 @@ SURVIVING_PREFIX="${SURVIVING_CLUSTER%-cluster}-oc"
 log() { mgmt_log "$@"; }
 err() { mgmt_err "$@"; }
 
-aurora_unplanned_hint() {
-  err "Follow the Aurora Global Database unplanned recovery procedure:"
-  err "  https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html"
-  err "The zone was already removed; Camunda keeps processing, but exporting waits for a writer."
-  err "Next time the Aurora primary is down as well, pass --keep-writer."
-}
-
 # Sets WRITER_ARN and TARGET_ARN (the member in the surviving region), or exits.
 aurora_read_members() {
   local global members
@@ -208,7 +201,7 @@ move_aurora_writer() {
   fi
 
   aurora_read_members
-  local writer_region writer_status
+  local writer_region
   writer_region=$(echo "${WRITER_ARN}" | cut -d: -f4)
   if [[ "${writer_region}" != "${FAILED_AWS_REGION}" ]]; then
     log "  Aurora: the writer is in ${writer_region}, not in the failed region."
@@ -220,24 +213,7 @@ move_aurora_writer() {
     return 0
   fi
 
-  # A planned switchover needs the current primary to be healthy. If the
-  # failed region's Aurora cluster is down too, only AWS's unplanned recovery
-  # can move the writer, and that can lose data.
-  writer_status=$(aws rds describe-db-clusters --region "${FAILED_AWS_REGION}" \
-    --db-cluster-identifier "${WRITER_ARN}" \
-    --query 'DBClusters[0].Status' --output text 2>/dev/null || echo unreachable)
-  if [[ "${writer_status}" != "available" ]]; then
-    err "The Aurora writer in ${FAILED_AWS_REGION} is ${writer_status}, so a planned switchover cannot run."
-    aurora_unplanned_hint
-    exit 1
-  fi
-  # The status read above can still say "available" early in an outage. A
-  # rejected or stalled switchover gets the same guidance.
-  if ! aurora_switch_to "${TARGET_ARN}"; then
-    err "The planned switchover to ${SURVIVING_AWS_REGION} did not complete."
-    aurora_unplanned_hint
-    exit 1
-  fi
+  aurora_planned_switch "${WRITER_ARN}" "${TARGET_ARN}" || exit 1
   AURORA_SUMMARY="writer moved to ${SURVIVING_AWS_REGION}"
 }
 

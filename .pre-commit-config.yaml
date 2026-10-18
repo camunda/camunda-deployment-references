@@ -89,6 +89,15 @@ repos:
 
     - repo: local
       hooks:
+          # TODO: [release-duty] remove this hook with the source-build helpers on the cut branch.
+          - id: chart-selection-selftest
+            name: Chart directory selection self-test
+            entry: bash scripts/test-chart-selection.sh
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^(scripts/test-chart-selection\.sh|.*procedure/build-camunda-chart\.sh|\.github/actions/internal-multi-region-tests/action\.yml|\.camunda-version)$
+            pass_filenames: false
+
           - id: trivy-scan
             name: Trivy Scan (Docker)
             entry: .lint/trivy/trivy-scan.sh
@@ -100,7 +109,7 @@ repos:
             name: Terraform test (touched states)
             entry: scripts/run-terraform-test-touched.sh
             language: script
-            files: \.(tf|tftest\.hcl)$
+            files: \.(tf|tfvars|tftest\.hcl)$
             pass_filenames: false
 
           - id: python-unittest-actions
@@ -164,6 +173,13 @@ repos:
             language: system
             # yamllint disable-line rule:line-length
             files: ^\.github/actions/internal-triage-skip/scripts/skip-decision\.sh$
+            pass_filenames: false
+
+          - id: release-stable-branches-selftest
+            name: Stable-branch release script self-test
+            entry: bash .github/scripts/release-stable-branches.sh selftest
+            language: system
+            files: ^\.github/scripts/release-stable-branches\.sh$
             pass_filenames: false
 
           - id: cleanup-coverage

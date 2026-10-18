@@ -34,6 +34,10 @@ func TestFailoverRecoveryOrdering(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			helpers, err := os.ReadFile(filepath.Join("..", "..", "..", "procedure", "aurora.sh"))
+			if err != nil {
+				t.Fatal(err)
+			}
 			files := map[string]string{
 				"failover.sh": string(body),
 				// Sources the real helper first, so mgmt_topology_settled and
@@ -57,7 +61,8 @@ mgmt_request() {
 }
 mgmt_wait_change() { return 0; }
 `,
-				"aurora.sh": `aurora_settled_global() { aws rds describe-global-clusters | jq '{GlobalClusterMembers: .}'; }
+				"aurora.sh": string(helpers) + `
+aurora_settled_global() { aws rds describe-global-clusters | jq '{GlobalClusterMembers: .}'; }
 aurora_switch_to() { aws rds failover-global-cluster; }
 `,
 				"aws": `#!/usr/bin/env bash
