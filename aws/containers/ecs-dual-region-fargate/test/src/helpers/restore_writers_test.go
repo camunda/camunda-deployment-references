@@ -57,6 +57,45 @@ func TestRestoreAuroraWritersMovesOnlyMatchingStrayWriters(t *testing.T) {
 	}
 }
 
+// The failover lifecycle lane names its stacks ecsdr-<pr|sha>, not e2e-*, so
+// the daily cleanup's writer restore skipped them: a lane run killed between
+// failover and failback left its writer in region 1, and the destroy then
+// spent the provider's 90-minute timeout on the last-instance error.
+func TestRestoreAuroraWritersReclaimsLifecycleLane(t *testing.T) {
+	t.Parallel()
+
+	fake := t.TempDir()
+	aws := `#!/usr/bin/env bash
+echo "$*" >> "$FAKE_DIR/calls"
+case "$*" in
+  *failover-global-cluster*) touch "$FAKE_DIR/switched" ;;
+  *describe-global-clusters*--global-cluster-identifier*)
+` + switchAwareMembers + ` ;;
+  *describe-global-clusters*)
+    echo '[
+      {"GlobalClusterIdentifier":"ecsdr-3595-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]},
+      {"GlobalClusterIdentifier":"prod-3595-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:f","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:g","IsWriter":true}]}
+    ]' ;;
+  *describe-db-clusters*) echo 2000-01-01T00:00:00Z ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(aws), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "-global-db$", "0")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("restore failed: %v\n%s", err, out)
+	}
+	calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
+	if n := strings.Count(string(calls), "failover-global-cluster"); n != 1 ||
+		!strings.Contains(string(calls), "--global-cluster-identifier ecsdr-3595-global-db") {
+		t.Fatalf("want one switchover, of ecsdr-3595 and not of prod-3595, got %d\n%s\n%s", n, calls, out)
+	}
+}
+
 // fakeSettlingAWS lists one global cluster whose region-0 member is still
 // flagged writer while a switchover to region 1 runs. Once FailoverState
 // clears, the writer is in region 1 and must be moved home.

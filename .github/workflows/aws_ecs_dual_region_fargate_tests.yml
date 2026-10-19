@@ -279,6 +279,16 @@ jobs:
               working-directory: aws/containers/ecs-dual-region-fargate/procedure
               run: ./failover.sh --failed-region 0
 
+            # failover.sh checks the zone left the distribution and every reported
+            # partition has a leader; the smoke test checks work executes.
+            # Neither asserts replicationFactor 2 with all eight partitions led,
+            # the middle of the 4 -> 2 -> 4 transition this lane exists to prove.
+            - name: Verify the deployment (after the failover)
+              if: env.TESTS_ENABLED == 'true'
+              shell: bash
+              working-directory: aws/containers/ecs-dual-region-fargate/procedure
+              run: ./verify_dual_region.sh --failed-region 0
+
             - name: Smoke test — region 1 survives the failover
               if: env.TESTS_ENABLED == 'true'
               uses: ./.github/actions/camunda-smoke-test
@@ -331,9 +341,15 @@ jobs:
                           echo "::error::Authenticated requests to ${ALB_ENDPOINT_0} did not settle within 240s after the writer switch."
                           exit 1
                       fi
-                      elapsed=$(curl -s -o /dev/null -w '%{time_total}' \
+                      # -f rejects fast 401/503s, which must not count as recovered.
+                      # On failure curl still prints time_total, so the fallback
+                      # replaces that value rather than appending to it: appended,
+                      # a refused connection read as "0.001234999", under 2s.
+                      if ! elapsed=$(curl -sf -o /dev/null -w '%{time_total}' \
                           --max-time 30 -u "${ADMIN_USER}:${ADMIN_PASS}" \
-                          "http://${ALB_ENDPOINT_0}/v2/topology" || echo 999)
+                          "http://${ALB_ENDPOINT_0}/v2/topology"); then
+                          elapsed=999
+                      fi
                       if awk "BEGIN { exit !(${elapsed} < ${FAST_SECONDS}) }"; then
                           streak=$((streak + 1))
                           echo "  ${elapsed}s — fast (${streak}/${REQUIRED_STREAK})"
@@ -389,8 +405,9 @@ jobs:
         runs-on: ubuntu-latest
         needs: [triage, integration-tests]
         if: always() && needs.triage.outputs.should_skip == 'false' && needs.triage.result == 'success'
-        # Clears the step budget below, which itself clears 120 + 30.
-        timeout-minutes: 180
+        # Clears the writer restore (25) plus the destroy step (165, which itself
+        # clears 120 + 30), with room for checkout and credentials.
+        timeout-minutes: 205
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
@@ -405,6 +422,25 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # A run that fails between failover and failback --switch-writer leaves
+            # the Aurora writer in region 1. terraform destroy then hits "Cannot
+            # delete the last instance of the master cluster", which the AWS
+            # provider retries for its full 90-minute delete timeout before the
+            # cleanup's own handler gets a turn — on 2026-10-18 that consumed the
+            # whole destroy budget and the VPC teardown failed behind it. The
+            # Terratest suites and the daily cleanup already move it home first.
+            - name: Move the Aurora writer home
+              if: env.DELETE_CLUSTERS == 'true'
+              timeout-minutes: 25
+              # Best effort: without RESTORE_STRICT the script logs a failure and
+              # exits 0, so the destroy below always runs.
+              env:
+                  GLOBAL_CLUSTER_ID: ${{ needs.triage.outputs.cluster_name }}-global-db
+                  # Stops starting a switchover before the step timeout can kill one.
+                  RESTORE_BUDGET_SECONDS: '1320'
+                  RESTORE_EXACT_ID: 'true'
+              run: ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh "${GLOBAL_CLUSTER_ID}" 0
 
             # The layer order is the reverse of the apply: infra/ and app/ read
             # the layer above through terraform_remote_state, so destroying

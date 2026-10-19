@@ -119,9 +119,64 @@ jobs:
                   modules-order: app/terraform,infra/terraform,vpc/terraform,fixture/terraform
                   tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate
 
+    # The failover lifecycle lane (aws_ecs_dual_region_fargate_tests.yml) keeps
+    # its states under a branch segment, as the single-region suites do:
+    # <prefix><target-branch>/tfstate-<cluster>/. The sweep above discovers
+    # those groups but rebuilds their keys without the segment, so it skips them
+    # and reports success. A job of its own rather than more steps: the prefixes
+    # are disjoint, and two 230-minute sweeps in sequence would not fit a
+    # hosted runner's 360-minute ceiling.
+    cleanup-lifecycle-lane:
+        needs: [triage]
+        if: needs.triage.outputs.should_skip == 'false'
+        runs-on: ubuntu-latest
+        timeout-minutes: 240
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  persist-credentials: false
+
+            - name: Configure AWS CLI
+              uses: ./.github/actions/aws-configure-cli
+              with:
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  aws-profile: ${{ env.AWS_PROFILE }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Resolve the lifecycle lane's state prefix
+              id: lane
+              run: echo "prefix=aws/containers/ecs-dual-region-fargate/$(cat .target-branch)/" >> "$GITHUB_OUTPUT"
+
+            - name: Move stray Aurora writers home
+              timeout-minutes: 60
+              env:
+                  RESTORE_BUDGET_SECONDS: '3300'
+                  REGION_0: ${{ env.TF_VAR_region_0 }}
+                  STATE_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
+                  STATE_BUCKET_REGION: ${{ env.S3_BUCKET_REGION }}
+                  STATE_PREFIX: ${{ steps.lane.outputs.prefix }}
+              run: ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh "-global-db$" "${MAX_AGE_HOURS_CLUSTER}"
+
+            - name: Delete stacks
+              if: always()
+              timeout-minutes: 170
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
+                  tf-bucket-key-prefix: ${{ steps.lane.outputs.prefix }}
+                  destroy-pass-timeout-minutes: '120'
+                  cleanup-regions: ${{ env.TF_VAR_region_0 }} ${{ env.TF_VAR_region_1 }}
+                  modules-order: app/terraform,infra/terraform,vpc/terraform
+                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate
+
     report-failure:
         if: failure() && github.event_name == 'schedule'
-        needs: [cleanup-clusters]
+        needs: [cleanup-clusters, cleanup-lifecycle-lane]
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
