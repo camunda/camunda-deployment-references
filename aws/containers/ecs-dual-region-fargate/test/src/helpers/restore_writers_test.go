@@ -115,6 +115,54 @@ esac
 	}
 }
 
+// The identifier filters separate suites, not branches: main and stable
+// branches both run ecsdr-<pr> lifecycle lanes, each under its own state
+// prefix. A sweep given STATE_PREFIX must stay inside it even at a zero age
+// threshold, which used to skip the state lookup and with it the only thing
+// tying a database to a branch.
+func TestRestoreAuroraWritersStaysInsideItsStatePrefix(t *testing.T) {
+	t.Parallel()
+
+	const aws = `#!/usr/bin/env bash
+echo "$*" >> "$FAKE_DIR/calls"
+case "$*" in
+  *failover-global-cluster*) touch "$FAKE_DIR/switched" ;;
+  *list-objects-v2*"--prefix p/stable/8.10/tfstate-ecsdr-3600"*)
+    echo '{"Contents":[{"Key":"p/stable/8.10/tfstate-ecsdr-3600/infra/terraform.tfstate","LastModified":"2000-01-01T00:00:00+00:00"}]}' ;;
+  *list-objects-v2*) echo '{"Contents":[]}' ;;
+  *describe-global-clusters*--global-cluster-identifier*)
+` + switchAwareMembers + ` ;;
+  *describe-global-clusters*)
+    echo '[
+      {"GlobalClusterIdentifier":"ecsdr-3595-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]},
+      {"GlobalClusterIdentifier":"ecsdr-3600-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}
+    ]' ;;
+  *describe-db-clusters*) echo 2000-01-01T00:00:00Z ;;
+esac
+`
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(aws), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// ecsdr-3595's states live under p/main/, ecsdr-3600's under this sweep's
+	// p/stable/8.10/. Zero age, as a manual dispatch would pass.
+	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "^ecsdr-.*-global-db$", "0")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0",
+		"STATE_BUCKET=b", "STATE_BUCKET_REGION=eu-central-1", "STATE_PREFIX=p/stable/8.10/")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("restore failed: %v\n%s", err, out)
+	}
+	calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
+	if !strings.Contains(string(calls), "--global-cluster-identifier ecsdr-3600-global-db") {
+		t.Fatalf("want ecsdr-3600, whose state is under the prefix, moved home\n%s\n%s", calls, out)
+	}
+	if strings.Contains(string(calls), "--global-cluster-identifier ecsdr-3595-global-db") {
+		t.Fatalf("touched ecsdr-3595, another branch's stack\n%s\n%s", calls, out)
+	}
+}
+
 // fakeSettlingAWS lists one global cluster whose region-0 member is still
 // flagged writer while a switchover to region 1 runs. Once FailoverState
 // clears, the writer is in region 1 and must be moved home.
@@ -158,13 +206,19 @@ func TestRestoreAuroraWritersSkipsWhatItCannotRead(t *testing.T) {
 
 	stuck := `{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","FailoverState":{"Status":"switching-over"},"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`
 	away := `{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}`
+	// Every sweep here passes STATE_PREFIX=p/, as the daily cleanup does, so a
+	// stack has to own a state under it to be touched at all, at any age. The
+	// cases about switchover behaviour therefore list an old infra state.
+	owned := `  *list-objects-v2*) echo '{"Contents":[{"Key":"p/tfstate-e2e-fo-planned-123456-run1/infra/terraform.tfstate","LastModified":"2000-01-01T00:00:00+00:00"}]}' ;;`
 	for _, tc := range []struct{ name, fake, want, minAge string }{
 		{"list fails", `exit 1`, "could not list the Aurora global clusters", "0"},
 		{"never settles", `case "$*" in
+` + owned + `
   *--global-cluster-identifier*) echo '` + stuck + `' ;;
   *describe-global-clusters*) echo '[` + stuck + `]' ;;
 esac`, "could not move the writer home", "0"},
 		{"refresh fails", `case "$*" in
+` + owned + `
   *--global-cluster-identifier*) exit 1 ;;
   *describe-global-clusters*) echo '[` + stuck + `]' ;;
 esac`, "could not move the writer home", "0"},
@@ -185,7 +239,10 @@ esac`, "state younger than 1h", "1"},
   *describe-global-clusters*) echo '[` + stuck + `]' ;;
   *list-objects-v2*) echo '{"Contents":[{"Key":"p/tfstate-e2e-fo-planned-123456-run1/infra/terraform.tfstate","LastModified":"'$(date -u +%Y-%m-%dT%H:%M:%S+00:00)'"}]}' ;;
 esac`, "state younger than 1h", "1"},
-		{"no home member", `echo '[{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}]'`, "no member in eu-west-2", "0"},
+		{"no home member", `case "$*" in
+` + owned + `
+  *) echo '[{"GlobalClusterIdentifier":"e2e-fo-planned-123456-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]}]' ;;
+esac`, "no member in eu-west-2", "0"},
 		{"age with unit", `echo '[` + away + `]'`, "not a whole number of hours", "12h"},
 		{"negative age", `echo '[` + away + `]'`, "not a whole number of hours", "-1"},
 		{"oversized age", `echo '[` + away + `]'`, "not a whole number of hours", "99999999999999999999"},

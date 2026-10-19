@@ -849,11 +849,17 @@ EOF
 # broke the run-suffix callers: `run<id>/` then matched nothing, and with
 # `fail-on-not-found: false` their per-run cleanup reported success while
 # leaving the stacks behind.
+#
+# A third form is the ROSA dual-region pair: its create action writes the group
+# as `<name0>-oOo-<name1>`, with each name `<target>-<index>`, while its
+# cleanup passes only `<target>`. Each side is held to one `-<token>` after the
+# target, so `<target>-x-0-oOo-<target>-x-1`, another cluster's pair, is not
+# selected.
 select_target_groups() {
   local safe_target
   # shellcheck disable=SC2016  # the character class is a regex, not an expansion
   safe_target=$(printf '%s' "${1%/}" | sed 's/[][\.*^$(){}?+|/]/\\&/g')
-  grep -E "(^|/)tfstate-([^/]*-)?${safe_target}/" |
+  grep -E "(^|/)tfstate-(([^/]*-)?${safe_target}|${safe_target}-[^/-]+-oOo-${safe_target}-[^/-]+)/" |
     sed -E -n 's#(^|.*/)tfstate-([^/]*)/.*#\2#p' | sort -u
 }
 
@@ -1195,6 +1201,14 @@ p/tfstate-e2e-p-abc-run9876/app/terraform.tfstate'
     "$(printf '%s\n' "$keys" | select_target_groups ecsdr-123 | paste -sd, -)" "ecsdr-123"
   _expect "run-suffix target selects every group of that run, and only it" \
     "$(printf '%s\n' "$keys" | select_target_groups run987/ | paste -sd, -)" "e2e-p-abc-run987,e2e-u-abc-run987"
+  # ROSA dual-region passes the base name; its group is the pair of the two
+  # cluster names. This form matched nothing for a while, so its per-PR
+  # teardown reported success with both clusters still running.
+  pairs='p/main/tfstate-rosa-dr-abc-0-oOo-rosa-dr-abc-1/clusters.tfstate
+p/main/tfstate-rosa-dr-abcd-0-oOo-rosa-dr-abcd-1/clusters.tfstate
+p/main/tfstate-rosa-dr-abc-x-0-oOo-rosa-dr-abc-x-1/clusters.tfstate'
+  _expect "ROSA pair target selects its own pair, not one sharing a prefix" \
+    "$(printf '%s\n' "$pairs" | select_target_groups rosa-dr-abc | paste -sd, -)" "rosa-dr-abc-0-oOo-rosa-dr-abc-1"
 
   # The last-module guard decides whether cloud-nuke may run at all. Nuking
   # before the VPC owner's turn deletes subnets and ENIs that the states still
