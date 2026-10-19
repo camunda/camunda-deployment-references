@@ -93,7 +93,7 @@ jobs:
             CAMUNDA_RELEASE_NAME: camunda
             TEST_CLUSTER_TYPE: kubernetes
         steps:
-            - uses: camunda/infra-global-github-actions/start-build-monitor@cbd8f3c6ab3c15d3db45654a1ca8f8ced00a2c72 # main
+            - uses: camunda/infra-global-github-actions/start-build-monitor@379e8654a5f25f22566f80c2e99a611fca365263 # main
 
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
