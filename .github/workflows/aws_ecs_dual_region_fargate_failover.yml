@@ -24,6 +24,7 @@ on:
     pull_request:
         paths:
             - .github/workflows/aws_ecs_dual_region_fargate_failover.yml
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/aws-generic-terraform-cleanup/**
             - .tool-versions
@@ -64,7 +65,8 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        timeout-minutes: 315
+        # 315 for the suite and its teardown, plus up to 45 waiting for a capacity slot.
+        timeout-minutes: 360
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -79,6 +81,22 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # Each run creates one Aurora cluster per test in both regions. A wave of
+            # pull requests (Renovate on the stable branches) once started enough runs
+            # at the same time to exhaust the account's RDS cluster quota. Wait for a
+            # slot and for free quota instead of failing at terraform apply.
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: ecs-dual-region-failover
+                  slots: '3'
+                  bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  bucket-region: ${{ env.S3_BACKEND_REGION }}
+                  rds-regions: eu-west-2 eu-west-3
+                  rds-clusters-needed: '4'
 
             - name: Cache Go modules
               uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -149,3 +167,14 @@ jobs:
                   destroy-pass-timeout-minutes: '60'
                   retry-destroy-pass-timeout-minutes: '60'
                   tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate
+
+            # Last, so the slot is held until this run's resources are gone.
+            - name: Release the capacity slot
+              if: always()
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: ecs-dual-region-failover
+                  slot-key: ${{ steps.capacity.outputs.slot-key }}
+                  bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  bucket-region: ${{ env.S3_BACKEND_REGION }}
