@@ -1039,6 +1039,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup AKS clusters
+        timeout-minutes: 240
         if: always() && needs.clusters-info.result != 'skipped'
         needs:
             - prepare-clusters
@@ -1116,7 +1117,8 @@ jobs:
             - name: Delete on-demand AKS Cluster
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
-              timeout-minutes: 125
+              # Allow 60m for the user pool, 120m for AKS, and 30m for other resources.
+              timeout-minutes: 210
               env:
                   ARM_USE_OIDC: 'true'
                   ARM_USE_CLI: 'false'
