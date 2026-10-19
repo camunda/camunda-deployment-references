@@ -19,7 +19,21 @@ set -euo pipefail
 : "${BUCKET:?}" "${BUCKET_REGION:?}" "${POOL:?}" "${OWNER:?}"
 prefix="ci-locks/${POOL}"
 scratch=$(mktemp -d)
-trap 'rm -rf "$scratch"' EXIT
+slot_key=''
+published=0
+
+# A slot taken but never published (a lookup failed after the claim) would stay
+# busy until its lease expires, since the release step gets no key. Give it
+# back, keep the original exit status.
+on_exit() {
+    local status=$?
+    if ((status != 0)) && [[ -n "$slot_key" ]] && ((published == 0)); then
+        (SLOT_KEY=$slot_key release) || echo "::warning::Could not give ${slot_key} back." >&2
+    fi
+    rm -rf "$scratch"
+    exit "$status"
+}
+trap on_exit EXIT
 
 s3() { aws s3api "$@" --region "$BUCKET_REGION" --bucket "$BUCKET" --no-cli-pager; }
 
@@ -60,21 +74,22 @@ number() {
 }
 
 # Usage of one quota in one region. Resources still deleting count, as AWS
-# counts them against the quota too.
+# counts them against the quota too. JSON output, because with text output the
+# CLI applies --query to each response page and prints one count per page.
 usage() {
     local region=$2
     case "$1" in
-    rds-clusters) aws rds describe-db-clusters --region "$region" --query 'length(DBClusters)' --output text ;;
-    rds-instances) aws rds describe-db-instances --region "$region" --query 'length(DBInstances)' --output text ;;
-    vpcs) aws ec2 describe-vpcs --region "$region" --query 'length(Vpcs)' --output text ;;
-    elastic-ips) aws ec2 describe-addresses --region "$region" --query 'length(Addresses)' --output text ;;
+    rds-clusters) aws rds describe-db-clusters --region "$region" --query 'length(DBClusters)' --output json ;;
+    rds-instances) aws rds describe-db-instances --region "$region" --query 'length(DBInstances)' --output json ;;
+    vpcs) aws ec2 describe-vpcs --region "$region" --query 'length(Vpcs)' --output json ;;
+    elastic-ips) aws ec2 describe-addresses --region "$region" --query 'length(Addresses)' --output json ;;
     transit-gateways) aws ec2 describe-transit-gateways --region "$region" \
         --filters Name=state,Values=pending,available,modifying,deleting \
-        --query 'length(TransitGateways)' --output text ;;
+        --query 'length(TransitGateways)' --output json ;;
     albs) aws elbv2 describe-load-balancers --region "$region" \
-        --query "length(LoadBalancers[?Type=='application'])" --output text ;;
+        --query "length(LoadBalancers[?Type=='application'])" --output json ;;
     nlbs) aws elbv2 describe-load-balancers --region "$region" \
-        --query "length(LoadBalancers[?Type=='network'])" --output text ;;
+        --query "length(LoadBalancers[?Type=='network'])" --output json ;;
     esac
 }
 
@@ -180,10 +195,12 @@ acquire() {
             if room $((pending + 1)); then
                 echo "Acquired ${slot_key} for ${OWNER}"
                 echo "slot-key=${slot_key}" >>"${GITHUB_OUTPUT:-/dev/null}"
+                published=1
                 return 0
             fi
             echo "Not enough quota, giving ${slot_key} back."
             SLOT_KEY=$slot_key release
+            slot_key=''
         fi
         if (($(date +%s) >= deadline)); then
             echo "::error::No capacity in pool ${POOL} after ${WAIT_MINUTES} minutes."

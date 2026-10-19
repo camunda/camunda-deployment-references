@@ -17,7 +17,9 @@ on:
     workflow_dispatch:
         inputs:
             test_name:
-                description: Which failover test to run (default = all)
+                description: >-
+                    Failover tests to run, separated by | (default = all four): TestPlannedFailover,
+                    TestUnplannedFailover, TestFailback_NoSwitchWriter, TestFailback_SwitchWriter
                 required: false
                 default: ''
                 type: string
@@ -128,12 +130,15 @@ jobs:
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
               run: |
                   set -e
-                  TEST_FILTER="${INPUTS_TEST_NAME}"
-                  if [[ -z "$TEST_FILTER" ]]; then
-                      go test -v -timeout 120m -run 'TestPlannedFailover|TestUnplannedFailover|TestFailback_NoSwitchWriter|TestFailback_SwitchWriter' ./...
-                  else
-                      go test -v -timeout 120m -run "$TEST_FILTER" ./...
+                  # The capacity slot reserves the stacks of these four tests only, so a
+                  # dispatch may pick among them but not widen the run to other tests.
+                  tests='TestPlannedFailover|TestUnplannedFailover|TestFailback_NoSwitchWriter|TestFailback_SwitchWriter'
+                  TEST_FILTER="${INPUTS_TEST_NAME:-$tests}"
+                  if [[ ! "$TEST_FILTER" =~ ^($tests)(\|($tests))*$ ]]; then
+                      echo "::error::test_name must be one or more of ${tests}, separated by |."
+                      exit 1
                   fi
+                  go test -v -timeout 120m -run "^(${TEST_FILTER})\$" ./...
 
             # A run killed after failover.sh can leave the Aurora writer in region 1,
             # where terraform destroy may hang. Move it home before the destroy.
