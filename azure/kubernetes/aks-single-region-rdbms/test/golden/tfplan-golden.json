@@ -224,7 +224,12 @@
               "Environment": "Testing",
               "Purpose": "Reference Implementation"
             },
-            "timeouts": null,
+            "timeouts": {
+              "create": null,
+              "delete": "120m",
+              "read": null,
+              "update": null
+            },
             "upgrade_override": [],
             "web_app_routing": [],
             "workload_autoscaler_profile": [],
