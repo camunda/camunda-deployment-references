@@ -103,9 +103,7 @@ These are list-price ballparks for `us-east-1`; commit discounts, region, idle t
 
 ## Quick start
 
-Use the guided workflow (recommended): run `/ecs-dual-region/1-configure` … `/6-cleanup` in your Claude Code session.
-
-Or manually:
+Deploy the three layers in order:
 
 ```bash
 # 1. Deploy VPC layer (~5 min greenfield, < 1 min BYO-VPC)
