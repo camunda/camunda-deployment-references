@@ -19,6 +19,7 @@ Bounds how many runs of a suite hold AWS resources at the same time. `acquire` w
 | `wait-minutes` | <p>How long <code>acquire</code> waits for capacity before failing.</p> | `false` | `45` |
 | `regions` | <p>Space-separated regions to check for free quota. Empty skips the check.</p> | `false` | `""` |
 | `needs` | <p>What one run creates in each region of <code>regions</code>, one <code>&lt;resource&gt;=&lt;count&gt;</code> per line. Resources: <code>rds-clusters</code>, <code>rds-instances</code>, <code>vpcs</code>, <code>elastic-ips</code>, <code>transit-gateways</code>, <code>albs</code>, <code>nlbs</code>.</p> | `false` | `""` |
+| `provision-minutes` | <p>How long after admission a run may still be creating its resources. Until then, its <code>needs</code> are reserved on top of the current usage when another run is admitted.</p> | `false` | `45` |
 | `margin` | <p>Units of each quota to keep free for other suites sharing the account.</p> | `false` | `2` |
 
 
@@ -97,6 +98,12 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ""
+
+    provision-minutes:
+    # How long after admission a run may still be creating its resources. Until then, its `needs` are reserved on top of the current usage when another run is admitted.
+    #
+    # Required: false
+    # Default: 45
 
     margin:
     # Units of each quota to keep free for other suites sharing the account.
