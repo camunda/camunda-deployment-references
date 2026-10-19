@@ -199,7 +199,7 @@ variable "image" {
   description = "The container image to use for the Camunda orchestration cluster"
   type        = string
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)$
-  default = "camunda/camunda:8.10.3"
+  default = "camunda/camunda:8.10.4"
 }
 
 variable "environment_variables" {
@@ -287,7 +287,7 @@ variable "restore_container_image" {
   description = "Container image for the restore init container. Required when restore_enabled is true."
   type        = string
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)$
-  default = "camunda/camunda:8.10.3"
+  default = "camunda/camunda:8.10.4"
 }
 
 variable "restore_container_entrypoint" {
