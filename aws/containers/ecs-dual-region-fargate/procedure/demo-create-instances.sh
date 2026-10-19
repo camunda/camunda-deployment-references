@@ -8,7 +8,7 @@
 # Examples:
 #   ./demo-create-instances.sh                       # region 0 ALB (default)
 #   ./demo-create-instances.sh r1                    # region 1 ALB
-#   ./demo-create-instances.sh r0 bigVarProcess
+#   ./demo-create-instances.sh r0 my-own-process
 #   ./demo-create-instances.sh ecs-dr-foo-r0-alb.us-east-1.elb.amazonaws.com
 #
 # Credentials:
@@ -24,7 +24,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TF_APP_DIR="${SCRIPT_DIR}/../terraform/app"
 
 TARGET="${1:-r0}"
-PROCESS_ID="${2:-bigVarProcess}"
+# Defaults to the health-check process shipped in resources/ and deployed by
+# deploy_health_check_process.sh. Pass a process id as $2 to drive your own.
+PROCESS_ID="${2:-dual-region-health-check}"
 ADMIN_USER="${ADMIN_USER:-admin}"
 
 # Resolve the target into an ALB hostname.

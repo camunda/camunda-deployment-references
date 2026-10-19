@@ -7,9 +7,10 @@
 #
 # Usage: restore-aurora-writers.sh <id-regex> <min-age-hours>
 #   <id-regex>       only global clusters whose identifier matches it (jq
-#                    regex). Identifiers must also follow the test naming,
-#                    ^e2e-<label>-<suffix>-global-db$, so no other stack is
-#                    ever touched. With RESTORE_EXACT_ID=true (the Go
+#                    regex). Identifiers must also follow a test naming, so
+#                    no other stack is ever touched: the Terratest suites'
+#                    ^e2e-<label>-<suffix>-global-db$, or the failover
+#                    lifecycle lane's ^ecsdr-<pr|sha>-global-db$. With RESTORE_EXACT_ID=true (the Go
 #                    test cleanup), <id-regex> is instead the exact identifier
 #                    of one global cluster, whatever its naming.
 #   <min-age-hours>  skip stacks whose newest app or infra state is younger
@@ -137,5 +138,5 @@ while read -r global; do
     done
 done < <(echo "$globals" | jq -c --arg m "$MATCH" --arg exact "${RESTORE_EXACT_ID:-false}" \
     '.[] | select(if $exact == "true" then .GlobalClusterIdentifier == $m
-        else (.GlobalClusterIdentifier | test("^e2e-[a-z]+(-[a-z]+)*-[a-z0-9]+-global-db$")) and (.GlobalClusterIdentifier | test($m)) end)')
+        else (.GlobalClusterIdentifier | test("^(e2e-[a-z]+(-[a-z]+)*|ecsdr)-[a-z0-9]+-global-db$")) and (.GlobalClusterIdentifier | test($m)) end)')
 done_restoring
