@@ -2,10 +2,10 @@
 name: Internal - Global - Pull Request Backporting
 
 on:
+    # A `backport <branch>` label backports a pull request when it merges, or straight away
+    # when the label is added to one already merged. Adding a label needs triage access.
     pull_request:
-        types: [closed]
-    issue_comment:
-        types: [created]
+        types: [closed, labeled]
 
 permissions:
     contents: write # so it can comment
@@ -15,26 +15,15 @@ jobs:
     backport:
         name: Create backport PRs
         runs-on: ubuntu-latest
-        # Run when pull request is merged or when a comment starting with `/backport`
-        # Exclude the backport action bot (user ID 97796249) to prevent infinite loops
-        #
-        # `issue_comment` runs in the base repository with access to the secrets, and this
-        # job mints an App token from them, so the comment path is restricted by the
-        # commenter's `author_association`: the repository owner, a member of the owning
-        # organisation, or an invited collaborator. That is a statement about the
-        # relationship to the repository, not a permission level -- a member with read-only
-        # access still passes -- but it keeps a drive-by commenter on a public pull request
-        # from starting a run that holds a token with the `workflows` scope.
+        # Runs on the merge, and on a `backport <branch>` label added after it. This job mints
+        # an App token with the `workflows` scope, so it is not triggered by `issue_comment`:
+        # any commenter can fire that event, while a label needs triage access. To retry a
+        # backport, remove the label and add it again.
         if: >
+            github.event.pull_request.merged &&
             (
-              github.event_name == 'pull_request' &&
-              github.event.pull_request.merged
-            ) || (
-              github.event_name == 'issue_comment' &&
-              github.event.issue.pull_request &&
-              github.event.comment.user.id != 97796249 &&
-              startsWith(github.event.comment.body, '/backport') &&
-              contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
+              github.event.action == 'closed' ||
+              startsWith(github.event.label.name, 'backport ')
             )
         steps:
             # GITHUB_TOKEN cannot push anything under .github/workflows/, whatever permissions
@@ -119,7 +108,7 @@ jobs:
 
             - name: Notify in Slack in case of failure
               id: slack-notification
-              if: failure() && (github.event_name == 'pull_request' || github.event_name == 'issue_comment')
+              if: failure()
               uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
