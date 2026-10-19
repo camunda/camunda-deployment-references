@@ -7,6 +7,11 @@ resource "azurerm_kubernetes_cluster" "aks" {
   kubernetes_version  = var.kubernetes_version
   tags                = var.tags
 
+  # Azure deletes can exceed the provider's 90-minute default.
+  timeouts {
+    delete = "120m"
+  }
+
   # System node pool configuration
   # For differences between system and user node pools, see: https://learn.microsoft.com/en-us/azure/aks/node-pool-overview
   default_node_pool {
