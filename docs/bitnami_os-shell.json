@@ -101,6 +101,10 @@
     {
       "version": "12-debian-12-r78",
       "newDigest": "sha256:b447f6347d789a7a8d8592ab0cb34704b4d2f993330d5c59b706d6e47a7c0ece"
+    },
+    {
+      "version": "12-debian-12-r79",
+      "newDigest": "sha256:6cec7d25ac7cc011c1b2ac124b0d9f0224eed558f27f029c825dbcd730199635"
     }
   ]
 }
