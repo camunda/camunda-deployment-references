@@ -303,11 +303,64 @@ classify_destroy_error() {
     echo remediate_aurora_global
   elif [[ -n "$(extract_s3_bucket_names "$output")" ]]; then
     echo remediate_s3_versions
+  elif [[ -n "$(extract_stale_eips "$output")" ]]; then
+    echo remediate_stale_eips
   fi
 }
 
 # Only accept names from the specific failed force-destroy operation, not other
 # bucket names mentioned elsewhere in the Terraform output.
+# extract_stale_eips <output> — allocation ids of Elastic IPs whose release
+# failed because the network interface they were associated with is gone.
+extract_stale_eips() {
+  grep -E 'ReleaseAddress' <<<"$1" | grep -F 'InvalidNetworkInterfaceID.NotFound' |
+    grep -oE 'deleting EC2 EIP \((eipalloc-[0-9a-f]+)\)' |
+    sed -E 's/.*\((eipalloc-[0-9a-f]+)\)/\1/' | sort -u
+}
+
+# remediate_stale_eips releases Elastic IPs that AWS still considers associated
+# with an interface that no longer exists.
+#
+# The cloud-nuke retry deletes a VPC's NAT gateways, and with them the ENIs the
+# NAT EIPs are attached to. terraform destroy of that VPC then fails to release
+# the EIPs with InvalidNetworkInterfaceID.NotFound, and stops there. The VPC
+# module destroys the internet gateway after the EIPs, so the IGW stays
+# attached, cloud-nuke's own DeleteVpc fails with DependencyViolation, and the
+# VPC leaks (camunda/camunda-deployment-references#3595, 2026-10-18).
+#
+# Safe by construction: it only touches the allocation ids named in this
+# module's own destroy error — EIPs Terraform was deleting anyway. Releasing
+# them here is enough; the provider treats the NotFound on its next attempt as
+# already deleted, and the destroy continues to the IGW and the VPC.
+#
+# The error does not name the region, so the caller's declared regions are
+# searched, falling back to the regions the dual-region path uses.
+#
+# Invoked indirectly, by name, from the retry loop's dispatch -- shellcheck
+# cannot see that call site.
+# shellcheck disable=SC2329,SC2317
+remediate_stale_eips() {
+  local group_id="$1" module_name="$2" output="$3"
+  local regions="${CLEANUP_REGIONS:-${AWS_REGION:-} ${CLUSTER_0_AWS_REGION:-} ${CLUSTER_1_AWS_REGION:-}}"
+  local alloc region association
+
+  for alloc in $(extract_stale_eips "$output"); do
+    for region in $regions; do
+      # An allocation id that is not in this region is an error, not an empty
+      # answer, so a failure here just means "look in the next region".
+      association=$(aws ec2 describe-addresses --region "$region" --allocation-ids "$alloc" \
+        --query 'Addresses[0].AssociationId' --output text 2>/dev/null) || continue
+      echo "[$group_id][$module_name] Releasing $alloc in $region, left associated with a deleted interface"
+      if [[ -n "$association" && "$association" != "None" ]]; then
+        aws ec2 disassociate-address --region "$region" --association-id "$association" >/dev/null 2>&1 || true
+      fi
+      aws ec2 release-address --region "$region" --allocation-id "$alloc" >/dev/null 2>&1 ||
+        echo "[$group_id][$module_name] Could not release $alloc in $region yet; the retry will report it."
+      break
+    done
+  done
+}
+
 extract_s3_bucket_names() {
   local bucket
   while IFS= read -r bucket; do
@@ -972,6 +1025,8 @@ destroy_selftest() {
   local s3_scanner="Error: emptying S3 Bucket (eks-dual-36687d47d-7ce10-elastic-backup): listing S3 bucket (...) object versions: operation error S3: ListObjectVersions, https response error StatusCode: 200, RequestID: 8YBJSRFA8EBDPG48, ... decomposing response: bufio.Scanner: token too long"
   local unknown="Error: Invalid provider configuration"
   local last_master="Error: deleting RDS Cluster Instance (ecsdr-1234-r1-camunda-db-0): operation error RDS: DeleteDBInstance, https response error StatusCode: 400, api error InvalidDBClusterStateFault: Cannot delete the last instance of the master cluster. Delete the replica cluster before deleting the last master cluster instance."
+  # Verbatim from the 2026-10-18 lifecycle-lane teardown.
+  local stale_eip="Error: deleting EC2 EIP (eipalloc-05ae99ac0dafa1cf0): operation error EC2: ReleaseAddress, https response error StatusCode: 400, RequestID: 83d85ba5-6003-4c96-95c1-0385e79bf643, api error InvalidNetworkInterfaceID.NotFound: The networkInterface ID 'eni-060ceab86cbd3dd50' does not exist"
   local global_state="Error: deleting RDS Global Cluster (ecsdr-1234-global-db): operation error RDS: DeleteGlobalCluster, https response error StatusCode: 400, api error InvalidGlobalClusterStateFault: Global Cluster ecsdr-1234-global-db is not empty"
 
   _expect "S3 version listing scanner failure -> empty bucket" \
@@ -1071,6 +1126,8 @@ Error: ListObjectVersions: bufio.Scanner: token too long')" ""
     "$(classify_destroy_error "$global_state" infra/terraform)" "remediate_aurora_global"
   _expect "last master instance after failover -> detach Aurora members" \
     "$(classify_destroy_error "$last_master" infra/terraform)" "remediate_aurora_global"
+  _expect "EIP left on a deleted interface -> release it" \
+    "$(classify_destroy_error "$stale_eip" vpc/terraform)" "remediate_stale_eips"
 
   _expect "log tag keeps a module path with a slash" \
     "$(printf 'x\n' | tag_stream e2e-run1 app/terraform)" "[e2e-run1][app/terraform] | x"
@@ -1086,7 +1143,7 @@ Error: ListObjectVersions: bufio.Scanner: token too long')" ""
   # dispatch into nothing and the error would look recovered.
   for got in remediate_vpc_dependencies remediate_orphaned_oidc \
              remediate_broken_trust_policy remediate_iam_attachments \
-             remediate_aurora_global remediate_s3_versions; do
+             remediate_aurora_global remediate_s3_versions remediate_stale_eips; do
     if declare -F "$got" >/dev/null; then
       echo "ok   handler $got is defined"
     else
@@ -1184,6 +1241,40 @@ p/tfstate-e2e-p-abc-run9876/app/terraform.tfstate'
     fi
   ) || failures=$((failures + 1))
 
+  # The EIP lives in one of the declared regions, which the error does not
+  # name. The handler has to find it there, drop the stale association and
+  # release it, in that region — a release sent to the wrong region is a no-op
+  # and the VPC still leaks.
+  (
+    eip_bin=$(mktemp -d)
+    cat >"$eip_bin/aws" <<'FAKE'
+#!/usr/bin/env bash
+echo "$*" >>"$FAKE_CALLS"
+case "$*" in
+  *"describe-addresses --region eu-west-3"*) echo "eipassoc-08223567b1693755f" ;;
+  *describe-addresses*) exit 254 ;;
+esac
+FAKE
+    chmod +x "$eip_bin/aws"
+    # Each case owns its subshell and its own call log, like PATH above.
+    # shellcheck disable=SC2030
+    export FAKE_CALLS="$eip_bin/calls"
+    : >"$FAKE_CALLS"
+    # shellcheck disable=SC2030,SC2031
+    PATH="$eip_bin:$PATH"
+    CLEANUP_REGIONS="eu-west-2 eu-west-3"
+
+    remediate_stale_eips g vpc/terraform "$stale_eip" >/dev/null 2>&1
+    if grep -q "disassociate-address --region eu-west-3 --association-id eipassoc-08223567b1693755f" "$FAKE_CALLS" &&
+       grep -q "release-address --region eu-west-3 --allocation-id eipalloc-05ae99ac0dafa1cf0" "$FAKE_CALLS" &&
+       ! grep -q "release-address --region eu-west-2" "$FAKE_CALLS"; then
+      echo "ok   stale EIP is disassociated and released in its own region"
+    else
+      echo "FAIL stale EIP handler did not release it in eu-west-3:"; cat "$FAKE_CALLS"
+      exit 1
+    fi
+  ) || failures=$((failures + 1))
+
   # The instance-lookup branch resolves an instance name to a global cluster
   # through three chained describe calls. A wrong ARN field index or regex
   # yields an empty result, the handler reports "nothing to detach" and
@@ -1205,6 +1296,7 @@ case "$*" in
 esac
 FAKE
     chmod +x "$fake_bin/aws"
+    # shellcheck disable=SC2031  # this case's own call log, see the EIP case
     export FAKE_CALLS="$fake_bin/calls"
     : >"$FAKE_CALLS"
     # SC2031: each case gets its own subshell and its own fakes; the PATH set
