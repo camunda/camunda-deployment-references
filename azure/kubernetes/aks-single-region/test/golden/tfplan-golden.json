@@ -90,6 +90,7 @@
             "service_principal": [],
             "storage_profile": [],
             "tags": {},
+            "timeouts": {},
             "upgrade_override": [],
             "web_app_routing": [],
             "windows_profile": [],
