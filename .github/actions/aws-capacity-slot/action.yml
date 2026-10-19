@@ -1,0 +1,72 @@
+---
+name: AWS Capacity Slot
+
+description: >
+    Bounds how many runs of a suite hold AWS resources at the same time. `acquire` waits until
+    every listed region has room for the run's RDS clusters under the account quota, then takes
+    one of `slots` slots in a pool stored in S3 (atomic conditional writes, lease with expiry, no
+    daily reset). `release` frees the slot; call it with `if: always()` after the destroy steps.
+    The AWS CLI must already be configured.
+
+inputs:
+    mode:
+        description: '`acquire` or `release`.'
+        required: true
+    pool:
+        description: Pool name. Runs sharing a pool share its slots.
+        required: true
+    slots:
+        description: Number of runs allowed to hold the pool at the same time.
+        default: '3'
+    slot-key:
+        description: Slot to free, from the `slot-key` output of `acquire`. Release mode only.
+        default: ''
+    bucket:
+        description: S3 bucket holding the slots, under `ci-locks/<pool>/`.
+        required: true
+    bucket-region:
+        description: Region of the bucket.
+        required: true
+    lease-minutes:
+        description: >
+            Lease of a slot. A run that dies without releasing frees its slot after this delay.
+            Must cover the whole job.
+        default: '360'
+    wait-minutes:
+        description: How long `acquire` waits for capacity before failing.
+        default: '45'
+    rds-regions:
+        description: Space-separated regions to check for free RDS cluster quota. Empty skips the check.
+        default: ''
+    rds-clusters-needed:
+        description: RDS clusters this run creates in each region of `rds-regions`.
+        default: '0'
+    rds-margin:
+        description: RDS clusters to keep free for other suites sharing the account.
+        default: '5'
+
+outputs:
+    slot-key:
+        description: S3 key of the acquired slot.
+        value: ${{ steps.slot.outputs.slot-key }}
+
+runs:
+    using: composite
+    steps:
+        - name: ${{ inputs.mode }} capacity slot
+          id: slot
+          shell: bash
+          run: '"$GITHUB_ACTION_PATH/slot.sh" "$MODE"'
+          env:
+              MODE: ${{ inputs.mode }}
+              POOL: ${{ inputs.pool }}
+              SLOTS: ${{ inputs.slots }}
+              SLOT_KEY: ${{ inputs.slot-key }}
+              BUCKET: ${{ inputs.bucket }}
+              BUCKET_REGION: ${{ inputs.bucket-region }}
+              LEASE_MINUTES: ${{ inputs.lease-minutes }}
+              WAIT_MINUTES: ${{ inputs.wait-minutes }}
+              RDS_REGIONS: ${{ inputs.rds-regions }}
+              RDS_CLUSTERS_NEEDED: ${{ inputs.rds-clusters-needed }}
+              RDS_MARGIN: ${{ inputs.rds-margin }}
+              OWNER: ${{ github.repository }}/${{ github.run_id }}/${{ github.run_attempt }}/${{ github.job }}
