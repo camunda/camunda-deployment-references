@@ -782,6 +782,28 @@ EOF
 # describes. Previously the `clusters` gate achieved this by accident, because
 # `clusters` was last for every architecture that reached here; an order like
 # `app/terraform,infra/terraform,vpc/terraform` does not have that property.
+# select_target_groups <target> — reads S3 keys on stdin, prints the group ids
+# the target selects.
+#
+# Select groups whose id is the target, or ends in `-<target>`. Callers pass
+# two forms: a cluster name (`ecsdr-3595`) and a run suffix (`run<id>/`),
+# which the Terratest suites append to their cluster names.
+#
+# Bounded on both sides on purpose. A bare `grep "$ID_OR_ALL"` also matched
+# every longer id with the same prefix, so `ecsdr-123` selected `ecsdr-1234`
+# — and callers pass `max-age-hours: 0`, so one pull request's teardown could
+# destroy another's live cluster. Matching only the exact id fixed that but
+# broke the run-suffix callers: `run<id>/` then matched nothing, and with
+# `fail-on-not-found: false` their per-run cleanup reported success while
+# leaving the stacks behind.
+select_target_groups() {
+  local safe_target
+  # shellcheck disable=SC2016  # the character class is a regex, not an expansion
+  safe_target=$(printf '%s' "${1%/}" | sed 's/[][\.*^$(){}?+|/]/\\&/g')
+  grep -E "(^|/)tfstate-([^/]*-)?${safe_target}/" |
+    sed -E -n 's#(^|.*/)tfstate-([^/]*)/.*#\2#p' | sort -u
+}
+
 # module_state_exists <group_id> <module> — whether the group still has a state
 # for <module>. The same test the destruction loop uses to decide what to run.
 module_state_exists() {
@@ -1103,6 +1125,20 @@ Error: ListObjectVersions: bufio.Scanner: token too long')" ""
     echo "skip cloud-nuke scoping check: yq unavailable"
   fi
 
+  # Both target forms callers pass, and the boundary between ids that share
+  # a prefix. The run-suffix form matched nothing for a while, which made the
+  # Terratest suites' per-run cleanup a silent no-op.
+  keys='p/tfstate-ecsdr-123/app/terraform.tfstate
+p/tfstate-ecsdr-1234/app/terraform.tfstate
+p/main/tfstate-ecsdr-123/vpc/terraform.tfstate
+p/tfstate-e2e-p-abc-run987/app/terraform.tfstate
+p/tfstate-e2e-u-abc-run987/infra/terraform.tfstate
+p/tfstate-e2e-p-abc-run9876/app/terraform.tfstate'
+  _expect "target selects its own cluster, not one sharing its prefix" \
+    "$(printf '%s\n' "$keys" | select_target_groups ecsdr-123 | paste -sd, -)" "ecsdr-123"
+  _expect "run-suffix target selects every group of that run, and only it" \
+    "$(printf '%s\n' "$keys" | select_target_groups run987/ | paste -sd, -)" "e2e-p-abc-run987,e2e-u-abc-run987"
+
   # The last-module guard decides whether cloud-nuke may run at all. Nuking
   # before the VPC owner's turn deletes subnets and ENIs that the states still
   # queued behind it have in their own plans, so the guard is asserted against
@@ -1110,6 +1146,18 @@ Error: ListObjectVersions: bufio.Scanner: token too long')" ""
   (
     RETRY_DESTROY=true
     CLEANUP_REGIONS="eu-west-2"
+    # The permitted path goes on to `aws ec2 describe-vpcs` and `cloud-nuke`.
+    # This runs as a pre-commit hook on machines that hold AWS credentials, so
+    # both are replaced by fakes that only record the call: a selftest must
+    # never be able to delete infrastructure.
+    nuke_bin=$(mktemp -d)
+    printf '#!/usr/bin/env bash\necho vpc-0selftest\n' >"$nuke_bin/aws"
+    printf '#!/usr/bin/env bash\necho "NUKE $*" >>"%s/calls"\n' "$nuke_bin" >"$nuke_bin/cloud-nuke"
+    chmod +x "$nuke_bin/aws" "$nuke_bin/cloud-nuke"
+    # Subshell-local on purpose, like ORDERED_MODULES below: the fakes must
+    # not shadow the real tools for the rest of the script.
+    # shellcheck disable=SC2030
+    PATH="$nuke_bin:$PATH"
     # Subshell-local on purpose: the selftest must not leak its ORDERED_MODULES
     # into the real destruction order below.
     # shellcheck disable=SC2030
@@ -1118,21 +1166,22 @@ Error: ListObjectVersions: bufio.Scanner: token too long')" ""
     module_state_exists() { [[ "$2" != fixture/terraform ]]; }
 
     early=$(nuke_vpcs_in_cleanup_regions g infra/terraform "$(mktemp -d)" 2>&1)
-    case "$early" in
-      *"Skipping the cloud-nuke fallback"*) echo "ok   cloud-nuke skipped while a later module still owns the VPC" ;;
-      *) echo "FAIL cloud-nuke ran for infra/terraform, before vpc/terraform was destroyed"; exit 1 ;;
-    esac
+    if [[ "$early" == *"Skipping the cloud-nuke fallback"* && ! -s "$nuke_bin/calls" ]]; then
+      echo "ok   cloud-nuke skipped while a later module still owns the VPC"
+    else
+      echo "FAIL cloud-nuke ran for infra/terraform, before vpc/terraform was destroyed"; exit 1
+    fi
 
     # vpc/terraform is the owner here even though fixture/terraform is declared
     # after it: the group has no fixture state. Gating on the declared order
-    # skipped it, so greenfield groups never reached the fallback. Stop at the
-    # first thing it does after the guard, so the case needs no cloud-nuke.
+    # skipped it, so greenfield groups never reached the fallback. Asserted on
+    # the fake's record, so "ran" means cloud-nuke was really invoked.
     last=$(nuke_vpcs_in_cleanup_regions g vpc/terraform "$(mktemp -d)" 2>&1)
-    case "$last" in
-      *"Skipping the cloud-nuke fallback"*) echo "FAIL cloud-nuke never runs: the VPC owner was skipped too"; exit 1 ;;
-      *"running cloud-nuke on the declared regions"*) echo "ok   cloud-nuke runs for the module that owns the VPC" ;;
-      *) echo "FAIL cloud-nuke guard produced neither outcome: $last"; exit 1 ;;
-    esac
+    if grep -q -- "--region eu-west-2" "$nuke_bin/calls" 2>/dev/null; then
+      echo "ok   cloud-nuke runs for the module that owns the VPC"
+    else
+      echo "FAIL cloud-nuke never ran for the VPC owner: $last"; exit 1
+    fi
   ) || failures=$((failures + 1))
 
   # The instance-lookup branch resolves an instance name to a global cluster
@@ -1158,6 +1207,9 @@ FAKE
     chmod +x "$fake_bin/aws"
     export FAKE_CALLS="$fake_bin/calls"
     : >"$FAKE_CALLS"
+    # SC2031: each case gets its own subshell and its own fakes; the PATH set
+    # in the cloud-nuke case above never reaches this one, by design.
+    # shellcheck disable=SC2031
     PATH="$fake_bin:$PATH"
 
     # No "RDS Global Cluster (...)" in the text, so only the instance-lookup
@@ -1210,17 +1262,7 @@ fi
 if [ "$ID_OR_ALL" == "all" ]; then
   groups=$(echo "$all_objects" | awk '{print $NF}' | sed -E -n 's#(^|.*/)tfstate-([^/]*)/.*#\2#p' | sort -u)
 else
-  # Match the whole `tfstate-<target>/` path segment, not a substring of the
-  # key. A bare `grep "$ID_OR_ALL"` also matched every longer id with the same
-  # prefix, so a target of `ecsdr-123` selected `ecsdr-1234` too — and callers
-  # pass `max-age-hours: 0`, so one pull request's teardown could destroy
-  # another's live cluster. Numeric, PR-derived ids make that collision
-  # ordinary rather than exotic.
-  # shellcheck disable=SC2016  # the character class is a regex, not an expansion
-  safe_target=$(printf '%s' "$ID_OR_ALL" | sed 's/[][\.*^$(){}?+|/]/\\&/g')
-  groups=$(echo "$all_objects" | awk '{print $NF}' |
-    grep -E "(^|/)tfstate-${safe_target}/" |
-    sed -E -n 's#(^|.*/)tfstate-([^/]*)/.*#\2#p' | sort -u)
+  groups=$(echo "$all_objects" | awk '{print $NF}' | select_target_groups "$ID_OR_ALL")
   if [ -z "$groups" ] && [ "$FAIL_ON_NOT_FOUND" = true ]; then
     echo "Error: No object found for ID '$ID_OR_ALL'"
     exit 1
