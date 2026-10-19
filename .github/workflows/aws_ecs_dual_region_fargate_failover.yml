@@ -82,10 +82,12 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
-            # Each run creates one Aurora cluster per test in both regions. A wave of
-            # pull requests (Renovate on the stable branches) once started enough runs
-            # at the same time to exhaust the account's RDS cluster quota. Wait for a
-            # slot and for free quota instead of failing at terraform apply.
+            # A wave of pull requests (Renovate on the stable branches) once started
+            # enough runs at the same time to exhaust the account's RDS cluster quota.
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region: four parallel tests, each with its own stack of
+            # one VPC with a single NAT gateway, one transit gateway, one ALB, two
+            # NLBs and one Aurora cluster with one instance.
             - name: Acquire a capacity slot
               id: capacity
               uses: ./.github/actions/aws-capacity-slot
@@ -95,8 +97,15 @@ jobs:
                   slots: '3'
                   bucket: ${{ env.S3_BACKEND_BUCKET }}
                   bucket-region: ${{ env.S3_BACKEND_REGION }}
-                  rds-regions: eu-west-2 eu-west-3
-                  rds-clusters-needed: '4'
+                  regions: eu-west-2 eu-west-3
+                  needs: |
+                      rds-clusters=4
+                      rds-instances=4
+                      vpcs=4
+                      elastic-ips=4
+                      transit-gateways=4
+                      albs=4
+                      nlbs=8
 
             - name: Cache Go modules
               uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6

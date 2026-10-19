@@ -3,7 +3,7 @@ name: AWS Capacity Slot
 
 description: >
     Bounds how many runs of a suite hold AWS resources at the same time. `acquire` waits until
-    every listed region has room for the run's RDS clusters under the account quota, then takes
+    every listed region has room under the account quotas for what the run creates, then takes
     one of `slots` slots in a pool stored in S3 (atomic conditional writes, lease with expiry, no
     daily reset). `release` frees the slot; call it with `if: always()` after the destroy steps.
     The AWS CLI must already be configured.
@@ -35,15 +35,18 @@ inputs:
     wait-minutes:
         description: How long `acquire` waits for capacity before failing.
         default: '45'
-    rds-regions:
-        description: Space-separated regions to check for free RDS cluster quota. Empty skips the check.
+    regions:
+        description: Space-separated regions to check for free quota. Empty skips the check.
         default: ''
-    rds-clusters-needed:
-        description: RDS clusters this run creates in each region of `rds-regions`.
-        default: '0'
-    rds-margin:
-        description: RDS clusters to keep free for other suites sharing the account.
-        default: '5'
+    needs:
+        description: >
+            What one run creates in each region of `regions`, one `<resource>=<count>` per line.
+            Resources: `rds-clusters`, `rds-instances`, `vpcs`, `elastic-ips`, `transit-gateways`,
+            `albs`, `nlbs`.
+        default: ''
+    margin:
+        description: Units of each quota to keep free for other suites sharing the account.
+        default: '2'
 
 outputs:
     slot-key:
@@ -66,7 +69,7 @@ runs:
               BUCKET_REGION: ${{ inputs.bucket-region }}
               LEASE_MINUTES: ${{ inputs.lease-minutes }}
               WAIT_MINUTES: ${{ inputs.wait-minutes }}
-              RDS_REGIONS: ${{ inputs.rds-regions }}
-              RDS_CLUSTERS_NEEDED: ${{ inputs.rds-clusters-needed }}
-              RDS_MARGIN: ${{ inputs.rds-margin }}
+              REGIONS: ${{ inputs.regions }}
+              NEEDS: ${{ inputs.needs }}
+              MARGIN: ${{ inputs.margin }}
               OWNER: ${{ github.repository }}/${{ github.run_id }}/${{ github.run_attempt }}/${{ github.job }}

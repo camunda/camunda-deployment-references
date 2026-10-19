@@ -2,7 +2,7 @@
 
 ## Description
 
-Bounds how many runs of a suite hold AWS resources at the same time. `acquire` waits until every listed region has room for the run's RDS clusters under the account quota, then takes one of `slots` slots in a pool stored in S3 (atomic conditional writes, lease with expiry, no daily reset). `release` frees the slot; call it with `if: always()` after the destroy steps. The AWS CLI must already be configured.
+Bounds how many runs of a suite hold AWS resources at the same time. `acquire` waits until every listed region has room under the account quotas for what the run creates, then takes one of `slots` slots in a pool stored in S3 (atomic conditional writes, lease with expiry, no daily reset). `release` frees the slot; call it with `if: always()` after the destroy steps. The AWS CLI must already be configured.
 
 
 ## Inputs
@@ -17,9 +17,9 @@ Bounds how many runs of a suite hold AWS resources at the same time. `acquire` w
 | `bucket-region` | <p>Region of the bucket.</p> | `true` | `""` |
 | `lease-minutes` | <p>Lease of a slot. A run that dies without releasing frees its slot after this delay. Must cover the whole job.</p> | `false` | `360` |
 | `wait-minutes` | <p>How long <code>acquire</code> waits for capacity before failing.</p> | `false` | `45` |
-| `rds-regions` | <p>Space-separated regions to check for free RDS cluster quota. Empty skips the check.</p> | `false` | `""` |
-| `rds-clusters-needed` | <p>RDS clusters this run creates in each region of <code>rds-regions</code>.</p> | `false` | `0` |
-| `rds-margin` | <p>RDS clusters to keep free for other suites sharing the account.</p> | `false` | `5` |
+| `regions` | <p>Space-separated regions to check for free quota. Empty skips the check.</p> | `false` | `""` |
+| `needs` | <p>What one run creates in each region of <code>regions</code>, one <code>&lt;resource&gt;=&lt;count&gt;</code> per line. Resources: <code>rds-clusters</code>, <code>rds-instances</code>, <code>vpcs</code>, <code>elastic-ips</code>, <code>transit-gateways</code>, <code>albs</code>, <code>nlbs</code>.</p> | `false` | `""` |
+| `margin` | <p>Units of each quota to keep free for other suites sharing the account.</p> | `false` | `2` |
 
 
 ## Outputs
@@ -86,21 +86,21 @@ This action is a `composite` action.
     # Required: false
     # Default: 45
 
-    rds-regions:
-    # Space-separated regions to check for free RDS cluster quota. Empty skips the check.
+    regions:
+    # Space-separated regions to check for free quota. Empty skips the check.
     #
     # Required: false
     # Default: ""
 
-    rds-clusters-needed:
-    # RDS clusters this run creates in each region of `rds-regions`.
+    needs:
+    # What one run creates in each region of `regions`, one `<resource>=<count>` per line. Resources: `rds-clusters`, `rds-instances`, `vpcs`, `elastic-ips`, `transit-gateways`, `albs`, `nlbs`.
     #
     # Required: false
-    # Default: 0
+    # Default: ""
 
-    rds-margin:
-    # RDS clusters to keep free for other suites sharing the account.
+    margin:
+    # Units of each quota to keep free for other suites sharing the account.
     #
     # Required: false
-    # Default: 5
+    # Default: 2
 ```

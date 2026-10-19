@@ -118,7 +118,7 @@ Never create those labels by hand: `internal-triage-skip` creates them, with col
 
 All pull requests share one AWS account. Many runs can start at the same time, for example after a wave of Renovate pull requests on the stable branches. These runs can use all of an account quota. The next `terraform apply` then fails, for example with `DBClusterQuotaExceededFault`.
 
-`aws-capacity-slot` limits how many runs of a suite can hold resources at the same time. The `acquire` mode waits until the RDS cluster quota has room for the run. Then it takes one of a fixed number of slots, stored as objects under `ci-locks/<pool>/` in the Terraform state bucket. The `release` mode runs last, with `if: always()`, and frees the slot. Each slot has a lease. If GitHub stops a run before `release`, its slot becomes free again when the lease expires, so no daily reset is necessary.
+`aws-capacity-slot` limits how many runs of a suite can hold resources at the same time. The `acquire` mode waits until the account quotas have room for the run. It checks RDS clusters and instances, VPCs, Elastic IPs, transit gateways and load balancers. Then it takes one of a fixed number of slots, stored as objects under `ci-locks/<pool>/` in the Terraform state bucket. The `release` mode runs last, with `if: always()`, and frees the slot. Each slot has a lease. If GitHub stops a run before `release`, its slot becomes free again when the lease expires, so no daily reset is necessary.
 
 A run that waits writes the slot holders to the log of the `Acquire a capacity slot` step. To see the holders without a run:
 
