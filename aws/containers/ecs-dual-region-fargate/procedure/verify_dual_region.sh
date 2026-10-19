@@ -281,7 +281,8 @@ HEALTH_CHECK_PROCESS_ID="dual-region-health-check"
 # repairs what it is about to check cannot tell "the deployment is healthy"
 # from "I just made it healthy", and would no longer detect the very drift
 # this section exists to catch. deploy_health_check_process.sh is step 6 of
-# the deployment procedure — run it once, before verifying.
+# the README quick start — run it once, before verifying.
+#
 # Ask a region that is actually serving. Hardcoding region 0 here meant that
 # `--failed-region 0` — the documented post-failover invocation — queried the
 # region it had just been told was down, and reported the process missing on a

@@ -245,9 +245,11 @@ variable "db_force_destroy" {
 
     Defaults to true for the same reason as `s3_force_destroy`: this is a
     reference architecture and `terraform destroy` should clean up after
-    itself. Detaching a member does not delete its data — Terraform destroys
-    the DB clusters separately — but set it to false before running a real
-    workload through this stack if you want destroy to refuse.
+    itself. This only controls detachment. It is not deletion protection:
+    with it false, `terraform destroy` still deletes both regional DB clusters
+    (they set no `prevent_destroy`, and the module skips final snapshots by
+    default) before failing on the global cluster. To protect the data, enable
+    deletion protection or final snapshots on the clusters instead.
   EOT
 }
 

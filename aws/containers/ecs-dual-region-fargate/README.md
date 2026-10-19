@@ -124,7 +124,10 @@ source ../../procedure/export_environment_prerequisites.sh
 # 5. Verify cross-region DNS resolution (if enable_cross_region_dns_resolver = true)
 ../../procedure/test_cross_region_dns.sh
 
-# 6. Verify dual-region health
+# 6. Deploy the health-check process that verification starts instances of
+../../procedure/deploy_health_check_process.sh
+
+# 7. Verify dual-region health
 ../../procedure/verify_dual_region.sh
 ```
 

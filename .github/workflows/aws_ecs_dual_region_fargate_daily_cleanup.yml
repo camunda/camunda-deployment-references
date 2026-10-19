@@ -100,7 +100,12 @@ jobs:
                   STATE_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   STATE_BUCKET_REGION: ${{ env.S3_BUCKET_REGION }}
                   STATE_PREFIX: aws/containers/ecs-dual-region-fargate/
-              run: ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh "-global-db$" "${MAX_AGE_HOURS_CLUSTER}"
+              # Only the Terratest suites' e2e-* clusters: the lifecycle lane's
+              # ecsdr-* ones belong to cleanup-lifecycle-lane. The state-prefix
+              # lookup keeps the jobs apart only when the age threshold is above
+              # zero, so a dispatch with 0 would otherwise let both jobs change
+              # the same database's membership at once.
+              run: ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh "^e2e-.*-global-db$" "${MAX_AGE_HOURS_CLUSTER}"
 
             - name: Delete stacks
               if: always()
@@ -158,7 +163,8 @@ jobs:
                   STATE_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   STATE_BUCKET_REGION: ${{ env.S3_BUCKET_REGION }}
                   STATE_PREFIX: ${{ steps.lane.outputs.prefix }}
-              run: ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh "-global-db$" "${MAX_AGE_HOURS_CLUSTER}"
+              # Only the lane's ecsdr-* clusters; see cleanup-clusters.
+              run: ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh "^ecsdr-.*-global-db$" "${MAX_AGE_HOURS_CLUSTER}"
 
             - name: Delete stacks
               if: always()
