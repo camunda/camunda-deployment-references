@@ -84,6 +84,7 @@ jobs:
                   echo "scenario_matrix=${scenario_matrix}" | tee -a "$GITHUB_OUTPUT"
 
     cleanup-clusters:
+        timeout-minutes: 360
         needs:
             - triage
             - scenarios
@@ -160,7 +161,8 @@ jobs:
             - name: Delete clusters
               id: delete_clusters
               continue-on-error: true
-              timeout-minutes: 90
+              # Allow 60m for the user pool, 120m for AKS, and 30m for other resources.
+              timeout-minutes: 210
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               # Terraform refreshes via GitHub OIDC; azure/login remains required for the CLI fallback.
               env:
@@ -194,6 +196,7 @@ jobs:
             - name: Retry delete clusters
               id: retry_delete_clusters
               if: steps.delete_clusters.outcome == 'failure'
+              # The resource-group fallback shares the remaining 360-minute job budget.
               timeout-minutes: 125
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               env:
