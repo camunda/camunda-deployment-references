@@ -177,11 +177,19 @@ try_slot() {
 }
 
 acquire() {
-    local deadline i pending
+    local deadline i pending owned
     deadline=$(($(date +%s) + WAIT_MINUTES * 60))
     while :; do
-        slot_key=''
+        # A retried step must renew the slot it holds, not claim a second one.
+        owned=''
         for ((i = 0; i < SLOTS; i++)); do
+            if read_slot "$prefix/slot-$i" && [[ "$(jq -r .owner "$scratch/current")" == "$OWNER" ]]; then
+                owned=$i
+                break
+            fi
+        done
+        slot_key=''
+        for i in $owned $(seq 0 $((SLOTS - 1))); do
             try_slot "$i" && break
             slot_key=''
         done
