@@ -69,12 +69,17 @@ jobs:
         name: Release ${{ matrix.branch }}
         needs: branches
         runs-on: ubuntu-latest
-        # GITHUB_TOKEN is enough: the tag rulesets only cover `*.*.*` and `v*`,
-        # and nothing has to trigger on the new tag. Same-repository pull
-        # requests also get this scope, but run with DRY_RUN=true and only reach
-        # read calls; their authors can push to the repository anyway.
+        # Writes use the InfraEx Bot App: the `Tag Protection: snapshot` ruleset
+        # (infraex-terraform, github/repositories.tf) blocks creation of
+        # `8.x-YYwWWa` tags and lists the App as bypass actor. The built-in
+        # GitHub Actions App cannot be a ruleset bypass actor, so GITHUB_TOKEN
+        # cannot create these tags. GITHUB_TOKEN stays read-only for dry runs.
         permissions:
-            contents: write
+            contents: read
+        env:
+            # Only main publishes: another ref reads its own, possibly stale,
+            # renovate branch list and could release a retired minor.
+            DRY_RUN: ${{ github.ref != 'refs/heads/main' || inputs.dry_run == true }}
         strategy:
             fail-fast: false
             matrix:
@@ -86,12 +91,24 @@ jobs:
                   persist-credentials: false
                   fetch-depth: 0
 
+            - name: Generate token for GitHub
+              id: generate-github-token
+              if: env.DRY_RUN == 'false'
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@ee6f294ac4b8da0147f4544ceddaacc89b72b50d # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+                  repositories: camunda-deployment-references
+
             - name: Release
               env:
-                  GH_TOKEN: ${{ github.token }}
-                  # Only main publishes: another ref reads its own, possibly stale,
-                  # renovate branch list and could release a retired minor.
-                  DRY_RUN: ${{ github.ref != 'refs/heads/main' || inputs.dry_run == true }}
+                  GH_TOKEN: ${{ steps.generate-github-token.outputs.token || github.token }}
                   BRANCH: ${{ matrix.branch }}
               run: bash .github/scripts/release-stable-branches.sh release "${BRANCH}"
 

@@ -229,13 +229,14 @@ mgmt_zone_present() {
 # prescribes. Returns 0 only on COMPLETED.
 mgmt_wait_change() {
     local change_id="$1" timeout="${2:-900}"
-    local elapsed=0 status completed total
+    local elapsed=0 status completed total last_body=""
 
     while [ "${elapsed}" -lt "${timeout}" ]; do
         local body
         body=$(mgmt_get "/actuator/cluster/changes/${change_id}")
 
         if [ -n "${body}" ]; then
+            last_body="${body}"
             status=$(echo "${body}" | jq -r '.status // empty' 2>/dev/null)
             completed=$(echo "${body}" | jq -r '[.completed // [] | length] | first' 2>/dev/null)
             total=$(echo "${body}" | jq -r '((.completed // [] | length) + (.pending // [] | length))' 2>/dev/null)
@@ -269,6 +270,15 @@ mgmt_wait_change() {
     done
 
     mgmt_err "Timed out after ${timeout}s waiting for change ${change_id}."
+    # Print what it is stuck on before returning. In CI the cluster is
+    # destroyed seconds after this, so "inspect GET .../changes/<id>" is advice
+    # nobody can follow; a stall at 6/13 with no operation named is not
+    # diagnosable after the fact.
+    if [ -n "${last_body}" ]; then
+        mgmt_err "Last state of change ${change_id} — next pending operations:"
+        echo "${last_body}" | jq '{status, completed: (.completed // [] | length),
+            pending: (.pending // [] | .[0:3])}' 2>/dev/null || echo "${last_body}"
+    fi
     return 1
 }
 
@@ -313,4 +323,49 @@ mgmt_topology_summary() {
     '
     echo "-----------------------------------------------------------------"
     return 0
+}
+
+# mgmt_topology_settled <alb> <user> <pass> <timeout> <jq_predicate>
+#
+# Polls GET /v2/topology until <jq_predicate> holds, and prints the last body
+# it read on stdout. Returns 1 once <timeout> seconds have passed, leaving the
+# caller able to tell a cluster that never settled from one it could not reach:
+# an empty body means the ALB stopped answering.
+#
+# One read is not enough right after a zone removal or an Aurora switchover.
+# The surviving brokers reconnect to the new writer and the ALB can refuse
+# connections for a few seconds; that read returned an empty body, every jq
+# count came back empty with it, and the assertion reported the meaningless
+# "Only  of  partitions have a leader" (run 38583791262).
+mgmt_topology_settled() {
+    local alb="$1" user="$2" pass="$3" timeout="$4" predicate="$5"
+    local deadline=$(( SECONDS + timeout )) topo=""
+
+    while :; do
+        topo=$(curl -sf --max-time 20 -u "${user}:${pass}" \
+          "http://${alb}/v2/topology" 2>/dev/null || echo "")
+
+        if [ -n "${topo}" ] && echo "${topo}" | jq -e "${predicate}" >/dev/null 2>&1; then
+            printf '%s' "${topo}"
+            return 0
+        fi
+        if [ "${SECONDS}" -ge "${deadline}" ]; then
+            printf '%s' "${topo}"
+            return 1
+        fi
+        sleep "${MGMT_TOPOLOGY_POLL_INTERVAL:-5}"
+    done
+}
+
+# mgmt_topology_count <topology_json> <jq_filter>
+#
+# Counts something in a topology body, printing 0 when the body is empty or
+# unparseable. `jq` on empty input prints nothing and still exits 0, so the
+# usual `|| echo 0` fallback never fires and the caller interpolates an empty
+# string into its own error message.
+mgmt_topology_count() {
+    local topo="$1" filter="$2" value
+    [ -n "${topo}" ] || { echo 0; return 0; }
+    value=$(echo "${topo}" | jq "${filter}" 2>/dev/null) || value=""
+    echo "${value:-0}"
 }

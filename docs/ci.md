@@ -187,6 +187,7 @@ All reusable CI logic lives in `.github/actions/`. Each action has:
 ## PR Automation
 
 - **Auto-labeling:** `.github/labeler.yml` assigns labels based on changed paths (e.g. `aws/`, `azure/`, `generic/`)
+- **Release notes:** `internal_global_pr_changelog_check.yml` fails a pull request to `main` or `stable/*` that does not change `RELEASE-NOTES.md`. Add the change to the matching `## 8.x` section. If the change is not visible to users (CI, tests, internal tooling), add the `no-changelog` label. Pull requests from bots pass without notes.
 - **Renovate:** `.github/renovate.json5` extends `github>camunda/infraex-common-config:default.json5`. This shared config governs scheduling (weekends only, except CVEs), grouping (minor+patch together), automerge, and custom regex managers for non-standard deps (ROSA, Helm chart versions). Update `baseBranchPatterns` when branches are added/removed.
 
 ## Customer-Facing Repo
