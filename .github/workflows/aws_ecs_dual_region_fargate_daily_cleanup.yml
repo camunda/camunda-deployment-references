@@ -102,9 +102,7 @@ jobs:
                   STATE_PREFIX: aws/containers/ecs-dual-region-fargate/
               # Only the Terratest suites' e2e-* clusters: the lifecycle lane's
               # ecsdr-* ones belong to cleanup-lifecycle-lane. The state-prefix
-              # lookup keeps the jobs apart only when the age threshold is above
-              # zero, so a dispatch with 0 would otherwise let both jobs change
-              # the same database's membership at once.
+              # lookup keeps the jobs apart at any age threshold, 0 included.
               run: ./aws/containers/ecs-dual-region-fargate/test/restore-aurora-writers.sh "^e2e-.*-global-db$" "${MAX_AGE_HOURS_CLUSTER}"
 
             - name: Delete stacks

@@ -266,6 +266,27 @@ esac`, "no member in eu-west-2", "0"},
 	}
 }
 
+// An age threshold is read from the state objects. Without their location the
+// gate cannot run, so the sweep must stop instead of touching every stack.
+func TestRestoreAuroraWritersRefusesAnAgeWithoutStatePrefix(t *testing.T) {
+	t.Parallel()
+
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte("#!/usr/bin/env bash\necho \"$*\" >> \"$FAKE_DIR/calls\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "^ecsdr-.*-global-db$", "12")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"REGION_0=eu-west-2", "STATE_BUCKET=b", "STATE_BUCKET_REGION=eu-central-1", "STATE_PREFIX=")
+	out, err := cmd.CombinedOutput()
+	if err == nil || !strings.Contains(string(out), "STATE_PREFIX must be set") {
+		t.Fatalf("want a refusal naming STATE_PREFIX, got %v\n%s", err, out)
+	}
+	if calls, _ := os.ReadFile(filepath.Join(fake, "calls")); len(calls) > 0 {
+		t.Fatalf("called aws before refusing\n%s", calls)
+	}
+}
+
 func TestRestoreAuroraWritersStrictModeReportsFailures(t *testing.T) {
 	t.Parallel()
 
