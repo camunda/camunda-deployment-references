@@ -182,6 +182,13 @@ repos:
             files: ^\.github/scripts/release-stable-branches\.sh$
             pass_filenames: false
 
+          - id: changelog-check-selftest
+            name: Changelog check self-test
+            entry: bash .github/scripts/changelog-check.sh selftest
+            language: system
+            files: ^\.github/scripts/changelog-check\.sh$
+            pass_filenames: false
+
           - id: cleanup-coverage
             name: Daily cleanups cover every test scenario
             entry: .lint/cleanup-coverage/check-cleanup-coverage.py
