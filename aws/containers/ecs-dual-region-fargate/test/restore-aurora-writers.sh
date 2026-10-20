@@ -16,8 +16,11 @@
 #   <min-age-hours>  skip stacks whose newest app or infra state is younger
 #                    than this, in whole hours as the destroy counts them
 # Env: REGION_0 (home region), AWS_PROFILE / AWS_REGION as for the AWS CLI,
-#      STATE_BUCKET, STATE_BUCKET_REGION and STATE_PREFIX when <min-age-hours>
-#      is above 0: the age is the newest LastModified of the stack's
+#      STATE_BUCKET, STATE_BUCKET_REGION and STATE_PREFIX, required when
+#      <min-age-hours> is above 0. Whenever STATE_PREFIX is set, a stack is
+#      only touched if it has an app or infra state under that prefix, whatever
+#      the age, so a sweep never reaches another branch's stacks. The age is
+#      the newest LastModified of the stack's
 #      ${STATE_PREFIX}tfstate-<cluster>[-run<id>]/{app,infra}/terraform.tfstate
 #      objects. The destroy handles app before infra and stops the stack at
 #      the first fresh one, so a fresh app state skips an old infra state.
@@ -56,6 +59,12 @@ if ! [[ "$MIN_AGE_HOURS" =~ ^[0-9]{1,4}$ ]]; then
     failed=true
     done_restoring
 fi
+# The age is read from the state objects, so it needs their location.
+if [ "$MIN_AGE_HOURS" -gt 0 ]; then
+    : "${STATE_BUCKET:?STATE_BUCKET must be set when <min-age-hours> is above 0}"
+    : "${STATE_BUCKET_REGION:?STATE_BUCKET_REGION must be set when <min-age-hours> is above 0}"
+    : "${STATE_PREFIX:?STATE_PREFIX must be set when <min-age-hours> is above 0}"
+fi
 if ! globals=$(aws rds describe-global-clusters --query 'GlobalClusters' --output json); then
     mgmt_err "could not list the Aurora global clusters, terraform destroy may hang."
     failed=true
@@ -66,7 +75,12 @@ while read -r global; do
     id=$(echo "$global" | jq -r .GlobalClusterIdentifier)
     # Decide eligibility first: a young stack must not spend the run budget
     # settling a switchover that the destroy will not act on anyway.
-    if [ "$MIN_AGE_HOURS" -gt 0 ]; then
+    # A prefix-scoped sweep only owns the stacks whose states live under its
+    # STATE_PREFIX, at any age: the identifier filter separates suites, not
+    # branches, and main and stable branches both run ecsdr-<pr> lanes. With a
+    # zero age this gate used to be skipped altogether, so a manual sweep could
+    # move the writer of another branch's live deployment.
+    if [ -n "${STATE_PREFIX:-}" ]; then
         # Gate on the state objects the destroy gates on, not on the cluster's
         # age. The destroy handles app before infra and stops the whole stack
         # at the first fresh one, so the newest of the two decides.
@@ -76,11 +90,11 @@ while read -r global; do
             jq -r --arg re "/tfstate-$cluster(-run[0-9]+)?/(app|infra)/terraform[.]tfstate$" \
             '[.Contents[]? | select(.Key | test($re)) | .LastModified] | max // empty')
         if ! modified_s=$(jq -rn --arg t "$modified" '$t | sub("\\.[0-9]+"; "") | sub("\\+00:00$"; "Z") | fromdateiso8601' 2>/dev/null); then
-            mgmt_log "$id: no readable app or infra state, the destroy skips it too, skipping."
+            mgmt_log "$id: no readable app or infra state under ${STATE_PREFIX}, not this sweep's to touch, skipping."
             continue
         fi
         # Whole hours, as the destroy counts them.
-        if [ $(((now - modified_s) / 3600)) -lt "$MIN_AGE_HOURS" ]; then
+        if [ "$MIN_AGE_HOURS" -gt 0 ] && [ $(((now - modified_s) / 3600)) -lt "$MIN_AGE_HOURS" ]; then
             mgmt_log "$id: state younger than ${MIN_AGE_HOURS}h, skipping."
             continue
         fi
