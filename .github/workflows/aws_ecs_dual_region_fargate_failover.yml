@@ -88,8 +88,9 @@ jobs:
             # enough runs at the same time to exhaust the account's RDS cluster quota.
             # Wait for a slot and for free quota instead of failing at terraform apply.
             # `needs` is per region: four parallel tests, each with its own stack of
-            # one VPC with a single NAT gateway, one ALB, two
-            # NLBs and one Aurora cluster with one instance.
+            # one VPC with a single NAT gateway, one transit gateway (the tests use
+            # transit_gateway networking on this branch), one ALB, two NLBs and one
+            # Aurora cluster with one instance.
             - name: Acquire a capacity slot
               id: capacity
               uses: ./.github/actions/aws-capacity-slot
@@ -103,6 +104,7 @@ jobs:
                       rds-instances=4
                       vpcs=4
                       elastic-ips=4
+                      transit-gateways=4
                       albs=4
                       nlbs=8
 
