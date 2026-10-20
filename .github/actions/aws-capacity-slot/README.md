@@ -13,8 +13,8 @@ Bounds how many runs of a suite hold AWS resources at the same time. `acquire` w
 | `pool` | <p>Pool name. Runs sharing a pool share its slots.</p> | `true` | `""` |
 | `slots` | <p>Number of runs allowed to hold the pool at the same time.</p> | `false` | `3` |
 | `slot-key` | <p>Slot to free, from the <code>slot-key</code> output of <code>acquire</code>. Release mode only. When empty, <code>release</code> frees the slot this run and <code>leg</code> hold, so a separate cleanup job can call it.</p> | `false` | `""` |
-| `bucket` | <p>S3 bucket holding the slots, under <code>ci-locks/&lt;pool&gt;/</code>.</p> | `true` | `""` |
-| `bucket-region` | <p>Region of the bucket.</p> | `true` | `""` |
+| `bucket` | <p>S3 bucket holding the slots, under <code>ci-locks/&lt;pool&gt;/</code>. Keep the default: suites only see each other's reservations in the same bucket.</p> | `false` | `tests-ra-aws-rosa-hcp-tf-state-eu-central-1` |
+| `bucket-region` | <p>Region of the bucket.</p> | `false` | `eu-central-1` |
 | `lease-minutes` | <p>Lease of a slot. A run that dies without releasing frees its slot after this delay. Must cover the whole job.</p> | `false` | `360` |
 | `wait-minutes` | <p>How long <code>acquire</code> waits for capacity before failing.</p> | `false` | `45` |
 | `regions` | <p>Space-separated regions to check for free quota. Empty skips the check.</p> | `false` | `""` |
@@ -65,16 +65,16 @@ This action is a `composite` action.
     # Default: ""
 
     bucket:
-    # S3 bucket holding the slots, under `ci-locks/<pool>/`.
+    # S3 bucket holding the slots, under `ci-locks/<pool>/`. Keep the default: suites only see each other's reservations in the same bucket.
     #
-    # Required: true
-    # Default: ""
+    # Required: false
+    # Default: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
 
     bucket-region:
     # Region of the bucket.
     #
-    # Required: true
-    # Default: ""
+    # Required: false
+    # Default: eu-central-1
 
     lease-minutes:
     # Lease of a slot. A run that dies without releasing frees its slot after this delay. Must cover the whole job.

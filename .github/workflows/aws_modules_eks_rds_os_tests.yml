@@ -163,8 +163,6 @@ jobs:
                   mode: acquire
                   pool: aws-modules-eks-rds-os
                   slots: '21'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   regions: ${{ env.AWS_REGION }}
                   lease-minutes: '720'
                   leg: ${{ matrix.test_function }}
@@ -321,8 +319,6 @@ jobs:
               env:
                   POOL: aws-modules-eks-rds-os
                   SLOTS: '21'
-                  BUCKET: ${{ env.S3_BACKEND_BUCKET }}
-                  BUCKET_REGION: ${{ env.S3_BUCKET_REGION }}
                   RUN_PREFIX: ${{ github.repository }}/${{ github.run_id }}
                   TEST_FUNCTIONS: ${{ needs.configure-tests.outputs.test_functions }}
               run: |

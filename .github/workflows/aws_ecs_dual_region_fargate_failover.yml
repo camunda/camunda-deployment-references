@@ -97,8 +97,6 @@ jobs:
                   mode: acquire
                   pool: ecs-dual-region-failover
                   slots: '3'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BACKEND_REGION }}
                   regions: eu-west-2 eu-west-3
                   needs: |
                       rds-clusters=4
@@ -189,5 +187,3 @@ jobs:
                   mode: release
                   pool: ecs-dual-region-failover
                   slot-key: ${{ steps.capacity.outputs.slot-key }}
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BACKEND_REGION }}

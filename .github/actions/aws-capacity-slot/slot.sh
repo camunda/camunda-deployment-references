@@ -16,7 +16,11 @@
 # usage.
 set -euo pipefail
 
-: "${BUCKET:?}" "${BUCKET_REGION:?}" "${POOL:?}" "${OWNER:?}"
+# One lock bucket for every suite, whatever bucket holds its Terraform state:
+# reservations are only visible to runs that scan the same bucket.
+BUCKET=${BUCKET:-tests-ra-aws-rosa-hcp-tf-state-eu-central-1}
+BUCKET_REGION=${BUCKET_REGION:-eu-central-1}
+: "${POOL:?}" "${OWNER:?}"
 prefix="ci-locks/${POOL}"
 scratch=$(mktemp -d)
 slot_key=''
@@ -150,12 +154,24 @@ room() {
 # not show them. Each slot carries the regions and needs of its run.
 # shortcut: a fixed provisioning window; a run slower than it counts only
 # through its real usage. Record per-run progress if that ever bites.
+# Prints the keys under prefix $1. A failed listing stops the run: inside a
+# `for` word list it would read as "no keys" and skip the reservations.
+list_keys() {
+    local out
+    out=$(s3 list-objects-v2 --prefix "$1" --query 'Contents[].Key' --output json 2>"$scratch/err") || {
+        cat "$scratch/err" >&2
+        echo "::error::Could not list s3://${BUCKET}/$1" >&2
+        exit 1
+    }
+    jq -r '.[]? // empty' <<<"$out"
+}
+
 pending_slots() {
-    local key now
+    local key keys now
     now=$(date +%s)
     : >"$scratch/pending"
-    for key in $(s3 list-objects-v2 --prefix "ci-locks/" --query 'Contents[].Key' --output json |
-        jq -r '.[]? // empty'); do
+    keys=$(list_keys "ci-locks/") || exit 1
+    for key in $keys; do
         [[ "$key" == "$slot_key" ]] && continue
         read_slot "$key" || continue
         jq -c --argjson now "$now" --argjson window $((PROVISION_MINUTES * 60)) \
@@ -232,12 +248,12 @@ acquire() {
 }
 
 release() {
-    local key
+    local key keys
     # A cleanup job other than the acquiring one has no slot-key output: find
     # the slot by owner, over every key of the pool whatever its size.
     if [[ -z "${SLOT_KEY:-}" ]]; then
-        for key in $(s3 list-objects-v2 --prefix "$prefix/" --query 'Contents[].Key' --output json |
-            jq -r '.[]? // empty'); do
+        keys=$(list_keys "$prefix/") || exit 1
+        for key in $keys; do
             if read_slot "$key" && [[ "$(jq -r .owner "$scratch/current")" == "$OWNER" ]]; then
                 SLOT_KEY=$key
                 break
