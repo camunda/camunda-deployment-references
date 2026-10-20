@@ -84,6 +84,13 @@ case "$*" in
   *describe-global-clusters*)
     echo '[{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false}]' ;;
   *list-services*) echo "svc-oc" ;;
+  *describe-services*) echo '{"taskDefinition":"td","networkConfiguration":{},"runningCount":0}' ;;
+  *describe-task-definition*)
+    echo '{"family":"f","volumes":[{"name":"camunda-volume"}],"containerDefinitions":[{"name":"orchestration-cluster","image":"i","mountPoints":[{"sourceVolume":"camunda-volume"}]}]}' ;;
+  *register-task-definition*) echo wipe-td ;;
+  # The data must be gone before any broker of the zone starts again.
+  *run-task*) [ ! -f "$FAKE_DIR/scaledup" ] && touch "$FAKE_DIR/wiped"; echo task ;;
+  *describe-tasks*) echo 0 ;;
   *update-service*) touch "$FAKE_DIR/scaledup" ;;
   *failover-global-cluster*) echo PROMOTED >&2 ;;
   *describe-db-clusters*) echo available ;;
@@ -117,6 +124,9 @@ if [ -f "$FAKE_DIR/scaledup" ]; then cat "$FAKE_DIR/restored.json"; else cat "$F
 			// Then
 			if (err != nil) != tc.wantError || !strings.Contains(string(out), tc.want) {
 				t.Fatalf("got %v, wantError=%t, missing %q\n%s", err, tc.wantError, tc.want, out)
+			}
+			if _, err := os.Stat(filepath.Join(fake, "wiped")); err != nil {
+				t.Fatalf("primary storage was not wiped before the scale-up (#3766)\n%s", out)
 			}
 		})
 	}

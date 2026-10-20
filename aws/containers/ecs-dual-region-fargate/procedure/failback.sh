@@ -6,7 +6,8 @@
 # Restores balanced dual-region operation after ./failover.sh:                 #
 #   1. Prints the topology before the change                                  #
 #   2. Ensures the recovered region is an Aurora Global DB member             #
-#   3. Scales the recovered region's ECS services back up                     #
+#   3. Scales the recovered region's ECS services back up, after wiping its   #
+#      stale primary storage on EFS while the zone is absent                  #
 #   4. Waits for its brokers to rejoin cluster membership                     #
 #   5. Re-adds the zone via POST /actuator/cluster/zones/{zoneId}             #
 #   6. Polls the change to COMPLETED and verifies partitions are hosted       #
@@ -126,6 +127,54 @@ get_global_cluster_members() {
     }
 }
 
+# Empties the recovered region's EFS primary storage with a one-off task that
+# reuses the orchestration-cluster task definition's image, roles, network and
+# EFS volume, so it needs no extra infrastructure.
+wipe_primary_storage() {
+    local service svc td_arn network running wipe_def wipe_arn task_arn exit_code
+    # shellcheck disable=SC2016 # backticks are a JMESPath literal
+    service=$(aws ecs list-services --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+        --query 'serviceArns[?ends_with(@, `-orchestration-cluster`)] | [0]' --output text)
+    svc=$(aws ecs describe-services --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+        --services "${service}" --query 'services[0]' --output json)
+    td_arn=$(echo "${svc}" | jq -r '.taskDefinition')
+    network=$(echo "${svc}" | jq -c '.networkConfiguration')
+    running=$(echo "${svc}" | jq -r '.runningCount')
+    if [ "${running}" != "0" ]; then
+        err "${service##*/} still runs ${running} task(s); scale it to 0 before failback."
+        exit 1
+    fi
+
+    log "  Wiping primary storage of ${RECOVERED_ZONE} (stale Raft state from before failover)..."
+    wipe_def=$(aws ecs describe-task-definition --region "${RECOVERED_AWS_REGION}" \
+        --task-definition "${td_arn}" --query 'taskDefinition' --output json | jq -c '
+        {family: (.family + "-wipe"), taskRoleArn, executionRoleArn, networkMode,
+         requiresCompatibilities, cpu, memory, runtimePlatform,
+         volumes: [.volumes[] | select(.name == "camunda-volume")],
+         containerDefinitions: [.containerDefinitions[] | select(.name == "orchestration-cluster")
+           | {name, image, essential: true, logConfiguration, repositoryCredentials,
+              mountPoints: [.mountPoints[] | select(.sourceVolume == "camunda-volume")],
+              entryPoint: ["sh", "-c"],
+              command: ["find /usr/local/camunda/data -mindepth 1 -delete"]}
+           | with_entries(select(.value != null))]}
+        | with_entries(select(.value != null))')
+    wipe_arn=$(aws ecs register-task-definition --region "${RECOVERED_AWS_REGION}" \
+        --cli-input-json "${wipe_def}" --query 'taskDefinition.taskDefinitionArn' --output text)
+    task_arn=$(aws ecs run-task --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+        --launch-type FARGATE --task-definition "${wipe_arn}" --network-configuration "${network}" \
+        --query 'tasks[0].taskArn' --output text)
+    aws ecs wait tasks-stopped --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" --tasks "${task_arn}"
+    exit_code=$(aws ecs describe-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+        --tasks "${task_arn}" --query 'tasks[0].containers[0].exitCode' --output text)
+    aws ecs deregister-task-definition --region "${RECOVERED_AWS_REGION}" \
+        --task-definition "${wipe_arn}" --no-cli-pager > /dev/null
+    if [ "${exit_code}" != "0" ]; then
+        err "Wiping primary storage failed (exit code ${exit_code}); see task ${task_arn}."
+        exit 1
+    fi
+    log "  Primary storage of ${RECOVERED_ZONE} wiped."
+}
+
 ###############################################################################
 # Step 0: Pre-flight                                                          #
 ###############################################################################
@@ -236,6 +285,32 @@ else
     if [ -z "${SERVICES}" ]; then
         err "No ECS services found in ${RECOVERED_CLUSTER}."
         exit 1
+    fi
+fi
+
+# The recovered brokers must rejoin with empty primary storage, as the
+# multi-region operations guide requires ("its brokers start empty"). Their EFS
+# still holds the Raft state from before the force-removal; from 8.11 on, a
+# promotable member that installs a snapshot falls back to that stale stored
+# configuration and PARTITION_PROMOTE never completes (#3766). Only wiped while
+# the zone is absent from the partition distribution, so a re-run after a
+# successful re-add cannot destroy live replicas.
+if [ -n "${SERVICES}" ]; then
+    if ! mgmt_tunnel_open "${SURVIVING_AWS_REGION}" "${SURVIVING_CLUSTER}" \
+                          "${SURVIVING_PREFIX}" "${AWS_PROFILE:-}"; then
+        err "Could not open a tunnel to the management API to check zone ${RECOVERED_ZONE}."
+        exit 1
+    fi
+    PRE_ZONE_STATE=0
+    mgmt_zone_present "${RECOVERED_ZONE}" || PRE_ZONE_STATE=$?
+    mgmt_tunnel_close
+    if [ "${PRE_ZONE_STATE}" -eq 2 ]; then
+        err "Could not read the partition distribution; refusing to touch ${RECOVERED_ZONE} data."
+        exit 1
+    elif [ "${PRE_ZONE_STATE}" -eq 1 ]; then
+        wipe_primary_storage
+    else
+        log "  Zone ${RECOVERED_ZONE} is still in the partition distribution — keeping its data."
     fi
 fi
 
