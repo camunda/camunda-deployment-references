@@ -12,15 +12,16 @@ Bounds how many runs of a suite hold AWS resources at the same time. `acquire` w
 | `mode` | <p><code>acquire</code> or <code>release</code>.</p> | `true` | `""` |
 | `pool` | <p>Pool name. Runs sharing a pool share its slots.</p> | `true` | `""` |
 | `slots` | <p>Number of runs allowed to hold the pool at the same time.</p> | `false` | `3` |
-| `slot-key` | <p>Slot to free, from the <code>slot-key</code> output of <code>acquire</code>. Release mode only.</p> | `false` | `""` |
+| `slot-key` | <p>Slot to free, from the <code>slot-key</code> output of <code>acquire</code>. Release mode only. When empty, <code>release</code> frees the slot this run and <code>leg</code> hold, so a separate cleanup job can call it.</p> | `false` | `""` |
 | `bucket` | <p>S3 bucket holding the slots, under <code>ci-locks/&lt;pool&gt;/</code>.</p> | `true` | `""` |
 | `bucket-region` | <p>Region of the bucket.</p> | `true` | `""` |
 | `lease-minutes` | <p>Lease of a slot. A run that dies without releasing frees its slot after this delay. Must cover the whole job.</p> | `false` | `360` |
 | `wait-minutes` | <p>How long <code>acquire</code> waits for capacity before failing.</p> | `false` | `45` |
 | `regions` | <p>Space-separated regions to check for free quota. Empty skips the check.</p> | `false` | `""` |
-| `needs` | <p>What one run creates in each region of <code>regions</code>, one <code>&lt;resource&gt;=&lt;count&gt;</code> per line. Resources: <code>rds-clusters</code>, <code>rds-instances</code>, <code>vpcs</code>, <code>elastic-ips</code>, <code>transit-gateways</code>, <code>albs</code>, <code>nlbs</code>.</p> | `false` | `""` |
-| `provision-minutes` | <p>How long after admission a run may still be creating its resources. Until then, its <code>needs</code> are reserved on top of the current usage when another run is admitted.</p> | `false` | `45` |
+| `needs` | <p>What one run creates in each region of <code>regions</code>, one <code>&lt;resource&gt;=&lt;count&gt;</code> per line. Resources: <code>rds-clusters</code>, <code>rds-instances</code>, <code>vpcs</code>, <code>elastic-ips</code>, <code>transit-gateways</code>, <code>albs</code>, <code>nlbs</code>, <code>eks-clusters</code>, <code>opensearch-domains</code>.</p> | `false` | `""` |
+| `provision-minutes` | <p>How long after admission a run may still be creating its resources. Until then, its <code>needs</code> are reserved on top of the current usage when another run is admitted, in every pool, so suites sharing a region see each other.</p> | `false` | `45` |
 | `margin` | <p>Units of each quota to keep free for other suites sharing the account.</p> | `false` | `2` |
+| `leg` | <p>Tells apart the holders of one run: matrix legs, or jobs sharing a pool. The owner is the run id plus this value, so <code>release</code> may run in a later job of the same run. Pass the same value to <code>acquire</code> and <code>release</code>.</p> | `false` | `""` |
 
 
 ## Outputs
@@ -58,7 +59,7 @@ This action is a `composite` action.
     # Default: 3
 
     slot-key:
-    # Slot to free, from the `slot-key` output of `acquire`. Release mode only.
+    # Slot to free, from the `slot-key` output of `acquire`. Release mode only. When empty, `release` frees the slot this run and `leg` hold, so a separate cleanup job can call it.
     #
     # Required: false
     # Default: ""
@@ -94,13 +95,13 @@ This action is a `composite` action.
     # Default: ""
 
     needs:
-    # What one run creates in each region of `regions`, one `<resource>=<count>` per line. Resources: `rds-clusters`, `rds-instances`, `vpcs`, `elastic-ips`, `transit-gateways`, `albs`, `nlbs`.
+    # What one run creates in each region of `regions`, one `<resource>=<count>` per line. Resources: `rds-clusters`, `rds-instances`, `vpcs`, `elastic-ips`, `transit-gateways`, `albs`, `nlbs`, `eks-clusters`, `opensearch-domains`.
     #
     # Required: false
     # Default: ""
 
     provision-minutes:
-    # How long after admission a run may still be creating its resources. Until then, its `needs` are reserved on top of the current usage when another run is admitted.
+    # How long after admission a run may still be creating its resources. Until then, its `needs` are reserved on top of the current usage when another run is admitted, in every pool, so suites sharing a region see each other.
     #
     # Required: false
     # Default: 45
@@ -110,4 +111,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 2
+
+    leg:
+    # Tells apart the holders of one run: matrix legs, or jobs sharing a pool. The owner is the run id plus this value, so `release` may run in a later job of the same run. Pass the same value to `acquire` and `release`.
+    #
+    # Required: false
+    # Default: ""
 ```
