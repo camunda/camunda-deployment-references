@@ -13,7 +13,8 @@ on:
             - main
             - stable/**
         # labeled / unlabeled: adding or removing `no-changelog` re-runs the check.
-        types: [opened, synchronize, reopened, labeled, unlabeled]
+        # edited: a new base branch changes what the check compares against.
+        types: [opened, synchronize, reopened, edited, labeled, unlabeled]
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,6 +41,7 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
                   PR_NUMBER: ${{ github.event.pull_request.number }}
+                  PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
                   PR_USER_TYPE: ${{ github.event.pull_request.user.type }}
                   PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
               run: bash .github/scripts/changelog-check.sh check

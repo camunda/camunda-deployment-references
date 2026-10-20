@@ -6,7 +6,7 @@ set -euo pipefail
 # .github/workflows/internal_global_pr_changelog_check.yml.
 #
 # Usage:
-#   changelog-check.sh check       # reads PR_USER_TYPE, PR_LABELS (JSON), PR_NUMBER, GITHUB_REPOSITORY
+#   changelog-check.sh check       # reads PR_USER_TYPE, PR_LABELS (JSON), PR_NUMBER, PR_BASE_SHA, GITHUB_REPOSITORY
 #   changelog-check.sh selftest
 
 SKIP_LABEL="no-changelog"
@@ -73,7 +73,16 @@ selftest() {
 
 check() {
     local files decision present=false
-    [[ -f "$NOTES" ]] && present=true
+    # The checkout is the merge commit, which no longer has the file when the
+    # pull request moves or deletes it: ask the base commit instead. Only a
+    # 404 means "no notes"; any other API error stops the check.
+    local err
+    if err=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${NOTES}?ref=${PR_BASE_SHA}" --silent 2>&1); then
+        present=true
+    elif [[ "$err" != *"HTTP 404"* ]]; then
+        echo "::error::cannot read ${NOTES} at ${PR_BASE_SHA}: ${err}" >&2
+        return 1
+    fi
     files=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" --jq '.[].filename')
     decision=$(changelog_decision "$PR_USER_TYPE" "$PR_LABELS" "$present" <<<"$files")
     echo "$decision"
