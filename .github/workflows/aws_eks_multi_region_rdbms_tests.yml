@@ -16,6 +16,7 @@ on:
         paths:
             - .github/workflows/aws_eks_multi_region_rdbms_tests.yml
             - .github/actions/aws-kubernetes-eks-multi-region-rdbms-create/**
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/internal-debug-failed-pods/**
@@ -103,7 +104,8 @@ jobs:
         needs: [triage, clusters-info]
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
-        timeout-minutes: 300
+        # 300 for the job itself, plus up to 45 waiting for a capacity slot.
+        timeout-minutes: 345
         strategy:
             fail-fast: false
             matrix: ${{ fromJson(needs.clusters-info.outputs.platform-matrix) }}
@@ -134,6 +136,30 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region: one VPC with a NAT gateway, one transit gateway, one EKS cluster and
+            # one Aurora cluster with one instance. The test later activates the spare region eu-central-2,
+            # which holds no Aurora member, so the list over-reserves there on purpose.
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: aws-eks-multi-region-rdbms
+                  slots: '3'
+                  bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  regions: eu-west-2 eu-west-3 eu-central-2
+                  lease-minutes: '720'
+                  leg: ${{ matrix.distro.name }}
+                  needs: |
+                      rds-clusters=1
+                      rds-instances=1
+                      vpcs=1
+                      elastic-ips=1
+                      transit-gateways=1
+                      eks-clusters=1
 
             - name: Set current target branch
               id: target-branch
@@ -432,6 +458,17 @@ jobs:
                   # is then the expected outcome and must not fail the job a
                   # second time, masking the original error.
                   fail-on-not-found: 'false'
+
+            # Last, so the slot is held until this run's resources are gone.
+            - name: Release the capacity slot
+              if: always()
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: aws-eks-multi-region-rdbms
+                  bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  leg: ${{ matrix.distro.name }}
 
     report-failure:
         if: failure() && github.event_name == 'schedule'

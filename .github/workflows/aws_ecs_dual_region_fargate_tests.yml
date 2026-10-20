@@ -40,6 +40,7 @@ on:
         paths:
             - .github/actions/aws-containers-ecs-dual-region-fargate-create/**
             - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-debug-failed-ecs-tasks/**
@@ -151,7 +152,8 @@ jobs:
         runs-on: ubuntu-latest
         needs: [triage]
         if: needs.triage.outputs.should_skip == 'false'
-        timeout-minutes: 180
+        # 180 for the job itself, plus up to 45 waiting for a capacity slot.
+        timeout-minutes: 225
         env:
             CLUSTER_NAME: ${{ needs.triage.outputs.cluster_name }}
         steps:
@@ -167,6 +169,28 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region: one VPC with a single NAT gateway, one ALB, two NLBs and one
+            # Aurora cluster with one instance.
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: aws-ecs-dual-region-fargate
+                  slots: '3'
+                  bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  bucket-region: ${{ env.S3_BUCKET_REGION }}
+                  regions: ${{ env.REGION_0 }} ${{ env.REGION_1 }}
+                  lease-minutes: '720'
+                  needs: |
+                      rds-clusters=1
+                      rds-instances=1
+                      vpcs=1
+                      elastic-ips=1
+                      albs=1
+                      nlbs=2
 
             - name: Install session-manager-plugin
               uses: ./.github/actions/internal-install-session-manager-plugin
@@ -481,6 +505,16 @@ jobs:
                   tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate
                   cleanup-regions: ${{ env.REGION_0 }} ${{ env.REGION_1 }}
                   fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
+
+            # Last, so the slot is held until this run's resources are gone.
+            - name: Release the capacity slot
+              if: always() && env.DELETE_CLUSTERS == 'true'
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: aws-ecs-dual-region-fargate
+                  bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  bucket-region: ${{ env.S3_BUCKET_REGION }}
 
     report-success:
         name: Report success
