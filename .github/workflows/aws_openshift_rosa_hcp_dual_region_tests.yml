@@ -185,8 +185,6 @@ jobs:
                   mode: acquire
                   pool: aws-openshift-rosa-hcp-dual-region
                   slots: '3'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   regions: ${{ env.CLUSTER_0_AWS_REGION }} ${{ env.CLUSTER_1_AWS_REGION }}
                   lease-minutes: '720'
                   leg: ${{ matrix.distro.name }}
@@ -1038,8 +1036,6 @@ jobs:
               with:
                   mode: release
                   pool: aws-openshift-rosa-hcp-dual-region
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   leg: ${{ matrix.distro.name }}
     report-success:
         name: Report success

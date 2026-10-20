@@ -186,8 +186,6 @@ jobs:
                   mode: acquire
                   pool: aws-modules-eks-rds-os-create-destruct
                   slots: '3'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   regions: ${{ env.AWS_REGION }}
                   needs: |
                       rds-clusters=1
@@ -357,12 +355,11 @@ jobs:
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}
 
             # Last, so the slot is held until this run's resources are gone.
+            # Same condition as Delete Resources: kept resources keep their slot until the lease expires.
             - name: Release the capacity slot
-              if: always()
+              if: always() && !(github.event_name == 'workflow_dispatch' && inputs.delete_cluster == 'false')
               uses: ./.github/actions/aws-capacity-slot
               with:
                   mode: release
                   pool: aws-modules-eks-rds-os-create-destruct
                   slot-key: ${{ steps.capacity.outputs.slot-key }}
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}

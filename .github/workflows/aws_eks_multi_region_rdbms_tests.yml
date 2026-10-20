@@ -148,8 +148,6 @@ jobs:
                   mode: acquire
                   pool: aws-eks-multi-region-rdbms
                   slots: '3'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   regions: eu-west-2 eu-west-3 eu-central-2
                   lease-minutes: '720'
                   leg: ${{ matrix.distro.name }}
@@ -466,8 +464,6 @@ jobs:
               with:
                   mode: release
                   pool: aws-eks-multi-region-rdbms
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   leg: ${{ matrix.distro.name }}
 
     report-failure:

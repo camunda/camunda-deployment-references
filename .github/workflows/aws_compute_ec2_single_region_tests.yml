@@ -153,8 +153,6 @@ jobs:
                   mode: acquire
                   pool: aws-compute-ec2-single-region
                   slots: '6'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   regions: ${{ env.AWS_REGION }}
                   lease-minutes: '720'
                   leg: ${{ matrix.distro.name }}
@@ -421,8 +419,6 @@ jobs:
               with:
                   mode: release
                   pool: aws-compute-ec2-single-region
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   leg: ${{ matrix.distro.name }}
 
     test-report:

@@ -24,11 +24,13 @@ inputs:
             `release` frees the slot this run and `leg` hold, so a separate cleanup job can call it.
         default: ''
     bucket:
-        description: S3 bucket holding the slots, under `ci-locks/<pool>/`.
-        required: true
+        description: >
+            S3 bucket holding the slots, under `ci-locks/<pool>/`. Keep the default: suites only see
+            each other's reservations in the same bucket.
+        default: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     bucket-region:
         description: Region of the bucket.
-        required: true
+        default: eu-central-1
     lease-minutes:
         description: >
             Lease of a slot. A run that dies without releasing frees its slot after this delay.

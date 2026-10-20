@@ -180,8 +180,6 @@ jobs:
                   mode: acquire
                   pool: aws-ecs-dual-region-fargate
                   slots: '3'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   regions: ${{ env.REGION_0 }} ${{ env.REGION_1 }}
                   lease-minutes: '720'
                   needs: |
@@ -513,8 +511,6 @@ jobs:
               with:
                   mode: release
                   pool: aws-ecs-dual-region-fargate
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
 
     report-success:
         name: Report success

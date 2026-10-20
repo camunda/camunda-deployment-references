@@ -176,8 +176,6 @@ jobs:
                   mode: acquire
                   pool: aws-ecs-single-region-fargate-load
                   slots: '3'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   regions: ${{ env.AWS_REGION }}
                   lease-minutes: '720'
                   leg: ${{ matrix.scenario.name }}
@@ -461,8 +459,6 @@ jobs:
               with:
                   mode: release
                   pool: aws-ecs-single-region-fargate-load
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   leg: ${{ matrix.scenario.name }}
 
     report-success:

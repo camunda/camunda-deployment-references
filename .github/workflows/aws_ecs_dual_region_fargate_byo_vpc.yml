@@ -70,8 +70,6 @@ jobs:
                   mode: acquire
                   pool: aws-ecs-dual-region-fargate-byo-vpc
                   slots: '3'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BACKEND_REGION }}
                   regions: eu-west-2 eu-west-3
                   needs: |
                       rds-clusters=1
@@ -133,5 +131,3 @@ jobs:
                   mode: release
                   pool: aws-ecs-dual-region-fargate-byo-vpc
                   slot-key: ${{ steps.capacity.outputs.slot-key }}
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BACKEND_REGION }}

@@ -180,8 +180,6 @@ jobs:
                   mode: acquire
                   pool: aws-kubernetes-eks-dual-region
                   slots: '3'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   regions: ${{ env.CLUSTER_0_AWS_REGION }} ${{ env.CLUSTER_1_AWS_REGION }}
                   lease-minutes: '720'
                   leg: ${{ matrix.scenario.name }}
@@ -626,14 +624,13 @@ jobs:
                   CLUSTER_1_AWS_REGION: eu-west-3
 
             # Last, so the slot is held until this run's resources are gone.
+            # Same condition as the teardown: a kept cluster keeps its slot until the lease expires.
             - name: Release the capacity slot
-              if: always()
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
               uses: ./.github/actions/aws-capacity-slot
               with:
                   mode: release
                   pool: aws-kubernetes-eks-dual-region
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   leg: ${{ matrix.scenario.name }}
 
     report-success:

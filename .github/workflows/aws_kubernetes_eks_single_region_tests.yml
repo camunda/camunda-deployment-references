@@ -201,8 +201,6 @@ jobs:
                   mode: acquire
                   pool: aws-kubernetes-eks-single-region
                   slots: '9'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   regions: ${{ env.AWS_REGION }}
                   lease-minutes: '720'
                   leg: ${{ matrix.scenario.name }}
@@ -1236,8 +1234,6 @@ jobs:
               with:
                   mode: release
                   pool: aws-kubernetes-eks-single-region
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BUCKET_REGION }}
                   leg: ${{ matrix.scenario.name }}
 
     report-success:

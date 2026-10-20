@@ -41,6 +41,7 @@ case "$svc $op" in
     [[ -z "$ifmatch" || "$(etag)" == "$ifmatch" ]] || { echo PreconditionFailed >&2; exit 1; }
     rm -f "$f" "$f.key" ;;
 "s3api list-objects-v2")
+    [[ -z "${FAKE_LIST_FAIL:-}" ]] || { echo AccessDenied >&2; exit 1; }
     cat "$FAKE_S3"/*.key 2>/dev/null | jq -R -s --arg p "$prefix" 'split("\n") | map(select(. != "" and startswith($p)))' ||
         echo '[]' ;;
 "service-quotas get-service-quota") echo "$FAKE_QUOTA" ;;
@@ -87,6 +88,11 @@ _expect "release by owner leaves other legs alone" \
     "$(jq -r .owner "$FAKE_S3"/ci-locks_d_slot-0)" run-d/leg1
 _expect "a rerun of the same leg renews its slot" \
     "$(POOL=d OWNER=run-d/leg1 REGIONS='' NEEDS='' run; slots_of d)" $'acquired\n1'
+
+_expect "a failed listing refuses admission" \
+    "$(FAKE_LIST_FAIL=1 POOL=f OWNER=run-f REGIONS=eu-west-2 NEEDS=$'vpcs=1' run)" refused
+_expect "a failed listing fails release by owner" \
+    "$(FAKE_LIST_FAIL=1 POOL=d OWNER=run-d/leg1 SLOT_KEY='' "$here/slot.sh" release >/dev/null 2>&1; echo $?)" 1
 
 echo "${failures} failure(s)"
 [[ "$failures" -eq 0 ]]

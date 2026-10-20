@@ -14,7 +14,9 @@ on:
     workflow_dispatch:
         inputs:
             test_name:
-                description: Which test to run (empty = all)
+                description: >-
+                    Greenfield tests to run, separated by | (default = both): TestEndToEnd_Greenfield_TGW_RDBMS,
+                    TestEndToEnd_Greenfield_VpcPeering_OpenSearch
                 required: false
                 default: ''
                 type: string
@@ -95,8 +97,6 @@ jobs:
                   mode: acquire
                   pool: aws-ecs-dual-region-fargate-integration
                   slots: '3'
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BACKEND_REGION }}
                   regions: eu-west-2 eu-west-3
                   needs: |
                       rds-clusters=1
@@ -130,12 +130,15 @@ jobs:
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
               run: |
                   set -e
-                  TEST_FILTER="${INPUTS_TEST_NAME}"
-                  if [[ -z "$TEST_FILTER" ]]; then
-                      go test -v -timeout 150m -run 'TestEndToEnd_Greenfield_' ./...
-                  else
-                      go test -v -timeout 150m -run "$TEST_FILTER" ./...
+                  # The capacity slot reserves the stacks of these two tests only, so a
+                  # dispatch may pick among them but not widen the run to other tests.
+                  tests='TestEndToEnd_Greenfield_TGW_RDBMS|TestEndToEnd_Greenfield_VpcPeering_OpenSearch'
+                  TEST_FILTER="${INPUTS_TEST_NAME:-$tests}"
+                  if [[ ! "$TEST_FILTER" =~ ^($tests)(\|($tests))*$ ]]; then
+                      echo "::error::test_name must be one or more of ${tests}, separated by |."
+                      exit 1
                   fi
+                  go test -v -timeout 150m -run "^(${TEST_FILTER})\$" ./...
 
             # t.Cleanup destroys each stack when the tests end normally. It does not run
             # when go test times out or the job is cancelled, so reclaim this run's
@@ -167,5 +170,3 @@ jobs:
                   mode: release
                   pool: aws-ecs-dual-region-fargate-integration
                   slot-key: ${{ steps.capacity.outputs.slot-key }}
-                  bucket: ${{ env.S3_BACKEND_BUCKET }}
-                  bucket-region: ${{ env.S3_BACKEND_REGION }}
