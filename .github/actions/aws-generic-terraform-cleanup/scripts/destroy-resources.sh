@@ -856,9 +856,16 @@ EOF
 # resource_owner gives the name prefix of a group's AWS resources. The ECS
 # dual-region Terratest groups are `<prefix>-run<id>`, but their VPCs are named
 # `<prefix>-r0-vpc` or `<prefix>-byo-r0`. The prefix already carries the run
-# id, so dropping the suffix keeps the ownership boundary.
+# id, so dropping the suffix keeps the ownership boundary. Only a `run<id>/`
+# target says the suffix is synthetic: a literal cluster name or the daily
+# sweep can end in `-run<id>` too, and keep their full name.
 resource_owner() {
-  printf '%s' "$1" | sed -E 's/-run[0-9]+$//'
+  local run="${ID_OR_ALL%/}"
+  if [[ "$run" =~ ^run[0-9]+$ && "$1" == *"-$run" ]]; then
+    printf '%s' "${1%-"$run"}"
+  else
+    printf '%s' "$1"
+  fi
 }
 
 select_target_groups() {
