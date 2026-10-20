@@ -1,0 +1,47 @@
+---
+name: Internal - Global - PR changelog check
+
+# Fails a pull request that does not update RELEASE-NOTES.md, unless it has the
+# `no-changelog` label or a bot opened it. A changed `## 8.x` section is what
+# triggers the automatic stable-branch release (MAINTENANCE.md, step 12).
+# The check runs from the base branch's copy of this file, so a stable branch
+# only gets it once the file is backported there.
+
+on:
+    pull_request:
+        branches:
+            - main
+            - stable/**
+        # labeled / unlabeled: adding or removing `no-changelog` re-runs the check.
+        # edited: a new base branch changes what the check compares against.
+        types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+    pull-requests: read
+
+jobs:
+    changelog:
+        name: RELEASE-NOTES.md updated
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  persist-credentials: false
+
+            - name: Self-test
+              run: bash .github/scripts/changelog-check.sh selftest
+
+            - name: Check
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+                  PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+                  PR_USER_TYPE: ${{ github.event.pull_request.user.type }}
+                  PR_LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+              run: bash .github/scripts/changelog-check.sh check
