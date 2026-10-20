@@ -163,6 +163,53 @@ esac
 	}
 }
 
+// An erroring state listing used to be read as "no state under the prefix":
+// every stack was skipped as not this sweep's and the run exited 0, so a
+// daily cleanup pointed at the wrong bucket, or without access to it, stayed
+// green while restoring nothing. It now fails the run, outside strict mode
+// too, with one annotation naming the cause, and still moves no writer.
+func TestRestoreAuroraWritersFailsWhenStatesCannotBeListed(t *testing.T) {
+	t.Parallel()
+
+	const aws = `#!/usr/bin/env bash
+echo "$*" >> "$FAKE_DIR/calls"
+case "$*" in
+  *list-objects-v2*)
+    echo "An error occurred (AccessDenied) when calling the ListObjectsV2 operation: Access Denied" >&2
+    exit 254 ;;
+  *failover-global-cluster*) touch "$FAKE_DIR/switched" ;;
+  *describe-global-clusters*)
+    echo '[
+      {"GlobalClusterIdentifier":"ecsdr-3595-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]},
+      {"GlobalClusterIdentifier":"ecsdr-3600-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:c","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:d","IsWriter":true}]}
+    ]' ;;
+esac
+`
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(aws), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "^ecsdr-.*-global-db$", "0")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0",
+		"STATE_BUCKET=b", "STATE_BUCKET_REGION=eu-central-1", "STATE_PREFIX=p/main/")
+	out, err := cmd.CombinedOutput()
+	calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
+
+	if err == nil {
+		t.Fatalf("want a failing run when the states cannot be listed, got exit 0\n%s", out)
+	}
+	if !strings.Contains(string(out), "AccessDenied") {
+		t.Fatalf("want the AWS error in the log, so the cause is visible\n%s", out)
+	}
+	if n := strings.Count(string(out), "::error::"); n != 1 {
+		t.Fatalf("want exactly one ::error:: annotation for the run, got %d\n%s", n, out)
+	}
+	if strings.Contains(string(calls), "failover-global-cluster") {
+		t.Fatalf("moved a writer without knowing who owns it\n%s", calls)
+	}
+}
+
 // fakeSettlingAWS lists one global cluster whose region-0 member is still
 // flagged writer while a switchover to region 1 runs. Once FailoverState
 // clears, the writer is in region 1 and must be moved home.
