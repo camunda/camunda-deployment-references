@@ -149,11 +149,6 @@ room() {
     return "$ok"
 }
 
-# Writes to $scratch/pending the slots of every pool (every suite) admitted
-# within PROVISION_MINUTES: their resources may not exist yet, so usage does
-# not show them. Each slot carries the regions and needs of its run.
-# shortcut: a fixed provisioning window; a run slower than it counts only
-# through its real usage. Record per-run progress if that ever bites.
 # Prints the keys under prefix $1. A failed listing stops the run: inside a
 # `for` word list it would read as "no keys" and skip the reservations.
 list_keys() {
@@ -166,6 +161,12 @@ list_keys() {
     jq -r '.[]? // empty' <<<"$out"
 }
 
+# Writes to $scratch/pending the slots of every pool (every suite) admitted
+# within PROVISION_MINUTES: their resources may not exist yet, so usage does
+# not show them. Each slot carries the regions and needs of its run.
+# shortcut: a fixed provisioning window; a resource created after it (a late
+# load balancer) counts only through real usage. Reserve again before that
+# step if a quota error ever shows up there.
 pending_slots() {
     local key keys now
     now=$(date +%s)

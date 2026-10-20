@@ -19,7 +19,7 @@ Bounds how many runs of a suite hold AWS resources at the same time. `acquire` w
 | `wait-minutes` | <p>How long <code>acquire</code> waits for capacity before failing.</p> | `false` | `45` |
 | `regions` | <p>Space-separated regions to check for free quota. Empty skips the check.</p> | `false` | `""` |
 | `needs` | <p>What one run creates in each region of <code>regions</code>, one <code>&lt;resource&gt;=&lt;count&gt;</code> per line. Resources: <code>rds-clusters</code>, <code>rds-instances</code>, <code>vpcs</code>, <code>elastic-ips</code>, <code>transit-gateways</code>, <code>albs</code>, <code>nlbs</code>, <code>eks-clusters</code>, <code>opensearch-domains</code>.</p> | `false` | `""` |
-| `provision-minutes` | <p>How long after admission a run may still be creating its resources. Until then, its <code>needs</code> are reserved on top of the current usage when another run is admitted, in every pool, so suites sharing a region see each other.</p> | `false` | `45` |
+| `provision-minutes` | <p>How long after admission a run may still be creating its resources. Until then, its <code>needs</code> are reserved on top of the current usage when another run is admitted, in every pool, so suites sharing a region see each other. 90 covers the load balancers that the EKS suites create in their integration job, after the clusters.</p> | `false` | `90` |
 | `margin` | <p>Units of each quota to keep free for other suites sharing the account.</p> | `false` | `2` |
 | `leg` | <p>Tells apart the holders of one run: matrix legs, or jobs sharing a pool. The owner is the run id plus this value, so <code>release</code> may run in a later job of the same run. Pass the same value to <code>acquire</code> and <code>release</code>.</p> | `false` | `""` |
 
@@ -101,10 +101,10 @@ This action is a `composite` action.
     # Default: ""
 
     provision-minutes:
-    # How long after admission a run may still be creating its resources. Until then, its `needs` are reserved on top of the current usage when another run is admitted, in every pool, so suites sharing a region see each other.
+    # How long after admission a run may still be creating its resources. Until then, its `needs` are reserved on top of the current usage when another run is admitted, in every pool, so suites sharing a region see each other. 90 covers the load balancers that the EKS suites create in their integration job, after the clusters.
     #
     # Required: false
-    # Default: 45
+    # Default: 90
 
     margin:
     # Units of each quota to keep free for other suites sharing the account.
