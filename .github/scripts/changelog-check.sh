@@ -83,7 +83,8 @@ check() {
         echo "::error::cannot read ${NOTES} at ${PR_BASE_SHA}: ${err}" >&2
         return 1
     fi
-    files=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" --jq '.[].filename')
+    # A removed file is not an update: deleting the notes must not pass.
+    files=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" --jq '.[] | select(.status != "removed") | .filename')
     decision=$(changelog_decision "$PR_USER_TYPE" "$PR_LABELS" "$present" <<<"$files")
     echo "$decision"
     if [[ "$decision" == fail:* ]]; then
