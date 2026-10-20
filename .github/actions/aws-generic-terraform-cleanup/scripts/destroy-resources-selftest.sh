@@ -198,6 +198,14 @@ p/tfstate-e2e-u-abc-run987/infra/terraform.tfstate
 p/tfstate-e2e-p-abc-run9876/app/terraform.tfstate'
   _expect "target selects its own cluster, not one sharing its prefix" \
     "$(printf '%s\n' "$keys" | select_target_groups ecsdr-123 | paste -sd, -)" "ecsdr-123"
+  # ECS Terratest groups are `<prefix>-run<id>`, their VPCs `<prefix>-r0-vpc`
+  # and `<prefix>-byo-r0`. Matching on the group id found neither.
+  _expect "run-suffixed group owns resources named after its prefix" \
+    "$(resource_owner e2e-p-abc-run987)" "e2e-p-abc"
+  _expect "a group without a run suffix owns its own name" \
+    "$(resource_owner ecsdr-123)" "ecsdr-123"
+  _expect "only a trailing run suffix is dropped" \
+    "$(resource_owner e2e-run1-abc)" "e2e-run1-abc"
   _expect "run-suffix target selects every group of that run, and only it" \
     "$(printf '%s\n' "$keys" | select_target_groups run987/ | paste -sd, -)" "e2e-p-abc-run987,e2e-u-abc-run987"
   # ROSA dual-region passes the full pair of its two cluster names. Passing

@@ -442,9 +442,10 @@ remediate_vpc_dependencies() {
   # all. Existing `clusters` callers that set cleanup-regions already took this
   # exact path.
   if [[ -n "${CLEANUP_REGIONS:-}" ]]; then
-    local region retry_vpc
+    local region retry_vpc owner
+    owner=$(resource_owner "$group_id")
     for region in $CLEANUP_REGIONS; do
-      retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id},${group_id}-*" \
+      retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${owner},${owner}-*" \
                   --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
       [[ -n "$retry_vpc" && "$retry_vpc" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc" "$region"
     done
@@ -852,6 +853,14 @@ EOF
 #
 # The ROSA dual-region group is the pair `<name0>-oOo-<name1>`. Its cleanup
 # passes that full pair as the target, so the exact form above matches it.
+# resource_owner gives the name prefix of a group's AWS resources. The ECS
+# dual-region Terratest groups are `<prefix>-run<id>`, but their VPCs are named
+# `<prefix>-r0-vpc` or `<prefix>-byo-r0`. The prefix already carries the run
+# id, so dropping the suffix keeps the ownership boundary.
+resource_owner() {
+  printf '%s' "$1" | sed -E 's/-run[0-9]+$//'
+}
+
 select_target_groups() {
   local safe_target
   # shellcheck disable=SC2016  # the character class is a regex, not an expansion
@@ -894,7 +903,9 @@ nuke_vpcs_in_cleanup_regions() {
 
   # cloud-nuke deletes whatever its config matches, so the regex is anchored to
   # this group and every regex metacharacter in the id is escaped.
-  safe_id=$(printf '%s' "$group_id" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
+  local owner
+  owner=$(resource_owner "$group_id")
+  safe_id=$(printf '%s' "$owner" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
   # Require an ownership boundary after the id. `^<id>.*` alone also matched
   # every longer id sharing the prefix, so nuking for `ecsdr-123` would have
   # taken `ecsdr-1234`'s VPCs with it. `(-|$)` keeps both the exact name and
@@ -903,7 +914,7 @@ nuke_vpcs_in_cleanup_regions() {
 
   for region in $CLEANUP_REGIONS; do
     # Same boundary as the regex above: `${group_id}*` alone matches longer ids.
-    vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id},${group_id}-*" \
+    vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${owner},${owner}-*" \
                 --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
     if [[ -n "$vpc_check" && "$vpc_check" != "None" ]]; then
       # EKS first, VPC second. A run that dies mid-apply leaves clusters whose
