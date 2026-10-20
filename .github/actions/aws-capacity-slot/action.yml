@@ -19,7 +19,9 @@ inputs:
         description: Number of runs allowed to hold the pool at the same time.
         default: '3'
     slot-key:
-        description: Slot to free, from the `slot-key` output of `acquire`. Release mode only.
+        description: >
+            Slot to free, from the `slot-key` output of `acquire`. Release mode only. When empty,
+            `release` frees the slot this run and `leg` hold, so a separate cleanup job can call it.
         default: ''
     bucket:
         description: S3 bucket holding the slots, under `ci-locks/<pool>/`.
@@ -42,16 +44,23 @@ inputs:
         description: >
             What one run creates in each region of `regions`, one `<resource>=<count>` per line.
             Resources: `rds-clusters`, `rds-instances`, `vpcs`, `elastic-ips`, `transit-gateways`,
-            `albs`, `nlbs`.
+            `albs`, `nlbs`, `eks-clusters`, `opensearch-domains`.
         default: ''
     provision-minutes:
         description: >
             How long after admission a run may still be creating its resources. Until then, its
-            `needs` are reserved on top of the current usage when another run is admitted.
+            `needs` are reserved on top of the current usage when another run is admitted, in every
+            pool, so suites sharing a region see each other.
         default: '45'
     margin:
         description: Units of each quota to keep free for other suites sharing the account.
         default: '2'
+    leg:
+        description: >
+            Tells apart the holders of one run: matrix legs, or jobs sharing a pool. The owner is the
+            run id plus this value, so `release` may run in a later job of the same run. Pass the
+            same value to `acquire` and `release`.
+        default: ''
 
 outputs:
     slot-key:
@@ -78,4 +87,4 @@ runs:
               NEEDS: ${{ inputs.needs }}
               MARGIN: ${{ inputs.margin }}
               PROVISION_MINUTES: ${{ inputs.provision-minutes }}
-              OWNER: ${{ github.repository }}/${{ github.run_id }}/${{ github.run_attempt }}/${{ github.job }}
+              OWNER: ${{ github.repository }}/${{ github.run_id }}/${{ inputs.leg }}

@@ -90,6 +90,9 @@ usage() {
         --query "length(LoadBalancers[?Type=='application'])" --output json ;;
     nlbs) aws elbv2 describe-load-balancers --region "$region" \
         --query "length(LoadBalancers[?Type=='network'])" --output json ;;
+    eks-clusters) aws eks list-clusters --region "$region" --query 'length(clusters)' --output json ;;
+    opensearch-domains) aws opensearch list-domain-names --region "$region" \
+        --query 'length(DomainNames)' --output json ;;
     esac
 }
 
@@ -103,6 +106,8 @@ quota_code() {
     transit-gateways) echo "ec2 L-A2478D36" ;;
     albs) echo "elasticloadbalancing L-53DA6B97" ;;
     nlbs) echo "elasticloadbalancing L-69A177A2" ;;
+    eks-clusters) echo "eks L-1194D53C" ;;
+    opensearch-domains) echo "es L-076D529E" ;;
     *) return 1 ;;
     esac
 }
@@ -116,21 +121,23 @@ for need in ${NEEDS:-}; do
     }
 done
 
-# True when every region has room for $1 runs: this one, plus the runs admitted
-# within PROVISION_MINUTES that may not have created their resources yet.
+# True when every region has room for this run's needs on top of the current
+# usage and of what other runs admitted within PROVISION_MINUTES reserved.
 room() {
-    local runs=$1 region need resource count used quota code ok=0
+    local region need resource count used quota code reserved ok=0
     for region in ${REGIONS:-}; do
         for need in ${NEEDS:-}; do
             resource=${need%%=*}
-            count=$((${need#*=} * runs))
+            count=${need#*=}
             code=$(quota_code "$resource")
             used=$(number usage "$resource" "$region") || exit 1
             quota=$(number aws service-quotas get-service-quota --region "$region" \
                 --service-code "${code% *}" --quota-code "${code#* }" \
                 --query 'Quota.Value' --output text) || exit 1
-            if ((used + count + MARGIN > quota)); then
-                echo "${region} ${resource}: ${used}/${quota} used, ${runs} run(s) need ${count} (+${MARGIN} margin)"
+            reserved=$(jq -s --arg r "$region" --arg k "$resource" \
+                '[.[] | select(.regions | index($r)) | .needs[$k] // 0] | add // 0' "$scratch/pending")
+            if ((used + reserved + count + MARGIN > quota)); then
+                echo "${region} ${resource}: ${used}/${quota} used, ${reserved} reserved, this run needs ${count} (+${MARGIN} margin)"
                 ok=1
             fi
         done
@@ -138,29 +145,34 @@ room() {
     return "$ok"
 }
 
-# Other holders admitted within PROVISION_MINUTES: their resources may not
-# exist yet, so usage does not show them.
-# ponytail: a fixed provisioning window; a run slower than it counts only
+# Writes to $scratch/pending the slots of every pool (every suite) admitted
+# within PROVISION_MINUTES: their resources may not exist yet, so usage does
+# not show them. Each slot carries the regions and needs of its run.
+# shortcut: a fixed provisioning window; a run slower than it counts only
 # through its real usage. Record per-run progress if that ever bites.
-pending_runs() {
-    local i now pending=0
+pending_slots() {
+    local key now
     now=$(date +%s)
-    for ((i = 0; i < SLOTS; i++)); do
-        [[ "$prefix/slot-$i" == "$slot_key" ]] && continue
-        read_slot "$prefix/slot-$i" || continue
-        if (($(jq -r .expires "$scratch/current") > now)) &&
-            (($(jq -r '.acquired // 0' "$scratch/current") > now - PROVISION_MINUTES * 60)); then
-            pending=$((pending + 1))
-        fi
+    : >"$scratch/pending"
+    for key in $(s3 list-objects-v2 --prefix "ci-locks/" --query 'Contents[].Key' --output json |
+        jq -r '.[]? // empty'); do
+        [[ "$key" == "$slot_key" ]] && continue
+        read_slot "$key" || continue
+        jq -c --argjson now "$now" --argjson window $((PROVISION_MINUTES * 60)) \
+            'select(.expires > $now and (.acquired // 0) > $now - $window)
+             | {regions: (.regions // []), needs: (.needs // {})}' "$scratch/current" >>"$scratch/pending"
     done
-    echo "$pending"
 }
 
 try_slot() {
     local key="$prefix/slot-$1" now
     now=$(date +%s)
     jq -nc --arg owner "$OWNER" --argjson acquired "$now" --argjson expires $((now + LEASE_MINUTES * 60)) \
-        '{owner: $owner, acquired: $acquired, expires: $expires}' >"$scratch/body"
+        --arg regions "${REGIONS:-}" --arg needs "${NEEDS:-}" \
+        '{owner: $owner, acquired: $acquired, expires: $expires,
+          regions: ($regions | split(" ") | map(select(. != ""))),
+          needs: ($needs | split("\n") | map(gsub("\\s"; "") | select(test("=")) | split("=") | {(.[0]): (.[1] | tonumber)}) | add // {})}' \
+        >"$scratch/body"
 
     slot_key=$key
     if conditional s3 put-object --key "$key" --body "$scratch/body" --if-none-match '*'; then
@@ -177,7 +189,7 @@ try_slot() {
 }
 
 acquire() {
-    local deadline i pending owned
+    local deadline i owned
     deadline=$(($(date +%s) + WAIT_MINUTES * 60))
     while :; do
         # A retried step must renew the slot it holds, not claim a second one.
@@ -199,8 +211,8 @@ acquire() {
                 read_slot "$prefix/slot-$i" && echo "  slot-$i: $(jq -c . "$scratch/current")"
             done
         else
-            pending=$(pending_runs) || exit 1
-            if room $((pending + 1)); then
+            pending_slots
+            if room; then
                 echo "Acquired ${slot_key} for ${OWNER}"
                 echo "slot-key=${slot_key}" >>"${GITHUB_OUTPUT:-/dev/null}"
                 published=1
@@ -220,6 +232,18 @@ acquire() {
 }
 
 release() {
+    local key
+    # A cleanup job other than the acquiring one has no slot-key output: find
+    # the slot by owner, over every key of the pool whatever its size.
+    if [[ -z "${SLOT_KEY:-}" ]]; then
+        for key in $(s3 list-objects-v2 --prefix "$prefix/" --query 'Contents[].Key' --output json |
+            jq -r '.[]? // empty'); do
+            if read_slot "$key" && [[ "$(jq -r .owner "$scratch/current")" == "$OWNER" ]]; then
+                SLOT_KEY=$key
+                break
+            fi
+        done
+    fi
     [[ -n "${SLOT_KEY:-}" ]] || {
         echo "No slot to release."
         return 0
