@@ -20,13 +20,21 @@ KEYCLOAK_CONFIG_FILE=${KEYCLOAK_CONFIG_FILE:-"keycloak-instance-no-domain.yml"}
 # so the two always resolve to one version. `.github/renovate.json5` on main, which Renovate
 # reads for every base branch, groups them into one pull request so they also land together.
 # renovate: datasource=docker depName=camunda/keycloak extractVersion=^quay-optimized-(?<version>\d+\.\d+\.\d+)$
-KEYCLOAK_VERSION="26.6.4"
+KEYCLOAK_VERSION="26.8.1"
 
-# Install Keycloak operator CRDs
+# Install Keycloak operator CRDs. The operator registers a watch on every kind it knows at
+# startup and exits if one is missing -- 26.7 added keycloakoidcclients and
+# keycloaksamlclients, and without them the operator dies with
+# `KubernetesClientException: ... keycloaksamlclients ... Not Found`. A future release adding
+# another kind needs another line here.
 kubectl apply --server-side -f \
   "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloaks.k8s.keycloak.org-v1.yml"
 kubectl apply --server-side -f \
   "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml"
+kubectl apply --server-side -f \
+  "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloakoidcclients.k8s.keycloak.org-v1.yml"
+kubectl apply --server-side -f \
+  "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/keycloaksamlclients.k8s.keycloak.org-v1.yml"
 
 
 # Install Keycloak operator
