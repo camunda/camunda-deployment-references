@@ -161,6 +161,8 @@ jobs:
                   destroy-pass-timeout-minutes: '60'
                   retry-destroy-pass-timeout-minutes: '60'
                   tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate
+                  # The VPC sweep and the cloud-nuke retry only run for the regions listed here.
+                  cleanup-regions: eu-west-2 eu-west-3
 
             # Last, so the slot is held until this run's resources are gone.
             - name: Release the capacity slot
