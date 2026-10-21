@@ -290,13 +290,26 @@ region's Aurora cluster is down too, `failover.sh` stops and points to the
 Pass `--keep-writer` in that case to skip the switchover and let the script
 finish.
 
-While the writer is away from region 0, Terraform still expects the original
-topology and `terraform destroy` may hang on the Aurora resources.
+While the writer is away from region 0, `terraform destroy` hangs on the
+Aurora resources, whatever the value of `db_force_destroy`. Terraform deletes
+region 1's cluster first, because it was created as the secondary. After a
+failover, region 1 holds the writer, and Aurora refuses to delete the writer's
+last instance while region 0 is still attached. Terraform retries until the
+delete timeout. `db_force_destroy` only acts on the global cluster, which
+Terraform deletes last, so the destroy never reaches it.
 
-`db_force_destroy` (default `true`) covers the usual case: the provider detaches
-every global-cluster member before deleting it, in dependency order and with the
-state left consistent. If you set it to `false` for a real workload, detach the
-members yourself and re-run:
+Move the writer back to region 0 before you destroy. If you also bring region 0
+back, run `./procedure/failback.sh --failed-region 0 --switch-writer`. To move
+only the writer, run a planned switchover:
+
+```bash
+aws rds switchover-global-cluster \
+  --global-cluster-identifier <global-id> \
+  --target-db-cluster-identifier <region-0-cluster-arn>
+```
+
+If region 0's Aurora cluster is lost and you cannot move the writer back,
+detach the members yourself and re-run:
 
 ```bash
 # 1. Remove both clusters from the Global cluster
