@@ -22,7 +22,7 @@ KEYCLOAK_CONFIG_FILE=${KEYCLOAK_CONFIG_FILE:-"keycloak-instance-no-domain.yml"}
 # Renovate reads for every base branch, groups them into one pull request so they also land
 # together.
 # renovate: datasource=docker depName=camunda/keycloak extractVersion=^quay-optimized-(?<version>\d+\.\d+\.\d+)$
-KEYCLOAK_VERSION="26.6.4"
+KEYCLOAK_VERSION="26.8.1"
 
 # Install Keycloak operator CRDs
 kubectl apply --server-side -f \
