@@ -1,6 +1,6 @@
 module github.com/camunda/camunda-tf-eks-module
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.44.0
