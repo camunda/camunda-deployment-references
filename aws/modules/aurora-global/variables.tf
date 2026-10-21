@@ -270,9 +270,12 @@ variable "force_destroy" {
   type        = bool
   default     = null
   description = <<-EOT
-    Allow `terraform destroy` to remove the global cluster's members before
-    deleting it. Without this a teardown fails while any member remains, which
-    is the normal state after a failover.
+    Allow `terraform destroy` to remove the members that are still attached to
+    the global cluster when it deletes the global cluster. Without this, the
+    delete fails while any member remains. This does not cover a destroy after
+    a failover: Terraform deletes the global cluster last, and the destroy
+    hangs earlier, on the last instance of the promoted writer. Move the writer
+    back to the primary region first.
 
     Leave unset for anything holding real data. Test environments set it true
     so an interrupted run can always be swept.
