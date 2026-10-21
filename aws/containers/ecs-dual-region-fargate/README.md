@@ -308,6 +308,20 @@ aws rds switchover-global-cluster \
   --target-db-cluster-identifier <region-0-cluster-arn>
 ```
 
+The command returns before the writer moves. Wait until region 0 is the writer
+and no switchover is pending before you destroy:
+
+```bash
+until aws rds describe-global-clusters \
+  --global-cluster-identifier <global-id> \
+  --query 'GlobalClusters[0]' --output json |
+  jq -e --arg arn <region-0-cluster-arn> \
+    '(.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn) == $arn
+     and (.FailoverState.Status // "") == ""' >/dev/null; do
+  sleep 30
+done
+```
+
 If region 0's Aurora cluster is lost and you cannot move the writer back,
 detach the members yourself and re-run:
 
