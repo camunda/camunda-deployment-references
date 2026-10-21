@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Health-check process for the ECS dual-region reference architecture.
+
+  Deliberately trivial: a start event wired straight to an end event. It
+  needs no job worker, so an instance completes the moment it is created and
+  a completed-instance count is a genuine end-to-end signal — the gateway
+  accepted the command, a partition leader processed it, and the exporter
+  wrote it to secondary storage.
+
+  Deployed by deploy_health_check_process.sh; exercised by
+  verify_dual_region.sh and demo-create-instances.sh.
+-->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="definitions_dual_region_health_check"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="dual-region-health-check" name="Dual Region Health Check" isExecutable="true">
+    <bpmn:startEvent id="start" name="Start">
+      <bpmn:outgoing>toEnd</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="toEnd" sourceRef="start" targetRef="end" />
+    <bpmn:endEvent id="end" name="End">
+      <bpmn:incoming>toEnd</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="diagram">
+    <bpmndi:BPMNPlane id="plane" bpmnElement="dual-region-health-check">
+      <bpmndi:BPMNShape id="shape_start" bpmnElement="start">
+        <dc:Bounds x="172" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="shape_end" bpmnElement="end">
+        <dc:Bounds x="272" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="edge_toEnd" bpmnElement="toEnd">
+        <di:waypoint xmlns:di="http://www.omg.org/spec/DD/20100524/DI" x="208" y="120" />
+        <di:waypoint xmlns:di="http://www.omg.org/spec/DD/20100524/DI" x="272" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

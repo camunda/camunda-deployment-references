@@ -64,9 +64,15 @@ describe_service() {
 }
 
 # Orchestration runs 4 tasks per region, connectors 1.
-describe_service "${REGION_0}" "${CLUSTER_NAME}-r0-cluster" "${CLUSTER_NAME}-r0-oc-service" 4
-describe_service "${REGION_1}" "${CLUSTER_NAME}-r1-cluster" "${CLUSTER_NAME}-r1-oc-service" 4
-describe_service "${REGION_0}" "${CLUSTER_NAME}-r0-cluster" "${CLUSTER_NAME}-r0-oc-connectors-service" 1
-describe_service "${REGION_1}" "${CLUSTER_NAME}-r1-cluster" "${CLUSTER_NAME}-r1-oc-connectors-service" 1
+# Service names come from the modules: terraform/app/camunda.tf passes
+# prefix = "<cluster>-r<N>-oc", and the modules name their services
+# "${prefix}-orchestration-cluster" (aws/modules/ecs/fargate/orchestration-cluster/ecs.tf)
+# and "${prefix}-connectors" (aws/modules/ecs/fargate/connectors/ecs.tf).
+# Desired counts mirror terraform/app/locals.tf: brokers_per_region = 4, and
+# a single connectors task per region.
+describe_service "${REGION_0}" "${CLUSTER_NAME}-r0-cluster" "${CLUSTER_NAME}-r0-oc-orchestration-cluster" 4
+describe_service "${REGION_1}" "${CLUSTER_NAME}-r1-cluster" "${CLUSTER_NAME}-r1-oc-orchestration-cluster" 4
+describe_service "${REGION_0}" "${CLUSTER_NAME}-r0-cluster" "${CLUSTER_NAME}-r0-oc-connectors" 1
+describe_service "${REGION_1}" "${CLUSTER_NAME}-r1-cluster" "${CLUSTER_NAME}-r1-oc-connectors" 1
 
 exit "${converged}"

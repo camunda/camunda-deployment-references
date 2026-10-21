@@ -298,13 +298,69 @@ classify_destroy_error() {
     echo remediate_broken_trust_policy
   elif [[ "$output" == *"DeleteConflict"* && "$output" == *"policy attached to entities"* ]]; then
     echo remediate_iam_attachments
+  elif [[ "$output" == *"InvalidGlobalClusterStateFault"* ||
+          "$output" == *"Cannot delete the last instance of the master cluster"* ]]; then
+    echo remediate_aurora_global
   elif [[ -n "$(extract_s3_bucket_names "$output")" ]]; then
     echo remediate_s3_versions
+  elif [[ -n "$(extract_stale_eips "$output")" ]]; then
+    echo remediate_stale_eips
   fi
 }
 
 # Only accept names from the specific failed force-destroy operation, not other
 # bucket names mentioned elsewhere in the Terraform output.
+# extract_stale_eips <output> — allocation ids of Elastic IPs whose release
+# failed because the network interface they were associated with is gone.
+extract_stale_eips() {
+  grep -E 'ReleaseAddress' <<<"$1" | grep -F 'InvalidNetworkInterfaceID.NotFound' |
+    grep -oE 'deleting EC2 EIP \((eipalloc-[0-9a-f]+)\)' |
+    sed -E 's/.*\((eipalloc-[0-9a-f]+)\)/\1/' | sort -u
+}
+
+# remediate_stale_eips releases Elastic IPs that AWS still considers associated
+# with an interface that no longer exists.
+#
+# The cloud-nuke retry deletes a VPC's NAT gateways, and with them the ENIs the
+# NAT EIPs are attached to. terraform destroy of that VPC then fails to release
+# the EIPs with InvalidNetworkInterfaceID.NotFound, and stops there. The VPC
+# module destroys the internet gateway after the EIPs, so the IGW stays
+# attached, cloud-nuke's own DeleteVpc fails with DependencyViolation, and the
+# VPC leaks (camunda/camunda-deployment-references#3595, 2026-10-18).
+#
+# Safe by construction: it only touches the allocation ids named in this
+# module's own destroy error — EIPs Terraform was deleting anyway. Releasing
+# them here is enough; the provider treats the NotFound on its next attempt as
+# already deleted, and the destroy continues to the IGW and the VPC.
+#
+# The error does not name the region, so the caller's declared regions are
+# searched, falling back to the regions the dual-region path uses.
+#
+# Invoked indirectly, by name, from the retry loop's dispatch -- shellcheck
+# cannot see that call site.
+# shellcheck disable=SC2329,SC2317
+remediate_stale_eips() {
+  local group_id="$1" module_name="$2" output="$3"
+  local regions="${CLEANUP_REGIONS:-${AWS_REGION:-} ${CLUSTER_0_AWS_REGION:-} ${CLUSTER_1_AWS_REGION:-}}"
+  local alloc region association
+
+  for alloc in $(extract_stale_eips "$output"); do
+    for region in $regions; do
+      # An allocation id that is not in this region is an error, not an empty
+      # answer, so a failure here just means "look in the next region".
+      association=$(aws ec2 describe-addresses --region "$region" --allocation-ids "$alloc" \
+        --query 'Addresses[0].AssociationId' --output text 2>/dev/null) || continue
+      echo "[$group_id][$module_name] Releasing $alloc in $region, left associated with a deleted interface"
+      if [[ -n "$association" && "$association" != "None" ]]; then
+        aws ec2 disassociate-address --region "$region" --association-id "$association" >/dev/null 2>&1 || true
+      fi
+      aws ec2 release-address --region "$region" --allocation-id "$alloc" >/dev/null 2>&1 ||
+        echo "[$group_id][$module_name] Could not release $alloc in $region yet; the retry will report it."
+      break
+    done
+  done
+}
+
 extract_s3_bucket_names() {
   local bucket
   while IFS= read -r bucket; do
@@ -378,7 +434,22 @@ remediate_vpc_dependencies() {
 
   echo "[$group_id][$module_name] Re-running VPC dependency cleanup before retry..."
 
-  if [[ "$module_name" == "cluster" ]]; then
+  # A caller that declared the regions to sweep has told us everything we need,
+  # whatever its modules are named. Checking that first means an architecture
+  # does not have to call its module "clusters" to get its VPCs unblocked --
+  # the ECS dual-region states are named after their layers (app/terraform,
+  # infra/terraform, vpc/terraform), and used to fall through to no sweep at
+  # all. Existing `clusters` callers that set cleanup-regions already took this
+  # exact path.
+  if [[ -n "${CLEANUP_REGIONS:-}" ]]; then
+    local region retry_vpc owner
+    owner=$(resource_owner "$group_id")
+    for region in $CLEANUP_REGIONS; do
+      retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${owner},${owner}-*" \
+                  --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
+      [[ -n "$retry_vpc" && "$retry_vpc" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc" "$region"
+    done
+  elif [[ "$module_name" == "cluster" ]]; then
     local retry_vpc
     retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
                 --query "Vpcs[0].VpcId" --output text --region "$AWS_REGION" 2>/dev/null)
@@ -386,14 +457,7 @@ remediate_vpc_dependencies() {
       cleanup_vpc_dependencies "$retry_vpc" "$AWS_REGION"
     fi
   elif [[ "$module_name" == "clusters" ]]; then
-    if [[ -n "${CLEANUP_REGIONS:-}" ]]; then
-      local region retry_vpc
-      for region in $CLEANUP_REGIONS; do
-        retry_vpc=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
-                    --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
-        [[ -n "$retry_vpc" && "$retry_vpc" != "None" ]] && cleanup_vpc_dependencies "$retry_vpc" "$region"
-      done
-    elif [[ -z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION" ]]; then
+    if [[ -z "$CLUSTER_0_AWS_REGION" || -z "$CLUSTER_1_AWS_REGION" ]]; then
       echo "[$group_id][$module_name] Warning: CLUSTER_0_AWS_REGION or CLUSTER_1_AWS_REGION not set, skipping VPC cleanup retry"
     else
       local retry_vpc1 retry_vpc2 retry_c1 retry_c2
@@ -508,33 +572,7 @@ destroy_module() {
 
     tf_config_file="$SCRIPT_DIR/config-dual-region"
 
-    # Cloud-nuke is a second-pass fallback only. The first Terraform destroy
-    # must retain ownership of its VPC resources and delete them in dependency
-    # order; removing tracked subnets or ENIs up front corrupts that plan.
-    if [[ "$module_name" == "clusters" && -n "${CLEANUP_REGIONS:-}" ]]; then
-      if [[ "$RETRY_DESTROY" == "true" ]]; then
-        echo "[$group_id][$module_name] Retry: running cloud-nuke on multi-region VPCs as fallback..."
-        local region vpc_check
-        local nuke_config="${temp_dir}/matching-vpc.yml"
-        mkdir -p "$temp_dir"
-        cp "$SCRIPT_DIR/matching-vpc.yml" "$nuke_config"
-        local safe_id
-        safe_id=$(printf '%s' "$group_id" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
-        NAME_REGEX="^${safe_id}.*" yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX)] | .EKSCluster.include.names_regex = [strenv(NAME_REGEX)]' -i "$nuke_config"
-        for region in $CLEANUP_REGIONS; do
-          vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${group_id}*" \
-                      --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
-          if [[ -n "$vpc_check" && "$vpc_check" != "None" ]]; then
-            # EKS first, VPC second. A run that dies mid-apply leaves clusters
-            # whose node groups never reached the state: terraform destroy then
-            # fails with "Cluster has nodegroups attached" while the cluster's
-            # ENIs keep the VPC alive, so nuking VPCs alone loops on that pair.
-            cloud-nuke aws --config "$nuke_config" --resource-type eks-cluster --region "$region" --force
-            cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$region" --force
-          fi
-        done
-      fi
-    elif [[ "$module_name" == "clusters" ]]; then
+    if [[ "$module_name" == "clusters" && -z "${CLEANUP_REGIONS:-}" ]]; then
       local vpc1_check vpc2_check
       vpc1_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${cluster_0_name}*" \
                    --query "Vpcs[0].VpcId" --output text --region "$CLUSTER_0_AWS_REGION" 2>/dev/null)
@@ -608,6 +646,10 @@ destroy_module() {
     echo "[$group_id][$module_name] Using the provider configuration $TF_CONFIG_PATH"
     tf_config_file="$resolved"
   fi
+
+  # Last-resort VPC sweep before a retry pass, for any architecture that
+  # declared its regions. No-op on the first pass.
+  nuke_vpcs_in_cleanup_regions "$group_id" "$module_name" "$temp_dir"
 
   mkdir -p "$temp_dir"
   cp "$tf_config_file" "$temp_dir/config.tf" || return 1
@@ -724,25 +766,19 @@ EOF
       destroy_succeeded=true
       break
     fi
+
     # terraform prints a full red `Error: deleting EC2 VPC (...):
     # DependencyViolation` block for a condition the dispatch below routinely
     # recovers from on the next attempt — that block is why this lane reads as
     # permanently broken in #3122, when every destroy was in fact completing on
-    # attempt 2. Worse, groups run in parallel into one interleaved `tail -f`
-    # stream, so those lines arrive with no indication of which cluster they
-    # belong to or whether anything is going to be done about them.
-    #
-    # Say what is about to happen, and tag every line so a recovered attempt
-    # cannot be mistaken for the job's cause of death. Grouping with
-    # `::group::` is not an option here: concurrent groups would nest and
-    # swallow each other's output.
+    # attempt 2. The detail is above now; say plainly whether anything is going
+    # to be done about it, tagged so a recovered attempt cannot be mistaken for
+    # the job's cause of death.
     if [[ $attempt -lt $max_destroy_attempts ]]; then
-      echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts} failed; a retry may still recover it. Output:"
+      echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts} failed; a retry may still recover it."
     else
-      echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts} failed; no attempts left. Output:"
+      echo "[$group_id][$module_name] destroy attempt ${attempt}/${max_destroy_attempts} failed; no attempts left."
     fi
-    local tag="[$group_id][$module_name] > "
-    printf '%s%s\n' "$tag" "${output//$'\n'/$'\n'$tag}"
 
     handler=$(classify_destroy_error "$output" "$module_name")
 
@@ -780,180 +816,211 @@ EOF
 }
 
 
+# cloud-nuke is the last resort when a Terraform destroy has already failed
+# once and something in the VPC is still holding it. It is a second-pass
+# fallback only: the first destroy must retain ownership of its VPC resources
+# and delete them in dependency order, and removing tracked subnets or ENIs up
+# front corrupts that plan.
+#
+# Driven by CLEANUP_REGIONS rather than by the module name. It used to sit
+# inside the branch that also picks the dual-region provider config, which
+# meant only a module literally named "clusters" could ever reach it — an
+# architecture whose states are named after their layers got no fallback at
+# all, however many regions it spanned.
+#
+# Only runs for the LAST module in the destruction order. That order is the
+# reverse of the dependency order, so the last state is the one that owns the
+# VPC, and everything that lived inside it has already been destroyed. Nuking
+# earlier would delete subnets and ENIs that the states still queued behind it
+# have in their own plans — exactly the corruption this function's own warning
+# describes. Previously the `clusters` gate achieved this by accident, because
+# `clusters` was last for every architecture that reached here; an order like
+# `app/terraform,infra/terraform,vpc/terraform` does not have that property.
+# select_target_groups <target> — reads S3 keys on stdin, prints the group ids
+# the target selects.
+#
+# Select groups whose id is the target, or ends in `-<target>`. Callers pass
+# two forms: a cluster name (`ecsdr-3595`) and a run suffix (`run<id>/`),
+# which the Terratest suites append to their cluster names.
+#
+# Bounded on both sides on purpose. A bare `grep "$ID_OR_ALL"` also matched
+# every longer id with the same prefix, so `ecsdr-123` selected `ecsdr-1234`
+# — and callers pass `max-age-hours: 0`, so one pull request's teardown could
+# destroy another's live cluster. Matching only the exact id fixed that but
+# broke the run-suffix callers: `run<id>/` then matched nothing, and with
+# `fail-on-not-found: false` their per-run cleanup reported success while
+# leaving the stacks behind.
+#
+# The ROSA dual-region group is the pair `<name0>-oOo-<name1>`. Its cleanup
+# passes that full pair as the target, so the exact form above matches it.
+# resource_owner gives the name prefix of a group's AWS resources. The ECS
+# dual-region Terratest groups are `<prefix>-run<id>`, but their VPCs are named
+# `<prefix>-r0-vpc` or `<prefix>-byo-r0`. The prefix already carries the run
+# id, so dropping the suffix keeps the ownership boundary. Only a `run<id>/`
+# target says the suffix is synthetic: a literal cluster name or the daily
+# sweep can end in `-run<id>` too, and keep their full name.
+resource_owner() {
+  local run="${ID_OR_ALL%/}"
+  if [[ "$run" =~ ^run[0-9]+$ && "$1" == *"-$run" ]]; then
+    printf '%s' "${1%-"$run"}"
+  else
+    printf '%s' "$1"
+  fi
+}
+
+select_target_groups() {
+  local safe_target
+  # shellcheck disable=SC2016  # the character class is a regex, not an expansion
+  safe_target=$(printf '%s' "${1%/}" | sed 's/[][\.*^$(){}?+|/]/\\&/g')
+  grep -E "(^|/)tfstate-([^/]*-)?${safe_target}/" |
+    sed -E -n 's#(^|.*/)tfstate-([^/]*)/.*#\2#p' | sort -u
+}
+
+# module_state_exists <group_id> <module> — whether the group still has a state
+# for <module>. The same test the destruction loop uses to decide what to run.
+module_state_exists() {
+  aws s3 ls "s3://$BUCKET/${KEY_PREFIX}tfstate-$1/$2.tfstate" >/dev/null 2>&1
+}
+
+nuke_vpcs_in_cleanup_regions() {
+  local group_id="$1" module_name="$2" temp_dir="$3"
+
+  [[ "$RETRY_DESTROY" == "true" && -n "${CLEANUP_REGIONS:-}" ]] || return 0
+
+  # The VPC owner is the last module this group actually has, not the last one
+  # declared. A greenfield ECS group has no fixture/terraform state, so gating
+  # on the declared order meant the module that holds the VPC was never the
+  # "last" one and the fallback never ran for it. A later module that still
+  # has a state still holds resources inside the VPC, so it must go first.
+  local m seen=false
+  for m in "${ORDERED_MODULES[@]}"; do
+    if [[ "$seen" == true ]] && module_state_exists "$group_id" "$m"; then
+      echo "[$group_id][$module_name] Skipping the cloud-nuke fallback: '$m' still has a state and is destroyed after this one."
+      return 0
+    fi
+    [[ "$m" == "$module_name" ]] && seen=true
+  done
+
+  echo "[$group_id][$module_name] Retry: running cloud-nuke on the declared regions as fallback..."
+
+  local region vpc_check safe_id
+  local nuke_config="${temp_dir}/matching-vpc.yml"
+  mkdir -p "$temp_dir"
+  cp "$SCRIPT_DIR/matching-vpc.yml" "$nuke_config"
+
+  # cloud-nuke deletes whatever its config matches, so the regex is anchored to
+  # this group and every regex metacharacter in the id is escaped.
+  local owner
+  owner=$(resource_owner "$group_id")
+  safe_id=$(printf '%s' "$owner" | sed 's/[.[\]*+?^${}()|\\]/\\&/g')
+  # Require an ownership boundary after the id. `^<id>.*` alone also matched
+  # every longer id sharing the prefix, so nuking for `ecsdr-123` would have
+  # taken `ecsdr-1234`'s VPCs with it. `(-|$)` keeps both the exact name and
+  # the `<id>-<suffix>` forms every architecture here uses.
+  NAME_REGEX="^${safe_id}(-|$)" yq eval '.VPC.include.names_regex = [strenv(NAME_REGEX)] | .EKSCluster.include.names_regex = [strenv(NAME_REGEX)]' -i "$nuke_config"
+
+  for region in $CLEANUP_REGIONS; do
+    # Same boundary as the regex above: `${group_id}*` alone matches longer ids.
+    vpc_check=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=${owner},${owner}-*" \
+                --query "Vpcs[0].VpcId" --output text --region "$region" 2>/dev/null)
+    if [[ -n "$vpc_check" && "$vpc_check" != "None" ]]; then
+      # EKS first, VPC second. A run that dies mid-apply leaves clusters whose
+      # node groups never reached the state: terraform destroy then fails with
+      # "Cluster has nodegroups attached" while the cluster's ENIs keep the VPC
+      # alive, so nuking VPCs alone loops on that pair.
+      cloud-nuke aws --config "$nuke_config" --resource-type eks-cluster --region "$region" --force
+      cloud-nuke aws --config "$nuke_config" --resource-type vpc --region "$region" --force
+    fi
+  done
+}
+
+# An Aurora Global cluster cannot be deleted while it still has members.
+# `force_destroy` on aws_rds_global_cluster is the real fix and every
+# architecture here sets it, but a member promoted out of band -- AWS during a
+# region loss, or an operator mid-teardown -- can still leave the global
+# cluster in a state the provider will not delete from. Detach what is left so
+# the next attempt has nothing holding it.
+#
+# Deliberately does not delete the DB clusters: they are in the Terraform
+# state, and the retry destroys them. Removing them here would strand the
+# state instead.
+#
+# Invoked indirectly, by name, from the retry loop's dispatch -- shellcheck
+# cannot see that call site.
+# shellcheck disable=SC2329,SC2317
+remediate_aurora_global() {
+  local group_id="$1" module_name="$2" output="$3"
+
+  echo "[$group_id][$module_name] Detaching Aurora Global cluster members before retry..."
+
+  # The identifier is in the error text; there is no other handle on it here,
+  # because the state that named it is the one failing to destroy. Terraform
+  # prints the resource name in parentheses -- "deleting RDS Global Cluster
+  # (my-global-db)" -- which is name-agnostic, unlike matching a naming
+  # convention such as a "-global-db" suffix.
+  local global_ids
+  global_ids=$(grep -oE 'RDS Global Cluster \(([^)]+)\)' <<<"$output" |
+    sed -E 's/.*\((.*)\)/\1/' | sort -u)
+
+  # After a failover the writer can sit in the second region; deleting its last
+  # instance then fails while a replica is attached, and the error names only
+  # the instance. Find the global cluster that owns it through the members'
+  # own regions, since the instance need not live in AWS_REGION.
+  if [[ -z "$global_ids" ]]; then
+    local instance_ids gid member region cluster_id
+    instance_ids=$(grep -oE 'RDS Cluster Instance \(([^)]+)\)' <<<"$output" |
+      sed -E 's/.*\((.*)\)/\1/' | sort -u)
+    for gid in $(aws rds describe-global-clusters --query 'GlobalClusters[].GlobalClusterIdentifier' --output text 2>/dev/null); do
+      for member in $(aws rds describe-global-clusters --global-cluster-identifier "$gid" \
+        --query 'GlobalClusters[0].GlobalClusterMembers[].DBClusterArn' --output text 2>/dev/null); do
+        region=$(cut -d: -f4 <<<"$member")
+        cluster_id=$(cut -d: -f7 <<<"$member")
+        if aws rds describe-db-clusters --region "$region" --db-cluster-identifier "$cluster_id" \
+          --query 'DBClusters[0].DBClusterMembers[].DBInstanceIdentifier' --output text 2>/dev/null |
+          tr '\t' '\n' | grep -qxF -f <(printf '%s\n' "$instance_ids"); then
+          global_ids="$global_ids $gid"
+        fi
+      done
+    done
+    global_ids=$(tr ' ' '\n' <<<"$global_ids" | sed '/^$/d' | sort -u)
+  fi
+
+  if [[ -z "$global_ids" ]]; then
+    echo "[$group_id][$module_name] No global cluster identifier in the error text; nothing to detach."
+    return 0
+  fi
+
+  local global_id members arn
+  for global_id in $global_ids; do
+    members=$(aws rds describe-global-clusters \
+      --global-cluster-identifier "$global_id" \
+      --query 'GlobalClusters[0].GlobalClusterMembers[].DBClusterArn' \
+      --output text 2>/dev/null) || continue
+
+    for arn in $members; do
+      echo "[$group_id][$module_name] Detaching $arn from $global_id"
+      # The call has to go to the member's own region, which after a failover
+      # is often not AWS_REGION.
+      aws rds remove-from-global-cluster --region "$(cut -d: -f4 <<<"$arn")" \
+        --global-cluster-identifier "$global_id" \
+        --db-cluster-identifier "$arn" --no-cli-pager >/dev/null 2>&1 || true
+    done
+  done
+
+  # Detaching is asynchronous; the next destroy attempt starts immediately
+  # otherwise and sees the same state.
+  sleep 30
+}
+
 # tag_stream prefixes each line with its group and module. Module names hold a
 # `/` (app/terraform), so `/` cannot be the sed delimiter.
 tag_stream() {
   sed -u "s#^#[$1][$2] | #"
 }
 
-# destroy_selftest checks classify_destroy_error against the verbatim error text
-# each case was written for, and that every handler it can name exists.
-#
-# The classifier is a lookup table matched against vendor error strings, which
-# is exactly the kind of thing that rots silently: a pattern typo, or a handler
-# renamed without its case, would simply stop recovering and the daily cleanup
-# would go back to leaking with no signal.
-destroy_selftest() {
-  local failures=0 got
-
-  _expect() {
-    if [[ "$2" == "$3" ]]; then
-      echo "ok   $1"
-    else
-      echo "FAIL $1: got '$2' want '$3'"
-      failures=$((failures + 1))
-    fi
-  }
-
-  # Verbatim from the runs each case was written for.
-  local dep_violation="Error: deleting EC2 VPC (vpc-EXAMPLE): operation error EC2: DeleteVpc, api error DependencyViolation: The vpc has dependencies and cannot be deleted."
-  local oidc_in_use="Error: there are clusters using OIDC config 'EXAMPLEOIDCCONFIGID', can't delete the OIDC config"
-  local trust_policy="status is 400, code is 'CLUSTERS-MGMT-400' ... Failed to delete cluster: Please make sure IAM role 'arn:aws:iam::000000000000:role/EXAMPLE-account-HCP-ROSA-Installer-Role' exists, and add it to the trust policy"
-  local gone="Error: status is 404, identifier is '404', code is 'CLUSTERS-MGMT-404'"
-  local delete_conflict="Error: deleting IAM Policy (arn:aws:iam::000000000000:policy/EXAMPLE-external-dns-policy): DeleteConflict: Cannot delete a policy attached to entities."
-  local s3_scanner="Error: emptying S3 Bucket (eks-dual-36687d47d-7ce10-elastic-backup): listing S3 bucket (...) object versions: operation error S3: ListObjectVersions, https response error StatusCode: 200, RequestID: 8YBJSRFA8EBDPG48, ... decomposing response: bufio.Scanner: token too long"
-  local unknown="Error: Invalid provider configuration"
-
-  _expect "S3 version listing scanner failure -> empty bucket" \
-    "$(classify_destroy_error "$s3_scanner" clusters)" "remediate_s3_versions"
-  _expect "S3 bucket name extracted from destroy error" \
-    "$(extract_s3_bucket_names "$s3_scanner")" "eks-dual-36687d47d-7ce10-elastic-backup"
-  _expect "unrelated scanner failure has no handler" \
-    "$(classify_destroy_error 'Error: reading IAM Policy: bufio.Scanner: token too long' clusters)" ""
-  local invalid_bucket
-  for invalid_bucket in 'bad;command' 'bad/name' 'UPPERCASE' '-bad' 'bad-' 'a..b' 'ab' '192.168.0.1'; do
-    _expect "reject invalid bucket $invalid_bucket" \
-      "$(extract_s3_bucket_names "${s3_scanner/eks-dual-36687d47d-7ce10-elastic-backup/$invalid_bucket}")" ""
-  done
-  _expect "unrelated bucket error is not extracted" \
-    "$(extract_s3_bucket_names 'Error: emptying S3 Bucket (unrelated-bucket): AccessDenied')" ""
-  _expect "multiple failed buckets are deduplicated" \
-    "$(extract_s3_bucket_names "$s3_scanner"$'\n\n'"$s3_scanner")" "eks-dual-36687d47d-7ce10-elastic-backup"
-  _expect "another error block cannot supply the scanner failure" \
-    "$(extract_s3_bucket_names 'Error: emptying S3 Bucket (unrelated-bucket): AccessDenied
-Error: ListObjectVersions: bufio.Scanner: token too long')" ""
-
-  # The subshell's aws function intercepts every call; no cloud access is possible.
-  if (
-    test_dir=$(mktemp -d "${TMPDIR:-.}/s3-selftest.XXXXXX") || exit 1
-    trap 'rm -rf "$test_dir"' EXIT
-    printf '0\n' > "$test_dir/page"
-    mode=success
-    aws() {
-      local operation="$2" request count
-      shift 2
-      printf '%s\n' "$operation" >> "$test_dir/calls"
-      [[ "$*" == *'--bucket eks-dual-36687d47d-7ce10-elastic-backup'* ]] || return 1
-      case "$operation" in
-        get-bucket-location) echo eu-west-2 ;;
-        list-object-versions)
-          [[ "$*" == *'--region eu-west-2 --max-keys 500 --no-paginate'* ]] || return 1
-          [[ "$mode" != list_failure ]] || return 1
-          count=$(< "$test_dir/page")
-          printf '%s\n' "$((count + 1))" > "$test_dir/page"
-          case "$count" in
-            0) jq -nc '{IsTruncated:true, Versions:[range(0;499) | {Key:("snapshot/\"\\\n" + tostring), VersionId:"v1"}],
-                 DeleteMarkers:[{Key:"snapshot/deleted", VersionId:"marker1"}]}' ;;
-            1) echo '{"Versions":[{"Key":"snapshot/null","VersionId":"null"}]}' ;;
-            *) echo '{"IsTruncated":false}' ;;
-          esac ;;
-        delete-objects)
-          [[ "$*" == *'--region eu-west-2'* ]] || return 1
-          while [[ $# -gt 0 ]]; do
-            if [[ "$1" == --delete && "$2" == file:///dev/stdin ]]; then
-              request=$(</dev/stdin)
-              break
-            fi
-            shift
-          done
-          jq -e '.Quiet == true and (.Objects | length > 0 and length <= 500)
-            and all(.Objects[]; (.Key | type == "string") and (.VersionId | type == "string"))' \
-            <<< "$request" >/dev/null || return 1
-          printf '%s\n' "$request" >> "$test_dir/deleted"
-          if [[ "$mode" == delete_failure ]]; then
-            echo '{"Errors":[{"Code":"AccessDenied"}]}'
-          else
-            : # Quiet:true success: the AWS CLI prints nothing.
-          fi ;;
-        *) return 1 ;;
-      esac
-    }
-    remediate_s3_versions test clusters "$s3_scanner" || exit 1
-    [[ "$(< "$test_dir/page")" == 3 ]] || exit 1
-    jq -se 'map(.Objects) | add | length == 501 and
-      any(.[]; .VersionId == "marker1") and any(.[]; .VersionId == "null")' \
-      "$test_dir/deleted" >/dev/null || exit 1
-    printf '0\n' > "$test_dir/page"
-    mode=delete_failure
-    if remediate_s3_versions test clusters "$s3_scanner"; then exit 1; fi
-    mode=list_failure
-    if remediate_s3_versions test clusters "$s3_scanner"; then exit 1; fi
-    calls=$(wc -l < "$test_dir/calls")
-    if remediate_s3_versions test clusters 'Error: emptying S3 Bucket (bad;command)'; then exit 1; fi
-    [[ "$(wc -l < "$test_dir/calls")" == "$calls" ]] || exit 1
-  ); then
-    _expect "S3 handler drains bounded pages, versions and markers; rejects API failures" ok ok
-  else
-    _expect "S3 handler drains bounded pages, versions and markers; rejects API failures" failed ok
-  fi
-
-  _expect "DependencyViolation -> vpc dependencies" \
-    "$(classify_destroy_error "$dep_violation" clusters)" "remediate_vpc_dependencies"
-  _expect "OIDC config in use -> state removal" \
-    "$(classify_destroy_error "$oidc_in_use" clusters)" "remediate_orphaned_oidc"
-  _expect "broken trust policy -> account roles" \
-    "$(classify_destroy_error "$trust_policy" clusters)" "remediate_broken_trust_policy"
-  _expect "DeleteConflict -> detach IAM policies" \
-    "$(classify_destroy_error "$delete_conflict" cluster)" "remediate_iam_attachments"
-  _expect "CLUSTERS-MGMT-404 -> already gone" \
-    "$(classify_destroy_error "$gone" cluster)" "already_gone"
-
-  _expect "log tag keeps a module path with a slash" \
-    "$(printf 'x\n' | tag_stream e2e-run1 app/terraform)" "[e2e-run1][app/terraform] | x"
-
-  # A 404 only means "already gone" for a cluster module; anywhere else it is
-  # an unclassified failure and must not be swallowed as success.
-  _expect "404 on a non-cluster module is not success" \
-    "$(classify_destroy_error "$gone" backup_bucket)" ""
-  _expect "unrecognised error has no handler" \
-    "$(classify_destroy_error "$unknown" clusters)" ""
-
-  # Every handler the classifier can name has to be callable, or the loop would
-  # dispatch into nothing and the error would look recovered.
-  for got in remediate_vpc_dependencies remediate_orphaned_oidc \
-             remediate_broken_trust_policy remediate_iam_attachments remediate_s3_versions; do
-    if declare -F "$got" >/dev/null; then
-      echo "ok   handler $got is defined"
-    else
-      echo "FAIL handler $got is named by the classifier but not defined"
-      failures=$((failures + 1))
-    fi
-  done
-
-  # cloud-nuke deletes whatever its config matches. An EKS entry left unscoped
-  # would take every cluster in the CI account, not just this group's, so the
-  # scoping is asserted rather than assumed.
-  if command -v yq >/dev/null 2>&1; then
-    local scoped_config scoped_vpc scoped_eks
-    scoped_config="$(mktemp)"
-    cp "$SCRIPT_DIR/matching-vpc.yml" "$scoped_config"
-    NAME_REGEX='^example-group.*' yq eval \
-      '.VPC.include.names_regex = [strenv(NAME_REGEX)] | .EKSCluster.include.names_regex = [strenv(NAME_REGEX)]' \
-      -i "$scoped_config"
-    scoped_vpc="$(yq eval '.VPC.include.names_regex[0]' "$scoped_config")"
-    scoped_eks="$(yq eval '.EKSCluster.include.names_regex[0]' "$scoped_config")"
-    rm -f "$scoped_config"
-
-    _expect "cloud-nuke VPC target is scoped to the group" "$scoped_vpc" '^example-group.*'
-    _expect "cloud-nuke EKS target is scoped to the group" "$scoped_eks" '^example-group.*'
-  else
-    echo "skip cloud-nuke scoping check: yq unavailable"
-  fi
-
-  [[ "$failures" -eq 0 ]] || return 1
-}
-
 if [[ "$SELFTEST" == true ]]; then
+  # shellcheck source=.github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources-selftest.sh
+  . "$SCRIPT_DIR/destroy-resources-selftest.sh"
   destroy_selftest
   exit $?
 fi
@@ -973,10 +1040,17 @@ if [ $aws_exit_code -ne 0 ] && [ $aws_exit_code -ne 1 ]; then
   exit 1
 fi
 
+# `tf-bucket-key-prefix` defaults to empty, in which case the keys start with
+# `tfstate-<group>/` and have no leading slash at all. Anchoring on `/tfstate-`
+# silently matched nothing for those callers, and a targeted cleanup then
+# reported "nothing to destroy" and exited 0 with the stack still running.
+# `(^|.*/)` accepts the key either at the root or behind a prefix; it is
+# written as an ERE because BRE alternation is a GNU extension and this
+# script has to run outside GNU userland.
 if [ "$ID_OR_ALL" == "all" ]; then
-  groups=$(echo "$all_objects" | awk '{print $NF}' | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
+  groups=$(echo "$all_objects" | awk '{print $NF}' | sed -E -n 's#(^|.*/)tfstate-([^/]*)/.*#\2#p' | sort -u)
 else
-  groups=$(echo "$all_objects" | awk '{print $NF}' | grep "$ID_OR_ALL" | sed -n 's#.*/tfstate-\([^/]*\)/.*#\1#p' | sort -u)
+  groups=$(echo "$all_objects" | awk '{print $NF}' | select_target_groups "$ID_OR_ALL")
   if [ -z "$groups" ] && [ "$FAIL_ON_NOT_FOUND" = true ]; then
     echo "Error: No object found for ID '$ID_OR_ALL'"
     exit 1
@@ -1002,6 +1076,9 @@ for group_id in $groups; do
     echo "[$group_id] Processing group"
 
     # Use the ORDER parameter for modules cleanup
+    # SC2031: the only writer is the selftest subshell above, which exits
+    # before this runs and is isolated precisely so it cannot reach here.
+    # shellcheck disable=SC2031
     for module in "${ORDERED_MODULES[@]}"; do
       key="$KEY_PREFIX""tfstate-$group_id/${module}.tfstate"
       if aws s3 ls "s3://$BUCKET/$key" >/dev/null 2>&1; then

@@ -306,6 +306,14 @@ search_process_instances() {
     rm -f "$resp_file"
 }
 
+# The searches below filter on PROC_DEF_KEY, not PROCESS_ID. Every invocation
+# deploys the BPMN afresh and gets its own process-definition key, so the count
+# covers only the instances this run created. Filtering by the process id
+# instead counts every `smoke-test` instance the cluster has ever seen, which
+# lets a later invocation pass on an earlier one's work — the ECS dual-region
+# suite runs this action three times against one cluster, before and after a
+# failover, where that would have made the post-failover checks vacuous.
+#
 # Refresh OIDC tokens between create-loop and search loop AND on every
 # attempt: ES indexing of 1485 PIs may push the search past the token
 # expiry, leading to silent 401s.
@@ -326,7 +334,7 @@ MAX_CONSECUTIVE_CONNECTION_FAILURES=5
 for attempt in $(seq 1 "$SEARCH_MAX_ATTEMPTS"); do
     refresh_auth
     search_process_instances \
-        "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\"}}"
+        "{\"filter\":{\"processDefinitionKey\":\"${PROC_DEF_KEY}\"}}"
 
     if [[ "$SEARCH_CODE" =~ ^2[0-9][0-9]$ ]]; then
         FOUND=$(echo "$SEARCH_RESP" \
@@ -388,7 +396,7 @@ log "=== Checking for completed instances ==="
 
 refresh_auth
 search_process_instances \
-    "{\"filter\":{\"processDefinitionId\":\"${PROCESS_ID}\",\"state\":\"COMPLETED\"}}"
+    "{\"filter\":{\"processDefinitionKey\":\"${PROC_DEF_KEY}\",\"state\":\"COMPLETED\"}}"
 
 if [[ "$SEARCH_CODE" =~ ^2[0-9][0-9]$ ]]; then
     COMPLETED=$(echo "$SEARCH_RESP" \
