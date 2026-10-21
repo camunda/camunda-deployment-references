@@ -1,0 +1,40 @@
+---
+name: Install session-manager-plugin
+
+description: |
+    Installs the AWS Session Manager plugin on an Ubuntu runner.
+
+    ECS Exec (`aws ecs execute-command`) needs it. The ECS dual-region
+    procedure scripts reach the Zeebe management API on port 9600 that way,
+    because terraform/infra/lb.tf gives that ALB listener a fixed-response
+    default and no forward rule — the API is deliberately not exposed.
+
+runs:
+    using: composite
+    steps:
+        - name: Install session-manager-plugin
+          shell: bash
+          env:
+              # Pinned, not `latest`. This runs `dpkg -i` as root on a runner
+              # that has already loaded AWS credentials, so a mutable download
+              # is a credential-exfiltration path. AWS publishes no checksum
+              # file for the plugin, so the digest is recorded here and the
+              # install refuses to proceed if it does not match.
+              SMP_VERSION: 1.2.835.0
+              SMP_SHA256: 7c6dcad12518571cc7959a713e6a8ae1bdf6ed66fd9bee37dc189e39ca58ae03
+          run: |
+              set -euo pipefail
+
+              if command -v session-manager-plugin >/dev/null 2>&1; then
+                  echo "Already installed: $(session-manager-plugin --version)"
+                  exit 0
+              fi
+
+              curl -fsSL -o /tmp/session-manager-plugin.deb \
+                  "https://s3.amazonaws.com/session-manager-downloads/plugin/${SMP_VERSION}/ubuntu_64bit/session-manager-plugin.deb"
+
+              echo "${SMP_SHA256}  /tmp/session-manager-plugin.deb" | sha256sum --check --strict
+
+              sudo dpkg -i /tmp/session-manager-plugin.deb
+              rm -f /tmp/session-manager-plugin.deb
+              session-manager-plugin --version
