@@ -33,6 +33,7 @@ on:
     pull_request:
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/kubernetes-eck-operator/**
             - .github/actions/kubernetes-eck-operator-cleanup/**
@@ -135,7 +136,8 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
-        timeout-minutes: 90
+        # 90 for the job itself, plus up to 45 waiting for a capacity slot.
+        timeout-minutes: 135
         env:
             CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
         steps:
@@ -164,6 +166,25 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region and per leg: one VPC with a single NAT gateway, one NLB and one
+            # EKS cluster.
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: aws-kubernetes-eks-dual-region
+                  slots: '3'
+                  regions: ${{ env.CLUSTER_0_AWS_REGION }} ${{ env.CLUSTER_1_AWS_REGION }}
+                  lease-minutes: '720'
+                  leg: ${{ matrix.scenario.name }}
+                  needs: |
+                      vpcs=1
+                      elastic-ips=1
+                      nlbs=1
+                      eks-clusters=1
 
             - name: Set current target branch
               id: target-branch
@@ -598,6 +619,16 @@ jobs:
               env:
                   CLUSTER_0_AWS_REGION: eu-west-2
                   CLUSTER_1_AWS_REGION: eu-west-3
+
+            # Last, so the slot is held until this run's resources are gone.
+            # Same condition as the teardown: a kept cluster keeps its slot until the lease expires.
+            - name: Release the capacity slot
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: aws-kubernetes-eks-dual-region
+                  leg: ${{ matrix.scenario.name }}
 
     report-success:
         name: Report success

@@ -17,13 +17,16 @@ on:
     workflow_dispatch:
         inputs:
             test_name:
-                description: Which failover test to run (default = all)
+                description: >-
+                    Failover tests to run, separated by | (default = all four): TestPlannedFailover,
+                    TestUnplannedFailover, TestFailback_NoSwitchWriter, TestFailback_SwitchWriter
                 required: false
                 default: ''
                 type: string
     pull_request:
         paths:
             - .github/workflows/aws_ecs_dual_region_fargate_failover.yml
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/aws-generic-terraform-cleanup/**
             - .tool-versions
@@ -64,7 +67,8 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        timeout-minutes: 315
+        # 315 for the suite and its teardown, plus up to 45 waiting for a capacity slot.
+        timeout-minutes: 360
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -79,6 +83,28 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # A wave of pull requests (Renovate on the stable branches) once started
+            # enough runs at the same time to exhaust the account's RDS cluster quota.
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region: four parallel tests, each with its own stack of
+            # one VPC with a single NAT gateway, one ALB, two
+            # NLBs and one Aurora cluster with one instance.
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: ecs-dual-region-failover
+                  slots: '3'
+                  regions: eu-west-2 eu-west-3
+                  needs: |
+                      rds-clusters=4
+                      rds-instances=4
+                      vpcs=4
+                      elastic-ips=4
+                      albs=4
+                      nlbs=8
 
             - name: Cache Go modules
               uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -101,12 +127,15 @@ jobs:
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
               run: |
                   set -e
-                  TEST_FILTER="${INPUTS_TEST_NAME}"
-                  if [[ -z "$TEST_FILTER" ]]; then
-                      go test -v -timeout 120m -run 'TestPlannedFailover|TestUnplannedFailover|TestFailback_NoSwitchWriter|TestFailback_SwitchWriter' ./...
-                  else
-                      go test -v -timeout 120m -run "$TEST_FILTER" ./...
+                  # The capacity slot reserves the stacks of these four tests only, so a
+                  # dispatch may pick among them but not widen the run to other tests.
+                  tests='TestPlannedFailover|TestUnplannedFailover|TestFailback_NoSwitchWriter|TestFailback_SwitchWriter'
+                  TEST_FILTER="${INPUTS_TEST_NAME:-$tests}"
+                  if [[ ! "$TEST_FILTER" =~ ^($tests)(\|($tests))*$ ]]; then
+                      echo "::error::test_name must be one or more of ${tests}, separated by |."
+                      exit 1
                   fi
+                  go test -v -timeout 120m -run "^(${TEST_FILTER})\$" ./...
 
             # A run killed after failover.sh can leave the Aurora writer in region 1,
             # where terraform destroy may hang. Move it home before the destroy.
@@ -151,3 +180,12 @@ jobs:
                   tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate
                   # The VPC sweep and the cloud-nuke retry only run for the regions listed here.
                   cleanup-regions: eu-west-2 eu-west-3
+
+            # Last, so the slot is held until this run's resources are gone.
+            - name: Release the capacity slot
+              if: always()
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: ecs-dual-region-failover
+                  slot-key: ${{ steps.capacity.outputs.slot-key }}

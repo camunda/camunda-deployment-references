@@ -31,6 +31,7 @@ on:
         paths:
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-containers-ecs-single-region-fargate-create/**
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-debug-failed-ecs-tasks/**
             - .github/actions/internal-generic-terraform-outputs/**
@@ -130,6 +131,27 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region and per leg: one VPC with a NAT gateway per availability zone,
+            # one ALB, one NLB and one Aurora cluster with one instance.
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: aws-ecs-single-region-fargate
+                  slots: '6'
+                  regions: ${{ env.AWS_REGION }}
+                  lease-minutes: '720'
+                  leg: ${{ matrix.scenario.name }}
+                  needs: |
+                      rds-clusters=1
+                      rds-instances=1
+                      vpcs=1
+                      elastic-ips=3
+                      albs=1
+                      nlbs=1
 
             - name: Set current target branch
               id: target-branch
@@ -412,6 +434,15 @@ jobs:
                   fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: cluster
+
+            # Last, so the slot is held until this run's resources are gone.
+            - name: Release the capacity slot
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: aws-ecs-single-region-fargate
+                  leg: ${{ matrix.scenario.name }}
 
     report-success:
         name: Report success
