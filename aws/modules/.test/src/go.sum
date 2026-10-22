@@ -34,8 +34,8 @@ github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.69.1 h1:2ANEV0YkO/NlWxVmH
 github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.69.1/go.mod h1:O7cQtpXZSk+P59gPFZIpcMpKwLk5d9zabFpV8fw68RM=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.2 h1:J2ibOhlMLx1o6QwDFsHHfbQjaZ6t5LXodiLNuK6jbZA=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.2/go.mod h1:Tj8VcffnduuewrM8HN8xQ9wzzez0CJ0FGSGEovq7Sgs=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.338.4 h1:1PZfVMz36He601uRm1PiKyDcsEKBk76QYwyISwjOjjY=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.338.4/go.mod h1:RttUwBa++DWLLpzTAQdcQzqI9uBF9cfRI/ek8gXzLR4=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.340.0 h1:H9eDiicM7ygKBIaEINAaSPmUPNwq7dquXFICqvpbcxs=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.340.0/go.mod h1:RttUwBa++DWLLpzTAQdcQzqI9uBF9cfRI/ek8gXzLR4=
 github.com/aws/aws-sdk-go-v2/service/ecr v1.57.1 h1:G/O4muLF2pe1UJBKEyF7J+kdokEEqFJjm42cU68FqH4=
 github.com/aws/aws-sdk-go-v2/service/ecr v1.57.1/go.mod h1:KBzTxiBlQ2bB5XT367+t18i3Qe7NZDRyGKxdzN43aOw=
 github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.39.6 h1:pI1S5+Z8cfN/fImioNCHCWKFgm49ZeBhnjffJfRWHYA=
@@ -60,10 +60,10 @@ github.com/aws/aws-sdk-go-v2/service/kms v1.61.4 h1:vW7497x7W6ucLJAqDt96jIdO4+IW
 github.com/aws/aws-sdk-go-v2/service/kms v1.61.4/go.mod h1:Vz59N7x42VGLXZ5dGL9b10QhrU4GQv7MqnO7wc8bl9U=
 github.com/aws/aws-sdk-go-v2/service/lambda v1.89.1 h1:JxHLwNK5mIKsh2Q0APTSijdzkk5ccI4gyvYdar1JU/0=
 github.com/aws/aws-sdk-go-v2/service/lambda v1.89.1/go.mod h1:7qoh/MlWG5QCnZwq9bvdXomEAkmumayXcjEjIemIV7U=
-github.com/aws/aws-sdk-go-v2/service/opensearch v1.85.1 h1:Rf/MDVbI+Q4YkaySw/Eo0u6/R+/31Bk46l73MxC2mG0=
-github.com/aws/aws-sdk-go-v2/service/opensearch v1.85.1/go.mod h1:DVxfowJEROLQsH1/xFFM3eKCA8D8QZGJT53I1u3i5FI=
-github.com/aws/aws-sdk-go-v2/service/rds v1.130.3 h1:/r/iLO6C3fZt8h10+YT4ID2R//JD6q7k9P/7f8AsN+A=
-github.com/aws/aws-sdk-go-v2/service/rds v1.130.3/go.mod h1:kINuLzcAGKKdpwsN4A24D3y0gAVJDrN4/dGfkJeq9JE=
+github.com/aws/aws-sdk-go-v2/service/opensearch v1.86.0 h1:fEN2/vIEcscUjNXkay3f/sf20YHlJjr1zqbzNDvqM+M=
+github.com/aws/aws-sdk-go-v2/service/opensearch v1.86.0/go.mod h1:DVxfowJEROLQsH1/xFFM3eKCA8D8QZGJT53I1u3i5FI=
+github.com/aws/aws-sdk-go-v2/service/rds v1.131.0 h1:19Va8QX+CpSgFKxe1FsUanVlLDSLUFbzLX+sbqxp0Zs=
+github.com/aws/aws-sdk-go-v2/service/rds v1.131.0/go.mod h1:kINuLzcAGKKdpwsN4A24D3y0gAVJDrN4/dGfkJeq9JE=
 github.com/aws/aws-sdk-go-v2/service/route53 v1.62.6 h1:6b+KS0uVMMsCUKlW8OPNxmcEmoEUtqP1LfnzSzWmuQM=
 github.com/aws/aws-sdk-go-v2/service/route53 v1.62.6/go.mod h1:+wmraHmxwqi7feUL/41uULJWl8V1HxtxzOJH6a4ZRg4=
 github.com/aws/aws-sdk-go-v2/service/s3 v1.114.3 h1:NyeuyXkZL476uoAowNActm4XJO1QPKf7aassgXHpiqA=
