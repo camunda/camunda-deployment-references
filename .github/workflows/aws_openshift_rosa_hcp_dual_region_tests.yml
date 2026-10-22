@@ -183,7 +183,7 @@ jobs:
                   mode: acquire
                   pool: aws-openshift-rosa-hcp-dual-region
                   slots: '3'
-                  regions: ${{ env.CLUSTER_0_AWS_REGION }} ${{ env.CLUSTER_1_AWS_REGION }}
+                  regions: ${{ env.CLUSTER_1_AWS_REGION }} ${{ env.CLUSTER_2_AWS_REGION }}
                   lease-minutes: '720'
                   leg: ${{ matrix.distro.name }}
                   needs: |
