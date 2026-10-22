@@ -68,7 +68,16 @@ jobs:
                   popd >/dev/null
 
                   rosa version
-                  rosa login --token=${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+                  # sso.redhat.com sits behind a CDN that intermittently answers with an HTML
+                  # error page at midnight UTC; retry with a growing delay before failing.
+                  for attempt in 1 2 3 4 5 6; do
+                    rosa login --token=${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }} && break
+                    if [ "${attempt}" = 6 ]; then
+                      echo "::error::rosa login failed after ${attempt} attempts."
+                      exit 1
+                    fi
+                    sleep $((attempt * 20))
+                  done
 
                   # Write the artifact into the repo working tree (gh-pages branch is currently checked out).
                   mkdir -p docs
