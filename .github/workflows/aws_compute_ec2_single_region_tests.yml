@@ -32,6 +32,7 @@ on:
         paths:
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-compute-ec2-single-region-create/**
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-generic-terraform-outputs/**
             - .github/actions/camunda-smoke-test/**
@@ -137,6 +138,27 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region and per leg: one VPC with a single NAT gateway, one ALB, one NLB
+            # and one OpenSearch domain.
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: aws-compute-ec2-single-region
+                  slots: '6'
+                  regions: ${{ env.AWS_REGION }}
+                  lease-minutes: '720'
+                  leg: ${{ matrix.distro.name }}
+                  needs: |
+                      vpcs=1
+                      elastic-ips=1
+                      albs=1
+                      nlbs=1
+                      opensearch-domains=1
+
             - name: Set current target branch
               id: target-branch
               run: |
@@ -384,6 +406,15 @@ jobs:
                   fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: cluster
+
+            # Last, so the slot is held until this run's resources are gone.
+            - name: Release the capacity slot
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: aws-compute-ec2-single-region
+                  leg: ${{ matrix.distro.name }}
 
     test-report:
         runs-on: ubuntu-latest
