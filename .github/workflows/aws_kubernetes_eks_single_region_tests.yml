@@ -555,9 +555,11 @@ jobs:
                   set -euo pipefail
 
                   # A pull request merged mid-run deletes its head branch; the merged code is then on the base branch.
-                  git ls-remote --exit-code --heads origin "$REF_ARCH_BRANCH" >/dev/null || export REF_ARCH_BRANCH="$GITHUB_BASE_REF"
-
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/get-your-copy.sh || {
+                      [[ -n "${GITHUB_BASE_REF:-}" ]] && ! git ls-remote --exit-code --heads origin "$REF_ARCH_BRANCH" >/dev/null || exit 1
+                      rm -rf camunda-deployment-references
+                      REF_ARCH_BRANCH="$GITHUB_BASE_REF" ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
+                  }
                   tree
 
             - name: 🌱 Register chart setup environment values
