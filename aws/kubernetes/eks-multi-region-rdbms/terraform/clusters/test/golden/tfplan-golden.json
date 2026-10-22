@@ -2308,7 +2308,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.37.0-SUFFIX",
+                    "release_version": "1.37.1-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -5335,7 +5335,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-3",
-                    "release_version": "1.37.0-SUFFIX",
+                    "release_version": "1.37.1-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
