@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -167,7 +168,8 @@ esac
 // every stack was skipped as not this sweep's and the run exited 0, so a
 // daily cleanup pointed at the wrong bucket, or without access to it, stayed
 // green while restoring nothing. It now fails the run, outside strict mode
-// too, with one annotation naming the cause, and still moves no writer.
+// too, with one annotation naming the cause, lists only once, and still moves
+// no writer.
 func TestRestoreAuroraWritersFailsWhenStatesCannotBeListed(t *testing.T) {
 	t.Parallel()
 
@@ -196,14 +198,20 @@ esac
 	out, err := cmd.CombinedOutput()
 	calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
 
-	if err == nil {
-		t.Fatalf("want a failing run when the states cannot be listed, got exit 0\n%s", out)
+	// Exactly 1: a crash exits non-zero too and must not pass for this failure.
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("want exit 1 when the states cannot be listed, got %v\n%s", err, out)
 	}
 	if !strings.Contains(string(out), "AccessDenied") {
 		t.Fatalf("want the AWS error in the log, so the cause is visible\n%s", out)
 	}
 	if n := strings.Count(string(out), "::error::"); n != 1 {
 		t.Fatalf("want exactly one ::error:: annotation for the run, got %d\n%s", n, out)
+	}
+	// The second stack is skipped without listing again: the cause is the same.
+	if n := strings.Count(string(calls), "list-objects-v2"); n != 1 {
+		t.Fatalf("want the listing tried once, got %d\n%s", n, calls)
 	}
 	if strings.Contains(string(calls), "failover-global-cluster") {
 		t.Fatalf("moved a writer without knowing who owns it\n%s", calls)

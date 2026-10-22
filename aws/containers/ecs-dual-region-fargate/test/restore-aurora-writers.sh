@@ -90,6 +90,12 @@ while read -r global; do
     # zero age this gate used to be skipped altogether, so a manual sweep could
     # move the writer of another branch's live deployment.
     if [ -n "${STATE_PREFIX:-}" ]; then
+        # Once a listing has failed, the rest would fail the same way: skip
+        # them without another S3 call, but still name each one in the log.
+        if [ "$state_unreadable" = true ]; then
+            mgmt_log "$id: the states are unreadable, so its ownership is unknown, skipping."
+            continue
+        fi
         # Gate on the state objects the destroy gates on, not on the cluster's
         # age. The destroy handles app before infra and stops the whole stack
         # at the first fresh one, so the newest of the two decides.
@@ -99,14 +105,11 @@ while read -r global; do
         # The exit status is what separates "no state here" from "could not
         # look": an access error, a wrong bucket or region all used to land on
         # the "not this sweep's" skip below and keep a misconfigured cleanup
-        # green. The message is read on the failure path only, so stdout stays
-        # pure JSON for jq on success.
-        if ! listing=$(aws "${list_args[@]}" 2>/dev/null); then
-            reason=$(aws "${list_args[@]}" 2>&1 >/dev/null | tr '\n' ' ')
-            mgmt_err "$id: could not list s3://${STATE_BUCKET}/${STATE_PREFIX}tfstate-$cluster, so its ownership is unknown: ${reason:-no error text}"
-            # One annotation per run: the cause is the same for every stack.
-            [ "$state_unreadable" = true ] ||
-                echo "::error::restore-aurora-writers: cannot read the Terraform states under s3://${STATE_BUCKET}/${STATE_PREFIX}; check the bucket, region, prefix and credentials"
+        # green. Only stdout is captured, so jq still gets pure JSON, and the
+        # AWS error of this very request lands in the log, just above.
+        if ! listing=$(aws "${list_args[@]}"); then
+            mgmt_err "$id: could not list s3://${STATE_BUCKET}/${STATE_PREFIX}tfstate-$cluster (AWS error above), so its ownership is unknown."
+            echo "::error::restore-aurora-writers: cannot read the Terraform states under s3://${STATE_BUCKET}/${STATE_PREFIX}; check the bucket, region, prefix and credentials, or re-run if S3 failed transiently (throttling, 5xx)"
             failed=true
             state_unreadable=true
             continue
