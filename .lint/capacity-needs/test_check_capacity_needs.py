@@ -43,12 +43,12 @@ jobs:
 
 
 class CheckCapacityNeedsTest(unittest.TestCase):
-    def run_check(self, needs: str) -> list[str]:
+    def run_check(self, needs: str, plan: dict = PLAN) -> list[str]:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             golden = root / "aws/x/terraform/cluster/test/golden"
             golden.mkdir(parents=True)
-            (golden / "tfplan-golden.json").write_text(json.dumps(PLAN))
+            (golden / "tfplan-golden.json").write_text(json.dumps(plan))
             workflows = root / ".github/workflows"
             workflows.mkdir(parents=True)
             (workflows / "w.yml").write_text(WORKFLOW.replace("{needs}", needs))
@@ -61,6 +61,32 @@ class CheckCapacityNeedsTest(unittest.TestCase):
         errors = self.run_check("vpcs=1")
         self.assertEqual(len(errors), 1)
         self.assertIn("aws_eip", errors[0])
+
+    def test_alb_and_nlb_are_separate_quotas(self):
+        both = lb_plan("application", "network")
+        self.assertEqual(self.run_check(f"albs=1{SEP}nlbs=1", both), [])
+        for kept, missing in (("albs", "nlbs"), ("nlbs", "albs")):
+            errors = self.run_check(f"{kept}=1", both)
+            self.assertEqual(len(errors), 1)
+            self.assertIn(f"declares {missing}", errors[0])
+
+    def test_single_lb_kind(self):
+        self.assertEqual(self.run_check("nlbs=1", lb_plan("network")), [])
+        self.assertEqual(len(self.run_check("nlbs=1", lb_plan("application"))), 1)
+        # Terraform defaults load_balancer_type to application.
+        self.assertEqual(self.run_check("albs=1", lb_plan(None)), [])
+
+
+SEP = "\n                      "
+
+
+def lb_plan(*types):
+    return {
+        "resources": {
+            f"aws_lb.lb{i}": {"values": {"load_balancer_type": lb_type}}
+            for i, lb_type in enumerate(types)
+        }
+    }
 
 
 if __name__ == "__main__":
