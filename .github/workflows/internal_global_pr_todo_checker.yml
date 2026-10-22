@@ -16,5 +16,5 @@ concurrency:
 
 jobs:
     call-todo-checker:
-        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@fc5fa6ee1e142bf583e9f01e749bc31654ff07ac # 2.3.8
+        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
         secrets: inherit
