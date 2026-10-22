@@ -71,6 +71,10 @@ The failover workflow uses the same base36 suffix to select Aurora clusters for 
 State keys retain the full decimal run ID, so the daily cleanup also finds earlier test stacks.
 Local runs keep their existing suite prefixes, random six-character suffixes, and prefix overrides.
 
+- `aws_ecs_dual_region_fargate_tests.yml` is the pull-request lane. It does not use this Terratest suite: it
+  deploys one greenfield `vpc_peering` + `rdbms` cluster, proves process instances execute, then drives
+  `procedure/failover.sh` and `procedure/failback.sh` against that same cluster, re-proving execution after
+  each transition.
 - `aws_ecs_dual_region_fargate_integration.yml` runs the greenfield tests on matching pull requests and manual dispatches.
 - `aws_ecs_dual_region_fargate_failover.yml` runs the failover and failback tests on matching pull requests and manual dispatches.
 - `aws_ecs_dual_region_fargate_byo_vpc.yml` runs the BYO-VPC test on manual dispatches.

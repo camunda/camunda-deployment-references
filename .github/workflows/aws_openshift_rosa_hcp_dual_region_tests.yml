@@ -1022,7 +1022,9 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
-                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  # The pair the create action names the state after: <name0>-oOo-<name1>.
+                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-0-oOo-${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName
+                      }}-1
                   fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   openshift: 'true'

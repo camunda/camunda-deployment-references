@@ -6,7 +6,7 @@ require (
 	github.com/gruntwork-io/terratest v1.0.1
 	github.com/hashicorp/hcl/v2 v2.22.0
 	github.com/stretchr/testify v1.12.1
-	github.com/zclconf/go-cty v1.15.0
+	github.com/zclconf/go-cty v1.15.1
 )
 
 require (
@@ -21,7 +21,7 @@ require (
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/hashicorp/terraform-json v0.23.0 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
-	github.com/klauspost/compress v1.16.5 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/mattn/go-zglob v0.0.2-0.20190814121620-e3c945676326 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect

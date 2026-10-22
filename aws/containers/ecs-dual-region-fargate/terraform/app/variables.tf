@@ -53,7 +53,7 @@ variable "default_tags" {
 variable "camunda_image" {
   type = string
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)$
-  default     = "camunda/camunda:8.10.3"
+  default     = "camunda/camunda:8.10.5"
   description = "Container image for the Camunda orchestration cluster tasks (Zeebe broker + gateway + webapps)"
 }
 

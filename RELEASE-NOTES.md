@@ -16,6 +16,10 @@ Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fi
 - Dual-region failover now runs the Aurora planned switchover when the writer is in the failed region, and failover/failback wait until the switchover completes ([#3578](https://github.com/camunda/camunda-deployment-references/pull/3578)).
 - The ECS and EKS Aurora switchover helpers fail at once when a second switchover cancels the pending one, instead of waiting 900 seconds. They return `2` and ask for a rerun when a switchover is still running at the timeout ([#3681](https://github.com/camunda/camunda-deployment-references/pull/3681), backport [#3682](https://github.com/camunda/camunda-deployment-references/pull/3682)).
 - ECS and EKS `failback.sh` report the AWS error when `describe-global-clusters` fails. Before, it read the error as an empty topology ([#3681](https://github.com/camunda/camunda-deployment-references/pull/3681), backport [#3682](https://github.com/camunda/camunda-deployment-references/pull/3682)).
+- Dual-region `failover.sh` and `failback.sh` wait until every partition has exactly one leader before reporting success, and report an unreachable gateway separately from an unsettled cluster. Before, a single read right after the Aurora switchover could fail a failover that had succeeded, and `failback.sh` aborted after completing ([#3595](https://github.com/camunda/camunda-deployment-references/pull/3595), backport [#3755](https://github.com/camunda/camunda-deployment-references/pull/3755)).
+- Dual-region `verify_dual_region.sh` fails when the health-check process is not deployed. Deploy it once with the new `deploy_health_check_process.sh`, step 6 of the README quick start. With `--failed-region`, it checks replication factor 2 and one leader per partition instead of the broker count ([#3595](https://github.com/camunda/camunda-deployment-references/pull/3595), backport [#3755](https://github.com/camunda/camunda-deployment-references/pull/3755)).
+- Added the dual-region `db_force_destroy` input (default `true`), so `terraform destroy` can remove the Aurora Global cluster after a failover. It controls member detachment only; it is not deletion protection ([#3595](https://github.com/camunda/camunda-deployment-references/pull/3595), backport [#3755](https://github.com/camunda/camunda-deployment-references/pull/3755)).
+- Uses Camunda 8.10.5, which fixes a dual-region forced zone removal that never completed when a broker had seen no peer ([#3765](https://github.com/camunda/camunda-deployment-references/pull/3765)).
 
 ### AWS EKS
 
@@ -43,6 +47,7 @@ Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fi
 ### AWS EC2 and Debian
 
 - Installs Camunda 8.10 GA ([#3637](https://github.com/camunda/camunda-deployment-references/pull/3637)).
+- Installs Camunda 8.10.5 ([#3765](https://github.com/camunda/camunda-deployment-references/pull/3765)).
 - Removed hardcoded demo credentials from service configuration templates ([#2423](https://github.com/camunda/camunda-deployment-references/pull/2423)).
 - Added authenticated artifact downloads and fixed installation error handling ([#2397](https://github.com/camunda/camunda-deployment-references/pull/2397)).
 - Migrated service configuration to unified `CAMUNDA_*` properties ([#3501](https://github.com/camunda/camunda-deployment-references/pull/3501)).

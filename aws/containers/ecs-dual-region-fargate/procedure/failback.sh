@@ -46,6 +46,10 @@ set -euo pipefail
 : "${ADMIN_USER:?ADMIN_USER must be set (default: admin)}"
 : "${ADMIN_PASS:?ADMIN_PASS must be set}"
 
+# How long Step 6 waits for the re-added zone's brokers to join and take over
+# partitions. A settle window, not a health budget.
+LEADER_SETTLE_TIMEOUT="${LEADER_SETTLE_TIMEOUT:-180}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # shellcheck source=SCRIPTDIR/zeebe_management_api.sh
 . "${SCRIPT_DIR}/zeebe_management_api.sh"
@@ -382,27 +386,55 @@ fi
 mgmt_topology_summary "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
   "AFTER failback — ${RECOVERED_ZONE} restored"
 
-TOPOLOGY=$(curl -sf --max-time 20 -u "${ADMIN_USER}:${ADMIN_PASS}" \
-  "http://${SURVIVING_ALB}/v2/topology" 2>/dev/null || echo "")
-BROKERS=$(echo "${TOPOLOGY}" | jq '.brokers | length' 2>/dev/null || echo 0)
-PARTITIONS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[].partitionId] | unique | length' 2>/dev/null || echo 0)
-LEADERS=$(echo "${TOPOLOGY}" | jq '[.brokers[].partitions[] | select(.role == "leader")] | length' 2>/dev/null || echo 0)
-IDLE=$(echo "${TOPOLOGY}" | jq --arg z "${RECOVERED_ZONE}" \
-  '[.brokers[] | select(.brokerId | startswith($z + "_")) | select((.partitions | length) == 0)] | length' 2>/dev/null || echo 0)
+IDLE_FILTER='[.brokers[] | select(.brokerId | startswith("'"${RECOVERED_ZONE}"'_"))
+   | select((.partitions | length) == 0)] | length'
+# Every partition must hold exactly one leader. `unique | length` counts a
+# partition that reports two leaders once, so it passes a split brain.
+LEADER_FILTER='[.brokers[].partitions[] | select(.role == "leader") | .partitionId]
+   | group_by(.) | map(select(length == 1)) | length'
+PARTITION_FILTER='[.brokers[].partitions[].partitionId] | unique | length'
 
-if [ "${BROKERS}" -ne "${TARGET_BROKERS}" ]; then
-    err "Expected ${TARGET_BROKERS} brokers, found ${BROKERS}."
+FAILBACK_SETTLED="
+  (.brokers | length) as \$brokers |
+  (${PARTITION_FILTER}) as \$partitions |
+  (${LEADER_FILTER}) as \$led |
+  (${IDLE_FILTER}) as \$idle |
+  \$brokers == ${TARGET_BROKERS} and \$idle == 0
+    and \$partitions > 0 and \$led == \$partitions"
+
+# Polled rather than read once: the re-added zone's tasks are still starting
+# and taking over partitions, so the first answer is routinely short of the
+# target even on a healthy failback.
+if TOPOLOGY=$(mgmt_topology_settled "${SURVIVING_ALB}" "${ADMIN_USER}" "${ADMIN_PASS}" \
+      "${LEADER_SETTLE_TIMEOUT}" "${FAILBACK_SETTLED}"); then
+    SETTLED=true
+else
+    SETTLED=false
+fi
+
+# Counted on both paths: the closing summary reports them whatever happened,
+# and under `set -u` a name left unset in the success branch aborts the script
+# after the failback has already finished.
+BROKERS=$(mgmt_topology_count "${TOPOLOGY}" '.brokers | length')
+PARTITIONS=$(mgmt_topology_count "${TOPOLOGY}" "${PARTITION_FILTER}")
+LEADERS=$(mgmt_topology_count "${TOPOLOGY}" "${LEADER_FILTER}")
+IDLE=$(mgmt_topology_count "${TOPOLOGY}" "${IDLE_FILTER}")
+
+if [ "${SETTLED}" = true ]; then
+    log "✓ ${BROKERS} brokers, ${PARTITIONS} partitions, ${LEADERS} leaders, no idle brokers."
+else
+    if [ -z "${TOPOLOGY}" ]; then
+        err "${SURVIVING_ALB} stopped answering within ${LEADER_SETTLE_TIMEOUT}s, so the failback could not be confirmed."
+    elif [ "${BROKERS}" -ne "${TARGET_BROKERS}" ]; then
+        err "Expected ${TARGET_BROKERS} brokers after ${LEADER_SETTLE_TIMEOUT}s, found ${BROKERS}."
+    elif [ "${IDLE}" -ne 0 ]; then
+        err "${IDLE} ${RECOVERED_ZONE} broker(s) host no partitions — the zone re-add did not take effect."
+    else
+        err "Only ${LEADERS} of ${PARTITIONS} partitions have exactly one leader after ${LEADER_SETTLE_TIMEOUT}s — not settled yet."
+    fi
+    err "Re-check with: ./verify_dual_region.sh"
     exit 1
 fi
-if [ "${IDLE}" -ne 0 ]; then
-    err "${IDLE} ${RECOVERED_ZONE} broker(s) host no partitions — the zone re-add did not take effect."
-    exit 1
-fi
-if [ "${LEADERS}" -ne "${PARTITIONS}" ]; then
-    err "Only ${LEADERS} of ${PARTITIONS} partitions have a leader — not settled yet."
-    exit 1
-fi
-log "✓ ${BROKERS} brokers, ${PARTITIONS} partitions, ${LEADERS} leaders, no idle brokers."
 
 ###############################################################################
 # Step 7: Optionally switch the Aurora writer back                            #
