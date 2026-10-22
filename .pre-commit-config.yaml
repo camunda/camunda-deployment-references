@@ -150,6 +150,13 @@ repos:
             files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources(-selftest)?\.sh$
             pass_filenames: false
 
+          - id: aws-capacity-slot-selftest
+            name: AWS capacity slot self-test
+            entry: bash .github/actions/aws-capacity-slot/slot-selftest.sh
+            language: system
+            files: ^\.github/actions/aws-capacity-slot/slot(-selftest)?\.sh$
+            pass_filenames: false
+
           - id: ghost-rosa-cleanup-selftest
             name: Ghost ROSA cleanup script self-test
             # yamllint disable-line rule:line-length
