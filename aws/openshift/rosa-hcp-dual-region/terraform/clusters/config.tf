@@ -12,7 +12,8 @@ terraform {
     }
 
     rhcs = {
-      version = "~> 1.6"
+      # 1.7.11 was published without the provider binary.
+      version = "~> 1.6, != 1.7.11"
       source  = "terraform-redhat/rhcs"
     }
   }
