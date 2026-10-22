@@ -24,7 +24,7 @@ headers = {
 }
 
 
-def fetch(target_url, attempts=3, backoff_seconds=5):
+def fetch(target_url, attempts=6, backoff_seconds=20):
     last_error = None
     for attempt in range(1, attempts + 1):
         try:
