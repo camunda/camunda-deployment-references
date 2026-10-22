@@ -10,7 +10,7 @@ on:
 
 jobs:
     lint:
-        uses: camunda/infraex-common-config/.github/workflows/lint-global.yml@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
+        uses: camunda/infraex-common-config/.github/workflows/lint-global.yml@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
         with:
             # Runs Renovate over the repository and fails on an annotation it reads and then
             # drops as unusable -- a dependency that looks tracked and can never be updated.
