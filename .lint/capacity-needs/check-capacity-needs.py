@@ -27,33 +27,39 @@ from pathlib import Path
 
 WORKFLOWS = Path(".github/workflows")
 
-# Terraform type -> accepted `needs` keys (either one satisfies the type).
+# Terraform type -> `needs` key.
 QUOTAS = {
-    "aws_vpc": ("vpcs",),
-    "aws_eip": ("elastic-ips",),
-    "aws_lb": ("albs", "nlbs"),
-    "aws_eks_cluster": ("eks-clusters",),
-    "aws_rds_cluster": ("rds-clusters",),
-    "aws_rds_cluster_instance": ("rds-instances",),
-    "aws_opensearch_domain": ("opensearch-domains",),
-    "aws_ec2_transit_gateway": ("transit-gateways",),
+    "aws_vpc": "vpcs",
+    "aws_eip": "elastic-ips",
+    "aws_eks_cluster": "eks-clusters",
+    "aws_rds_cluster": "rds-clusters",
+    "aws_rds_cluster_instance": "rds-instances",
+    "aws_opensearch_domain": "opensearch-domains",
+    "aws_ec2_transit_gateway": "transit-gateways",
 }
+# ALBs and NLBs are separate quotas; `load_balancer_type` defaults to application.
+LB_QUOTAS = {"application": "albs", "network": "nlbs"}
 
 GOLDEN_FILTER = re.compile(r"""['"]!(?P<glob>[^'"]*/test/golden)/\*\*['"]""")
 NEEDS_KEY = re.compile(r"^\s+(?P<key>[a-z-]+)=\d+\s*$")
 
 
-def golden_types(plan: Path) -> set[str]:
-    """Terraform types in a golden plan, keyed by address (`module.x.aws_vpc.this[0]`)."""
-    found: set[str] = set()
+def golden_types(plan: Path) -> dict[str, str]:
+    """Terraform type -> `needs` key, for resources keyed by address (`module.x.aws_vpc.this[0]`)."""
+    found: dict[str, str] = {}
 
     def walk(node: object) -> None:
         if isinstance(node, dict):
             for key, value in node.items():
                 parts = re.sub(r"\[[^]]*\]", "", key).split(".")
                 name = parts[-2] if len(parts) >= 2 else ""
-                if name in QUOTAS and isinstance(value, dict):
-                    found.add(name)
+                if isinstance(value, dict):
+                    if name in QUOTAS:
+                        found[name] = QUOTAS[name]
+                    elif name == "aws_lb":
+                        lb_type = (value.get("values") or {}).get("load_balancer_type") or "application"
+                        if lb_type in LB_QUOTAS:
+                            found[f"aws_lb ({lb_type})"] = LB_QUOTAS[lb_type]
                 walk(value)
 
     walk(json.loads(plan.read_text()).get("resources", {}))
@@ -90,11 +96,11 @@ def check(root: Path) -> list[str]:
         ]
         needs = declared_needs(text)
         for plan in plans:
-            for tf_type in sorted(golden_types(plan)):
-                if not needs.intersection(QUOTAS[tf_type]):
+            for tf_type, key in sorted(golden_types(plan).items()):
+                if key not in needs:
                     errors.append(
                         f"{workflow.relative_to(root)}: {plan.relative_to(root)} creates "
-                        f"{tf_type}, but no `needs` declares {' or '.join(QUOTAS[tf_type])}"
+                        f"{tf_type}, but no `needs` declares {key}"
                     )
     return errors
 
