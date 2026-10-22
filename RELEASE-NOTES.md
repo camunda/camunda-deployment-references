@@ -4,6 +4,10 @@
 
 Changes will appear here during the development cycle.
 
+### AWS ROSA HCP
+
+- The `rhcs` provider constraint skips version 1.7.11, which was published without its provider binary. `terraform init` failed with `provider binary not found` ([#3818](https://github.com/camunda/camunda-deployment-references/pull/3818)).
+
 ## 8.10
 
 Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fixes backported to `stable/8.10` since.
