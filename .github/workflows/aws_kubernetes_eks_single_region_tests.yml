@@ -585,6 +585,9 @@ jobs:
                   # run it as specified in the doc
                   set -euo pipefail
 
+                  # A pull request merged mid-run deletes its head branch; the merged code is then on the base branch.
+                  git ls-remote --exit-code --heads origin "$REF_ARCH_BRANCH" >/dev/null || export REF_ARCH_BRANCH="$GITHUB_BASE_REF"
+
                   ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
                   tree
 
