@@ -237,19 +237,20 @@ variable "db_force_destroy" {
   type        = bool
   default     = true
   description = <<-EOT
-    Allow `terraform destroy` to detach the Aurora Global cluster's members
-    before deleting it. A global cluster cannot be deleted while it still has
-    members, and after a failover those members are no longer in the topology
-    Terraform recorded — so without this a teardown wedges and leaves an
-    Aurora Global cluster, two DB clusters and their instances billing.
+    Allow `terraform destroy` to detach the members that are still attached to
+    the Aurora Global cluster when it deletes the global cluster. A global
+    cluster cannot be deleted while it still has members. This does not cover
+    a destroy after a failover: move the writer back to region 0 first, or the
+    destroy hangs on the last instance of the promoted writer. See "Teardown
+    after a failover" in the README.
 
     Defaults to true for the same reason as `s3_force_destroy`: this is a
     reference architecture and `terraform destroy` should clean up after
     itself. This only controls detachment. It is not deletion protection:
     with it false, `terraform destroy` still deletes both regional DB clusters
     (they set no `prevent_destroy`, and the module skips final snapshots by
-    default) before failing on the global cluster. To protect the data, enable
-    deletion protection or final snapshots on the clusters instead.
+    default). To protect the data, enable deletion protection or final
+    snapshots on the clusters instead.
   EOT
 }
 
