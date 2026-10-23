@@ -935,10 +935,10 @@ nuke_vpcs_in_cleanup_regions() {
 }
 
 # An Aurora Global cluster cannot be deleted while it still has members.
-# `force_destroy` on aws_rds_global_cluster is the real fix and every
-# architecture here sets it, but a member promoted out of band -- AWS during a
-# region loss, or an operator mid-teardown -- can still leave the global
-# cluster in a state the provider will not delete from. Detach what is left so
+# `force_destroy` on aws_rds_global_cluster detaches the members left when the
+# global cluster itself is deleted, but a writer moved out of region 0 -- a
+# failover, AWS during a region loss, or an operator mid-teardown -- blocks
+# the destroy earlier, on that writer's last instance. Detach what is left so
 # the next attempt has nothing holding it.
 #
 # Deliberately does not delete the DB clusters: they are in the Terraform
