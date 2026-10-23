@@ -18,6 +18,7 @@ on:
             - '!aws/openshift/rosa-hcp-dual-region/terraform/*/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-dual-region-create/**
             - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-camunda-ci-credentials/**
@@ -172,6 +173,24 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.CLUSTER_0_AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region and per leg: one VPC with a NAT gateway per availability zone and one
+            # NLB for the ingress of the hosted control plane (an estimate).
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: aws-openshift-rosa-hcp-dual-region
+                  slots: '3'
+                  regions: ${{ env.CLUSTER_0_AWS_REGION }} ${{ env.CLUSTER_1_AWS_REGION }}
+                  lease-minutes: '720'
+                  leg: ${{ matrix.distro.name }}
+                  needs: |
+                      vpcs=1
+                      elastic-ips=3
+                      nlbs=1
 
             - name: Set current target branch
               id: target-branch
@@ -1024,6 +1043,15 @@ jobs:
                   openshift: 'true'
                   delete-ghost-rosa-clusters: 'true'
                   modules-order: backup_bucket,peering,clusters
+
+            # Last, so the slot is held until this run's resources are gone.
+            - name: Release the capacity slot
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: aws-openshift-rosa-hcp-dual-region
+                  leg: ${{ matrix.distro.name }}
     report-success:
         name: Report success
         if: ${{ !failure() && !cancelled() }}
