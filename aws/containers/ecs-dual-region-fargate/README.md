@@ -282,8 +282,7 @@ open http://localhost:8080
 While the Aurora writer is away from region 0, `terraform destroy` hangs on the
 Aurora resources, whatever the value of `db_force_destroy`. Run
 `./procedure/failback.sh --failed-region 0 --switch-writer` before you destroy.
-For the cause and the manual recovery, see
-[`terraform destroy` hangs on the Aurora resources](https://docs.camunda.io/docs/next/self-managed/deployment/containers/cloud-providers/amazon/aws-ecs-dual-region/#terraform-destroy-hangs-on-the-aurora-resources).
+See [Step 6 — Cleanup](https://docs.camunda.io/docs/next/self-managed/deployment/containers/cloud-providers/amazon/aws-ecs-dual-region/#step-6--cleanup).
 
 ## Load test overlay (optional)
 
