@@ -52,8 +52,9 @@ inputs:
         description: >
             How long after admission a run may still be creating its resources. Until then, its
             `needs` are reserved on top of the current usage when another run is admitted, in every
-            pool, so suites sharing a region see each other. 90 covers the load balancers that the
-            EKS suites create in their integration job, after the clusters.
+            pool, so suites sharing a region see each other. What appeared since the run's admission
+            is taken off, so created resources do not count twice. 90 covers the load balancers that
+            the EKS suites create in their integration job, after the clusters.
         default: '90'
     margin:
         description: Units of each quota to keep free for other suites sharing the account.
