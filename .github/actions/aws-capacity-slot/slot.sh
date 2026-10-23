@@ -15,6 +15,7 @@
 # later one sees the earlier one, and reserves its demand on top of the current
 # usage.
 set -euo pipefail
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # One lock bucket for every suite, whatever bucket holds its Terraform state:
 # reservations are only visible to runs that scan the same bucket.
@@ -126,9 +127,11 @@ for need in ${NEEDS:-}; do
 done
 
 # True when every region has room for this run's needs on top of the current
-# usage and of what other runs admitted within PROVISION_MINUTES reserved.
+# usage and of what other runs admitted within PROVISION_MINUTES still have to
+# create. Writes the usage it reads to $scratch/base, for publish_base.
 room() {
     local region need resource count used quota code reserved ok=0
+    : >"$scratch/base"
     for region in ${REGIONS:-}; do
         for need in ${NEEDS:-}; do
             resource=${need%%=*}
@@ -138,8 +141,9 @@ room() {
             quota=$(number aws service-quotas get-service-quota --region "$region" \
                 --service-code "${code% *}" --quota-code "${code#* }" \
                 --query 'Quota.Value' --output text) || exit 1
-            reserved=$(jq -s --arg r "$region" --arg k "$resource" \
-                '[.[] | select(.regions | index($r)) | .needs[$k] // 0] | add // 0' "$scratch/pending")
+            echo "{\"$region\": {\"$resource\": $used}}" >>"$scratch/base"
+            reserved=$(jq -s --arg r "$region" --arg k "$resource" --argjson used "$used" \
+                -f "$SCRIPT_DIR/reserved.jq" "$scratch/pending")
             if ((used + reserved + count + MARGIN > quota)); then
                 echo "${region} ${resource}: ${used}/${quota} used, ${reserved} reserved, this run needs ${count} (+${MARGIN} margin)"
                 ok=1
@@ -177,7 +181,7 @@ pending_slots() {
         read_slot "$key" || continue
         jq -c --argjson now "$now" --argjson window $((PROVISION_MINUTES * 60)) \
             'select(.expires > $now and (.acquired // 0) > $now - $window)
-             | {regions: (.regions // []), needs: (.needs // {})}' "$scratch/current" >>"$scratch/pending"
+             | {regions: (.regions // []), needs: (.needs // {}), base: (.base // {})}' "$scratch/current" >>"$scratch/pending"
     done
 }
 
@@ -205,6 +209,16 @@ try_slot() {
     conditional s3 put-object --key "$key" --body "$scratch/body" --if-match "$etag"
 }
 
+# Adds to this run's slot the usage measured at its admission, so other runs
+# can tell what it already created. A failed write only keeps the full
+# reservation, which is the safe side.
+publish_base() {
+    jq -s 'reduce .[] as $x ({}; . * $x)' "$scratch/base" >"$scratch/base.json"
+    jq --slurpfile base "$scratch/base.json" '.base = $base[0]' "$scratch/body" >"$scratch/body.new"
+    s3 put-object --key "$slot_key" --body "$scratch/body.new" >/dev/null 2>&1 ||
+        echo "::warning::Could not record the admission usage in ${slot_key}."
+}
+
 acquire() {
     local deadline i owned
     deadline=$(($(date +%s) + WAIT_MINUTES * 60))
@@ -230,6 +244,7 @@ acquire() {
         else
             pending_slots
             if room; then
+                publish_base
                 echo "Acquired ${slot_key} for ${OWNER}"
                 echo "slot-key=${slot_key}" >>"${GITHUB_OUTPUT:-/dev/null}"
                 published=1
