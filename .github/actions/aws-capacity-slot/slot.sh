@@ -15,7 +15,6 @@
 # later one sees the earlier one, and reserves its demand on top of the current
 # usage.
 set -euo pipefail
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 # One lock bucket for every suite, whatever bucket holds its Terraform state:
 # reservations are only visible to runs that scan the same bucket.
@@ -127,11 +126,9 @@ for need in ${NEEDS:-}; do
 done
 
 # True when every region has room for this run's needs on top of the current
-# usage and of what other runs admitted within PROVISION_MINUTES still have to
-# create. Writes the usage it reads to $scratch/base, for publish_base.
+# usage and of what other runs admitted within PROVISION_MINUTES reserved.
 room() {
     local region need resource count used quota code reserved ok=0
-    : >"$scratch/base"
     for region in ${REGIONS:-}; do
         for need in ${NEEDS:-}; do
             resource=${need%%=*}
@@ -141,9 +138,8 @@ room() {
             quota=$(number aws service-quotas get-service-quota --region "$region" \
                 --service-code "${code% *}" --quota-code "${code#* }" \
                 --query 'Quota.Value' --output text) || exit 1
-            echo "{\"$region\": {\"$resource\": $used}}" >>"$scratch/base"
-            reserved=$(jq -s --arg r "$region" --arg k "$resource" --argjson used "$used" \
-                --slurpfile aged "$scratch/aged" -f "$SCRIPT_DIR/reserved.jq" "$scratch/pending")
+            reserved=$(jq -s --arg r "$region" --arg k "$resource" \
+                '[.[] | select(.regions | index($r)) | .needs[$k] // 0] | add // 0' "$scratch/pending")
             if ((used + reserved + count + MARGIN > quota)); then
                 echo "${region} ${resource}: ${used}/${quota} used, ${reserved} reserved, this run needs ${count} (+${MARGIN} margin)"
                 ok=1
@@ -175,19 +171,13 @@ pending_slots() {
     local key keys now
     now=$(date +%s)
     : >"$scratch/pending"
-    : >"$scratch/aged"
     keys=$(list_keys "ci-locks/") || exit 1
     for key in $keys; do
         [[ "$key" == "$slot_key" ]] && continue
         read_slot "$key" || continue
         jq -c --argjson now "$now" --argjson window $((PROVISION_MINUTES * 60)) \
             'select(.expires > $now and (.acquired // 0) > $now - $window)
-             | {regions: (.regions // []), needs: (.needs // {}), base: (.base // {})}' "$scratch/current" >>"$scratch/pending"
-        # Live runs past the window: what they created may be what appeared
-        # since a pending run's admission, so it must not credit that run.
-        jq -c --argjson now "$now" --argjson window $((PROVISION_MINUTES * 60)) \
-            'select(.expires > $now and (.acquired // 0) <= $now - $window)
-             | {regions: (.regions // []), needs: (.needs // {})}' "$scratch/current" >>"$scratch/aged"
+             | {regions: (.regions // []), needs: (.needs // {})}' "$scratch/current" >>"$scratch/pending"
     done
 }
 
@@ -215,17 +205,6 @@ try_slot() {
     conditional s3 put-object --key "$key" --body "$scratch/body" --if-match "$etag"
 }
 
-# Adds to this run's slot the usage measured at its admission, so other runs
-# can tell what it already created. Returns 1 when the slot is no longer this
-# run's (its lease expired and another run took it): the run is not admitted.
-publish_base() {
-    read_slot "$slot_key" || return 1
-    [[ "$(jq -r .owner "$scratch/current")" == "$OWNER" ]] || return 1
-    jq -s 'reduce .[] as $x ({}; . * $x)' "$scratch/base" >"$scratch/base.json"
-    jq --slurpfile base "$scratch/base.json" '.base = $base[0]' "$scratch/current" >"$scratch/body.new"
-    conditional s3 put-object --key "$slot_key" --body "$scratch/body.new" --if-match "$etag"
-}
-
 acquire() {
     local deadline i owned
     deadline=$(($(date +%s) + WAIT_MINUTES * 60))
@@ -251,17 +230,13 @@ acquire() {
         else
             pending_slots
             if room; then
-                if publish_base; then
-                    echo "Acquired ${slot_key} for ${OWNER}"
-                    echo "slot-key=${slot_key}" >>"${GITHUB_OUTPUT:-/dev/null}"
-                    published=1
-                    return 0
-                fi
-                echo "Lost ${slot_key} while checking the quota."
-            else
-                echo "Not enough quota, giving ${slot_key} back."
-                SLOT_KEY=$slot_key release
+                echo "Acquired ${slot_key} for ${OWNER}"
+                echo "slot-key=${slot_key}" >>"${GITHUB_OUTPUT:-/dev/null}"
+                published=1
+                return 0
             fi
+            echo "Not enough quota, giving ${slot_key} back."
+            SLOT_KEY=$slot_key release
             slot_key=''
         fi
         if (($(date +%s) >= deadline)); then
