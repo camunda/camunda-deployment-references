@@ -238,11 +238,11 @@ variable "db_force_destroy" {
   default     = true
   description = <<-EOT
     Allow `terraform destroy` to detach the members that are still attached to
-    the Aurora Global cluster when it deletes the global cluster. Terraform
-    deletes the global cluster last, so this does not prevent a hang after a
-    failover: Aurora does not delete the last instance of the promoted writer
-    in region 1 while region 0 is still attached. Move the writer back to
-    region 0 before you destroy.
+    the Aurora Global cluster when it deletes the global cluster. A global
+    cluster cannot be deleted while it still has members. This does not cover
+    a destroy after a failover: move the writer back to region 0 first, or the
+    destroy hangs on the last instance of the promoted writer. See "Teardown
+    after a failover" in the README.
 
     Defaults to true for the same reason as `s3_force_destroy`: this is a
     reference architecture and `terraform destroy` should clean up after
