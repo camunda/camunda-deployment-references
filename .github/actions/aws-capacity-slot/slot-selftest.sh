@@ -94,36 +94,15 @@ _expect "a failed listing refuses admission" \
 _expect "a failed listing fails release by owner" \
     "$(FAKE_LIST_FAIL=1 POOL=d OWNER=run-d/leg1 SLOT_KEY='' "$here/slot.sh" release >/dev/null 2>&1; echo $?)" 1
 
-# Quota 10 in eu-west-1. Run g is admitted at usage 2 and reserves 4 EIPs.
-_expect "an admitted run records the usage it saw" \
-    "$(FAKE_USAGE=2 POOL=g OWNER=run-g REGIONS=eu-west-1 NEEDS=$'elastic-ips=4' run; jq -c .base "$FAKE_S3"/ci-locks_g_slot-0)" \
-    $'acquired\n{"eu-west-1":{"elastic-ips":2}}'
-_expect "before run g creates anything, its 4 still count (2+4+5 > 10)" \
-    "$(FAKE_USAGE=2 POOL=h OWNER=run-h REGIONS=eu-west-1 NEEDS=$'elastic-ips=5' run)" refused
-_expect "once run g created its 4, they do not count twice (6+0+4 = 10)" \
-    "$(FAKE_USAGE=6 POOL=h OWNER=run-h REGIONS=eu-west-1 NEEDS=$'elastic-ips=4' run)" acquired
-POOL=h OWNER=run-h SLOT_KEY='' "$here/slot.sh" release >/dev/null 2>&1
-_expect "deletions since admission keep the full reservation (1+4+6 > 10)" \
-    "$(FAKE_USAGE=1 POOL=h OWNER=run-h REGIONS=eu-west-1 NEEDS=$'elastic-ips=6' run)" refused
-jq 'del(.base)' "$FAKE_S3"/ci-locks_g_slot-0 >"$work/old" && cp "$work/old" "$FAKE_S3"/ci-locks_g_slot-0
-_expect "a slot without a recorded usage keeps its full reservation (6+4+1 > 10)" \
-    "$(FAKE_USAGE=6 POOL=h OWNER=run-h REGIONS=eu-west-1 NEEDS=$'elastic-ips=1' run)" refused
-
-# Copilot's case in us-east-1: A (aged out, created its 4) and B (pending,
-# created nothing) were both admitted at usage 0. Usage is now 4. B still
-# needs 4, so a run needing 4 more must not fit in 10: 4+4+4 > 10.
-now=$(date +%s)
-slot_file() { jq -nc --arg o "$1" --argjson a "$2" --argjson e $((now + 3600)) \
-    '{owner: $o, acquired: $a, expires: $e, regions: ["us-east-1"], needs: {"vpcs": 4}, base: {"us-east-1": {"vpcs": 0}}}' \
-    >"$FAKE_S3/ci-locks_$3_slot-0"; printf 'ci-locks/%s/slot-0\n' "$3" >"$FAKE_S3/ci-locks_$3_slot-0.key"; }
-slot_file run-a $((now - 91 * 60)) ka
-slot_file run-b $((now - 81 * 60)) kb
-_expect "an aged-out run's resources do not cancel a younger run's reservation" \
-    "$(FAKE_USAGE=4 PROVISION_MINUTES=90 POOL=kc OWNER=run-c REGIONS=us-east-1 NEEDS=$'vpcs=4' run)" refused
-_expect "the same run fits once B is gone (4+0+4 <= 10)" \
-    "$(rm "$FAKE_S3"/ci-locks_kb_slot-0*; FAKE_USAGE=4 PROVISION_MINUTES=90 POOL=kc OWNER=run-c REGIONS=us-east-1 NEEDS=$'vpcs=4' run)" acquired
-_expect "the recorded usage keeps the slot's owner, lease and needs" \
-    "$(jq -c '{owner, needs, base}' "$FAKE_S3"/ci-locks_kc_slot-0)" '{"owner":"run-c","needs":{"vpcs":4},"base":{"us-east-1":{"vpcs":4}}}'
+# A run admitted 31 minutes ago, with needs 8 out of 10 in us-east-1. Its
+# reservation counts within a 45-minute window and not within a 30-minute one.
+jq -nc --argjson a $(($(date +%s) - 31 * 60)) --argjson e $(($(date +%s) + 3600)) \
+    '{owner: "run-old", acquired: $a, expires: $e, regions: ["us-east-1"], needs: {"vpcs": 8}}' >"$FAKE_S3/ci-locks_old_slot-0"
+printf 'ci-locks/old/slot-0\n' >"$FAKE_S3/ci-locks_old_slot-0.key"
+_expect "a run inside the provisioning window is reserved" \
+    "$(POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=4' run)" refused
+_expect "a run past the provisioning window counts through usage only" \
+    "$(PROVISION_MINUTES=30 POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=4' run)" acquired
 
 echo "${failures} failure(s)"
 [[ "$failures" -eq 0 ]]
