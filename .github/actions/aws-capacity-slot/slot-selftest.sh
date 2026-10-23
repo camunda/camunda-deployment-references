@@ -94,5 +94,20 @@ _expect "a failed listing refuses admission" \
 _expect "a failed listing fails release by owner" \
     "$(FAKE_LIST_FAIL=1 POOL=d OWNER=run-d/leg1 SLOT_KEY='' "$here/slot.sh" release >/dev/null 2>&1; echo $?)" 1
 
+# Quota 10 in eu-west-1. Run g is admitted at usage 2 and reserves 4 EIPs.
+_expect "an admitted run records the usage it saw" \
+    "$(FAKE_USAGE=2 POOL=g OWNER=run-g REGIONS=eu-west-1 NEEDS=$'elastic-ips=4' run; jq -c .base "$FAKE_S3"/ci-locks_g_slot-0)" \
+    $'acquired\n{"eu-west-1":{"elastic-ips":2}}'
+_expect "before run g creates anything, its 4 still count (2+4+5 > 10)" \
+    "$(FAKE_USAGE=2 POOL=h OWNER=run-h REGIONS=eu-west-1 NEEDS=$'elastic-ips=5' run)" refused
+_expect "once run g created its 4, they do not count twice (6+0+4 = 10)" \
+    "$(FAKE_USAGE=6 POOL=h OWNER=run-h REGIONS=eu-west-1 NEEDS=$'elastic-ips=4' run)" acquired
+POOL=h OWNER=run-h SLOT_KEY='' "$here/slot.sh" release >/dev/null 2>&1
+_expect "deletions since admission keep the full reservation (1+4+6 > 10)" \
+    "$(FAKE_USAGE=1 POOL=h OWNER=run-h REGIONS=eu-west-1 NEEDS=$'elastic-ips=6' run)" refused
+jq 'del(.base)' "$FAKE_S3"/ci-locks_g_slot-0 >"$work/old" && cp "$work/old" "$FAKE_S3"/ci-locks_g_slot-0
+_expect "a slot without a recorded usage keeps its full reservation (6+4+1 > 10)" \
+    "$(FAKE_USAGE=6 POOL=h OWNER=run-h REGIONS=eu-west-1 NEEDS=$'elastic-ips=1' run)" refused
+
 echo "${failures} failure(s)"
 [[ "$failures" -eq 0 ]]
