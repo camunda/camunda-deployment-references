@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -160,6 +161,60 @@ esac
 	}
 	if strings.Contains(string(calls), "--global-cluster-identifier ecsdr-3595-global-db") {
 		t.Fatalf("touched ecsdr-3595, another branch's stack\n%s\n%s", calls, out)
+	}
+}
+
+// An erroring state listing used to be read as "no state under the prefix":
+// every stack was skipped as not this sweep's and the run exited 0, so a
+// daily cleanup pointed at the wrong bucket, or without access to it, stayed
+// green while restoring nothing. It now fails the run, outside strict mode
+// too, with one annotation naming the cause, lists only once, and still moves
+// no writer.
+func TestRestoreAuroraWritersFailsWhenStatesCannotBeListed(t *testing.T) {
+	t.Parallel()
+
+	const aws = `#!/usr/bin/env bash
+echo "$*" >> "$FAKE_DIR/calls"
+case "$*" in
+  *list-objects-v2*)
+    echo "An error occurred (AccessDenied) when calling the ListObjectsV2 operation: Access Denied" >&2
+    exit 254 ;;
+  *failover-global-cluster*) touch "$FAKE_DIR/switched" ;;
+  *describe-global-clusters*)
+    echo '[
+      {"GlobalClusterIdentifier":"ecsdr-3595-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true}]},
+      {"GlobalClusterIdentifier":"ecsdr-3600-global-db","GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:c","IsWriter":false},{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:d","IsWriter":true}]}
+    ]' ;;
+esac
+`
+	fake := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(aws), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", filepath.Join("..", "..", "restore-aurora-writers.sh"), "^ecsdr-.*-global-db$", "0")
+	cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake,
+		"REGION_0=eu-west-2", "AURORA_WRITER_POLL_SECONDS=0",
+		"STATE_BUCKET=b", "STATE_BUCKET_REGION=eu-central-1", "STATE_PREFIX=p/main/")
+	out, err := cmd.CombinedOutput()
+	calls, _ := os.ReadFile(filepath.Join(fake, "calls"))
+
+	// Exactly 1: a crash exits non-zero too and must not pass for this failure.
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+		t.Fatalf("want exit 1 when the states cannot be listed, got %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "AccessDenied") {
+		t.Fatalf("want the AWS error in the log, so the cause is visible\n%s", out)
+	}
+	if n := strings.Count(string(out), "::error::"); n != 1 {
+		t.Fatalf("want exactly one ::error:: annotation for the run, got %d\n%s", n, out)
+	}
+	// The second stack is skipped without listing again: the cause is the same.
+	if n := strings.Count(string(calls), "list-objects-v2"); n != 1 {
+		t.Fatalf("want the listing tried once, got %d\n%s", n, calls)
+	}
+	if strings.Contains(string(calls), "failover-global-cluster") {
+		t.Fatalf("moved a writer without knowing who owns it\n%s", calls)
 	}
 }
 
