@@ -17,8 +17,8 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
 
     if [ "$attempt" -eq "$RETRY_AT" ] && echo "$STATUS" | grep -q "No resources found"; then
         echo "No CSV after 3 minutes, recreating the Subscription."
-        oc --context "$CLUSTER_0" --namespace open-cluster-management delete subscription advanced-cluster-management
-        oc --context "$CLUSTER_0" apply -f install-manifest.yml
+        oc --context "$CLUSTER_0" --namespace open-cluster-management delete subscription advanced-cluster-management || true
+        oc --context "$CLUSTER_0" apply -f install-manifest.yml || true
     fi
 
     sleep 5
