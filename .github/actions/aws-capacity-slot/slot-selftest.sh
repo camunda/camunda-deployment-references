@@ -109,5 +109,21 @@ jq 'del(.base)' "$FAKE_S3"/ci-locks_g_slot-0 >"$work/old" && cp "$work/old" "$FA
 _expect "a slot without a recorded usage keeps its full reservation (6+4+1 > 10)" \
     "$(FAKE_USAGE=6 POOL=h OWNER=run-h REGIONS=eu-west-1 NEEDS=$'elastic-ips=1' run)" refused
 
+# Copilot's case in us-east-1: A (aged out, created its 4) and B (pending,
+# created nothing) were both admitted at usage 0. Usage is now 4. B still
+# needs 4, so a run needing 4 more must not fit in 10: 4+4+4 > 10.
+now=$(date +%s)
+slot_file() { jq -nc --arg o "$1" --argjson a "$2" --argjson e $((now + 3600)) \
+    '{owner: $o, acquired: $a, expires: $e, regions: ["us-east-1"], needs: {"vpcs": 4}, base: {"us-east-1": {"vpcs": 0}}}' \
+    >"$FAKE_S3/ci-locks_$3_slot-0"; printf 'ci-locks/%s/slot-0\n' "$3" >"$FAKE_S3/ci-locks_$3_slot-0.key"; }
+slot_file run-a $((now - 91 * 60)) ka
+slot_file run-b $((now - 81 * 60)) kb
+_expect "an aged-out run's resources do not cancel a younger run's reservation" \
+    "$(FAKE_USAGE=4 PROVISION_MINUTES=90 POOL=kc OWNER=run-c REGIONS=us-east-1 NEEDS=$'vpcs=4' run)" refused
+_expect "the same run fits once B is gone (4+0+4 <= 10)" \
+    "$(rm "$FAKE_S3"/ci-locks_kb_slot-0*; FAKE_USAGE=4 PROVISION_MINUTES=90 POOL=kc OWNER=run-c REGIONS=us-east-1 NEEDS=$'vpcs=4' run)" acquired
+_expect "the recorded usage keeps the slot's owner, lease and needs" \
+    "$(jq -c '{owner, needs, base}' "$FAKE_S3"/ci-locks_kc_slot-0)" '{"owner":"run-c","needs":{"vpcs":4},"base":{"us-east-1":{"vpcs":4}}}'
+
 echo "${failures} failure(s)"
 [[ "$failures" -eq 0 ]]
