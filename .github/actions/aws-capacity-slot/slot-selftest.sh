@@ -94,15 +94,27 @@ _expect "a failed listing refuses admission" \
 _expect "a failed listing fails release by owner" \
     "$(FAKE_LIST_FAIL=1 POOL=d OWNER=run-d/leg1 SLOT_KEY='' "$here/slot.sh" release >/dev/null 2>&1; echo $?)" 1
 
-# A run admitted 31 minutes ago, with needs 8 out of 10 in us-east-1. Its
-# reservation counts within a 45-minute window and not within a 30-minute one.
-jq -nc --argjson a $(($(date +%s) - 31 * 60)) --argjson e $(($(date +%s) + 3600)) \
-    '{owner: "run-old", acquired: $a, expires: $e, regions: ["us-east-1"], needs: {"vpcs": 8}}' >"$FAKE_S3/ci-locks_old_slot-0"
-printf 'ci-locks/old/slot-0\n' >"$FAKE_S3/ci-locks_old_slot-0.key"
-_expect "a run inside the provisioning window is reserved" \
-    "$(POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=4' run)" refused
-_expect "a run past the provisioning window counts through usage only" \
-    "$(PROVISION_MINUTES=30 POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=4' run)" acquired
+# A run admitted 31 minutes ago, with needs 8 out of 10 in us-east-1. The
+# holder's own window decides, whatever the acquiring run's window is.
+old_slot() {
+    jq -nc --argjson a $(($(date +%s) - 31 * 60)) --argjson e $(($(date +%s) + 3600)) --argjson w "$1" \
+        '{owner: "run-old", acquired: $a, expires: $e, regions: ["us-east-1"], needs: {"vpcs": 8}}
+         | if $w > 0 then .provision_minutes = $w else . end' >"$FAKE_S3/ci-locks_old_slot-0"
+    printf 'ci-locks/old/slot-0\n' >"$FAKE_S3/ci-locks_old_slot-0.key"
+}
+old_slot 45
+_expect "a holder inside its own window is reserved, even past the acquirer's" \
+    "$(PROVISION_MINUTES=30 POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=4' run)" refused
+old_slot 30
+_expect "a holder past its own window counts through usage only" \
+    "$(PROVISION_MINUTES=90 POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=4' run)" acquired
+POOL=w OWNER=run-w SLOT_KEY='' "$here/slot.sh" release >/dev/null 2>&1
+old_slot 0
+_expect "a holder without a recorded window keeps 90 minutes" \
+    "$(PROVISION_MINUTES=30 POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=4' run)" refused
+POOL=w OWNER=run-w SLOT_KEY='' "$here/slot.sh" release >/dev/null 2>&1
+_expect "a new slot records its window" \
+    "$(rm -f "$FAKE_S3"/ci-locks_old_slot-0*; PROVISION_MINUTES=30 POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=1' run; jq .provision_minutes "$FAKE_S3"/ci-locks_w_slot-0)" $'acquired\n30'
 
 echo "${failures} failure(s)"
 [[ "$failures" -eq 0 ]]

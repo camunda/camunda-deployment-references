@@ -56,6 +56,7 @@ inputs:
             counted twice until then, so keep it short. 30 covers the cluster and network creation;
             later resources, such as the load balancers of the EKS integration job, count through the
             real usage and the margin only.
+            The slot records this value, so runs from other branches judge it by its own window.
         default: '30'
     margin:
         description: Units of each quota to keep free for other suites sharing the account.
