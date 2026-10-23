@@ -161,9 +161,11 @@ list_keys() {
     jq -r '.[]? // empty' <<<"$out"
 }
 
-# Writes to $scratch/pending the slots of every pool (every suite) admitted
-# within PROVISION_MINUTES: their resources may not exist yet, so usage does
-# not show them. Each slot carries the regions and needs of its run.
+# Writes to $scratch/pending the slots of every pool (every suite) still within
+# their own provisioning window: their resources may not exist yet, so usage
+# does not show them. Each slot carries the regions, needs and window of its
+# run, so branches with different defaults judge each other by the holder's
+# window. A slot without one (written by an older version) keeps 90 minutes.
 # shortcut: a fixed provisioning window; a resource created after it (a late
 # load balancer) counts only through real usage. Reserve again before that
 # step if a quota error ever shows up there.
@@ -175,8 +177,8 @@ pending_slots() {
     for key in $keys; do
         [[ "$key" == "$slot_key" ]] && continue
         read_slot "$key" || continue
-        jq -c --argjson now "$now" --argjson window $((PROVISION_MINUTES * 60)) \
-            'select(.expires > $now and (.acquired // 0) > $now - $window)
+        jq -c --argjson now "$now" \
+            'select(.expires > $now and (.acquired // 0) > $now - (.provision_minutes // 90) * 60)
              | {regions: (.regions // []), needs: (.needs // {})}' "$scratch/current" >>"$scratch/pending"
     done
 }
@@ -185,8 +187,8 @@ try_slot() {
     local key="$prefix/slot-$1" now
     now=$(date +%s)
     jq -nc --arg owner "$OWNER" --argjson acquired "$now" --argjson expires $((now + LEASE_MINUTES * 60)) \
-        --arg regions "${REGIONS:-}" --arg needs "${NEEDS:-}" \
-        '{owner: $owner, acquired: $acquired, expires: $expires,
+        --argjson window "$PROVISION_MINUTES" --arg regions "${REGIONS:-}" --arg needs "${NEEDS:-}" \
+        '{owner: $owner, acquired: $acquired, expires: $expires, provision_minutes: $window,
           regions: ($regions | split(" ") | map(select(. != ""))),
           needs: ($needs | split("\n") | map(gsub("\\s"; "") | select(test("=")) | split("=") | {(.[0]): (.[1] | tonumber)}) | add // {})}' \
         >"$scratch/body"

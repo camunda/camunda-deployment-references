@@ -52,9 +52,12 @@ inputs:
         description: >
             How long after admission a run may still be creating its resources. Until then, its
             `needs` are reserved on top of the current usage when another run is admitted, in every
-            pool, so suites sharing a region see each other. 90 covers the load balancers that the
-            EKS suites create in their integration job, after the clusters.
-        default: '90'
+            pool, so suites sharing a region see each other. Resources a run has already created are
+            counted twice until then, so keep it short. 30 covers the cluster and network creation;
+            later resources, such as the load balancers of the EKS integration job, count through the
+            real usage and the margin only.
+            The slot records this value, so runs from other branches judge it by its own window.
+        default: '30'
     margin:
         description: Units of each quota to keep free for other suites sharing the account.
         default: '2'
