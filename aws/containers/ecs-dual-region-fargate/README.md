@@ -290,32 +290,62 @@ region's Aurora cluster is down too, `failover.sh` stops and points to the
 Pass `--keep-writer` in that case to skip the switchover and let the script
 finish.
 
-While the writer is away from region 0, Terraform still expects the original
-topology and `terraform destroy` may hang on the Aurora resources.
+While the writer is away from region 0, `terraform destroy` hangs on the
+Aurora resources, whatever the value of `db_force_destroy`. Terraform deletes
+region 1's cluster first, because it was created as the secondary. After a
+failover, region 1 holds the writer, and Aurora refuses to delete the writer's
+last instance while region 0 is still attached. Terraform retries until the
+delete timeout. `db_force_destroy` only acts on the global cluster, which
+Terraform deletes last, so the destroy never reaches it.
 
-`db_force_destroy` (default `true`) covers the usual case: the provider detaches
-every global-cluster member before deleting it, in dependency order and with the
-state left consistent. If you set it to `false` for a real workload, detach the
-members yourself and re-run:
+Move the writer back to region 0 before you destroy. If you also bring region 0
+back, run `./procedure/failback.sh --failed-region 0 --switch-writer`. To move
+only the writer, run a planned switchover:
 
 ```bash
-# 1. Remove both clusters from the Global cluster
-aws rds remove-from-global-cluster \
+aws rds switchover-global-cluster \
+  --global-cluster-identifier <global-id> \
+  --target-db-cluster-identifier <region-0-cluster-arn>
+```
+
+The command returns before the writer moves. Wait until region 0 is the writer
+and no switchover is pending before you destroy:
+
+```bash
+until aws rds describe-global-clusters \
+  --global-cluster-identifier <global-id> \
+  --query 'GlobalClusters[0]' --output json |
+  jq -e --arg arn <region-0-cluster-arn> \
+    '(.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn) == $arn
+     and (.FailoverState.Status // "") == ""' >/dev/null; do
+  sleep 30
+done
+```
+
+If region 0's Aurora cluster is lost and you cannot move the writer back,
+detach the members yourself and re-run:
+
+```bash
+# 1. Detach both clusters from the global cluster: the secondary (region 0) first, then the writer (region 1)
+aws rds remove-from-global-cluster --region <region-0> \
   --global-cluster-identifier <global-id> \
   --db-cluster-identifier <region-0-cluster-arn>
+aws rds remove-from-global-cluster --region <region-1> \
+  --global-cluster-identifier <global-id> \
+  --db-cluster-identifier <region-1-cluster-arn>
 
-# 2. Delete instances in both regions (skip-final-snapshot for dev)
+# 2. Delete the instances in both regions (skip the final snapshot only for non-production)
 aws rds delete-db-instance --db-instance-identifier <r0-instance> --skip-final-snapshot --region <region-0>
 aws rds delete-db-instance --db-instance-identifier <r1-instance> --skip-final-snapshot --region <region-1>
 
-# 3. Wait for instances to delete, then delete clusters
+# 3. Wait for the instances to be deleted, then delete the clusters
 aws rds delete-db-cluster --db-cluster-identifier <r0-cluster> --skip-final-snapshot --region <region-0>
 aws rds delete-db-cluster --db-cluster-identifier <r1-cluster> --skip-final-snapshot --region <region-1>
 
 # 4. Delete the global cluster
 aws rds delete-global-cluster --global-cluster-identifier <global-id>
 
-# 5. Remove Aurora resources from Terraform state and proceed with destroy
+# 5. Remove the Aurora resources from the Terraform state and continue the destroy
 terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster_instance.primary[0]'
 terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster_instance.secondary[0]'
 terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster.primary'

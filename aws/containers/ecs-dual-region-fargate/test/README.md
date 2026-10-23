@@ -1,6 +1,6 @@
 # ECS Dual-Region Fargate — Terratest End-to-End
 
-End-to-end tests that apply the full three-state Terraform stack (`vpc/` → `infra/` → `app/`), wait for Camunda to reach steady state, and verify Zeebe Raft quorum forms across both regions. These tests create **real AWS resources** and cost real money — only run against the sandbox account.
+End-to-end tests that apply the full three-state Terraform stack (`vpc/` → `infra/` → `app/`). They wait for Camunda to reach steady state, then verify that Zeebe Raft quorum forms across both regions. These tests create **real AWS resources** and cost real money — only run against the sandbox account.
 
 Per `docs/superpowers/specs/2026-06-10-ecs-dual-region-testing-design.md` §2 (Sprint 4).
 
