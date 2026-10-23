@@ -1,0 +1,96 @@
+---
+name: AWS Capacity Slot
+
+description: >
+    Bounds how many runs of a suite hold AWS resources at the same time. `acquire` waits until
+    every listed region has room under the account quotas for what the run creates, then takes
+    one of `slots` slots in a pool stored in S3 (atomic conditional writes, lease with expiry, no
+    daily reset). `release` frees the slot; call it with `if: always()` after the destroy steps.
+    The AWS CLI must already be configured.
+
+inputs:
+    mode:
+        description: '`acquire` or `release`.'
+        required: true
+    pool:
+        description: Pool name. Runs sharing a pool share its slots.
+        required: true
+    slots:
+        description: Number of runs allowed to hold the pool at the same time.
+        default: '3'
+    slot-key:
+        description: >
+            Slot to free, from the `slot-key` output of `acquire`. Release mode only. When empty,
+            `release` frees the slot this run and `leg` hold, so a separate cleanup job can call it.
+        default: ''
+    bucket:
+        description: >
+            S3 bucket holding the slots, under `ci-locks/<pool>/`. Keep the default: suites only see
+            each other's reservations in the same bucket.
+        default: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
+    bucket-region:
+        description: Region of the bucket.
+        default: eu-central-1
+    lease-minutes:
+        description: >
+            Lease of a slot. A run that dies without releasing frees its slot after this delay.
+            Must cover the whole job.
+        default: '360'
+    wait-minutes:
+        description: How long `acquire` waits for capacity before failing.
+        default: '45'
+    regions:
+        description: Space-separated regions to check for free quota. Empty skips the check.
+        default: ''
+    needs:
+        description: >
+            What one run creates in each region of `regions`, one `<resource>=<count>` per line.
+            Resources: `rds-clusters`, `rds-instances`, `vpcs`, `elastic-ips`, `transit-gateways`,
+            `albs`, `nlbs`, `eks-clusters`, `opensearch-domains`.
+        default: ''
+    provision-minutes:
+        description: >
+            How long after admission a run may still be creating its resources. Until then, its
+            `needs` are reserved on top of the current usage when another run is admitted, in every
+            pool, so suites sharing a region see each other. Resources a run has already created are
+            counted twice until then, so keep it short. 30 covers the cluster and network creation;
+            later resources, such as the load balancers of the EKS integration job, count through the
+            real usage and the margin only.
+            The slot records this value, so runs from other branches judge it by its own window.
+        default: '30'
+    margin:
+        description: Units of each quota to keep free for other suites sharing the account.
+        default: '2'
+    leg:
+        description: >
+            Tells apart the holders of one run: matrix legs, or jobs sharing a pool. The owner is the
+            run id plus this value, so `release` may run in a later job of the same run. Pass the
+            same value to `acquire` and `release`.
+        default: ''
+
+outputs:
+    slot-key:
+        description: S3 key of the acquired slot.
+        value: ${{ steps.slot.outputs.slot-key }}
+
+runs:
+    using: composite
+    steps:
+        - name: ${{ inputs.mode }} capacity slot
+          id: slot
+          shell: bash
+          run: '"$GITHUB_ACTION_PATH/slot.sh" "$MODE"'
+          env:
+              MODE: ${{ inputs.mode }}
+              POOL: ${{ inputs.pool }}
+              SLOTS: ${{ inputs.slots }}
+              SLOT_KEY: ${{ inputs.slot-key }}
+              BUCKET: ${{ inputs.bucket }}
+              BUCKET_REGION: ${{ inputs.bucket-region }}
+              LEASE_MINUTES: ${{ inputs.lease-minutes }}
+              WAIT_MINUTES: ${{ inputs.wait-minutes }}
+              REGIONS: ${{ inputs.regions }}
+              NEEDS: ${{ inputs.needs }}
+              MARGIN: ${{ inputs.margin }}
+              PROVISION_MINUTES: ${{ inputs.provision-minutes }}
+              OWNER: ${{ github.repository }}/${{ github.run_id }}/${{ inputs.leg }}
