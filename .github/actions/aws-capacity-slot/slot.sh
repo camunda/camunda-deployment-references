@@ -143,7 +143,7 @@ room() {
                 --query 'Quota.Value' --output text) || exit 1
             echo "{\"$region\": {\"$resource\": $used}}" >>"$scratch/base"
             reserved=$(jq -s --arg r "$region" --arg k "$resource" --argjson used "$used" \
-                -f "$SCRIPT_DIR/reserved.jq" "$scratch/pending")
+                --slurpfile aged "$scratch/aged" -f "$SCRIPT_DIR/reserved.jq" "$scratch/pending")
             if ((used + reserved + count + MARGIN > quota)); then
                 echo "${region} ${resource}: ${used}/${quota} used, ${reserved} reserved, this run needs ${count} (+${MARGIN} margin)"
                 ok=1
@@ -175,6 +175,7 @@ pending_slots() {
     local key keys now
     now=$(date +%s)
     : >"$scratch/pending"
+    : >"$scratch/aged"
     keys=$(list_keys "ci-locks/") || exit 1
     for key in $keys; do
         [[ "$key" == "$slot_key" ]] && continue
@@ -182,6 +183,11 @@ pending_slots() {
         jq -c --argjson now "$now" --argjson window $((PROVISION_MINUTES * 60)) \
             'select(.expires > $now and (.acquired // 0) > $now - $window)
              | {regions: (.regions // []), needs: (.needs // {}), base: (.base // {})}' "$scratch/current" >>"$scratch/pending"
+        # Live runs past the window: what they created may be what appeared
+        # since a pending run's admission, so it must not credit that run.
+        jq -c --argjson now "$now" --argjson window $((PROVISION_MINUTES * 60)) \
+            'select(.expires > $now and (.acquired // 0) <= $now - $window)
+             | {regions: (.regions // []), needs: (.needs // {})}' "$scratch/current" >>"$scratch/aged"
     done
 }
 
@@ -210,13 +216,14 @@ try_slot() {
 }
 
 # Adds to this run's slot the usage measured at its admission, so other runs
-# can tell what it already created. A failed write only keeps the full
-# reservation, which is the safe side.
+# can tell what it already created. Returns 1 when the slot is no longer this
+# run's (its lease expired and another run took it): the run is not admitted.
 publish_base() {
+    read_slot "$slot_key" || return 1
+    [[ "$(jq -r .owner "$scratch/current")" == "$OWNER" ]] || return 1
     jq -s 'reduce .[] as $x ({}; . * $x)' "$scratch/base" >"$scratch/base.json"
-    jq --slurpfile base "$scratch/base.json" '.base = $base[0]' "$scratch/body" >"$scratch/body.new"
-    s3 put-object --key "$slot_key" --body "$scratch/body.new" >/dev/null 2>&1 ||
-        echo "::warning::Could not record the admission usage in ${slot_key}."
+    jq --slurpfile base "$scratch/base.json" '.base = $base[0]' "$scratch/current" >"$scratch/body.new"
+    conditional s3 put-object --key "$slot_key" --body "$scratch/body.new" --if-match "$etag"
 }
 
 acquire() {
@@ -244,14 +251,17 @@ acquire() {
         else
             pending_slots
             if room; then
-                publish_base
-                echo "Acquired ${slot_key} for ${OWNER}"
-                echo "slot-key=${slot_key}" >>"${GITHUB_OUTPUT:-/dev/null}"
-                published=1
-                return 0
+                if publish_base; then
+                    echo "Acquired ${slot_key} for ${OWNER}"
+                    echo "slot-key=${slot_key}" >>"${GITHUB_OUTPUT:-/dev/null}"
+                    published=1
+                    return 0
+                fi
+                echo "Lost ${slot_key} while checking the quota."
+            else
+                echo "Not enough quota, giving ${slot_key} back."
+                SLOT_KEY=$slot_key release
             fi
-            echo "Not enough quota, giving ${slot_key} back."
-            SLOT_KEY=$slot_key release
             slot_key=''
         fi
         if (($(date +%s) >= deadline)); then
