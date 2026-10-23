@@ -41,6 +41,8 @@ QUOTAS = {
 LB_QUOTAS = {"application": "albs", "network": "nlbs"}
 
 GOLDEN_FILTER = re.compile(r"""['"]!(?P<glob>[^'"]*/test/golden)/\*\*['"]""")
+ACQUIRE = re.compile(r"""^\s+mode:\s*['"]?acquire['"]?\s*(#.*)?$""", re.M)
+STEP_START = re.compile(r"^\s+- (?=\w[\w-]*:)", re.M)
 NEEDS_KEY = re.compile(r"^\s+(?P<key>[a-z-]+)=\d+\s*$")
 
 
@@ -62,12 +64,20 @@ def golden_types(plan: Path) -> dict[str, str]:
                             found[f"aws_lb ({lb_type})"] = LB_QUOTAS[lb_type]
                 walk(value)
 
-    walk(json.loads(plan.read_text()).get("resources", {}))
+    # Walk the whole plan: child modules can sit next to `resources`, not under it.
+    walk(json.loads(plan.read_text()))
     return found
 
 
+def acquire_steps(text: str) -> list[str]:
+    """The text of each step that acquires a slot. Each one must reserve on its own."""
+    starts = [m.start() for m in STEP_START.finditer(text)] + [len(text)]
+    steps = [text[a:b] for a, b in zip(starts, starts[1:])]
+    return [step for step in steps if ACQUIRE.search(step)]
+
+
 def declared_needs(text: str) -> set[str]:
-    """Every `<resource>=<n>` key under any `needs: |` block of the workflow."""
+    """Every `<resource>=<n>` key under the `needs: |` block of one step."""
     keys: set[str] = set()
     in_needs = False
     for line in text.splitlines():
@@ -87,21 +97,23 @@ def check(root: Path) -> list[str]:
     errors = []
     for workflow in sorted((root / WORKFLOWS).glob("*.yml")):
         text = workflow.read_text()
-        if "mode: acquire" not in text:
+        steps = acquire_steps(text)
+        if not steps:
             continue
         plans = [
             plan
             for match in GOLDEN_FILTER.finditer(text)
             for plan in sorted(root.glob(match["glob"] + "/tfplan-golden.json"))
         ]
-        needs = declared_needs(text)
-        for plan in plans:
-            for tf_type, key in sorted(golden_types(plan).items()):
-                if key not in needs:
-                    errors.append(
-                        f"{workflow.relative_to(root)}: {plan.relative_to(root)} creates "
-                        f"{tf_type}, but no `needs` declares {key}"
-                    )
+        for index, step in enumerate(steps, 1):
+            needs = declared_needs(step)
+            for plan in plans:
+                for tf_type, key in sorted(golden_types(plan).items()):
+                    if key not in needs:
+                        errors.append(
+                            f"{workflow.relative_to(root)}: acquire step {index} does not declare "
+                            f"{key}, but {plan.relative_to(root)} creates {tf_type}"
+                        )
     return errors
 
 
