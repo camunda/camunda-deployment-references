@@ -47,11 +47,11 @@ inputs:
     openshift-version-cluster-1:
         description: Version of the OpenShift to install
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.19.50
+        default: 4.19.51
     openshift-version-cluster-2:
         description: Version of the OpenShift to install
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.19.50
+        default: 4.19.51
     replicas-cluster-1:
         description: Number of replicas for the ROSA cluster 1 (empty will fallback on default value of the module)
         default: ''
@@ -145,7 +145,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@06dbc3c3960fe23138de789e3bf80065fe6c52e0 # 2.3.11
 
         # TODO: when available on asdf, migrate this to it
         - name: Install ROSA CLI
