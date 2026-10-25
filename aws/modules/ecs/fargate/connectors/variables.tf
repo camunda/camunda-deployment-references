@@ -150,7 +150,7 @@ variable "image" {
   description = "The container image to use for the Camunda Connectors"
   type        = string
   # renovate: datasource=docker depName=camunda/connectors-bundle versioning=regex:^8\.10\.(?<patch>\d+)$
-  default = "camunda/connectors-bundle:8.10.0"
+  default = "camunda/connectors-bundle:8.10.2"
 }
 
 variable "environment_variables" {
