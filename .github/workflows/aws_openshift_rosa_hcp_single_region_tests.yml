@@ -184,7 +184,7 @@ jobs:
               with:
                   mode: acquire
                   pool: aws-openshift-rosa-hcp-single-region
-                  slots: '3'
+                  slots: '6'
                   regions: ${{ env.AWS_REGION }}
                   lease-minutes: '720'
                   leg: ${{ matrix.distro.name }}
