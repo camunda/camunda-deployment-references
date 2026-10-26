@@ -9,7 +9,7 @@ name: Internal - Global - Docs PR Watcher
 #   - camunda/c8-sm-checks
 # When such changes are detected, it:
 # 1. Comments on the PR to flag InfraEx-owned content
-# 2. Requests review from the infraex-medic team
+# 2. Requests review from the smx-medic team
 # 3. Validates that links to monitored repos point to existing files
 # 4. Adds component:infraex and component:self-managed labels
 #
@@ -37,7 +37,7 @@ concurrency:
 env:
     DOCS_REPO: camunda/camunda-docs
     # Team to request review from
-    REVIEWER_TEAM: camunda/infraex-medic
+    REVIEWER_TEAM: camunda/smx-medic
     # Marker to identify comments left by this workflow (prevents duplicates)
     COMMENT_MARKER: <!-- infraex-docs-pr-watcher -->
 
@@ -414,5 +414,5 @@ jobs:
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
                   slack_channel_id: ${{ github.event_name == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB' }}
-                  slack_mention_people: ${{ github.event_name == 'schedule' && '@infraex-medic' || '' }}
+                  slack_mention_people: ${{ github.event_name == 'schedule' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ github.event_name == 'schedule' && 'false' || 'true' }}
