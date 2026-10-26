@@ -437,11 +437,12 @@ jobs:
             - name: 🐠 Configure Submariner
               # Must cover the pre-flight checks, node labelling, the addon
               # reconciliation wait (verify-submariner.sh, 600s budget) and the
-              # IPSec tunnel wait (verify-subctl.sh, 600s budget) back to back.
+              # IPSec tunnel wait (verify-subctl.sh: 300s per attempt, plus up to
+              # two pod-restart recoveries) back to back.
               # At 10 min the tunnel wait could never use its own budget: the step
               # died first with an opaque "The action has timed out" while subctl
               # was reporting the connection as established.
-              timeout-minutes: 25
+              timeout-minutes: 40
               run: |
                   set -euo pipefail
 
