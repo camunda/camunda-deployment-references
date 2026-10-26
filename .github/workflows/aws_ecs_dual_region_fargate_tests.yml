@@ -184,6 +184,7 @@ jobs:
                   lease-minutes: '720'
                   needs: |
                       rds-clusters=1
+                      db-subnet-groups=1
                       rds-instances=1
                       vpcs=1
                       elastic-ips=1
