@@ -155,7 +155,7 @@ variable "image" {
   description = "The container image to use for Camunda Management Identity"
   type        = string
   # renovate: datasource=docker depName=camunda/identity versioning=regex:^8\.10\.(?<patch>\d+)$
-  default = "camunda/identity:8.10.1"
+  default = "camunda/identity:8.10.2"
 }
 
 variable "environment_variables" {

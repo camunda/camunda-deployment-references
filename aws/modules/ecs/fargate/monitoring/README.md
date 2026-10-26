@@ -99,7 +99,7 @@ No modules.
 | <a name="input_ecs_cluster_id"></a> [ecs\_cluster\_id](#input\_ecs\_cluster\_id) | The cluster id of the ECS cluster to spawn the ECS service in | `string` | n/a | yes |
 | <a name="input_ecs_task_execution_role_arn"></a> [ecs\_task\_execution\_role\_arn](#input\_ecs\_task\_execution\_role\_arn) | ARN of the ECS task execution role (centrally managed) | `string` | n/a | yes |
 | <a name="input_enable_alb_http_listener_rule"></a> [enable\_alb\_http\_listener\_rule](#input\_enable\_alb\_http\_listener\_rule) | Whether to expose Prometheus through an existing ALB listener. Off by default: the endpoint is unauthenticated, so it stays reachable only from inside the VPC unless you opt in. | `bool` | `false` | no |
-| <a name="input_image"></a> [image](#input\_image) | The container image to use for Prometheus | `string` | `"prom/prometheus:v3.15.0"` | no |
+| <a name="input_image"></a> [image](#input\_image) | The container image to use for Prometheus | `string` | `"prom/prometheus:v3.15.1"` | no |
 | <a name="input_log_group_name"></a> [log\_group\_name](#input\_log\_group\_name) | The name of an existing CloudWatch log group for the ECS tasks. When empty, the module creates its own log group. | `string` | `""` | no |
 | <a name="input_log_retention_in_days"></a> [log\_retention\_in\_days](#input\_log\_retention\_in\_days) | Retention of the CloudWatch log group created by this module. Ignored when log\_group\_name is supplied. | `number` | `7` | no |
 | <a name="input_metrics_path"></a> [metrics\_path](#input\_metrics\_path) | The HTTP path the discovered targets expose their metrics on. | `string` | `"/actuator/prometheus"` | no |

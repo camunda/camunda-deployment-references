@@ -260,14 +260,14 @@ variable "camunda_hub_restapi_image" {
   type        = string
   description = "Container image for the Camunda Hub REST API + web UI. Registry credentials are only attached when this points at registry.camunda.cloud (private); public Docker Hub images pull without credentials."
   # renovate: datasource=docker depName=camunda/hub versioning=regex:^8\.10\.(?<patch>\d+)$
-  default = "camunda/hub:8.10.2"
+  default = "camunda/hub:8.10.4"
 }
 
 variable "camunda_hub_websockets_image" {
   type        = string
   description = "Container image for the Camunda Hub websockets relay. Registry credentials are only attached when this (or the restapi image) points at registry.camunda.cloud (private)."
   # renovate: datasource=docker depName=camunda/hub-websockets versioning=regex:^8\.10\.(?<patch>\d+)$
-  default = "camunda/hub-websockets:8.10.2"
+  default = "camunda/hub-websockets:8.10.4"
 }
 
 ################################################################

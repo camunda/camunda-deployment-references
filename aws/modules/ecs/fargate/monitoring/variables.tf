@@ -124,7 +124,7 @@ variable "image" {
   description = "The container image to use for Prometheus"
   type        = string
   # renovate: datasource=docker depName=prom/prometheus
-  default = "prom/prometheus:v3.15.0"
+  default = "prom/prometheus:v3.15.1"
 }
 
 variable "prometheus_port" {

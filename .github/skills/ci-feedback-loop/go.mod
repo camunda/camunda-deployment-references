@@ -4,7 +4,7 @@
 // run via `go run .` -- so the path only has to be stable and legal.
 module github.com/camunda/camunda-deployment-references/skills/ci-feedback-loop
 
-go 1.23.0
+go 1.23.12
 
 require github.com/spf13/cobra v1.10.2
 

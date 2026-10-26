@@ -1,6 +1,6 @@
 module github.com/camunda/camunda-deployment-references/tests/integration
 
-go 1.23.0
+go 1.23.12
 
 require github.com/stretchr/testify v1.12.1
 
