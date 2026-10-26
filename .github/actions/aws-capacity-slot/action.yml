@@ -38,7 +38,7 @@ inputs:
         default: '360'
     wait-minutes:
         description: How long `acquire` waits for capacity before failing.
-        default: '45'
+        default: '90'
     regions:
         description: Space-separated regions to check for free quota. Empty skips the check.
         default: ''

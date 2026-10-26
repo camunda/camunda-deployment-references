@@ -136,8 +136,8 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
-        # 90 for the job itself, plus up to 45 waiting for a capacity slot.
-        timeout-minutes: 135
+        # 90 for the job itself, plus up to 90 waiting for a capacity slot.
+        timeout-minutes: 180
         env:
             CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
         steps:

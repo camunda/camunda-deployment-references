@@ -43,8 +43,8 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        # 240 for the job itself, plus up to 45 waiting for a capacity slot.
-        timeout-minutes: 285
+        # 240 for the job itself, plus up to 90 waiting for a capacity slot.
+        timeout-minutes: 330
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 

@@ -152,8 +152,8 @@ jobs:
         runs-on: ubuntu-latest
         needs: [triage]
         if: needs.triage.outputs.should_skip == 'false'
-        # 180 for the job itself, plus up to 45 waiting for a capacity slot.
-        timeout-minutes: 225
+        # 180 for the job itself, plus up to 90 waiting for a capacity slot.
+        timeout-minutes: 270
         env:
             CLUSTER_NAME: ${{ needs.triage.outputs.cluster_name }}
         steps:
