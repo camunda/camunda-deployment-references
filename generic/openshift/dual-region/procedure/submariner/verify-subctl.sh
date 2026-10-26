@@ -16,10 +16,15 @@ CMD_TIMEOUT_SECONDS="${SUBCTL_VERIFY_CMD_TIMEOUT_SECONDS:-30}"
 # gateway is running, see #3353). Restarting the gateway and route agent pods makes
 # them redo the discovery and rebuild the tunnel, so retry that a bounded number of times.
 RECOVERY_ATTEMPTS="${SUBCTL_VERIFY_RECOVERY_ATTEMPTS:-2}"
-# Worst case per recovery: 3 diagnose x 30s + 4 x (45s delete + 75s rollout) = 570s.
-# Whole script worst case: 3 waits x (300s + 75s) + 2 recoveries = ~2265s (~38 min).
+# subctl firewall diagnostics spawn probe pods that run for --validation-timeout, so they
+# get their own budget: the outer limit leaves room for pod startup and subctl's cleanup.
+DIAGNOSE_VALIDATION_TIMEOUT_SECONDS="${SUBCTL_VERIFY_DIAGNOSE_VALIDATION_TIMEOUT_SECONDS:-30}"
+DIAGNOSE_TIMEOUT_SECONDS="${SUBCTL_VERIFY_DIAGNOSE_TIMEOUT_SECONDS:-90}"
 DELETE_TIMEOUT_SECONDS="${SUBCTL_VERIFY_DELETE_TIMEOUT_SECONDS:-30}"
-ROLLOUT_TIMEOUT_SECONDS="${SUBCTL_VERIFY_ROLLOUT_TIMEOUT_SECONDS:-60}"
+ROLLOUT_TIMEOUT_SECONDS="${SUBCTL_VERIFY_ROLLOUT_TIMEOUT_SECONDS:-45}"
+# Worst case per recovery: 90s firewall diagnose + 2 x 30s connections diagnose
+# + 2 x 25s probe pod cleanup + 4 x (45s delete + 60s rollout) = 620s.
+# Whole script worst case: 3 waits x (300s + 75s) + 2 recoveries = ~2365s (~39.5 min).
 
 wait_for_connections() {
     local deadline=$((SECONDS + TIMEOUT_SECONDS))
@@ -61,10 +66,15 @@ wait_for_connections() {
 # (both are DaemonSets, so they are recreated on the same nodes and keep the gateway label).
 recover_submariner() {
     echo "Dumping Submariner diagnostics before restarting the pods..."
-    timeout "$CMD_TIMEOUT_SECONDS" subctl diagnose firewall inter-cluster \
+    # `diagnose all` is not used: it reruns the firewall probes, which would double the
+    # budget. A killed subctl skips its deferred cleanup, so remove leftover probe pods.
+    timeout "$DIAGNOSE_TIMEOUT_SECONDS" subctl diagnose firewall inter-cluster \
+        --validation-timeout "$DIAGNOSE_VALIDATION_TIMEOUT_SECONDS" \
         --context "${CLUSTERS[0]}" --remotecontext "${CLUSTERS[1]}" 2>&1 || true
     for CLUSTER_NAME in "${CLUSTERS[@]}"; do
-        timeout "$CMD_TIMEOUT_SECONDS" subctl diagnose all --context "$CLUSTER_NAME" 2>&1 || true
+        timeout "$CMD_TIMEOUT_SECONDS" subctl diagnose connections --context "$CLUSTER_NAME" 2>&1 || true
+        timeout 25 oc --context "$CLUSTER_NAME" -n submariner-operator delete pod \
+            -l "app in (validate-sniffer,validate-client)" --ignore-not-found --wait=false --timeout=15s || true
     done
 
     for CLUSTER_NAME in "${CLUSTERS[@]}"; do
