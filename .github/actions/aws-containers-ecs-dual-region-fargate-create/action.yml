@@ -78,7 +78,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@06dbc3c3960fe23138de789e3bf80065fe6c52e0 # 2.3.11
 
         - name: Sanitize Tags
           id: sanitize-tags

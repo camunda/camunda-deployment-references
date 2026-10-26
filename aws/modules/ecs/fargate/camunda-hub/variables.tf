@@ -156,14 +156,14 @@ variable "restapi_image" {
   description = "The container image for the Camunda Hub REST API + web UI (formerly Web Modeler restapi/webapp)"
   type        = string
   # renovate: datasource=docker depName=camunda/hub versioning=regex:^8\.10\.(?<patch>\d+)$
-  default = "camunda/hub:8.10.2"
+  default = "camunda/hub:8.10.4"
 }
 
 variable "websockets_image" {
   description = "The container image for the Camunda Hub websockets (Pusher relay)"
   type        = string
   # renovate: datasource=docker depName=camunda/hub-websockets versioning=regex:^8\.10\.(?<patch>\d+)$
-  default = "camunda/hub-websockets:8.10.2"
+  default = "camunda/hub-websockets:8.10.4"
 }
 
 variable "context_path" {
