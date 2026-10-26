@@ -19,8 +19,8 @@ env:
     SLACK_CHANNEL_ID: C076N4G1162
     # Slack channel for PR tests
     SLACK_CHANNEL_ID_PR: C07E4FF6YMB
-    # Tag infraex-medic on scheduled/manual runs, skip on PRs
-    SLACK_MENTION: ${{ github.event_name != 'pull_request' && '<!subteam^S06NTRBMWUD> please' || 'Please' }}
+    # Tag smx-medic on scheduled/manual runs, skip on PRs
+    SLACK_MENTION: ${{ github.event_name != 'pull_request' && '<!subteam^S0CBB7Y72SV> please' || 'Please' }}
 
 # Limit workflow to a single execution per ref
 concurrency:
