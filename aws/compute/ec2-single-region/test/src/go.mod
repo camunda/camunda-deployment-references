@@ -1,6 +1,6 @@
 module github.com/camunda/camunda-deployment-references/aws/ec2
 
-go 1.26.0
+go 1.27.3
 
 require (
 	github.com/aws/aws-sdk-go v1.55.8
