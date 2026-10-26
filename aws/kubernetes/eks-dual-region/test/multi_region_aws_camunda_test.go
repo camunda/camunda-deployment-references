@@ -29,8 +29,8 @@ const (
 )
 
 var (
-	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "14.12.0")
+	// No fallback: the workflow sets HELM_CHART_VERSION, keeping one pinned version to maintain.
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "")
 	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform")
 	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                                                // allows overwriting the image tag via GHA of every Camunda image
 	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                                                             // allows supplying random cluster name via GHA
