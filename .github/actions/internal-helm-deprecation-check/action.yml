@@ -112,7 +112,7 @@ inputs:
     slack-mention-people:
         description: |
             Slack handles or group mentions to include in the scheduled-run
-            alert (e.g. `@infraex-medic`). Only used when the caller
+            alert (e.g. `@smx-medic`). Only used when the caller
             workflow advertises `IS_SCHEDULE=true` (real or simulated
             schedule).
         required: false
