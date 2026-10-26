@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+: "${CLUSTER_0:?CLUSTER_0 must be set}" "${CLUSTER_1:?CLUSTER_1 must be set}"
+
 CLUSTERS=("$CLUSTER_0" "$CLUSTER_1")
 
 # The cross-cluster IPSec tunnel takes a few minutes to establish even after the
@@ -9,12 +11,15 @@ CLUSTERS=("$CLUSTER_0" "$CLUSTER_1")
 TIMEOUT_SECONDS="${SUBCTL_VERIFY_TIMEOUT_SECONDS:-300}"
 POLL_INTERVAL_SECONDS="${SUBCTL_VERIFY_POLL_INTERVAL_SECONDS:-15}"
 # Every subctl/oc call is bounded: a hung API connection must not eat the whole step.
-CMD_TIMEOUT_SECONDS="${SUBCTL_VERIFY_CMD_TIMEOUT_SECONDS:-60}"
+CMD_TIMEOUT_SECONDS="${SUBCTL_VERIFY_CMD_TIMEOUT_SECONDS:-30}"
 # The tunnel can stay in "connecting" forever (NAT discovery never completes while the
 # gateway is running, see #3353). Restarting the gateway and route agent pods makes
 # them redo the discovery and rebuild the tunnel, so retry that a bounded number of times.
 RECOVERY_ATTEMPTS="${SUBCTL_VERIFY_RECOVERY_ATTEMPTS:-2}"
-ROLLOUT_TIMEOUT="${SUBCTL_VERIFY_ROLLOUT_TIMEOUT:-120s}"
+# Worst case per recovery: 3 diagnose x 30s + 4 x (45s delete + 75s rollout) = 570s.
+# Whole script worst case: 3 waits x (300s + 75s) + 2 recoveries = ~2265s (~38 min).
+DELETE_TIMEOUT_SECONDS="${SUBCTL_VERIFY_DELETE_TIMEOUT_SECONDS:-30}"
+ROLLOUT_TIMEOUT_SECONDS="${SUBCTL_VERIFY_ROLLOUT_TIMEOUT_SECONDS:-60}"
 
 wait_for_connections() {
     local deadline=$((SECONDS + TIMEOUT_SECONDS))
@@ -65,8 +70,8 @@ recover_submariner() {
     for CLUSTER_NAME in "${CLUSTERS[@]}"; do
         echo "Restarting the Submariner gateway and route agent pods in $CLUSTER_NAME..."
         for APP in submariner-gateway submariner-routeagent; do
-            oc --context "$CLUSTER_NAME" -n submariner-operator delete pod -l "app=$APP" --wait=true || true
-            oc --context "$CLUSTER_NAME" -n submariner-operator rollout status "ds/$APP" --timeout="$ROLLOUT_TIMEOUT" || true
+            timeout $((DELETE_TIMEOUT_SECONDS + 15)) oc --context "$CLUSTER_NAME" -n submariner-operator delete pod -l "app=$APP" --wait=true --timeout="${DELETE_TIMEOUT_SECONDS}s" || true
+            timeout $((ROLLOUT_TIMEOUT_SECONDS + 15)) oc --context "$CLUSTER_NAME" -n submariner-operator rollout status "ds/$APP" --timeout="${ROLLOUT_TIMEOUT_SECONDS}s" || true
         done
     done
 }
