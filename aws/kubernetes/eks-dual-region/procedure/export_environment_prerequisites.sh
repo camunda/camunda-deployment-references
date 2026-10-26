@@ -26,4 +26,4 @@ export CAMUNDA_NAMESPACE_1=${CAMUNDA_NAMESPACE_1:-camunda-paris}
 export CAMUNDA_RELEASE_NAME=${CAMUNDA_RELEASE_NAME:-camunda}
 
 # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-export HELM_CHART_VERSION=${HELM_CHART_VERSION:-"15.1.1"}
+export HELM_CHART_VERSION=${HELM_CHART_VERSION:-"15.3.0"}

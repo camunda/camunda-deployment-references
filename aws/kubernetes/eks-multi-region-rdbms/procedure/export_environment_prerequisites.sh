@@ -94,7 +94,7 @@ fi
 export CAMUNDA_ZONE_REPLICAS
 
 # renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-export HELM_CHART_VERSION="${HELM_CHART_VERSION:-15.1.1}"
+export HELM_CHART_VERSION="${HELM_CHART_VERSION:-15.3.0}"
 export HELM_CHART_REF="${HELM_CHART_REF:-https://helm.camunda.io}"
 
 ###############################################################################
