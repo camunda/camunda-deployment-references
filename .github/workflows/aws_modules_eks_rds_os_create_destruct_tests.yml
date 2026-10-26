@@ -187,6 +187,7 @@ jobs:
                   regions: ${{ env.AWS_REGION }}
                   needs: |
                       rds-clusters=1
+                      db-subnet-groups=1
                       rds-instances=1
                       vpcs=1
                       elastic-ips=1

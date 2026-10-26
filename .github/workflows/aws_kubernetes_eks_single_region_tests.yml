@@ -191,12 +191,13 @@ jobs:
               with:
                   mode: acquire
                   pool: aws-kubernetes-eks-single-region
-                  slots: '9'
+                  slots: '12'
                   regions: ${{ env.AWS_REGION }}
                   lease-minutes: '720'
                   leg: ${{ matrix.scenario.name }}
                   needs: |
                       rds-clusters=1
+                      db-subnet-groups=1
                       rds-instances=1
                       vpcs=1
                       elastic-ips=1
