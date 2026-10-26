@@ -101,7 +101,7 @@ jobs:
             # Telemetry must never block the job: a monitoring outage may cost a
             # duration metric, never a teardown.
             - continue-on-error: true
-              uses: camunda/infra-global-github-actions/start-build-monitor@26d05d5230c71f3564f76fb399daf5a673fff854 # main
+              uses: camunda/infra-global-github-actions/start-build-monitor@7b31f83bbaa79b0fe698d0b71cae0bc9189b7ac9 # main
 
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
