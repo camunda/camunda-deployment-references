@@ -114,6 +114,10 @@ runs:
               #   * it must differ in `tags`/`tags_all` and nothing else, and
               #   * within those, the only differing key must be `cloud-nuke-first-seen`.
               #
+              # Same for `aws_eks_addon` updates that change `addon_version` and nothing
+              # else: the EKS module resolves addons with `most_recent = true`, so a build
+              # AWS publishes between apply and this check shows up as a version bump.
+              #
               # A resource that also changes a real attribute, or a second tag, still
               # counts as drift. If `terraform show` cannot produce the JSON, the plan is
               # treated as drift rather than waved through.
@@ -123,19 +127,21 @@ runs:
                         [ .resource_changes[]
                           | select((.change.actions // []) != ["no-op"])
                           | if (.change.actions // []) != ["update"] then "not-an-update"
-                            else ( .change as $c
+                            else ( .type as $t
+                                   | .change as $c
                                    | (($c.before // {}) | keys) + (($c.after // {}) | keys) | unique
                                    | map(select( ($c.before // {})[.] != ($c.after // {})[.] )) as $diff
-                                   | if ($diff - ["tags","tags_all"]) != [] then "other-attribute"
+                                   | if $t == "aws_eks_addon" and $diff == ["addon_version"] then {"ignored": "eks-addon-version"}
+                                     elif ($diff - ["tags","tags_all"]) != [] then "other-attribute"
                                      else ( $diff[] as $k
                                             | ((($c.before[$k] // {}) | keys) + (($c.after[$k] // {}) | keys) | unique
                                                | map(select( ($c.before[$k] // {})[.] != ($c.after[$k] // {})[.] ))) )
                                      end )
                             end ]
                         | flatten
-                        | (length > 0) and (all(. == "cloud-nuke-first-seen"))
+                        | (length > 0) and (all(. == "cloud-nuke-first-seen" or . == {"ignored": "eks-addon-version"}))
                       ' drift.plan.json > /dev/null; then
-                    echo "::notice::Ignoring drift: the only change is the cloud-nuke-first-seen tag, written by the nightly cleanup while this test was running."
+                    echo "::notice::Ignoring drift: only the cloud-nuke-first-seen tag and/or EKS addon_version (newer AWS build) changed."
                     code=0
                   fi
                 else
