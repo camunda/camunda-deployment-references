@@ -102,6 +102,7 @@ jobs:
                   regions: eu-west-2 eu-west-3
                   needs: |
                       rds-clusters=1
+                      db-subnet-groups=1
                       rds-instances=1
                       vpcs=2
                       elastic-ips=2

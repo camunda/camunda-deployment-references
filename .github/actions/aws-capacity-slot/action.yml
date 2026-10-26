@@ -45,7 +45,7 @@ inputs:
     needs:
         description: >
             What one run creates in each region of `regions`, one `<resource>=<count>` per line.
-            Resources: `rds-clusters`, `rds-instances`, `vpcs`, `elastic-ips`, `transit-gateways`,
+            Resources: `rds-clusters`, `rds-instances`, `db-subnet-groups`, `vpcs`, `elastic-ips`, `transit-gateways`,
             `albs`, `nlbs`, `eks-clusters`, `opensearch-domains`.
         default: ''
     provision-minutes:

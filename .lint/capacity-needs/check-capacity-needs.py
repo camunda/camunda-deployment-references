@@ -34,6 +34,7 @@ QUOTAS = {
     "aws_eks_cluster": "eks-clusters",
     "aws_rds_cluster": "rds-clusters",
     "aws_rds_cluster_instance": "rds-instances",
+    "aws_db_subnet_group": "db-subnet-groups",
     "aws_opensearch_domain": "opensearch-domains",
     "aws_ec2_transit_gateway": "transit-gateways",
 }
