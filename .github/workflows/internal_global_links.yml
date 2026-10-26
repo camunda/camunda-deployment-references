@@ -34,7 +34,7 @@ jobs:
                   title: Link Checker Report
                   content-filepath: ./lychee/out.md
                   labels: report, automated issue
-                  assignees: '@camunda/infraex-medic'
+                  assignees: '@camunda/smx-medic'
 
             - name: Reopen Link Checker Report
               if: failure() && env.IS_SCHEDULE == 'true' && hashFiles('lychee/out.md') != ''
@@ -44,12 +44,12 @@ jobs:
 
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@06dbc3c3960fe23138de789e3bf80065fe6c52e0 # 2.3.11
               if: failure() && env.IS_SCHEDULE == 'true'
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
-                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

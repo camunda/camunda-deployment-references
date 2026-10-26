@@ -1,6 +1,6 @@
 module multiregiontests
 
-go 1.26
+go 1.26.10
 
 require (
 	github.com/aws/aws-sdk-go v1.55.8
