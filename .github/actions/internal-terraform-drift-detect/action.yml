@@ -131,7 +131,7 @@ runs:
                                    | .change as $c
                                    | (($c.before // {}) | keys) + (($c.after // {}) | keys) | unique
                                    | map(select( ($c.before // {})[.] != ($c.after // {})[.] )) as $diff
-                                   | if $t == "aws_eks_addon" and $diff == ["addon_version"] then "eks-addon-version"
+                                   | if $t == "aws_eks_addon" and $diff == ["addon_version"] then {"ignored": "eks-addon-version"}
                                      elif ($diff - ["tags","tags_all"]) != [] then "other-attribute"
                                      else ( $diff[] as $k
                                             | ((($c.before[$k] // {}) | keys) + (($c.after[$k] // {}) | keys) | unique
@@ -139,7 +139,7 @@ runs:
                                      end )
                             end ]
                         | flatten
-                        | (length > 0) and (all(. == "cloud-nuke-first-seen" or . == "eks-addon-version"))
+                        | (length > 0) and (all(. == "cloud-nuke-first-seen" or . == {"ignored": "eks-addon-version"}))
                       ' drift.plan.json > /dev/null; then
                     echo "::notice::Ignoring drift: only the cloud-nuke-first-seen tag and/or EKS addon_version (newer AWS build) changed."
                     code=0
