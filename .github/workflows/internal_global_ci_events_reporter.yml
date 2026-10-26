@@ -214,10 +214,10 @@ jobs:
 
                   if [ "${SHARED}" = "true" ]; then
                       channel=C076N4G1162   # infraex-alerts
-                      # Raw Slack form. `@infraex-medic` is plain text in a
+                      # Raw Slack form. `@smx-medic` is plain text in a
                       # chat.postMessage payload and notifies nobody, which is how
-                      # it shipped. Use the infraex-medic Slack subteam ID.
-                      mention=" cc <!subteam^S06NTRBMWUD>"
+                      # it shipped. Use the smx-medic Slack subteam ID.
+                      mention=" cc <!subteam^S0CBB7Y72SV>"
                   else
                       channel=C07E4FF6YMB   # infraex-alerts-test
                       mention=""
