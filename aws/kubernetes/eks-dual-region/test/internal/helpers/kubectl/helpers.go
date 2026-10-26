@@ -638,6 +638,7 @@ func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName stri
 }
 
 func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1 string, valuesYamlFiles []string, region int, setValues, setStringValues map[string]string) {
+	require.NotEmpty(t, remoteChartVersion, "HELM_CHART_VERSION must be set")
 
 	if !helpers.IsTeleportEnabled() {
 		// Set environment variables for the script

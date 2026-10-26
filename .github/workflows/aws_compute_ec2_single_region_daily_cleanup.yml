@@ -59,7 +59,7 @@ jobs:
             # Telemetry must never block the job: a monitoring outage may cost a
             # duration metric, never a teardown.
             - continue-on-error: true
-              uses: camunda/infra-global-github-actions/start-build-monitor@26d05d5230c71f3564f76fb399daf5a673fff854 # main
+              uses: camunda/infra-global-github-actions/start-build-monitor@7b31f83bbaa79b0fe698d0b71cae0bc9189b7ac9 # main
 
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -68,7 +68,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@06dbc3c3960fe23138de789e3bf80065fe6c52e0 # 2.3.11
 
             - name: Use repo .tool-version as global version
               run: cp .tool-versions ~/.tool-versions
@@ -140,7 +140,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@06dbc3c3960fe23138de789e3bf80065fe6c52e0 # 2.3.11
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

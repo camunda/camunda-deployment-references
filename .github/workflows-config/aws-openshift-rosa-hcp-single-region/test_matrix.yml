@@ -27,7 +27,7 @@ matrix:
           # reached end of life`, while Renovate was still offering 4.18.53 as a valid bump.
           # Moving to the next minor is the manual step the warning above asks for.
           # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=regex:^4.19(\.(?<patch>\d+))?$
-          version: 4.19.50
+          version: 4.19.51
 
     scenario:
         - name: rosa-hcp-single-region
