@@ -18,6 +18,7 @@ on:
             - .tool-versions
             - .github/workflows/aws_modules_eks_rds_os_tests.yml
             - justfile
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
 
@@ -149,6 +150,28 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region and per test function: one VPC with a single NAT gateway, one EKS
+            # cluster, one Aurora cluster with one instance and one OpenSearch domain.
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: aws-modules-eks-rds-os
+                  slots: '21'
+                  regions: ${{ env.AWS_REGION }}
+                  lease-minutes: '720'
+                  leg: ${{ matrix.test_function }}
+                  needs: |
+                      rds-clusters=1
+                      db-subnet-groups=1
+                      rds-instances=1
+                      vpcs=1
+                      elastic-ips=1
+                      eks-clusters=1
+                      opensearch-domains=1
 
             - name: Get go.mod details
               uses: Eun/go-mod-details@b719cd324463e2037cf3a0dd1dd6091bdc2730f4 # v1
@@ -287,6 +310,22 @@ jobs:
                   max-age-hours: '0'
                   target: ${{ needs.configure-tests.outputs.cluster_id }}
                   fail-on-not-found: 'false' # tests are supposed to cleanup this
+
+            # Last, so the slots are held until this run's resources are gone. The
+            # create job is a matrix, so free the slot of every test function.
+            - name: Release the capacity slots
+              if: always()
+              env:
+                  POOL: aws-modules-eks-rds-os
+                  SLOTS: '21'
+                  RUN_PREFIX: ${{ github.repository }}/${{ github.run_id }}
+                  TEST_FUNCTIONS: ${{ needs.configure-tests.outputs.test_functions }}
+              run: |
+                  for test_function in $(jq -r '.[]' <<< "${TEST_FUNCTIONS:-[]}"); do
+                      OWNER="${RUN_PREFIX}/${test_function}" SLOT_KEY="" \
+                          bash .github/actions/aws-capacity-slot/slot.sh release \
+                          || echo "::warning::Could not release the slot of ${test_function}, its lease will expire."
+                  done
 
     report-success:
         name: Report success
