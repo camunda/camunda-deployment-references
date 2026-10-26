@@ -51,7 +51,7 @@ See: https://github.com/camunda/camunda-platform-helm/issues/4564
 | `vault-role-id` | <p>HashiCorp Vault AppRole role id. Required only when posting a Slack alert on scheduled runs. Pass secrets.VAULT<em>ROLE</em>ID from the caller.</p> | `false` | `""` |
 | `vault-secret-id` | <p>HashiCorp Vault AppRole secret id. Required only when posting a Slack alert on scheduled runs. Pass secrets.VAULT<em>SECRET</em>ID from the caller.</p> | `false` | `""` |
 | `slack-channel-id` | <p>Slack channel id to alert when findings are detected on a (real or simulated) scheduled run. When left empty, the action defaults to the standard infraex channels:</p> <ul> <li><code>C076N4G1162</code> (infraex-alerts) on real schedule events</li> <li><code>C07E4FF6YMB</code> (infraex-test)   on every other event (simulated schedules via <code>schedules/*</code> head<em>ref,  workflow</em>dispatch, etc.) Set explicitly to override.</li> </ul> | `false` | `""` |
-| `slack-mention-people` | <p>Slack handles or group mentions to include in the scheduled-run alert (e.g. <code>@infraex-medic</code>). Only used when the caller workflow advertises <code>IS_SCHEDULE=true</code> (real or simulated schedule).</p> | `false` | `""` |
+| `slack-mention-people` | <p>Slack handles or group mentions to include in the scheduled-run alert (e.g. <code>@smx-medic</code>). Only used when the caller workflow advertises <code>IS_SCHEDULE=true</code> (real or simulated schedule).</p> | `false` | `""` |
 
 
 ## Runs
@@ -164,7 +164,7 @@ This action is a `composite` action.
 
     slack-mention-people:
     # Slack handles or group mentions to include in the scheduled-run
-    # alert (e.g. `@infraex-medic`). Only used when the caller
+    # alert (e.g. `@smx-medic`). Only used when the caller
     # workflow advertises `IS_SCHEDULE=true` (real or simulated
     # schedule).
     #
