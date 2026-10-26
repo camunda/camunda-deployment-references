@@ -459,7 +459,7 @@ jobs:
               # reconciliation wait (verify-submariner.sh, 600s budget) and the
               # IPSec tunnel wait (verify-subctl.sh: 300s per attempt, plus up to
               # two pod-restart recoveries) back to back. Worst case of the two
-              # scripts is ~48 min (600s + ~2265s), leaving margin under 60.
+              # scripts is ~49.5 min (600s + ~2365s), leaving margin under 60.
               # At 10 min the tunnel wait could never use its own budget: the step
               # died first with an opaque "The action has timed out" while subctl
               # was reporting the connection as established.
