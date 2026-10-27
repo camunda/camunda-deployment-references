@@ -1,0 +1,19 @@
+---
+name: Internal - Global - PR Copilot review
+
+on:
+    pull_request_target:
+        types: [opened, ready_for_review, labeled]
+
+permissions: {}
+
+jobs:
+    copilot-review:
+        permissions:
+            issues: read
+            pull-requests: write
+        uses: camunda/infraex-common-config/.github/workflows/copilot-review-global.yml@4d09c296c3a3696e871e402f5116317e71564c82 # 2.4.0
+        secrets:
+            VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+            VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID }}
+            VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID }}
