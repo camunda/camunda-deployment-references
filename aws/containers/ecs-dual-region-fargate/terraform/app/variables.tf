@@ -53,7 +53,7 @@ variable "default_tags" {
 variable "camunda_image" {
   type = string
   # TODO: [release-duty] replace SNAPSHOT with a published 8.11 alpha or stable tag.
-  default     = "camunda/camunda:8.11-SNAPSHOT"
+  default     = "registry.camunda.cloud/team-camunda/camunda:8.11.0-SNAPSHOT-pr-159ab7b9e697"
   description = "Container image for the Camunda orchestration cluster tasks (Zeebe broker + gateway + webapps)"
 }
 

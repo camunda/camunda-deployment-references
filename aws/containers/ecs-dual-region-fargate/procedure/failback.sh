@@ -333,7 +333,7 @@ if [ -n "${SERVICES}" ]; then
         err "Could not read the partition distribution; refusing to touch ${RECOVERED_ZONE} data."
         exit 1
     elif [ "${PRE_ZONE_STATE}" -eq 1 ]; then
-        wipe_primary_storage
+        log "  Experiment (do not merge): wipe skipped to test camunda/camunda#67372 on stale data."
     else
         log "  Zone ${RECOVERED_ZONE} is still in the partition distribution — keeping its data."
     fi
