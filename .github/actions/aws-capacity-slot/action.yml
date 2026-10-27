@@ -38,14 +38,14 @@ inputs:
         default: '360'
     wait-minutes:
         description: How long `acquire` waits for capacity before failing.
-        default: '45'
+        default: '90'
     regions:
         description: Space-separated regions to check for free quota. Empty skips the check.
         default: ''
     needs:
         description: >
             What one run creates in each region of `regions`, one `<resource>=<count>` per line.
-            Resources: `rds-clusters`, `rds-instances`, `vpcs`, `elastic-ips`, `transit-gateways`,
+            Resources: `rds-clusters`, `rds-instances`, `db-subnet-groups`, `vpcs`, `elastic-ips`, `transit-gateways`,
             `albs`, `nlbs`, `eks-clusters`, `opensearch-domains`.
         default: ''
     provision-minutes:
