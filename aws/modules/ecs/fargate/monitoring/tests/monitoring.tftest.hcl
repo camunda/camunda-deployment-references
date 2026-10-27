@@ -256,7 +256,7 @@ run "rejects_an_export_without_a_namespace" {
     export_gcp_credential_config = "{\"type\":\"external_account\"}"
   }
 
-  expect_failures = [var.export_namespace]
+  expect_failures = [aws_ecs_task_definition.prometheus]
 }
 
 run "rejects_a_credential_config_that_is_not_external_account" {
@@ -268,7 +268,7 @@ run "rejects_a_credential_config_that_is_not_external_account" {
     export_gcp_credential_config = "{\"type\":\"service_account\"}"
   }
 
-  expect_failures = [var.export_gcp_credential_config]
+  expect_failures = [aws_ecs_task_definition.prometheus]
 }
 
 run "rejects_an_export_interval_under_a_minute" {

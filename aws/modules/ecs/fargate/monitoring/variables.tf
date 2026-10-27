@@ -275,10 +275,6 @@ variable "export_namespace" {
   type        = string
   default     = ""
 
-  validation {
-    condition     = var.export_gcs_bucket == "" || can(regex("^[a-z0-9][a-z0-9-]*$", var.export_namespace))
-    error_message = "export_namespace must be set to lowercase letters, digits and dashes when export_gcs_bucket is set."
-  }
 }
 
 variable "export_gcp_credential_config" {
@@ -286,10 +282,6 @@ variable "export_gcp_credential_config" {
   type        = string
   default     = ""
 
-  validation {
-    condition     = var.export_gcs_bucket == "" || try(jsondecode(var.export_gcp_credential_config).type == "external_account", false)
-    error_message = "export_gcp_credential_config must be an external_account JSON document when export_gcs_bucket is set."
-  }
 }
 
 variable "export_interval_seconds" {

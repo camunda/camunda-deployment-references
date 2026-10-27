@@ -169,6 +169,20 @@ resource "aws_ecs_task_definition" "prometheus" {
     }),
   ] : []))
 
+  # Cross-variable checks live here rather than in variable validations, which
+  # can only reference other variables from Terraform 1.9 on.
+  lifecycle {
+    precondition {
+      condition     = !local.export_enabled || can(regex("^[a-z0-9][a-z0-9-]*$", var.export_namespace))
+      error_message = "export_namespace must be set to lowercase letters, digits and dashes when export_gcs_bucket is set."
+    }
+
+    precondition {
+      condition     = !local.export_enabled || try(jsondecode(var.export_gcp_credential_config).type == "external_account", false)
+      error_message = "export_gcp_credential_config must be an external_account JSON document when export_gcs_bucket is set."
+    }
+  }
+
   volume {
     name = "targets"
   }
