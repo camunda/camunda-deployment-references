@@ -97,8 +97,10 @@ case "$*" in
   *describe-services*)
     if [ "$MODE" = pending ]; then echo '{"taskDefinition":"td","networkConfiguration":{},"desiredCount":2,"pendingCount":2,"runningCount":0}'
     else echo '{"taskDefinition":"td","networkConfiguration":{},"desiredCount":0,"pendingCount":0,"runningCount":0}'; fi ;;
-  *list-tasks*--started-by*STOPPED*) if [ "$MODE" = stopping ]; then echo '["old-wipe"]'; else echo '[]'; fi ;;
+  # ECS rejects startedBy combined with any other filter.
+  *list-tasks*--started-by*--desired-status*|*list-tasks*--desired-status*--started-by*) echo "startedBy must be the only filter" >&2; exit 254 ;;
   *list-tasks*--started-by*) if [ "$MODE" = leftover ]; then echo '["old-wipe"]'; else echo '[]'; fi ;;
+  *list-tasks*--desired-status\ STOPPED*) if [ "$MODE" = stopping ]; then echo '["old-wipe"]'; else echo '[]'; fi ;;
   *list-tasks*) echo '[]' ;;
   *stop-task*) ;;
   *describe-task-definition*)
