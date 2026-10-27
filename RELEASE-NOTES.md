@@ -20,6 +20,7 @@ Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fi
 - Dual-region `verify_dual_region.sh` fails when the health-check process is not deployed. Deploy it once with the new `deploy_health_check_process.sh`, step 6 of the README quick start. With `--failed-region`, it checks replication factor 2 and one leader per partition instead of the broker count ([#3595](https://github.com/camunda/camunda-deployment-references/pull/3595), backport [#3755](https://github.com/camunda/camunda-deployment-references/pull/3755)).
 - Added the dual-region `db_force_destroy` input (default `true`), so `terraform destroy` can remove the Aurora Global cluster after a failover. It controls member detachment only; it is not deletion protection ([#3595](https://github.com/camunda/camunda-deployment-references/pull/3595), backport [#3755](https://github.com/camunda/camunda-deployment-references/pull/3755)).
 - Uses Camunda 8.10.5, which fixes a dual-region forced zone removal that never completed when a broker had seen no peer ([#3765](https://github.com/camunda/camunda-deployment-references/pull/3765)).
+- ECS `failback.sh` empties the recovered zone's EFS primary storage before it scales the brokers back up, so they do not rejoin with stale Raft state. It refuses to run while the service is not scaled to 0 ([#3767](https://github.com/camunda/camunda-deployment-references/pull/3767)).
 
 ### AWS EKS
 

@@ -50,6 +50,8 @@ func TestFailbackCompletes(t *testing.T) {
 		// The gateway going away after the zone is re-added must be reported as
 		// such, not as a count of zero brokers.
 		{"gateway lost after re-add", "alb-down", "stopped answering", nil, true},
+		// Pending brokers would start against EFS while the wipe deletes it.
+		{"service not scaled down", "pending", "not scaled to 0", nil, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Given: offline CLI and management API responses for one failback.
@@ -84,7 +86,10 @@ case "$*" in
   *describe-global-clusters*)
     echo '[{"DBClusterArn":"arn:aws:rds:eu-west-3:1:cluster:b","IsWriter":true},{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false}]' ;;
   *list-services*) echo "svc-oc" ;;
-  *describe-services*) echo '{"taskDefinition":"td","networkConfiguration":{},"runningCount":0}' ;;
+  *describe-services*)
+    if [ "$MODE" = pending ]; then echo '{"taskDefinition":"td","networkConfiguration":{},"desiredCount":2,"pendingCount":2,"runningCount":0}'
+    else echo '{"taskDefinition":"td","networkConfiguration":{},"desiredCount":0,"pendingCount":0,"runningCount":0}'; fi ;;
+  *list-tasks*) echo None ;;
   *describe-task-definition*)
     echo '{"family":"f","volumes":[{"name":"camunda-volume"}],"containerDefinitions":[{"name":"orchestration-cluster","image":"i","mountPoints":[{"sourceVolume":"camunda-volume"}]}]}' ;;
   *register-task-definition*) echo wipe-td ;;
@@ -125,8 +130,8 @@ if [ -f "$FAKE_DIR/scaledup" ]; then cat "$FAKE_DIR/restored.json"; else cat "$F
 			if (err != nil) != tc.wantError || !strings.Contains(string(out), tc.want) {
 				t.Fatalf("got %v, wantError=%t, missing %q\n%s", err, tc.wantError, tc.want, out)
 			}
-			if _, err := os.Stat(filepath.Join(fake, "wiped")); err != nil {
-				t.Fatalf("primary storage was not wiped before the scale-up (#3766)\n%s", out)
+			if _, err := os.Stat(filepath.Join(fake, "wiped")); (err == nil) != (tc.mode != "pending") {
+				t.Fatalf("wipe ran=%t, want %t (#3766)\n%s", err == nil, tc.mode != "pending", out)
 			}
 		})
 	}

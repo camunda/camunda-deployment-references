@@ -131,7 +131,7 @@ get_global_cluster_members() {
 # reuses the orchestration-cluster task definition's image, roles, network and
 # EFS volume, so it needs no extra infrastructure.
 wipe_primary_storage() {
-    local service svc td_arn network running wipe_def wipe_arn task_arn exit_code
+    local service svc td_arn network counts stopping wipe_def wipe_arn task_arn exit_code
     # shellcheck disable=SC2016 # backticks are a JMESPath literal
     service=$(aws ecs list-services --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
         --query 'serviceArns[?ends_with(@, `-orchestration-cluster`)] | [0]' --output text)
@@ -139,10 +139,19 @@ wipe_primary_storage() {
         --services "${service}" --query 'services[0]' --output json)
     td_arn=$(echo "${svc}" | jq -r '.taskDefinition')
     network=$(echo "${svc}" | jq -c '.networkConfiguration')
-    running=$(echo "${svc}" | jq -r '.runningCount')
-    if [ "${running}" != "0" ]; then
-        err "${service##*/} still runs ${running} task(s); scale it to 0 before failback."
+    # A zero runningCount alone allows a positive desiredCount with pending brokers.
+    counts=$(echo "${svc}" | jq -r '"desired=\(.desiredCount) pending=\(.pendingCount) running=\(.runningCount)"')
+    if [ "${counts}" != "desired=0 pending=0 running=0" ]; then
+        err "${service##*/} is not scaled to 0 (${counts}); scale it to 0 before failback."
         exit 1
+    fi
+    # Tasks that are still stopping can hold the EFS volume open.
+    stopping=$(aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+        --service-name "${service}" --desired-status STOPPED --query 'taskArns[:100]' --output text)
+    if [ -n "${stopping}" ] && [ "${stopping}" != "None" ]; then
+        log "  Waiting for stopped ${service##*/} tasks to finish stopping..."
+        # shellcheck disable=SC2086 # one argument per task ARN
+        aws ecs wait tasks-stopped --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" --tasks ${stopping}
     fi
 
     log "  Wiping primary storage of ${RECOVERED_ZONE} (stale Raft state from before failover)..."
