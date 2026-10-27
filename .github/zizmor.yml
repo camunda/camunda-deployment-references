@@ -44,12 +44,4 @@ rules:
             # API, and the trigger is required: a `pull_request` run from a fork gets
             # a read-only token, so fork pull requests would stop being labelled.
             - internal_global_pr_labeler.yml
-<<<<<<< HEAD
-=======
             - internal_global_pr_copilot_review.yml
-            # `workflow_run` is what lets a reporter on the default branch observe
-            # runs from every branch, which is the point of the workflow. Its
-            # checkout takes the default branch, never the observed run's ref, so it
-            # never executes code from the branch that triggered it.
-            - internal_global_ci_events_reporter.yml
->>>>>>> 5176e47 (ci(copilot): request review from a workflow that skips Renovate and smx-misc PRs (#3873))
