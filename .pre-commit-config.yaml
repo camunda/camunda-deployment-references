@@ -106,6 +106,13 @@ repos:
             files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources\.sh$
             pass_filenames: false
 
+          - id: aws-capacity-slot-selftest
+            name: AWS capacity slot self-test
+            entry: bash .github/actions/aws-capacity-slot/slot-selftest.sh
+            language: system
+            files: ^\.github/actions/aws-capacity-slot/slot(-selftest)?\.sh$
+            pass_filenames: false
+
           - id: ghost-rosa-cleanup-selftest
             name: Ghost ROSA cleanup script self-test
             # yamllint disable-line rule:line-length
@@ -194,6 +201,21 @@ repos:
             entry: python3 -m unittest discover -s .lint/path-filters -p 'test_*.py'
             language: system
             files: ^\.lint/path-filters/.*\.py$
+            pass_filenames: false
+
+          - id: capacity-needs
+            name: Capacity slots reserve every quota their golden plan creates
+            entry: .lint/capacity-needs/check-capacity-needs.py
+            language: script
+            files: (^\.github/workflows/.*\.yml|/test/golden/tfplan-golden\.json|^\.lint/capacity-needs/.*\.py)$
+            pass_filenames: false
+
+          - id: python-unittest-capacity-needs
+            name: Python unit tests (capacity needs)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/capacity-needs -p 'test_*.py'
+            language: system
+            files: ^\.lint/capacity-needs/.*\.py$
             pass_filenames: false
 
     - repo: https://github.com/tekwizely/pre-commit-golang
