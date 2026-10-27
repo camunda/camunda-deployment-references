@@ -70,8 +70,9 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        # 300 for the job itself, plus up to 45 waiting for a capacity slot.
-        timeout-minutes: 345
+        # 300 for the job itself, plus up to 60 waiting for a capacity slot:
+        # GitHub-hosted jobs stop at 360 minutes.
+        timeout-minutes: 360
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -95,11 +96,13 @@ jobs:
               uses: ./.github/actions/aws-capacity-slot
               with:
                   mode: acquire
+                  wait-minutes: '60'
                   pool: aws-ecs-dual-region-fargate-integration
                   slots: '3'
                   regions: eu-west-2 eu-west-3
                   needs: |
                       rds-clusters=1
+                      db-subnet-groups=1
                       rds-instances=1
                       vpcs=2
                       elastic-ips=2

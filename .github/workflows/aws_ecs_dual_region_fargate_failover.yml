@@ -67,7 +67,8 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        # 315 for the suite and its teardown, plus up to 45 waiting for a capacity slot.
+        # 315 for the suite and its teardown, plus up to 45 waiting for a capacity slot:
+        # GitHub-hosted jobs stop at 360 minutes.
         timeout-minutes: 360
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -95,11 +96,13 @@ jobs:
               uses: ./.github/actions/aws-capacity-slot
               with:
                   mode: acquire
+                  wait-minutes: '45'
                   pool: ecs-dual-region-failover
                   slots: '3'
                   regions: eu-west-2 eu-west-3
                   needs: |
                       rds-clusters=4
+                      db-subnet-groups=4
                       rds-instances=4
                       vpcs=4
                       elastic-ips=4

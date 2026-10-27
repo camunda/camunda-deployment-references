@@ -181,6 +181,7 @@ jobs:
                   leg: ${{ matrix.scenario.name }}
                   needs: |
                       rds-clusters=1
+                      db-subnet-groups=1
                       rds-instances=1
                       vpcs=1
                       elastic-ips=3

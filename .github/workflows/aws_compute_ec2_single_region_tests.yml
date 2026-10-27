@@ -149,7 +149,7 @@ jobs:
               with:
                   mode: acquire
                   pool: aws-compute-ec2-single-region
-                  slots: '6'
+                  slots: '10'
                   regions: ${{ env.AWS_REGION }}
                   lease-minutes: '720'
                   leg: ${{ matrix.distro.name }}

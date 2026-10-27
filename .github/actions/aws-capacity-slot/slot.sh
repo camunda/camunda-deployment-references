@@ -85,6 +85,7 @@ usage() {
     case "$1" in
     rds-clusters) aws rds describe-db-clusters --region "$region" --query 'length(DBClusters)' --output json ;;
     rds-instances) aws rds describe-db-instances --region "$region" --query 'length(DBInstances)' --output json ;;
+    db-subnet-groups) aws rds describe-db-subnet-groups --region "$region" --query 'length(DBSubnetGroups)' --output json ;;
     vpcs) aws ec2 describe-vpcs --region "$region" --query 'length(Vpcs)' --output json ;;
     elastic-ips) aws ec2 describe-addresses --region "$region" --query 'length(Addresses)' --output json ;;
     transit-gateways) aws ec2 describe-transit-gateways --region "$region" \
@@ -105,6 +106,7 @@ quota_code() {
     case "$1" in
     rds-clusters) echo "rds L-952B80B8" ;;
     rds-instances) echo "rds L-7B6409FD" ;;
+    db-subnet-groups) echo "rds L-48C6BF61" ;;
     vpcs) echo "vpc L-F678F1CE" ;;
     elastic-ips) echo "ec2 L-0263D0A3" ;;
     transit-gateways) echo "ec2 L-A2478D36" ;;
