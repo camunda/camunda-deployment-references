@@ -80,6 +80,20 @@ jobs:
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
 
+            # Experiment only: the engine-fix image is in the private registry.
+            - name: Import registry credentials
+              id: secrets
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common MACHINE_USR;
+                      secret/data/products/infrastructure-experience/ci/common MACHINE_PWD;
+
             - name: Cache Go modules
               uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
               with:
@@ -99,6 +113,8 @@ jobs:
                   # Suffixes every state group of this run, and names its stacks.
                   TEST_RUN_ID: ${{ github.run_id }}
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
+                  TF_VAR_registry_username: ${{ steps.secrets.outputs.MACHINE_USR }}
+                  TF_VAR_registry_password: ${{ steps.secrets.outputs.MACHINE_PWD }}
               run: |
                   set -e
                   TEST_FILTER="${INPUTS_TEST_NAME}"
