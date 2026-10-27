@@ -134,15 +134,18 @@ get_global_cluster_members() {
 
 # Polls describe-tasks until every given task is STOPPED. The built-in waiter
 # gives up after about 10 minutes, too short for `find -delete` on a large EFS
-# data directory. DescribeTasks accepts at most 100 tasks per call.
+# data directory. DescribeTasks accepts at most 100 tasks per call. A failed
+# call returns 1; a task reported in failures[] (MISSING, for example, just
+# after run-task) counts as not stopped yet.
 wait_tasks_stopped() {
-    local deadline=$(( SECONDS + WIPE_TIMEOUT )) arns=("$@") i running
+    local deadline=$(( SECONDS + WIPE_TIMEOUT )) arns=("$@") i running out
     while :; do
         running=0
         for (( i = 0; i < ${#arns[@]}; i += 100 )); do
-            running=$(( running + $(aws ecs describe-tasks --region "${RECOVERED_AWS_REGION}" \
-                --cluster "${RECOVERED_CLUSTER}" --tasks "${arns[@]:i:100}" --output json \
-                | jq '[.tasks[] | select(.lastStatus != "STOPPED")] | length') ))
+            out=$(aws ecs describe-tasks --region "${RECOVERED_AWS_REGION}" \
+                --cluster "${RECOVERED_CLUSTER}" --tasks "${arns[@]:i:100}" --output json) || return 1
+            out=$(echo "${out}" | jq '[.tasks[] | select(.lastStatus != "STOPPED")] + .failures | length') || return 1
+            running=$(( running + out ))
         done
         [ "${running}" -eq 0 ] && return 0
         [ "${SECONDS}" -ge "${deadline}" ] && return 1
@@ -150,14 +153,45 @@ wait_tasks_stopped() {
     done
 }
 
-# Empties the recovered region's EFS primary storage with a one-off task that
-# reuses the orchestration-cluster task definition's image, roles, network and
-# EFS volume, so it needs no extra infrastructure.
 WIPE_STARTED_BY=failback-wipe
 WIPE_TIMEOUT=${WIPE_TIMEOUT:-3600}
 WIPE_POLL_INTERVAL=${WIPE_POLL_INTERVAL:-15}
+
+# Runs before any scale-up, also with --keep-data or a zone still present.
+settle_earlier_tasks() {
+    local running_wipes earlier task
+    # A wipe from an interrupted run must not delete data after this one starts
+    # brokers. ListTasks accepts startedBy only as its sole filter, so running
+    # wipes are found by startedBy, and everything already asked to stop (an
+    # earlier wipe or a service task still holding the EFS volume) by listing
+    # all STOPPED-desired tasks of the cluster. Separate assignments, so a
+    # failed AWS call stops the script under set -e.
+    running_wipes=$(aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+        --started-by "${WIPE_STARTED_BY}" --query 'taskArns' --output json | jq -r '.[]')
+    for task in ${running_wipes}; do
+        log "  Stopping wipe task ${task} left by an earlier run..."
+        aws ecs stop-task --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+            --task "${task}" --no-cli-pager > /dev/null
+    done
+    earlier=$(aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+        --desired-status STOPPED --query 'taskArns' --output json | jq -r '.[]')
+    # shellcheck disable=SC2086 # one line per task ARN
+    earlier=$(printf '%s\n' ${running_wipes} ${earlier} | sort -u | sed '/^$/d')
+    if [ -n "${earlier}" ]; then
+        log "  Waiting for earlier tasks to finish stopping..."
+        # shellcheck disable=SC2086 # one argument per task ARN
+        if ! wait_tasks_stopped ${earlier}; then
+            err "Earlier tasks did not stop within ${WIPE_TIMEOUT}s, or their state could not be read; not scaling up. Re-run failback.sh."
+            exit 1
+        fi
+    fi
+}
+
+# Empties the recovered region's EFS primary storage with a one-off task that
+# reuses the orchestration-cluster task definition's image, roles, network and
+# EFS volume, so it needs no extra infrastructure.
 wipe_primary_storage() {
-    local service svc td_arn network counts running_wipes earlier wipe_def run exit_code
+    local service svc td_arn network counts wipe_def run exit_code
     # shellcheck disable=SC2016 # backticks are a JMESPath literal
     service=$(aws ecs list-services --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
         --query 'serviceArns[?ends_with(@, `-orchestration-cluster`)] | [0]' --output text)
@@ -171,32 +205,6 @@ wipe_primary_storage() {
         err "${service##*/} is not scaled to 0 (${counts}); scale it to 0 before failback."
         exit 1
     fi
-    # A wipe from an interrupted run must not delete data after this one starts
-    # brokers. ListTasks accepts startedBy only as its sole filter, so running
-    # wipes are found by startedBy, and everything already asked to stop (an
-    # earlier wipe or a service task still holding the EFS volume) by listing
-    # all STOPPED-desired tasks of the cluster. Separate assignments, so a
-    # failed AWS call stops the script under set -e.
-    running_wipes=$(aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
-        --started-by "${WIPE_STARTED_BY}" --query 'taskArns' --output json | jq -r '.[]')
-    for WIPE_TASK in ${running_wipes}; do
-        log "  Stopping wipe task ${WIPE_TASK} left by an earlier run..."
-        aws ecs stop-task --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
-            --task "${WIPE_TASK}" --no-cli-pager > /dev/null
-    done
-    earlier=$(aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
-        --desired-status STOPPED --query 'taskArns' --output json | jq -r '.[]')
-    # shellcheck disable=SC2086 # one line per task ARN
-    earlier=$(printf '%s\n' ${running_wipes} ${earlier} | sort -u | sed '/^$/d')
-    if [ -n "${earlier}" ]; then
-        log "  Waiting for earlier tasks to finish stopping..."
-        # shellcheck disable=SC2086 # one argument per task ARN
-        if ! wait_tasks_stopped ${earlier}; then
-            err "Earlier tasks did not stop within ${WIPE_TIMEOUT}s; not wiping. Re-run failback.sh."
-            exit 1
-        fi
-    fi
-
     log "  WIPING primary storage of ${RECOVERED_ZONE}: everything under /usr/local/camunda/data on"
     log "  the EFS volume of ${service##*/} (stale Raft state from before failover)."
     wipe_def=$(aws ecs describe-task-definition --region "${RECOVERED_AWS_REGION}" \
@@ -228,7 +236,7 @@ wipe_primary_storage() {
         exit 1
     fi
     if ! wait_tasks_stopped "${WIPE_TASK}"; then
-        err "Wipe task ${WIPE_TASK} did not stop within ${WIPE_TIMEOUT}s; stopping it. Re-run failback.sh."
+        err "Wipe task ${WIPE_TASK} did not stop within ${WIPE_TIMEOUT}s, or its state could not be read; stopping it. Re-run failback.sh."
         exit 1
     fi
     exit_code=$(aws ecs describe-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
@@ -244,12 +252,17 @@ wipe_primary_storage() {
 }
 
 wipe_cleanup() {
+    local task
     # Command substitutions can inherit the EXIT trap; only the script cleans up.
     [ "${BASHPID:-$$}" = "${WIPE_OWNER:-}" ] || return 0
-    if [ -n "${WIPE_TASK:-}" ]; then
+    # An interruption during run-task leaves WIPE_TASK empty, so running wipes
+    # are also found by startedBy. The next run waits for them to stop.
+    for task in ${WIPE_TASK:-} $(aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" \
+        --cluster "${RECOVERED_CLUSTER}" --started-by "${WIPE_STARTED_BY}" \
+        --query 'taskArns' --output json 2>/dev/null | jq -r '.[]?'); do
         aws ecs stop-task --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
-            --task "${WIPE_TASK}" --no-cli-pager > /dev/null 2>&1 || true
-    fi
+            --task "${task}" --no-cli-pager > /dev/null 2>&1 || true
+    done
     aws ecs deregister-task-definition --region "${RECOVERED_AWS_REGION}" \
         --task-definition "${WIPE_DEF_ARN}" --no-cli-pager > /dev/null 2>&1 || true
 }
@@ -379,6 +392,9 @@ fi
 # configuration and PARTITION_PROMOTE never completes (#3766). Only wiped while
 # the zone is absent from the partition distribution, so a re-run after a
 # successful re-add cannot destroy live replicas.
+if [ -n "${SERVICES}" ]; then
+    settle_earlier_tasks
+fi
 if [ -n "${SERVICES}" ] && [ "$KEEP_DATA" = true ]; then
     log "  --keep-data given, keeping the EFS primary storage of ${RECOVERED_ZONE}."
 elif [ -n "${SERVICES}" ]; then

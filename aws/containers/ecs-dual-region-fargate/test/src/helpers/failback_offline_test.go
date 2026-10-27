@@ -60,6 +60,14 @@ func TestFailbackCompletes(t *testing.T) {
 		{"keep data", "healthy", "--keep-data given", []string{"--keep-data"}, false, false},
 		{"wipe fails", "wipe-fails", "exit code 1", nil, true, true},
 		{"wipe not placed", "not-placed", "could not start the wipe task", nil, true, false},
+		// A wipe left by a timed-out run must stop before brokers start, even
+		// when this run keeps the data.
+		{"keep data with leftover wipe", "leftover", "left by an earlier run", []string{"--keep-data"}, false, false},
+		// Just after run-task, DescribeTasks can report the task as MISSING.
+		{"wipe briefly missing", "missing", "Failback complete", nil, false, true},
+		{"task state unreadable", "describe-fails", "could not be read", nil, true, true},
+		// The script dies before it saves the task ARN, as on an interruption.
+		{"run-task output lost", "run-task-dies", "", nil, true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Given: offline CLI and management API responses for one failback.
@@ -99,10 +107,13 @@ case "$*" in
     else echo '{"taskDefinition":"td","networkConfiguration":{},"desiredCount":0,"pendingCount":0,"runningCount":0}'; fi ;;
   # ECS rejects startedBy combined with any other filter.
   *list-tasks*--started-by*--desired-status*|*list-tasks*--desired-status*--started-by*) echo "startedBy must be the only filter" >&2; exit 254 ;;
-  *list-tasks*--started-by*) if [ "$MODE" = leftover ]; then echo '["old-wipe"]'; else echo '[]'; fi ;;
+  *list-tasks*--started-by*)
+    if [ "$MODE" = leftover ]; then echo '["old-wipe"]'
+    elif [ "$MODE" = run-task-dies ] && [ -f "$FAKE_DIR/wiped" ]; then echo '["task"]'
+    else echo '[]'; fi ;;
   *list-tasks*--desired-status\ STOPPED*) if [ "$MODE" = stopping ]; then echo '["old-wipe"]'; else echo '[]'; fi ;;
   *list-tasks*) echo '[]' ;;
-  *stop-task*) ;;
+  *stop-task*) echo "$*" >> "$FAKE_DIR/stopped" ;;
   *describe-task-definition*)
     echo '{"family":"f","volumes":[{"name":"camunda-volume"}],"containerDefinitions":[{"name":"orchestration-cluster","image":"i","mountPoints":[{"sourceVolume":"camunda-volume"}]}]}' ;;
   *deregister-task-definition*) touch "$FAKE_DIR/deregistered" ;;
@@ -111,9 +122,19 @@ case "$*" in
     if [ "$MODE" = not-placed ]; then echo '{"tasks":[],"failures":[{"reason":"RESOURCE:ENI"}]}'; exit 0; fi
     # The data must be gone before any broker of the zone starts again.
     [ ! -f "$FAKE_DIR/scaledup" ] && touch "$FAKE_DIR/wiped"
+    if [ "$MODE" = run-task-dies ]; then exit 255; fi
     echo '{"tasks":[{"taskArn":"task"}],"failures":[]}' ;;
-  *describe-tasks*--query*) if [ "$MODE" = wipe-fails ]; then echo 1; else echo 0; fi ;;
-  *describe-tasks*) echo '{"tasks":[{"lastStatus":"STOPPED"}]}' ;;
+  *describe-tasks*--query*)
+    # No exit code exists before the task was seen STOPPED.
+    if [ "$MODE" = missing ] && [ ! -f "$FAKE_DIR/stopped-seen" ]; then echo None
+    elif [ "$MODE" = wipe-fails ]; then echo 1; else echo 0; fi ;;
+  *describe-tasks*)
+    if [ "$MODE" = describe-fails ]; then exit 254; fi
+    if [ "$MODE" = missing ] && [ ! -f "$FAKE_DIR/seen" ]; then
+      touch "$FAKE_DIR/seen"; echo '{"tasks":[],"failures":[{"arn":"task","reason":"MISSING"}]}'; exit 0
+    fi
+    touch "$FAKE_DIR/stopped-seen"
+    echo '{"tasks":[{"lastStatus":"STOPPED"}],"failures":[]}' ;;
   *update-service*) touch "$FAKE_DIR/scaledup" ;;
   *failover-global-cluster*) echo PROMOTED >&2 ;;
   *describe-db-clusters*) echo available ;;
@@ -139,7 +160,7 @@ if [ -f "$FAKE_DIR/scaledup" ]; then cat "$FAKE_DIR/restored.json"; else cat "$F
 				"REGION_0=eu-west-2", "REGION_1=eu-west-3", "CLUSTER_0=a", "CLUSTER_1=b",
 				"ALB_ENDPOINT_0=a", "ALB_ENDPOINT_1=b", "ADMIN_USER=admin", "ADMIN_PASS=test",
 				"AURORA_GLOBAL_CLUSTER_ID=g", "AURORA_ENGINE=aurora-postgresql",
-				"LEADER_SETTLE_TIMEOUT=2", "MGMT_TOPOLOGY_POLL_INTERVAL=0")
+				"LEADER_SETTLE_TIMEOUT=2", "MGMT_TOPOLOGY_POLL_INTERVAL=0", "WIPE_POLL_INTERVAL=0")
 
 			// When
 			out, err := cmd.CombinedOutput()
@@ -150,6 +171,14 @@ if [ -f "$FAKE_DIR/scaledup" ]; then cat "$FAKE_DIR/restored.json"; else cat "$F
 			}
 			if _, err := os.Stat(filepath.Join(fake, "wiped")); (err == nil) != tc.wipe {
 				t.Fatalf("wipe ran=%t, want %t (#3766)\n%s", err == nil, tc.wipe, out)
+			}
+			// A wipe that may still run when the script fails must be asked to stop.
+			stopped, _ := os.ReadFile(filepath.Join(fake, "stopped"))
+			if strings.Contains(" wipe-fails describe-fails run-task-dies ", " "+tc.mode+" ") && !strings.Contains(string(stopped), "--task task") {
+				t.Fatalf("wipe task was not stopped on failure\n%s", out)
+			}
+			if tc.mode == "leftover" && !strings.Contains(string(stopped), "--task old-wipe") {
+				t.Fatalf("leftover wipe task was not stopped\n%s", out)
 			}
 			_, registered := os.Stat(filepath.Join(fake, "registered"))
 			_, deregistered := os.Stat(filepath.Join(fake, "deregistered"))
