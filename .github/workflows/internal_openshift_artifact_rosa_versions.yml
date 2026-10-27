@@ -68,7 +68,16 @@ jobs:
                   popd >/dev/null
 
                   rosa version
-                  rosa login --token=${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
+                  # sso.redhat.com sits behind a CDN that intermittently answers with an HTML
+                  # error page at midnight UTC; retry with a growing delay before failing.
+                  for attempt in 1 2 3 4 5 6; do
+                    rosa login --token=${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }} && break
+                    if [ "${attempt}" = 6 ]; then
+                      echo "::error::rosa login failed after ${attempt} attempts."
+                      exit 1
+                    fi
+                    sleep $((attempt * 20))
+                  done
 
                   # Write the artifact into the repo working tree (gh-pages branch is currently checked out).
                   mkdir -p docs
@@ -133,7 +142,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure() && github.event_name == 'schedule'
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

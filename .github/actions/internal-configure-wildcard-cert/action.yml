@@ -18,6 +18,7 @@ inputs:
     base-ref:
         description: Base branch reference for diff comparison
         required: false
+        # TODO: [release-duty] switch to the new stable/8.x on the cut branch.
         default: main
 
 outputs:

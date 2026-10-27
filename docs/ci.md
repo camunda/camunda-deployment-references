@@ -114,6 +114,22 @@ gh pr edit <pr> --add-label skip_aws_openshift_rosa_hcp_dual_region_tests
 
 Never create those labels by hand: `internal-triage-skip` creates them, with colour `#1D76DB`, and also posts a checklist comment offering the same choices as checkboxes.
 
+### A run waits for a capacity slot
+
+All pull requests share one AWS account. Many runs can start at the same time, for example after a wave of Renovate pull requests on the stable branches. These runs can use all of an account quota. The next `terraform apply` then fails, for example with `DBClusterQuotaExceededFault`.
+
+Every AWS suite that creates infrastructure calls `aws-capacity-slot`, one pool per suite. It limits how many runs of a suite can hold resources at the same time. The `acquire` mode waits until the account quotas have room for the run. It checks RDS clusters and instances, VPCs, Elastic IPs, transit gateways, load balancers, EKS clusters and OpenSearch domains. Then it takes one of a fixed number of slots, stored as objects under `ci-locks/<pool>/` in `tests-ra-aws-rosa-hcp-tf-state-eu-central-1`. Every suite uses this bucket, even the module suites whose Terraform state lives elsewhere, so they all see each other's reservations. A run waits up to 90 minutes. The jobs that set a `timeout-minutes` add the wait to their own budget. GitHub-hosted jobs stop at 360 minutes, so the longest jobs set a shorter `wait-minutes` to stay under it.
+
+Each slot records the regions and the resources of its run. A run admitted in the last 30 minutes may not have created its resources yet. Its needs are reserved for every suite, not only for its own pool, so two suites that start together in one region see each other. The resources it already created are counted twice during this window, which is why the window is short.
+
+The `release` mode runs last, with `if: always()`, in the job that destroys the resources. That job may be a later job of the run: `release` then finds the slot by its owner, the run id plus the matrix leg. Each slot has a lease. If GitHub stops a run before `release`, its slot becomes free again when the lease expires, so no daily reset is necessary.
+
+A run that waits writes the slot holders to the log of the `Acquire a capacity slot` step. To see the holders without a run:
+
+```bash
+aws s3 ls s3://tests-ra-aws-rosa-hcp-tf-state-eu-central-1/ci-locks/ --recursive
+```
+
 ### Inspecting a live cluster before the teardown
 
 `aws_eks_multi_region_rdbms_tests.yml` stops on an SSH session after the tests and before the destroy step, on the runner that provisioned the clusters. Two switches turn it on, because a workflow has to be on the default branch before it can be dispatched:
@@ -154,8 +170,8 @@ CI emits complementary operational signals:
 
 ## Workflow Scheduling
 
-Schedules are defined in `.github/workflows-config/workflow-scheduler.yml`. Tests are staggered by:
-- Camunda version (8.7, 8.8, 8.9, 8.10)
+Stable-branch schedules use `.github/workflows-config/workflow-scheduler.yml`. The `main` branch uses native workflow crons. Tests are staggered by:
+- Camunda version (8.8, 8.9, and 8.10)
 - Day of week
 - Time of day
 
@@ -187,6 +203,7 @@ All reusable CI logic lives in `.github/actions/`. Each action has:
 ## PR Automation
 
 - **Auto-labeling:** `.github/labeler.yml` assigns labels based on changed paths (e.g. `aws/`, `azure/`, `generic/`)
+- **Release notes:** `internal_global_pr_changelog_check.yml` fails a pull request to `main` or `stable/*` that does not change `RELEASE-NOTES.md`. Add the change to the matching `## 8.x` section. If the change is not visible to users (CI, tests, internal tooling), add the `no-changelog` label. Pull requests from bots pass without notes.
 - **Renovate:** `.github/renovate.json5` extends `github>camunda/infraex-common-config:default.json5`. This shared config governs scheduling (weekends only, except CVEs), grouping (minor+patch together), automerge, and custom regex managers for non-standard deps (ROSA, Helm chart versions). Update `baseBranchPatterns` when branches are added/removed.
 
 ## Customer-Facing Repo
@@ -198,10 +215,4 @@ All reusable CI logic lives in `.github/actions/`. Each action has:
 
 ## Release Process
 
-1. Cut `stable/8.x` from `main`
-2. Update `.camunda-version` to the new version
-3. Update `.target-branch` to point to `stable/8.x`
-4. Add schedules for the new version in `workflow-scheduler.yml`
-5. Prepare `main` for next version: bump `dev-latest` tag, update Renovate regex patterns
-6. Update `renovate.json5` `baseBranchPatterns` to include new stable branch
-7. Resolve all `TODO [release-duty]` markers in the codebase
+Follow [MAINTENANCE.md#release-duty](../MAINTENANCE.md#release-duty) for the release procedure.

@@ -15,7 +15,7 @@
         "database_name": "camunda",
         "deletion_protection": false,
         "engine": "aurora-postgresql",
-        "engine_version": "17.9",
+        "engine_version": "18.6",
         "force_destroy": null,
         "global_cluster_identifier": "camunda-global-db",
         "region": "eu-west-2",
@@ -1575,7 +1575,7 @@
             "enabled_cloudwatch_logs_exports": null,
             "engine": "aurora-postgresql",
             "engine_mode": "provisioned",
-            "engine_version": "17.9",
+            "engine_version": "18.6",
             "final_snapshot_identifier": null,
             "iam_database_authentication_enabled": false,
             "iops": null,
@@ -1622,7 +1622,7 @@
             "copy_tags_to_snapshot": true,
             "custom_iam_instance_profile": null,
             "engine": "aurora-postgresql",
-            "engine_version": "17.9",
+            "engine_version": "18.6",
             "force_destroy": false,
             "identifier": "camunda-london-db-0",
             "instance_class": "db.r6g.large",
@@ -1826,7 +1826,7 @@
             "enabled_cloudwatch_logs_exports": null,
             "engine": "aurora-postgresql",
             "engine_mode": "provisioned",
-            "engine_version": "17.9",
+            "engine_version": "18.6",
             "final_snapshot_identifier": null,
             "iam_database_authentication_enabled": false,
             "iops": null,
@@ -1873,7 +1873,7 @@
             "copy_tags_to_snapshot": true,
             "custom_iam_instance_profile": null,
             "engine": "aurora-postgresql",
-            "engine_version": "17.9",
+            "engine_version": "18.6",
             "force_destroy": false,
             "identifier": "camunda-paris-db-0",
             "instance_class": "db.r6g.large",
@@ -2308,7 +2308,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-2",
-                    "release_version": "1.36.4-SUFFIX",
+                    "release_version": "1.37.1-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -2332,7 +2332,7 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.36",
+                    "version": "1.37",
                     "warm_pool_config": []
                   }
                 },
@@ -2985,7 +2985,7 @@
                 "remote_network_config": [],
                 "tags": null,
                 "timeouts": null,
-                "version": "1.36",
+                "version": "1.37",
                 "vpc_config": [
                   {
                     "endpoint_private_access": true,
@@ -3532,7 +3532,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "aws-ebs-csi-driver",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -3546,7 +3546,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "coredns",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -3560,7 +3560,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "kube-proxy",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -3574,7 +3574,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "vpc-cni",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -3607,7 +3607,7 @@
                 "create_duration": "30s",
                 "destroy_duration": null,
                 "triggers": {
-                  "kubernetes_version": "1.36"
+                  "kubernetes_version": "1.37"
                 }
               }
             }
@@ -3853,6 +3853,12 @@
               }
             },
             "module.eks_cluster_region_0[0].module.vpc.aws_default_security_group.this[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -5329,7 +5335,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-west-3",
-                    "release_version": "1.36.4-SUFFIX",
+                    "release_version": "1.37.1-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -5353,7 +5359,7 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.36",
+                    "version": "1.37",
                     "warm_pool_config": []
                   }
                 },
@@ -6006,7 +6012,7 @@
                 "remote_network_config": [],
                 "tags": null,
                 "timeouts": null,
-                "version": "1.36",
+                "version": "1.37",
                 "vpc_config": [
                   {
                     "endpoint_private_access": true,
@@ -6553,7 +6559,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "aws-ebs-csi-driver",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -6567,7 +6573,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "coredns",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -6581,7 +6587,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "kube-proxy",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -6595,7 +6601,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "vpc-cni",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -6628,7 +6634,7 @@
                 "create_duration": "30s",
                 "destroy_duration": null,
                 "triggers": {
-                  "kubernetes_version": "1.36"
+                  "kubernetes_version": "1.37"
                 }
               }
             }
@@ -6874,6 +6880,12 @@
               }
             },
             "module.eks_cluster_region_1[0].module.vpc.aws_default_security_group.this[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -8350,7 +8362,7 @@
                     "launch_template": [],
                     "node_group_name": "services",
                     "region": "eu-central-2",
-                    "release_version": "1.36.4-SUFFIX",
+                    "release_version": "1.37.1-SUFFIX",
                     "remote_access": [],
                     "scaling_config": [
                       {
@@ -8374,7 +8386,7 @@
                         "update_strategy": null
                       }
                     ],
-                    "version": "1.36",
+                    "version": "1.37",
                     "warm_pool_config": []
                   }
                 },
@@ -9027,7 +9039,7 @@
                 "remote_network_config": [],
                 "tags": null,
                 "timeouts": null,
-                "version": "1.36",
+                "version": "1.37",
                 "vpc_config": [
                   {
                     "endpoint_private_access": true,
@@ -9574,7 +9586,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "aws-ebs-csi-driver",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -9588,7 +9600,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "coredns",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -9602,7 +9614,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "kube-proxy",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -9616,7 +9628,7 @@
               "type": "aws_eks_addon_version",
               "values": {
                 "addon_name": "vpc-cni",
-                "kubernetes_version": "1.36",
+                "kubernetes_version": "1.37",
                 "most_recent": true
               }
             },
@@ -9649,7 +9661,7 @@
                 "create_duration": "30s",
                 "destroy_duration": null,
                 "triggers": {
-                  "kubernetes_version": "1.36"
+                  "kubernetes_version": "1.37"
                 }
               }
             }
@@ -9895,6 +9907,12 @@
               }
             },
             "module.eks_cluster_region_2[0].module.vpc.aws_default_security_group.this[0]": {
+              "identity": {
+                "account_id": null,
+                "id": null,
+                "region": null
+              },
+              "identity_schema_version": 0,
               "index": 0,
               "mode": "managed",
               "name": "this",
@@ -12868,7 +12886,6 @@
           },
           "type": "aws_ec2_transit_gateway_peering_attachment",
           "values": {
-            "options": [],
             "peer_region": "eu-west-3",
             "region": "eu-west-2",
             "tags": {
@@ -12900,6 +12917,13 @@
           }
         },
         "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.190.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.190.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -12914,6 +12938,13 @@
           }
         },
         "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.192.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.192.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -12928,6 +12959,13 @@
           }
         },
         "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.200.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.200.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -12942,6 +12980,13 @@
           }
         },
         "module.tgw_peering[\"0_1\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.202.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.202.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -12971,7 +13016,6 @@
           },
           "type": "aws_ec2_transit_gateway_peering_attachment",
           "values": {
-            "options": [],
             "peer_region": "eu-central-2",
             "region": "eu-west-2",
             "tags": {
@@ -13003,6 +13047,13 @@
           }
         },
         "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.190.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.190.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13017,6 +13068,13 @@
           }
         },
         "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.192.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.192.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13031,6 +13089,13 @@
           }
         },
         "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.210.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.210.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13045,6 +13110,13 @@
           }
         },
         "module.tgw_peering[\"0_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.212.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.212.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13074,7 +13146,6 @@
           },
           "type": "aws_ec2_transit_gateway_peering_attachment",
           "values": {
-            "options": [],
             "peer_region": "eu-central-2",
             "region": "eu-west-3",
             "tags": {
@@ -13106,6 +13177,13 @@
           }
         },
         "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.200.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.200.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13120,6 +13198,13 @@
           }
         },
         "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.accepter_to_owner[\"10.202.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.202.0.0/16",
           "mode": "managed",
           "name": "accepter_to_owner",
@@ -13134,6 +13219,13 @@
           }
         },
         "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.210.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.210.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13148,6 +13240,13 @@
           }
         },
         "module.tgw_peering[\"1_2\"].aws_ec2_transit_gateway_route.owner_to_accepter[\"10.212.0.0/16\"]": {
+          "identity": {
+            "account_id": null,
+            "destination_cidr_block": null,
+            "region": null,
+            "transit_gateway_route_table_id": null
+          },
+          "identity_schema_version": 0,
           "index": "10.212.0.0/16",
           "mode": "managed",
           "name": "owner_to_accepter",
@@ -13198,6 +13297,7 @@
       "type": "terraform_data",
       "values": {
         "input": "3/3",
+        "store": null,
         "triggers_replace": null
       }
     },

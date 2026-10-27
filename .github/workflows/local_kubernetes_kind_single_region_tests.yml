@@ -63,7 +63,7 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -96,6 +96,9 @@ jobs:
             # Non-interactive acknowledgement of the pre-release chart build.
             # TODO: [release-duty] remove this together with the source-build (procedure/build-camunda-chart.sh).
             CAMUNDA_PRERELEASE_ACK: 'true'
+            # Kind's build-camunda-chart.sh otherwise clones beside itself, where
+            # internal-helm-deprecation-check cannot autodetect it and falls back to the registry schema.
+            CAMUNDA_HELM_CHART_CHECKOUT_DIR: ${{ github.workspace }}/.camunda-platform-helm
         permissions:
             contents: read
             pull-requests: write # internal-helm-deprecation-check upserts a comment on the pull request
@@ -103,13 +106,13 @@ jobs:
             # Telemetry must never block the job: a monitoring outage may cost a
             # duration metric, never a teardown.
             - continue-on-error: true
-              uses: camunda/infra-global-github-actions/start-build-monitor@02b3f0e49b00b98fffc76af690ebc83c28f24dae # main
+              uses: camunda/infra-global-github-actions/start-build-monitor@d4e0239331f434375aaa358d9003e48a19688d83 # main
 
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Install envsubst
               run: |
@@ -214,12 +217,6 @@ jobs:
                     helm-values/values-domain.yml > helm-values/values-domain.yml.tmp
                   mv helm-values/values-domain.yml.tmp helm-values/values-domain.yml
 
-                  # TODO: [release-duty] drop this load together with the file it
-                  # reads; see camunda/camunda-platform-helm#7284.
-                  yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/image-overrides.yml\")" \
-                    helm-values/values-domain.yml > helm-values/values-domain.yml.tmp
-                  mv helm-values/values-domain.yml.tmp helm-values/values-domain.yml
-
                   # CI-only: grant the auto-generated 'orchestration' M2M client
                   # the admin role so the smoke test can deploy BPMN resources
                   # via the Zeebe REST API. User-facing helm-values stay unchanged.
@@ -238,12 +235,6 @@ jobs:
 
                   # Apply registry configuration to avoid Docker Hub rate limit
                   yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/registry.yml\")" \
-                    helm-values/values-no-domain.yml > helm-values/values-no-domain.yml.tmp
-                  mv helm-values/values-no-domain.yml.tmp helm-values/values-no-domain.yml
-
-                  # TODO: [release-duty] drop this load together with the file it
-                  # reads; see camunda/camunda-platform-helm#7284.
-                  yq ". *+ load(\"../../../generic/kubernetes/single-region/tests/helm-values/image-overrides.yml\")" \
                     helm-values/values-no-domain.yml > helm-values/values-no-domain.yml.tmp
                   mv helm-values/values-no-domain.yml.tmp helm-values/values-no-domain.yml
 
@@ -513,11 +504,11 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
-                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

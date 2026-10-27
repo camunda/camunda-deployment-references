@@ -148,3 +148,60 @@ func TestPRLabelsDecodesNamesWithSpaces(t *testing.T) {
 		t.Errorf("label with spaces decoded as %q", payload.Labels[0].Name)
 	}
 }
+
+func TestRepoFromRefs(t *testing.T) {
+	cases := []struct {
+		in      []string
+		want    string
+		wantErr bool
+	}{
+		{[]string{"357"}, "", false},
+		{[]string{"https://github.com/camunda/c8-sm-checks/pull/357/changes"}, "camunda/c8-sm-checks", false},
+		{[]string{"12", "https://github.com/camunda/c8-sm-checks/pull/357"}, "camunda/c8-sm-checks", false},
+		{[]string{"https://github.com/a/x/pull/1", "https://github.com/b/y/pull/2"}, "", true},
+		{[]string{"HTTPS://GitHub.com/camunda/c8-sm-checks/pull/357"}, "camunda/c8-sm-checks", false},
+		{[]string{"https://evilgithub.com/a/b/pull/1"}, "", true},
+		{[]string{"https://github.com/a/b/pull/1oops"}, "", true},
+		{[]string{"https://github.com/a/b?x/pull/1"}, "", true},
+		{[]string{" https://github.com/camunda/c8-sm-checks/pull/357 "}, "camunda/c8-sm-checks", false},
+	}
+	for _, c := range cases {
+		got, err := repoFromRefs(c.in)
+		if got != c.want || (err != nil) != c.wantErr {
+			t.Errorf("repoFromRefs(%q) = %q, %v; want %q, err=%v", c.in, got, err, c.want, c.wantErr)
+		}
+	}
+}
+
+func TestCurrentRepoRouting(t *testing.T) {
+	t.Setenv("GH_REPO", "camunda/from-env")
+
+	got, err := currentRepo([]string{"https://github.com/camunda/c8-sm-checks/pull/357"})
+	if err != nil || got != "camunda/c8-sm-checks" {
+		t.Errorf("PR URL must override GH_REPO: got %q, %v", got, err)
+	}
+
+	got, err = currentRepo([]string{"357"})
+	if err != nil || got != "camunda/from-env" {
+		t.Errorf("GH_REPO must be used without a PR URL: got %q, %v", got, err)
+	}
+}
+
+func TestRerunTargets(t *testing.T) {
+	// Newest-first, as `gh run list` returns it; mirrors PR #3518, where the
+	// newest completed run was the non-rerunnable Copilot review.
+	runs := []workflowRun{
+		{36423578228, "dynamic", "Copilot"},
+		{36398975707, "pull_request", "Lint"},
+		{36398974545, "pull_request", "Tests - Operator based"},
+		{36398971397, "push", "Check external links"},
+		{36136978857, "pull_request", "Lint"},
+	}
+	want := []int64{36398975707, 36398974545, 36398971397}
+	if got := rerunTargets(runs); !reflect.DeepEqual(got, want) {
+		t.Errorf("rerunTargets = %v, want %v", got, want)
+	}
+	if got := rerunTargets(nil); got != nil {
+		t.Errorf("rerunTargets(nil) = %v, want nil", got)
+	}
+}

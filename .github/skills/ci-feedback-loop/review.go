@@ -11,6 +11,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -90,7 +91,42 @@ func withoutReadyTag(title string) string {
 // gh-backed helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-func currentRepo() (string, error) {
+// prURLRepoPattern captures `<owner>/<repo>` from a GitHub PR URL.
+var prURLRepoPattern = regexp.MustCompile(`(?i)^https?://(?:www\.)?github\.com/([\w.-]+/[\w.-]+)/pull/\d+(?:[/?#].*)?$`)
+
+// repoFromRefs returns the repository named by PR URLs in args, or "" when
+// none is a URL. URLs spanning several repositories are an error: every
+// subcommand drives one repository at a time.
+func repoFromRefs(args []string) (string, error) {
+	repo := ""
+	for _, a := range args {
+		a = strings.TrimSpace(a)
+		m := prURLRepoPattern.FindStringSubmatch(a)
+		if m == nil {
+			if strings.Contains(a, "/pull/") {
+				return "", fmt.Errorf("not a github.com PR URL: %s", a)
+			}
+			continue
+		}
+		if repo != "" && !strings.EqualFold(repo, m[1]) {
+			return "", fmt.Errorf("PR URLs span several repositories (%s, %s)", repo, m[1])
+		}
+		repo = m[1]
+	}
+	return repo, nil
+}
+
+// currentRepo resolves the target repository. A PR URL wins, then GH_REPO,
+// then the checkout's remote. `gh repo view` ignores GH_REPO, so without the
+// first two a URL for another repository would silently drive the PR with the
+// same number in this one.
+func currentRepo(args []string) (string, error) {
+	if repo, err := repoFromRefs(args); err != nil || repo != "" {
+		return repo, err
+	}
+	if repo := strings.TrimSpace(os.Getenv("GH_REPO")); repo != "" {
+		return repo, nil
+	}
 	out, err := gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner")
 	if err != nil {
 		return "", err
@@ -208,6 +244,53 @@ func runIDs(repo, headRef, status string, limit int) ([]string, error) {
 	return strings.Fields(string(out)), nil
 }
 
+type workflowRun struct {
+	ID       int64  `json:"databaseId"`
+	Event    string `json:"event"`
+	Workflow string `json:"workflowName"`
+}
+
+// rerunTargets keeps the newest run of each workflow (input is newest-first, as
+// `gh run list` returns it). `dynamic` runs — Copilot review, Dependabot —
+// are GitHub-managed and cannot be re-run, so they are dropped.
+func rerunTargets(runs []workflowRun) []int64 {
+	seen := map[string]bool{}
+	var ids []int64
+	for _, r := range runs {
+		if r.Event == "dynamic" || seen[r.Workflow] {
+			continue
+		}
+		seen[r.Workflow] = true
+		ids = append(ids, r.ID)
+	}
+	return ids
+}
+
+// completedHeadRuns lists the completed runs of the PR's current head commit.
+func completedHeadRuns(repo string, pr int) ([]workflowRun, error) {
+	out, err := gh("pr", "view", strconv.Itoa(pr), "--repo", repo,
+		"--json", "headRefOid", "-q", ".headRefOid")
+	if err != nil {
+		return nil, err
+	}
+	// The REST endpoint paginates; `gh run list` only takes a fixed --limit.
+	out, err = gh("api", "--paginate",
+		"repos/"+repo+"/actions/runs?status=completed&per_page=100&head_sha="+strings.TrimSpace(string(out)),
+		"--jq", ".workflow_runs[] | {databaseId: .id, event, workflowName: .name}")
+	if err != nil {
+		return nil, err
+	}
+	var runs []workflowRun
+	for dec := json.NewDecoder(bytes.NewReader(out)); dec.More(); {
+		var r workflowRun
+		if err := dec.Decode(&r); err != nil {
+			return nil, err
+		}
+		runs = append(runs, r)
+	}
+	return runs, nil
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // commands
 // ─────────────────────────────────────────────────────────────────────────────
@@ -224,7 +307,7 @@ func reviewCmd() *cobra.Command {
 
 // withPRSet resolves the repo and the PR set once, then hands them to fn.
 func withPRSet(args []string, fn func(repo string, prs []int) error) error {
-	repo, err := currentRepo()
+	repo, err := currentRepo(args)
 	if err != nil {
 		return err
 	}
@@ -297,7 +380,7 @@ func reviewResumeCmd() *cobra.Command {
 	var rerun bool
 	cmd := &cobra.Command{
 		Use:   "resume [pr-number|pr-url ...]",
-		Short: "Remove skip_all and (optionally) re-run the latest completed run",
+		Short: "Remove skip_all and (optionally) re-run every workflow on the head commit",
 		Long: "Removing the label does not re-trigger anything on its own: `unlabeled` is not\n" +
 			"a workflow trigger. Use --rerun, or push a commit.",
 		RunE: func(_ *cobra.Command, args []string) error {
@@ -311,28 +394,24 @@ func reviewResumeCmd() *cobra.Command {
 					if !rerun {
 						continue
 					}
-					headRef, err := prHeadRef(repo, n)
+					// Only a completed run can be re-run; a full re-run of every
+					// workflow is wanted because the heavy jobs were skipped, not failed.
+					runs, err := completedHeadRuns(repo, n)
 					if err != nil {
 						return err
 					}
-					// Only a completed run can be re-run; a full re-run is wanted
-					// because the heavy jobs were skipped, not failed.
-					ids, err := runIDs(repo, headRef, "completed", 1)
-					if err != nil {
-						return err
-					}
-					for _, id := range ids {
-						if _, err := gh("run", "rerun", "--repo", repo, id); err != nil {
+					for _, id := range rerunTargets(runs) {
+						if _, err := gh("run", "rerun", "--repo", repo, strconv.FormatInt(id, 10)); err != nil {
 							return err
 						}
-						fmt.Printf("PR #%d: re-ran run %s\n", n, id)
+						fmt.Printf("PR #%d: re-ran run %d\n", n, id)
 					}
 				}
 				return nil
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&rerun, "rerun", false, "re-run the latest completed run of each PR")
+	cmd.Flags().BoolVar(&rerun, "rerun", false, "re-run the latest completed run of every workflow on each PR's head commit")
 	return cmd
 }
 

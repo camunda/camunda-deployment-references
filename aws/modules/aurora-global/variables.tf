@@ -33,7 +33,7 @@ variable "engine_version" {
 variable "postgresql_engine_version" {
   type = string
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
-  default     = "18.4"
+  default     = "18.6"
   description = "Aurora PostgreSQL engine version, used when engine = aurora-postgresql. Set this to pin a specific version for the PostgreSQL path."
 
   # This value reaches aws_rds_global_cluster and aws_rds_cluster unchanged, so
@@ -55,7 +55,7 @@ variable "mysql_engine_version" {
   # camunda/infraex-common-config (default.json5), so no inline `versioning=`
   # is needed here. See camunda/team-infrastructure-experience#1209.
   # renovate: datasource=custom.aurora-mysql-camunda depName=aurora-mysql
-  default     = "8.4.mysql_aurora.8.4.7"
+  default     = "8.4.mysql_aurora.8.4.8"
   description = "Aurora MySQL engine version, used when engine = aurora-mysql. Set this to pin a specific version for the MySQL path."
 
   # As above: a blank pin would only fail once AWS rejected it. Note the value
@@ -264,4 +264,25 @@ variable "tags" {
   type        = map(string)
   default     = {}
   description = "Additional tags to add to resources"
+}
+
+variable "force_destroy" {
+  type        = bool
+  default     = null
+  description = <<-EOT
+    Allow `terraform destroy` to remove the members that are still attached to
+    the global cluster when it deletes the global cluster. Without this, the
+    delete fails while any member remains. This does not cover a destroy after
+    a failover: Terraform deletes the global cluster last, and the destroy
+    hangs earlier, on the last instance of the promoted writer. Move the writer
+    back to the primary region first.
+
+    Leave unset for anything holding real data. Test environments set it true
+    so an interrupted run can always be swept.
+
+    The default is `null`, not `false`, so that callers which do not set it
+    plan exactly as they did before this variable existed — Terraform omits an
+    unset optional attribute, and a `false` default would have rewritten every
+    consumer's golden plan for no behavioural change.
+  EOT
 }

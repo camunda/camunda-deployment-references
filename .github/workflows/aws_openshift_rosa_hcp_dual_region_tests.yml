@@ -18,6 +18,7 @@ on:
             - '!aws/openshift/rosa-hcp-dual-region/terraform/*/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-dual-region-create/**
             - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-generic-encrypt-export/**
@@ -25,9 +26,12 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/actions/internal-camunda-chart-tests/**
+            - .github/actions/internal-debug-failed-pods/**
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/internal-multi-region-tests/**
             - .github/actions/kubernetes-eck-operator/**
+            - .github/actions/internal-camunda-ci-credentials/**
+            - .github/actions/internal-sanitize-tags/**
             - generic/kubernetes/operator-based/elasticsearch/**
 
     workflow_dispatch:
@@ -116,7 +120,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -146,7 +150,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -170,6 +174,24 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.CLUSTER_0_AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region and per leg: one VPC with a NAT gateway per availability zone and one
+            # NLB for the ingress of the hosted control plane (an estimate).
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: aws-openshift-rosa-hcp-dual-region
+                  slots: '6'
+                  regions: ${{ env.CLUSTER_0_AWS_REGION }} ${{ env.CLUSTER_1_AWS_REGION }}
+                  lease-minutes: '720'
+                  leg: ${{ matrix.distro.name }}
+                  needs: |
+                      vpcs=1
+                      elastic-ips=3
+                      nlbs=1
 
             - name: Set current target branch
               id: target-branch
@@ -283,7 +305,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@d4e0239331f434375aaa358d9003e48a19688d83 # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -309,10 +331,10 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Install CLI tools from OpenShift Mirror
-              uses: redhat-actions/openshift-tools-installer@e3b32c2ab7b064b2ce189121c4a49f509a99a7b4 # v3
+              uses: redhat-actions/openshift-tools-installer@1f130822bb0930e0ee02a119adcc3271a22b1499 # v3
               with:
                   oc: ${{ matrix.distro.version }}
 
@@ -435,11 +457,13 @@ jobs:
             - name: 🐠 Configure Submariner
               # Must cover the pre-flight checks, node labelling, the addon
               # reconciliation wait (verify-submariner.sh, 600s budget) and the
-              # IPSec tunnel wait (verify-subctl.sh, 600s budget) back to back.
+              # IPSec tunnel wait (verify-subctl.sh: 300s per attempt, plus up to
+              # two pod-restart recoveries) back to back. Worst case of the two
+              # scripts is ~49.5 min (600s + ~2365s), leaving margin under 60.
               # At 10 min the tunnel wait could never use its own budget: the step
               # died first with an opaque "The action has timed out" while subctl
               # was reporting the connection as established.
-              timeout-minutes: 25
+              timeout-minutes: 60
               run: |
                   set -euo pipefail
 
@@ -919,7 +943,7 @@ jobs:
             - integration-tests
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@d4e0239331f434375aaa358d9003e48a19688d83 # main
               with:
                   error-messages: '' # retry no matter the error as we want to ensure that the last retries will trigger the cleanup
                   run-id: ${{ github.run_id }}
@@ -955,7 +979,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -1000,12 +1024,23 @@ jobs:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
-                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+                  # The pair the create action names the state after: <name0>-oOo-<name1>.
+                  target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-0-oOo-${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName
+                      }}-1
                   fail-on-not-found: 'false' # the cluster may never have been created, e.g. a failed provisioning step
                   tf-bucket-key-prefix: ${{ env.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   openshift: 'true'
                   delete-ghost-rosa-clusters: 'true'
                   modules-order: backup_bucket,peering,clusters
+
+            # Last, so the slot is held until this run's resources are gone.
+            - name: Release the capacity slot
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: aws-openshift-rosa-hcp-dual-region
+                  leg: ${{ matrix.distro.name }}
     report-success:
         name: Report success
         if: ${{ !failure() && !cancelled() }}
@@ -1038,11 +1073,11 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
-                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

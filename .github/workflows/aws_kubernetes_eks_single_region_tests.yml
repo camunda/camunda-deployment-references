@@ -19,6 +19,7 @@ on:
             - .github/actions/aws-kubernetes-eks-single-region-create/**
             - .github/actions/aws-cognito-create/**
             - aws/common/cognito/**
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/aws-generic-terraform-cleanup/**
@@ -34,6 +35,15 @@ on:
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/aws-kubernetes-ingress-setup/**
             - .github/actions/kubernetes-wildcard-certificate/**
+            - .github/actions/internal-configure-wildcard-cert/**
+            - .github/actions/internal-wait-oidc-issuer/**
+            - .github/actions/kubernetes-ingress-cleanup/**
+            - .github/actions/kubernetes-keycloak-operator/**
+            - .github/actions/kubernetes-keycloak-operator-cleanup/**
+            - .github/actions/internal-camunda-chart-tests/**
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/kubernetes-cnpg-cluster/**
+            - .github/actions/kubernetes-cnpg-cluster-cleanup/**
 
     workflow_dispatch:
         inputs:
@@ -123,7 +133,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -155,7 +165,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -179,6 +189,30 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region and per leg, the maximum over the legs: one VPC with a single NAT
+            # gateway, one EKS cluster, one NLB (from the ingress controller, created later), one Aurora
+            # cluster with one instance and one OpenSearch domain (the rdbms leg has no OpenSearch).
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: aws-kubernetes-eks-single-region
+                  slots: '12'
+                  regions: ${{ env.AWS_REGION }}
+                  lease-minutes: '720'
+                  leg: ${{ matrix.scenario.name }}
+                  needs: |
+                      rds-clusters=1
+                      db-subnet-groups=1
+                      rds-instances=1
+                      vpcs=1
+                      elastic-ips=1
+                      nlbs=1
+                      eks-clusters=1
+                      opensearch-domains=1
 
             - name: Set current target branch
               id: target-branch
@@ -378,7 +412,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@d4e0239331f434375aaa358d9003e48a19688d83 # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -414,7 +448,7 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -552,7 +586,12 @@ jobs:
                   # run it as specified in the doc
                   set -euo pipefail
 
-                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
+                  # A pull request merged mid-run deletes its head branch; the merged code is then on the base branch.
+                  ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/get-your-copy.sh || {
+                      [[ -n "${GITHUB_BASE_REF:-}" ]] && ! git ls-remote --exit-code --heads origin "$REF_ARCH_BRANCH" >/dev/null || exit 1
+                      rm -rf camunda-deployment-references
+                      REF_ARCH_BRANCH="$GITHUB_BASE_REF" ./aws/kubernetes/${{ matrix.scenario.name }}/procedure/get-your-copy.sh
+                  }
                   tree
 
             - name: 🌱 Register chart setup environment values
@@ -727,11 +766,6 @@ jobs:
                     echo "Enabling Camunda Hub"
                     yq -i '.camundaHub.enabled = true' values.yml
                   fi
-
-                  # TODO: [release-duty] drop this load together with the file it
-                  # reads; see camunda/camunda-platform-helm#7284.
-                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/image-overrides.yml\")" values.yml > values-result.yml
-                  mv values-result.yml values.yml
 
                   # Add integration tests values
                   if [ "$TESTS_ENABLED" == "true" ]; then
@@ -1126,7 +1160,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -1199,6 +1233,15 @@ jobs:
                   tf-bucket-key-prefix: cognito-test/${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: cognito
 
+            # Last, so the slot is held until this run's resources are gone.
+            - name: Release the capacity slot
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: aws-kubernetes-eks-single-region
+                  leg: ${{ matrix.scenario.name }}
+
     report-success:
         name: Report success
         if: ${{ !failure() && !cancelled() }}
@@ -1228,11 +1271,11 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
-                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

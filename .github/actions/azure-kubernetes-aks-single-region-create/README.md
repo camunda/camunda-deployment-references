@@ -12,6 +12,9 @@ The kube context will be set on the created cluster.
 | --- | --- | --- | --- |
 | `resource-prefix` | <p>Prefix for the resources to be created</p> | `true` | `camunda` |
 | `resource-group-name` | <p>Name of the resource group</p> | `true` | `""` |
+| `azure-client-id` | <p>Azure client ID used to refresh OIDC authentication after a long-running apply</p> | `true` | `""` |
+| `azure-tenant-id` | <p>Azure tenant ID used to refresh OIDC authentication after a long-running apply</p> | `true` | `""` |
+| `azure-subscription-id` | <p>Azure subscription ID used to refresh OIDC authentication after a long-running apply</p> | `true` | `""` |
 | `cluster-name` | <p>Name of the AKS cluster to deploy</p> | `true` | `camunda-aks-cluster` |
 | `kubernetes-version` | <p>Version of Kubernetes to install. Leave empty to keep the version pinned in the reference architecture (renovate-managed), which is the behaviour every caller has had so far.</p> | `false` | `""` |
 | `s3-backend-bucket` | <p>Name of the S3 bucket to store Terraform state</p> | `true` | `""` |
@@ -50,6 +53,24 @@ This action is a `composite` action.
 
     resource-group-name:
     # Name of the resource group
+    #
+    # Required: true
+    # Default: ""
+
+    azure-client-id:
+    # Azure client ID used to refresh OIDC authentication after a long-running apply
+    #
+    # Required: true
+    # Default: ""
+
+    azure-tenant-id:
+    # Azure tenant ID used to refresh OIDC authentication after a long-running apply
+    #
+    # Required: true
+    # Default: ""
+
+    azure-subscription-id:
+    # Azure subscription ID used to refresh OIDC authentication after a long-running apply
     #
     # Required: true
     # Default: ""

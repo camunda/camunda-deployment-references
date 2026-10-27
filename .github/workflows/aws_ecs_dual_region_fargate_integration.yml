@@ -5,15 +5,18 @@ name: Tests - Integration - AWS Containers ECS Dual Region Fargate
 # against the sandbox AWS account, waits for Raft quorum, asserts on Zeebe
 # topology, then destroys.
 #
-# NOT yet enabled on a schedule: invoke via workflow_dispatch until the
-# sandbox-account smoke run validates the suite end-to-end. After that, add
-# a row to .github/workflows-config/workflow-scheduler.yml.
+# NOT yet enabled on a schedule. Runs on pull requests that touch the stack,
+# its procedures or its tests (skip with the `skip_<workflow>` label), and via
+# workflow_dispatch. To schedule it, add a row to
+# .github/workflows-config/workflow-scheduler.yml.
 
 on:
     workflow_dispatch:
         inputs:
             test_name:
-                description: Which test to run (empty = all)
+                description: >-
+                    Greenfield tests to run, separated by | (default = both): TestEndToEnd_Greenfield_TGW_RDBMS,
+                    TestEndToEnd_Greenfield_VpcPeering_OpenSearch
                 required: false
                 default: ''
                 type: string
@@ -22,10 +25,26 @@ on:
                 required: false
                 default: false
                 type: boolean
+    pull_request:
+        paths:
+            - .github/workflows/aws_ecs_dual_region_fargate_integration.yml
+            - .github/actions/aws-capacity-slot/**
+            - .github/actions/aws-configure-cli/**
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .tool-versions
+            - aws/containers/ecs-dual-region-fargate/procedure/**
+            - aws/containers/ecs-dual-region-fargate/terraform/**
+            - '!aws/containers/ecs-dual-region-fargate/terraform/*/test/golden/**'
+            - aws/containers/ecs-dual-region-fargate/test/**
+            - aws/modules/ecs/**
+            - aws/modules/aurora-global/**
 
+# Never cancel a running suite: after a cancellation GitHub kills the job within
+# minutes, before "Destroy the states of this run" can finish, and the stacks
+# leak until the daily sweep. A new push waits for the previous run instead.
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+    cancel-in-progress: false
 
 env:
     AWS_PROFILE: infraex
@@ -51,12 +70,14 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        timeout-minutes: 180
+        # 300 for the job itself, plus up to 60 waiting for a capacity slot:
+        # GitHub-hosted jobs stop at 360 minutes.
+        timeout-minutes: 360
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -66,6 +87,29 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region: two VPCs with a NAT gateway each, one transit gateway, two ALBs,
+            # four NLBs, one Aurora cluster with one instance and one OpenSearch domain.
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  wait-minutes: '60'
+                  pool: aws-ecs-dual-region-fargate-integration
+                  slots: '3'
+                  regions: eu-west-2 eu-west-3
+                  needs: |
+                      rds-clusters=1
+                      db-subnet-groups=1
+                      rds-instances=1
+                      vpcs=2
+                      elastic-ips=2
+                      transit-gateways=1
+                      albs=2
+                      nlbs=4
+                      opensearch-domains=1
 
             - name: Cache Go modules
               uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -84,12 +128,50 @@ jobs:
                   TEST_ENABLE_LOAD_TESTS: ${{ inputs.enable_load_tests }}
                   TEST_BACKEND_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
                   TEST_BACKEND_REGION: ${{ env.S3_BACKEND_REGION }}
+                  # Suffixes every state group of this run, and names its stacks.
+                  TEST_RUN_ID: ${{ github.run_id }}
                   INPUTS_TEST_NAME: ${{ inputs.test_name }}
               run: |
                   set -e
-                  TEST_FILTER="${INPUTS_TEST_NAME}"
-                  if [[ -z "$TEST_FILTER" ]]; then
-                      go test -v -timeout 150m ./...
-                  else
-                      go test -v -timeout 150m -run "$TEST_FILTER" ./...
+                  # The capacity slot reserves the stacks of these two tests only, so a
+                  # dispatch may pick among them but not widen the run to other tests.
+                  tests='TestEndToEnd_Greenfield_TGW_RDBMS|TestEndToEnd_Greenfield_VpcPeering_OpenSearch'
+                  TEST_FILTER="${INPUTS_TEST_NAME:-$tests}"
+                  if [[ ! "$TEST_FILTER" =~ ^($tests)(\|($tests))*$ ]]; then
+                      echo "::error::test_name must be one or more of ${tests}, separated by |."
+                      exit 1
                   fi
+                  go test -v -timeout 150m -run "^(${TEST_FILTER})\$" ./...
+
+            # t.Cleanup destroys each stack when the tests end normally. It does not run
+            # when go test times out or the job is cancelled, so reclaim this run's
+            # states here too. The daily cleanup catches what this step cannot reach.
+            - name: Destroy the states of this run
+              if: always()
+              timeout-minutes: 130
+              uses: ./.github/actions/aws-generic-terraform-cleanup
+              env:
+                  TF_VAR_region_0: eu-west-2
+                  TF_VAR_region_1: eu-west-3
+              with:
+                  tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
+                  tf-bucket-region: ${{ env.S3_BACKEND_REGION }}
+                  tf-bucket-key-prefix: aws/containers/ecs-dual-region-fargate/
+                  max-age-hours: '0'
+                  target: run${{ github.run_id }}/
+                  fail-on-not-found: 'false'
+                  modules-order: app/terraform,infra/terraform,vpc/terraform,fixture/terraform
+                  destroy-pass-timeout-minutes: '60'
+                  retry-destroy-pass-timeout-minutes: '60'
+                  tf-config-path: aws/containers/ecs-dual-region-fargate/terraform/cleanup/config-dual-region-fargate
+                  # The VPC sweep and the cloud-nuke retry only run for the regions listed here.
+                  cleanup-regions: eu-west-2 eu-west-3
+
+            # Last, so the slot is held until this run's resources are gone.
+            - name: Release the capacity slot
+              if: always()
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: aws-ecs-dual-region-fargate-integration
+                  slot-key: ${{ steps.capacity.outputs.slot-key }}

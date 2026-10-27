@@ -163,7 +163,9 @@ LOG_GROUP_ARN="arn:aws:logs:${AWS_REGION}:${ACCOUNT_ID}:log-group:${LOG_GROUP}:*
 # FIS resolves targets at experiment start, then the stop-task action picks one
 # random task from the service. We record the intended STOP_TASK_ID in tags for
 # reference, but the actual stopped task is chosen by FIS at runtime.
-cat > /tmp/fis-s3-disconnect-broker-stop-template.json << EOF
+TEMPLATE_FILE=$(mktemp)
+trap 'rm -f "${TEMPLATE_FILE}"' EXIT
+cat > "${TEMPLATE_FILE}" << EOF
 {
   "description": "S3 disconnect on ${S3_TASK_AZ} subnet + stop broker task in ${STOP_TASK_AZ} (${PREFIX}) — duration ${DURATION}",
   "targets": {
@@ -229,7 +231,7 @@ EOF
 
 # --- Delete existing template and create new one ---
 delete_template_by_name "${TEMPLATE_NAME}"
-create_template /tmp/fis-s3-disconnect-broker-stop-template.json
+create_template "${TEMPLATE_FILE}"
 
 echo ""
 echo "=== Experiment template created ==="

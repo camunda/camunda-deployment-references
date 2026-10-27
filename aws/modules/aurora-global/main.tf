@@ -12,6 +12,20 @@ resource "aws_rds_global_cluster" "this" {
   engine_version            = local.engine_version
   database_name             = var.database_name
   storage_encrypted         = true
+
+  # A global cluster cannot be deleted while it still has members.
+  # force_destroy makes the provider detach the members that remain when it
+  # deletes the global cluster, the writer last. Terraform deletes the global
+  # cluster after the regional clusters and instances, so this does not help
+  # after a failover: the destroy hangs earlier, on the last instance of the
+  # promoted writer. Move the writer home before destroying.
+  #
+  # Unset by default: on a real deployment the global cluster holds the data,
+  # and a destroy that quietly detaches its members is not something to opt
+  # into by accident. Leaving the variable null keeps the attribute out of the
+  # plan entirely, so callers that never set it are unaffected. Test
+  # environments set it true.
+  force_destroy = var.force_destroy
 }
 
 ################################

@@ -1,4 +1,5 @@
 ---
+# TODO: [release-duty] delete this workflow from the new stable/8.x at the cut.
 # This workflow checks if alpha1 Docker tags are available for Camunda images
 # that are still using SNAPSHOT versions in the repository.
 # It runs daily and sends a Slack notification when alpha1 becomes available.
@@ -18,8 +19,8 @@ env:
     SLACK_CHANNEL_ID: C076N4G1162
     # Slack channel for PR tests
     SLACK_CHANNEL_ID_PR: C07E4FF6YMB
-    # Tag infraex-medic on scheduled/manual runs, skip on PRs
-    SLACK_MENTION: ${{ github.event_name != 'pull_request' && '<!subteam^S06NTRBMWUD> please' || 'Please' }}
+    # Tag smx-medic on scheduled/manual runs, skip on PRs
+    SLACK_MENTION: ${{ github.event_name != 'pull_request' && '<!subteam^S0CBB7Y72SV> please' || 'Please' }}
 
 # Limit workflow to a single execution per ref
 concurrency:
@@ -66,8 +67,8 @@ jobs:
                   # file paths, variable names, or comments that happen to contain "SNAPSHOT"
                   #
                   # A line can opt out of this check with an inline "alpha-availability-check:ignore"
-                  # marker. Use it for images intentionally pinned to SNAPSHOT until a feature lands in
-                  # a later alpha (e.g. ECS dual-region region-awareness, shipping in 8.10 alpha3).
+                  # marker. Use it for intentional SNAPSHOT pins, such as golden-test fixtures
+                  # that keep version-only changes outside the infrastructure plan.
                   # Such lines are dropped before image names are extracted.
                   while IFS= read -r image; do
                     if [[ -n "$image" ]] && ! printf '%s\n' "${SNAPSHOT_IMAGES[@]}" 2>/dev/null | grep -qxF "$image"; then
@@ -226,7 +227,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure()
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

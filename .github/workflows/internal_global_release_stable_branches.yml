@@ -1,0 +1,133 @@
+---
+# desc: publish a GitHub Release for each maintained stable/8.x branch whose RELEASE-NOTES.md section changed
+name: Internal - Global - Release stable branches
+
+# Maintained branches are the `stable/*` entries of `baseBranchPatterns` in
+# .github/renovate.json5 on main: retiring a branch there also stops its releases.
+# The rules live in .github/scripts/release-stable-branches.sh and MAINTENANCE.md,
+# "Release duty", step 12.
+
+on:
+    schedule:
+        # Daily, off the hour: 09:17 UTC is free of the other crons and of the
+        # branch scheduler, which fires at the top of every hour.
+        - cron: 17 9 * * *
+    workflow_dispatch:
+        inputs:
+            branch:
+                description: One maintained stable branch (e.g. stable/8.10). Empty = all of them.
+                required: false
+                type: string
+            dry_run:
+                description: Print the decision, tag and notes; create nothing.
+                required: false
+                type: boolean
+                default: false
+    # Pull requests only run the self-test and a dry run; they never publish.
+    pull_request:
+        paths:
+            - .github/workflows/internal_global_release_stable_branches.yml
+            - .github/scripts/release-stable-branches.sh
+
+# Two publishing runs must not race for the same tag letter, whatever their
+# ref. Pull-request dry runs publish nothing and keep a group per ref.
+concurrency:
+    group: ${{ github.workflow }}${{ github.event_name == 'pull_request' && format('-{0}', github.ref) || '' }}
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+
+jobs:
+    branches:
+        name: List maintained branches
+        runs-on: ubuntu-latest
+        outputs:
+            branches: ${{ steps.list.outputs.branches }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  persist-credentials: false
+
+            - name: Self-test
+              run: bash .github/scripts/release-stable-branches.sh selftest
+
+            - name: List branches
+              id: list
+              env:
+                  INPUT_BRANCH: ${{ inputs.branch }}
+              run: |
+                  set -euo pipefail
+                  branches=$(bash .github/scripts/release-stable-branches.sh branches)
+                  if [[ -n "${INPUT_BRANCH}" ]]; then
+                      branches=$(jq -c --arg b "${INPUT_BRANCH}" 'if index($b) then [$b] else error("\($b) is not maintained: \(.)") end' <<<"${branches}")
+                  fi
+                  echo "branches=${branches}" | tee -a "$GITHUB_OUTPUT"
+
+    release:
+        name: Release ${{ matrix.branch }}
+        needs: branches
+        runs-on: ubuntu-latest
+        # Writes use the InfraEx Bot App: the `Tag Protection: snapshot` ruleset
+        # (infraex-terraform, github/repositories.tf) blocks creation of
+        # `8.x-YYwWWa` tags and lists the App as bypass actor. The built-in
+        # GitHub Actions App cannot be a ruleset bypass actor, so GITHUB_TOKEN
+        # cannot create these tags. GITHUB_TOKEN stays read-only for dry runs.
+        permissions:
+            contents: read
+        env:
+            # Only main publishes: another ref reads its own, possibly stale,
+            # renovate branch list and could release a retired minor.
+            DRY_RUN: ${{ github.ref != 'refs/heads/main' || inputs.dry_run == true }}
+        strategy:
+            fail-fast: false
+            matrix:
+                branch: ${{ fromJson(needs.branches.outputs.branches) }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  persist-credentials: false
+                  fetch-depth: 0
+
+            - name: Generate token for GitHub
+              id: generate-github-token
+              if: env.DRY_RUN == 'false'
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@ee6f294ac4b8da0147f4544ceddaacc89b72b50d # main
+              with:
+                  github-app-id-vault-key: GITHUB_APP_ID
+                  github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  github-app-private-key-vault-key: GITHUB_APP_PRIVATE_KEY
+                  github-app-private-key-vault-path: secret/data/products/infrastructure-experience/ci/common
+                  vault-auth-method: approle
+                  vault-auth-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-auth-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-url: ${{ secrets.VAULT_ADDR }}
+                  repositories: camunda-deployment-references
+
+            - name: Release
+              env:
+                  GH_TOKEN: ${{ steps.generate-github-token.outputs.token || github.token }}
+                  BRANCH: ${{ matrix.branch }}
+              run: bash .github/scripts/release-stable-branches.sh release "${BRANCH}"
+
+    report-failure:
+        name: Report failures
+        if: failure() && github.event_name != 'pull_request'
+        runs-on: ubuntu-latest
+        # `report-failure-on-slack` reads the open `silence: <workflow>` issues to
+        # decide whether the alert is muted; it needs `issues: read` for that.
+        permissions:
+            contents: read
+            issues: read
+        needs:
+            - branches
+            - release
+        steps:
+            - name: Notify in Slack in case of failure
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

@@ -28,6 +28,7 @@ on:
             - Tests - Integration - Local Kubernetes Kind Single Region
             - Tests - Integration - Local Kind Operator Based PostgreSQL
             - Tests - Integration - AWS Containers ECS Dual Region Fargate
+            - Tests - Integration - AWS Containers ECS Dual Region Fargate Failover Lifecycle
             - Tests - Integration - Teleport - AWS Kubernetes EKS Dual Region
             - Tests - Integration - AWS EKS Cluster with an AuroraDB and OpenSearch creation and destruction
             - Tests - Integration - AWS S3 bucket for Terraform backend
@@ -213,11 +214,11 @@ jobs:
 
                   if [ "${SHARED}" = "true" ]; then
                       channel=C076N4G1162   # infraex-alerts
-                      # Raw Slack form. `@infraex-medic` is plain text in a
+                      # Raw Slack form. `@smx-medic` is plain text in a
                       # chat.postMessage payload and notifies nobody, which is how
                       # it shipped. The subteam id is the one already used by
                       # internal_global_alpha_availability_check.yml.
-                      mention=" cc <!subteam^S06NTRBMWUD>"
+                      mention=" cc <!subteam^S0CBB7Y72SV>"
                   else
                       channel=C07E4FF6YMB   # infraex-alerts-test
                       mention=""

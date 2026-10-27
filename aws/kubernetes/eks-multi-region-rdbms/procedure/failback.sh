@@ -44,6 +44,8 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib-management-api.sh"
+# shellcheck source=SCRIPTDIR/aurora.sh
+. "$SCRIPT_DIR/aurora.sh"
 
 read -r -a aws_regions <<<"$AWS_REGIONS"
 
@@ -95,29 +97,7 @@ if echo "$partitioning" | jq -e --arg zone "$recovered_zone" \
 else
     echo "    Zone $recovered_zone was force-removed during failover; adding it back."
 
-    # The zone is gone from the cluster, so its replica count and priority cannot
-    # be read back from there. They come from the zone list that step 1 rendered,
-    # which is also the one the chart just deployed, so the two cannot drift.
-    zone_spec="$(echo "$CAMUNDA_MULTIREGION_ZONES" | jq -c --arg zone "$recovered_zone" \
-        '.[] | select(.name == $zone)')"
-    if [ -z "$zone_spec" ]; then
-        echo "ERROR: zone $recovered_zone is not in CAMUNDA_MULTIREGION_ZONES." >&2
-        exit 1
-    fi
-
-    # The source-built chart currently pins the alpha5 engine image, which
-    # predates numberOfBrokers. Its still-supported API shape takes explicit
-    # broker IDs instead.
-    broker_count="$(echo "$zone_spec" | jq -r '.numberOfBrokers')"
-    brokers_json="$(camunda::region_node_ids "$RECOVERED_SLOT" "$broker_count" | tr ' ' '\n' | jq -R . | jq -sc .)"
-    body="$(echo "$zone_spec" | jq -c --argjson brokers "$brokers_json" \
-        '{numberOfReplicas, priority, brokers: $brokers}')"
-
-    # Printed before it is sent, so the exact request can be replayed by hand
-    # against `?dryRun=true` before committing to it.
-    echo "    POST /actuator/cluster/zones/$recovered_zone $body"
-    camunda::management "$survivor_context" POST "/actuator/cluster/zones/$recovered_zone" "$body"
-    camunda::wait_for_cluster_change "$survivor_context"
+    camunda::add_zone "$survivor_context" "$RECOVERED_SLOT"
 fi
 
 ###############################################################################
@@ -130,9 +110,14 @@ echo "--> 4/4 Database"
 if [ -z "${AURORA_GLOBAL_CLUSTER_ID:-}" ]; then
     echo "    AURORA_GLOBAL_CLUSTER_ID is not set, skipping."
 else
+    recovered_region="${aws_regions[$RECOVERED_SLOT]}"
     members_json="$(aws rds describe-global-clusters \
         --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-        --query 'GlobalClusters[0].GlobalClusterMembers' --output json 2>/dev/null || echo '[]')"
+        --query 'GlobalClusters[0].GlobalClusterMembers' --output json \
+        --region "$recovered_region")" || {
+        echo "ERROR: could not read the Aurora Global Database $AURORA_GLOBAL_CLUSTER_ID; see the AWS error above." >&2
+        exit 1
+    }
 
     member_count="$(echo "$members_json" | jq 'length')"
     echo "    Global cluster members: $member_count"
@@ -142,21 +127,16 @@ else
         echo "       Follow the AWS unplanned-recovery procedure before Camunda failback." >&2
         exit 1
     elif [ "$SWITCH_WRITER" = true ]; then
-        recovered_region="${aws_regions[$RECOVERED_SLOT]}"
         target_arn="$(echo "$members_json" | jq -r --arg region "$recovered_region" \
             '[.[] | select((.DBClusterArn | split(":")[3]) == $region)][0].DBClusterArn')"
 
         if [ -z "$target_arn" ] || [ "$target_arn" = "null" ]; then
             echo "    No Aurora member in $recovered_region, nothing to switch back to."
         else
+            # Safe on a rerun: a running switchover settles first, and a
+            # writer already in place is left alone.
             echo "    Switching the writer back to $target_arn"
-            aws rds failover-global-cluster \
-                --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-                --target-db-cluster-identifier "$target_arn"
-
-            aws rds wait db-cluster-available \
-                --region "$recovered_region" \
-                --db-cluster-identifier "$target_arn"
+            aurora_switch_to "$target_arn"
             echo "    Writer is back in $recovered_region."
         fi
     else

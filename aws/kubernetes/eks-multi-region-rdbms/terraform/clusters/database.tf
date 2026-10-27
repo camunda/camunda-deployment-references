@@ -81,8 +81,8 @@ variable "database_username" {
 variable "database_engine_version" {
   type = string
   # renovate: datasource=custom.aurora-pg-camunda depName=aurora-postgresql versioning=loose
-  default     = "17.9"
-  description = "Aurora PostgreSQL engine version. Camunda 8.10 supports PostgreSQL 15 to 18."
+  default     = "18.6"
+  description = "Aurora PostgreSQL engine version. For supported versions, see https://docs.camunda.io/docs/reference/supported-environments/"
 }
 
 variable "database_instance_class" {

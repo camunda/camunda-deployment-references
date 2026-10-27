@@ -102,7 +102,7 @@ runs:
         # Explicitly set up Go for caching of packages
         - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
           with:
-              go-version-file: ${{ env.TEST_DIR }}/go.mod
+              go-version-file: .tool-versions
               cache-dependency-path: ${{ env.TEST_DIR }}/go.sum
 
         - name: Split up Kubeconfig
@@ -135,6 +135,7 @@ runs:
           run: |
               set -euo pipefail
 
+              # TODO: [release-duty] remove source checkout and chart selection on the cut branch.
               if [[ "${INPUTS_HELM_VERSION}" =~ dev-latest ]]; then
                 # The pre-release dev chart is not published to the public Helm repo,
                 # so build it from source instead of pulling the private OCI registry:
@@ -145,24 +146,37 @@ runs:
                 # needs no manual switch here (the workflow's helm-version flips to a
                 # released value and this block is bypassed).
                 #
-                # A commit rather than a tag: the suites need the
-                # `orchestration.partitioning` rename (camunda/camunda-platform-helm#7179)
-                # and the ingress-nginx compatibility flag (#7145), both merged but
-                # unreleased. The newest tag, 15.0.0-alpha5, predates both.
-                # TODO: [release-duty] switch to the public chart when 8.10 is released.
+                # Select the target minor after checkout, or the newest available chart.
+                # TODO: [release-duty] use the published 8.11 chart (16.x) when available.
                 # renovate-helm-main: digest tracked against camunda-platform-helm main
-                CHART_GIT_REF="1225a5b7ff9d62e3db1ce005e128249197b2d339"
-                CAMUNDA_VERSION="$(cat "${{ github.workspace }}/.camunda-version")"
-                CHART_CHECKOUT="$(mktemp -d)/camunda-platform-helm"
+                CHART_GIT_REF="11e5c6e17e8b890a37a010fea8e481ab5d5a1dd4"
+                _camunda_version="$(cat .camunda-version)"
+                mkdir -p debug
+                CHART_CHECKOUT="$(mktemp -d "$PWD/debug/chart-checkout.XXXXXX")/camunda-platform-helm"
                 # `git clone --branch` resolves a branch or a tag, never a commit, so
                 # the pinned SHA is fetched into an empty repository instead.
                 git init --quiet "$CHART_CHECKOUT"
                 git -C "$CHART_CHECKOUT" remote add origin https://github.com/camunda/camunda-platform-helm.git
                 git -C "$CHART_CHECKOUT" fetch --depth 1 origin "$CHART_GIT_REF"
                 git -C "$CHART_CHECKOUT" checkout --detach FETCH_HEAD
-                helm dependency update "$CHART_CHECKOUT/charts/camunda-platform-$CAMUNDA_VERSION"
+                _chart_checkout_dir="$CHART_CHECKOUT"
+                # Select chart directory.
+                _local_chart="$_chart_checkout_dir/charts/camunda-platform-$_camunda_version"
+                if [[ ! -d "$_local_chart" ]]; then
+                    _expected_chart="$_local_chart"
+                    _local_chart="$(for _candidate in "$_chart_checkout_dir"/charts/camunda-platform-8.*; do
+                        if [[ -d "$_candidate" ]]; then printf '%s\n' "$_candidate"; fi
+                    done | sort -V | tail -n 1)"
+                    if [[ -z "$_local_chart" ]]; then
+                        echo "ERROR: expected $_expected_chart; no charts/camunda-platform-8.* directory exists." >&2
+                        exit 1
+                    fi
+                    echo "WARN: expected $_expected_chart is missing; using $_local_chart instead." >&2
+                fi
+                # End chart selection.
+                helm dependency update "$_local_chart"
                 {
-                  echo "HELM_CHART_NAME=$CHART_CHECKOUT/charts/camunda-platform-$CAMUNDA_VERSION"
+                  echo "HELM_CHART_NAME=$_local_chart"
                 } >> "$GITHUB_ENV"
               else
                 {
@@ -227,6 +241,7 @@ runs:
               kube-context: ${{ inputs.cluster-0-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              # TODO: [release-duty] remove local-chart plumbing on the cut branch.
               local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
@@ -242,6 +257,7 @@ runs:
               kube-context: ${{ inputs.cluster-1-name }}
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
+              # TODO: [release-duty] remove local-chart plumbing on the cut branch.
               local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-role-id: ${{ inputs.vault-role-id }}
@@ -394,7 +410,7 @@ runs:
 
         - name: Upload Pod Logs
           if: failure()
-          uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+          uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
           with:
               name: pod-logs-${{ inputs.helm-version }}
               retention-days: 7

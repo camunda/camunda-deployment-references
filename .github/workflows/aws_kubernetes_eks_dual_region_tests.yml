@@ -33,6 +33,7 @@ on:
     pull_request:
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/kubernetes-eck-operator/**
             - .github/actions/kubernetes-eck-operator-cleanup/**
@@ -45,6 +46,11 @@ on:
             - .tool-versions
             - .github/actions/internal-multi-region-tests/**
             - .github/actions/internal-helm-deprecation-check/**
+            - .github/actions/aws-kubernetes-eks-dual-region-create/**
+            - .github/actions/internal-camunda-ci-credentials/**
+            - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/internal-terraform-drift-detect/**
 # limit to a single execution per actor of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
@@ -76,7 +82,7 @@ env:
     CAMUNDA_NAMESPACE_1: c8-snap-cluster-1
     CAMUNDA_RELEASE_NAME: camunda
 
-    # Parked: pre-GA dev chart tag until 8.10 GA.
+    # Parked: retain the working chart until an 8.11 chart exists.
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io renovate-inert-ok
     CAMUNDA_HELM_CHART_VERSION: 15-dev-latest
     # TODO: [release-duty] before the release, update this!
@@ -110,7 +116,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -133,14 +139,15 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
         runs-on: ubuntu-latest
-        timeout-minutes: 90
+        # 90 for the job itself, plus up to 90 waiting for a capacity slot.
+        timeout-minutes: 180
         env:
             CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -162,6 +169,25 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region and per leg: one VPC with a single NAT gateway, one NLB and one
+            # EKS cluster.
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: aws-kubernetes-eks-dual-region
+                  slots: '3'
+                  regions: ${{ env.CLUSTER_0_AWS_REGION }} ${{ env.CLUSTER_1_AWS_REGION }}
+                  lease-minutes: '720'
+                  leg: ${{ matrix.scenario.name }}
+                  needs: |
+                      vpcs=1
+                      elastic-ips=1
+                      nlbs=1
+                      eks-clusters=1
 
             - name: Set current target branch
               id: target-branch
@@ -237,7 +263,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@d4e0239331f434375aaa358d9003e48a19688d83 # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -282,7 +308,7 @@ jobs:
                   } >> "$GITHUB_ENV"
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -509,7 +535,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -597,6 +623,16 @@ jobs:
                   CLUSTER_0_AWS_REGION: eu-west-2
                   CLUSTER_1_AWS_REGION: eu-west-3
 
+            # Last, so the slot is held until this run's resources are gone.
+            # Same condition as the teardown: a kept cluster keeps its slot until the lease expires.
+            - name: Release the capacity slot
+              if: always() && env.CLEANUP_CLUSTERS == 'true'
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: release
+                  pool: aws-kubernetes-eks-dual-region
+                  leg: ${{ matrix.scenario.name }}
+
     report-success:
         name: Report success
         if: ${{ !failure() && !cancelled() }}
@@ -626,11 +662,11 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
-                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

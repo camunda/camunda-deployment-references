@@ -37,7 +37,7 @@ set -euo pipefail
 : "${CAMUNDA_RDBMS_USERNAME:?CAMUNDA_RDBMS_USERNAME must be set, source export_environment_prerequisites.sh}"
 
 # renovate: datasource=docker depName=postgres versioning=docker
-PSQL_IMAGE="${PSQL_IMAGE:-postgres:17-alpine}"
+PSQL_IMAGE="${PSQL_IMAGE:-postgres:18-alpine}"
 
 SAMPLES="${RDBMS_LATENCY_SAMPLES:-20}"
 PROBE_TIMEOUT="${RDBMS_LATENCY_TIMEOUT:-300s}"

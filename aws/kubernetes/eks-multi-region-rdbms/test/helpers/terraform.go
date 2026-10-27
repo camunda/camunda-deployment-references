@@ -101,8 +101,8 @@ func ReadTerraformOutputs(t *testing.T, terraformDir string) TerraformOutputs {
 	serviceCidrs := map[string]string{}
 	decode("service_cidr_blocks", &serviceCidrs)
 
-	// Every slot, not only the active ones: the Camunda zone list describes the
-	// whole topology so an undeployed zone still has its replicas reserved.
+	// Every slot, not only the active ones: activate-region.sh needs the name of
+	// a zone before it exists.
 	decode("zone_names", &result.ZoneNames)
 
 	// A missing key would otherwise append the zero value and let the run

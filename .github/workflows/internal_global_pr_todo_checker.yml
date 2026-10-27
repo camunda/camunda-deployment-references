@@ -29,5 +29,5 @@ jobs:
         needs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
-        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
         secrets: inherit

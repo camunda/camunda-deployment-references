@@ -111,7 +111,9 @@ ensure_log_group "${LOG_GROUP}"
 ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/${FIS_EXPERIMENT_ROLE}"
 LOG_GROUP_ARN="arn:aws:logs:${AWS_REGION}:${ACCOUNT_ID}:log-group:${LOG_GROUP}:*"
 
-cat > /tmp/fis-broker-stop-template.json << EOF
+TEMPLATE_FILE=$(mktemp)
+trap 'rm -f "${TEMPLATE_FILE}"' EXIT
+cat > "${TEMPLATE_FILE}" << EOF
 {
   "description": "Stop broker ${TARGET_TASK_ID} (${PREFIX}) in ${TARGET_TASK_AZ}",
   "targets": {
@@ -157,7 +159,7 @@ EOF
 
 # --- Delete existing template and create new one ---
 delete_template_by_name "${TEMPLATE_NAME}"
-create_template /tmp/fis-broker-stop-template.json
+create_template "${TEMPLATE_FILE}"
 
 echo ""
 echo "=== Experiment template created ==="

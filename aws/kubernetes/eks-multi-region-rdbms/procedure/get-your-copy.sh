@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# TODO: [release-duty] pin to the released branch (stable/8.10) at release time.
+# TODO: [release-duty] pin to the released branch (stable/8.11) at release time.
 BRANCH="main"
 
 git clone --depth 1 --branch "$BRANCH" https://github.com/camunda/camunda-deployment-references.git

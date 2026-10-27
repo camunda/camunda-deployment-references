@@ -134,6 +134,18 @@ chaos-fis/
 ./setup/02-setup-fis-admin-role.sh
 ```
 
+### Credentials for the health checks
+
+The health checks read `/v2/topology`, which the reference protects with basic
+auth. Export the admin credentials **before** assuming FIS-Admin: that role
+cannot read Secrets Manager, and without them every health check gets a 401.
+
+```bash
+export CAMUNDA_AUTH_USERNAME=admin
+export CAMUNDA_AUTH_PASSWORD="$(aws secretsmanager get-secret-value \
+  --secret-id <prefix>-oc1-admin-user-password --query SecretString --output text)"
+```
+
 ### Running a broker stop experiment
 
 This stops a random broker task, causing ECS to launch a replacement. Tests crash recovery.

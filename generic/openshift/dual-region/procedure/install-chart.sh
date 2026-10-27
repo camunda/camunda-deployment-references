@@ -54,10 +54,10 @@ fi
 # local chart directory. The build helper is shared with the generic k8s guide.
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 # Consume the rolling chart from the camunda-platform-helm main branch. The pin
-# below is a commit on that branch, bumped by Renovate as main moves; without it
-# the shared build helper falls back to its own default, a released chart tag.
+# below is a commit on that branch, bumped by Renovate as main moves.
+# TODO: [release-duty] use the published 8.11 chart (16.x) when available.
 # renovate-helm-main: digest tracked against camunda-platform-helm main
-export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-1225a5b7ff9d62e3db1ce005e128249197b2d339}"
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-11e5c6e17e8b890a37a010fea8e481ab5d5a1dd4}"
 LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
 
 # Resolve the broker image of the chart being installed so the cross-region

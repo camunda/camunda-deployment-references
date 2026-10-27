@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Handles the loss of one region.
 #
-#   ./failover.sh <lost-region-slot> [--drain-brokers] [--dry-run]
+#   ./failover.sh <lost-region-slot> [--drain-brokers] [--keep-writer] [--dry-run]
 #
 # With at least three zones and a layout where no single zone holds half the
 # replicas, losing one region leaves every partition with a majority of its
@@ -20,10 +20,13 @@ set -euo pipefail
 #
 #   * If the writer was NOT in the lost region, nothing to do.
 #   * Planned (region still reachable): `failover-global-cluster` performs a
-#     switchover with no data loss.
+#     switchover with no data loss. It needs the old writer to be `available`;
+#     the script checks that first.
 # An unplanned Aurora Global Database failover is not automated here: detaching
 # a member changes topology outside Terraform, and this module deliberately
 # ignores that membership field. Follow the AWS recovery procedure instead.
+# When the lost region's Aurora is down too, pass `--keep-writer` to skip the
+# switchover and still run the Zeebe steps.
 #
 # `--drain-brokers` additionally force-removes the lost zone from the Zeebe
 # cluster, through `DELETE /actuator/cluster/zones/<zone>`. That is one atomic
@@ -43,17 +46,19 @@ set -euo pipefail
 : "${CAMUNDA_BROKERS_PER_REGION:?CAMUNDA_BROKERS_PER_REGION must be set, source export_environment_prerequisites.sh}"
 
 if [ $# -lt 1 ]; then
-    echo "usage: $0 <lost-region-slot> [--drain-brokers] [--dry-run]" >&2
+    echo "usage: $0 <lost-region-slot> [--drain-brokers] [--keep-writer] [--dry-run]" >&2
     exit 1
 fi
 
 LOST_SLOT="$1"
 shift
 DRAIN_BROKERS=false
+KEEP_WRITER=false
 DRY_RUN=false
 for arg in "$@"; do
     case "$arg" in
     --drain-brokers) DRAIN_BROKERS=true ;;
+    --keep-writer) KEEP_WRITER=true ;;
     --dry-run) DRY_RUN=true ;;
     *)
         echo "unknown argument: $arg" >&2
@@ -64,6 +69,8 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib-management-api.sh"
+# shellcheck source=SCRIPTDIR/aurora.sh
+. "$SCRIPT_DIR/aurora.sh"
 
 read -r -a aws_regions <<<"$AWS_REGIONS"
 
@@ -130,17 +137,31 @@ if [ -z "${AURORA_GLOBAL_CLUSTER_ID:-}" ]; then
     echo "    Bring-your-own RDBMS: promote a surviving replica with your own tooling."
     echo "    Camunda needs no reconfiguration as long as the JDBC URL keeps resolving"
     echo "    to the current writer."
+elif [ "$KEEP_WRITER" = true ]; then
+    echo
+    echo "--> Database: --keep-writer given, leaving the Aurora writer where it is."
+    echo "    If it was in ${aws_regions[$LOST_SLOT]}, recover it with the Aurora Global Database"
+    echo "    unplanned recovery procedure; exporting waits until a writer is available."
 else
     echo
     echo "--> Database: inspecting the Aurora Global Database $AURORA_GLOBAL_CLUSTER_ID"
 
-    members_json="$(aws rds describe-global-clusters \
-        --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-        --query 'GlobalClusters[0].GlobalClusterMembers' --output json)"
+    # A rerun can find the previous run's switchover still going: decide from
+    # the settled membership, never start a second switchover.
+    lost_region="${aws_regions[$LOST_SLOT]}"
+    surviving_region="${aws_regions[$((LOST_SLOT == 0 ? 1 : 0))]}"
+    if ! global_json="$(aurora_settled_global "$surviving_region")"; then
+        echo "ERROR: could not read a settled Aurora global cluster." >&2
+        exit 1
+    fi
+    members_json="$(echo "$global_json" | jq '.GlobalClusterMembers')"
 
     writer_arn="$(echo "$members_json" | jq -r '.[] | select(.IsWriter == true) | .DBClusterArn')"
+    if [ -z "$writer_arn" ]; then
+        echo "ERROR: No Aurora writer ARN in the global cluster." >&2
+        exit 1
+    fi
     writer_region="$(echo "$writer_arn" | cut -d: -f4)"
-    lost_region="${aws_regions[$LOST_SLOT]}"
 
     echo "    current writer region: $writer_region"
 
@@ -159,17 +180,7 @@ else
             echo "    --dry-run: would promote $target_arn, doing nothing."
         else
             echo "    Planned switchover to $target_arn"
-            aws rds failover-global-cluster \
-                --global-cluster-identifier "$AURORA_GLOBAL_CLUSTER_ID" \
-                --target-db-cluster-identifier "$target_arn"
-
-            echo "    Waiting for the promoted cluster to become available ..."
-            # An Aurora cluster ARN has no slashes, so there is no identifier to cut
-            # out of it. `--db-cluster-identifier` takes the ARN as it stands.
-            target_region="$(echo "$target_arn" | cut -d: -f4)"
-            aws rds wait db-cluster-available \
-                --region "$target_region" \
-                --db-cluster-identifier "$target_arn"
+            aurora_planned_switch "$writer_arn" "$target_arn" || exit $?
 
             echo "    Promotion complete."
             echo
@@ -198,11 +209,12 @@ if [ "$DRAIN_BROKERS" = true ]; then
     if [ "$DRY_RUN" = true ]; then
         echo "    --dry-run: asking the API for the plan, changing nothing."
         camunda::management "$survivor_context" \
-            DELETE "/actuator/cluster/zones/${lost_zone}?dryRun=true" |
+            DELETE "/actuator/cluster/zones/${lost_zone}?force=true&dryRun=true" |
             jq '{plannedChanges, expectedBrokers: [.expectedTopology[]?.id]}'
     else
-        camunda::management "$survivor_context" DELETE "/actuator/cluster/zones/$lost_zone"
-        camunda::wait_for_cluster_change "$survivor_context"
+        response="$(camunda::management "$survivor_context" DELETE "/actuator/cluster/zones/${lost_zone}?force=true")"
+        echo "$response"
+        camunda::wait_for_cluster_change "$survivor_context" "$(echo "$response" | jq -r '.changeId // .pendingChange.id // empty')"
     fi
 fi
 

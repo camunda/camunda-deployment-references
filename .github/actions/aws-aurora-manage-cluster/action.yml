@@ -57,6 +57,7 @@ inputs:
 
     tf-modules-revision:
         description: Git revision of the tf modules to use
+        # TODO: [release-duty] switch to the new stable/8.x on the cut branch.
         default: main
 
     tf-modules-path:
@@ -116,7 +117,7 @@ runs:
           id: utility
           # see https://github.com/orgs/community/discussions/41927 it's not possible to optimize this yet
           # steps.uses  cannot access the github context.
-          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@d4bccfaaa2ac2e33ced96a73a4354edee55bf428 # main
+          uses: camunda/camunda-deployment-references/.github/actions/aws-utility-action@f7371146e93aaf7b2f33c07f1df56f46d06796df # main
           with:
               awscli-version: ${{ inputs.awscli-version }}
               terraform-version: ${{ inputs.terraform-version }}

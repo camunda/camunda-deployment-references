@@ -24,8 +24,10 @@ SRC_SECRET="$(oc -n openshift-ingress-operator get ingresscontroller default \
 
 if [[ -z "$SRC_SECRET" ]]; then
     # ROSA HCP convention when defaultCertificate is not explicitly set on the IC.
-    SRC_SECRET="$(oc -n openshift-ingress get secret -o name \
-        | grep -E 'primary-cert-bundle-secret$' | head -n1 | sed 's|^secret/||')"
+    # `|| true` keeps a no-match `grep` from tripping `set -e`/`pipefail`, which
+    # would abort here with no output and make the error below unreachable.
+    SRC_SECRET="$(oc -n openshift-ingress get secret -o name 2>/dev/null \
+        | grep -E 'primary-cert-bundle-secret$' | head -n1 | sed 's|^secret/||' || true)"
 fi
 
 if [[ -z "$SRC_SECRET" ]]; then

@@ -30,6 +30,7 @@ module "aurora_global" {
   }
 
   global_cluster_identifier = "${local.prefix}-global-db"
+  force_destroy             = var.db_force_destroy
 
   engine = local.aurora_engine
 

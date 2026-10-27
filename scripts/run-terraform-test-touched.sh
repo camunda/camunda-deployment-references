@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Run `terraform test` only in directories whose .tf or .tftest.hcl files have
+# Run `terraform test` only in directories whose .tf, .tfvars or .tftest.hcl files have
 # changed in the staged diff. Designed for use as a pre-commit hook entry.
 #
 # Behavior:
-#   1. Find staged .tf and .tftest.hcl files via git diff --cached.
+#   1. Find staged .tf, .tfvars and .tftest.hcl files via git diff --cached.
 #   2. For each such file, walk up to find the nearest ancestor directory
 #      that contains a tests/ subdirectory with at least one .tftest.hcl file.
 #   3. Deduplicate, run `terraform init -backend=false` then `terraform test`
@@ -25,7 +25,7 @@
 set -euo pipefail
 
 # Collect staged terraform-related files (added, modified, or renamed).
-STAGED=$(git diff --cached --name-only --diff-filter=ACMR -- '*.tf' '*.tftest.hcl' 2>/dev/null || true)
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR -- '*.tf' '*.tfvars' '*.tftest.hcl' 2>/dev/null || true)
 
 if [[ -z $STAGED ]]; then
     exit 0
@@ -57,7 +57,11 @@ fail=0
 while IFS= read -r dir; do
     [[ -n $dir ]] || continue
     echo "[terraform test] running in $dir"
-    if ! ( cd "$dir" && terraform init -input=false -backend=false -reconfigure > /dev/null && terraform test ); then
+    # git exports GIT_INDEX_FILE (and GIT_DIR in a worktree) to commit hooks.
+    # `terraform init` clones git module sources with plain `git clone`, which
+    # would inherit them and write the module's files into the commit's index.
+    if ! ( cd "$dir" && unset GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE GIT_PREFIX \
+        && terraform init -input=false -backend=false -reconfigure > /dev/null && terraform test ); then
         fail=1
         echo "[terraform test] FAILED in $dir" >&2
     fi

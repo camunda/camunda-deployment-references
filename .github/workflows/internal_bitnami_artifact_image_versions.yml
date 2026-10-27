@@ -54,7 +54,7 @@ env:
     REGISTRY_HOST: us-west4-docker.pkg.dev
     REGISTRY_REPO_PREFIX: vmw-app-catalog/hosted-registry-514d25e16d5/containers/debian-12
     # Bitnami Premium images listed from the upstream Broadcom catalog. The
-    # vendor-ee/* set is verified across supported charts 8.7/8.8/8.9
+    # vendor-ee/* set was checked against charts 8.7/8.8/8.9 at adoption
     # (charts/camunda-platform-8.*/values-enterprise.yaml). keycloak is the upstream
     # Bitnami base image; it is distinct from the Camunda-built keycloak-ee/keycloak
     # final image used by the charts, which is published/tracked separately.
@@ -70,7 +70,7 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             # crane is installed here rather than via .tool-versions on purpose: it is
             # only used by this workflow, and a .tool-versions change would trigger the
@@ -82,7 +82,7 @@ jobs:
               shell: bash
               env:
                   # renovate: datasource=github-releases depName=google/go-containerregistry
-                  CRANE_VERSION: v0.21.7
+                  CRANE_VERSION: v0.22.1
               run: |
                   set -euo pipefail
                   tmp="$(mktemp -d)"
@@ -259,11 +259,11 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure()
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
                   slack_channel_id: ${{ github.event_name == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB' }}
-                  slack_mention_people: ${{ github.event_name == 'schedule' && '@infraex-medic' || '' }}
+                  slack_mention_people: ${{ github.event_name == 'schedule' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ github.event_name == 'schedule' && 'false' || 'true' }}

@@ -1,13 +1,10 @@
 # Guard tests for the region topology.
 #
-# The invariants live in a precondition rather than a `check` block precisely so
-# that they FAIL a plan instead of warning through it, and these tests assert
-# that difference: a topology without a quorum has to stop the apply.
+# The active region count must not exceed the available slots. VPC and service
+# CIDRs must not overlap. Preconditions and variable validation reject invalid
+# topology instead of merely warning. This test checks that spare slots plan.
 #
-# `expect_failures` names the guard resource specifically, so a regression that
-# breaks some unrelated resource cannot make the test pass by accident.
-#
-# mock_provider keeps this offline; no AWS call is made.
+# mock_provider keeps this offline. No AWS call is made.
 
 mock_provider "aws" {}
 mock_provider "aws" {
@@ -83,14 +80,13 @@ variables {
   cluster_name = "test-topology-guard"
 }
 
-run "a_topology_without_a_quorum_fails_the_plan" {
+run "a_minority_of_active_slots_is_accepted" {
   command = plan
 
   variables {
-    # Four declared slots with two active. It clears the per-variable rule that
-    # only rejects fewer than two regions, and still leaves every partition with
-    # two replicas of four, which is not a majority. This is the case a `check`
-    # block used to wave through with a warning.
+    # Four slots with two active. Camunda declares only the zones it runs, so a
+    # spare slot holds no replica and the cluster keeps its quorum however many
+    # slots stay undeployed.
     regions = [
       {
         region             = "eu-west-2"
@@ -119,8 +115,6 @@ run "a_topology_without_a_quorum_fails_the_plan" {
     ]
     active_region_count = 2
   }
-
-  expect_failures = [terraform_data.topology_guard]
 }
 
 run "the_default_topology_is_accepted" {

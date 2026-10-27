@@ -3,9 +3,10 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
     - repo: https://github.com/camunda/infraex-common-config
-      rev: 2.3.6 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
+      rev: 2.4.0 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
       hooks:
           - id: update-action-readmes-docker
+          - id: action-pin-spacing
 
     - repo: https://github.com/pre-commit/pre-commit-hooks
       rev: v6.0.0
@@ -33,7 +34,7 @@ repos:
             args: [-ignore=SC2155]
 
     - repo: https://github.com/zizmorcore/zizmor-pre-commit
-      rev: v1.29.0
+      rev: v1.31.1
       hooks:
           # Static analysis of GitHub Actions workflows and actions, mirroring the hook
           # adopted in camunda/infraex-common-config#551 and camunda/keycloak#636. It
@@ -60,7 +61,7 @@ repos:
             args: [--no-progress, --min-severity=high, --config=.github/zizmor.yml]
 
     - repo: https://github.com/renovatebot/pre-commit-hooks
-      rev: 44.5.2
+      rev: 44.181.0
       hooks:
           - id: renovate-config-validator
             args: [--strict]
@@ -73,7 +74,7 @@ repos:
             args: [--strict, --force-scope]
 
     - repo: https://github.com/antonbabenko/pre-commit-terraform
-      rev: v1.108.0
+      rev: v1.109.2
       hooks:
           - id: terraform_fmt
           - id: terraform_tflint
@@ -89,6 +90,15 @@ repos:
 
     - repo: local
       hooks:
+          # TODO: [release-duty] remove this hook with the source-build helpers on the cut branch.
+          - id: chart-selection-selftest
+            name: Chart directory selection self-test
+            entry: bash scripts/test-chart-selection.sh
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^(scripts/test-chart-selection\.sh|.*procedure/build-camunda-chart\.sh|\.github/actions/internal-multi-region-tests/action\.yml|\.camunda-version)$
+            pass_filenames: false
+
           - id: trivy-scan
             name: Trivy Scan (Docker)
             entry: .lint/trivy/trivy-scan.sh
@@ -100,7 +110,7 @@ repos:
             name: Terraform test (touched states)
             entry: scripts/run-terraform-test-touched.sh
             language: script
-            files: \.(tf|tftest\.hcl)$
+            files: \.(tf|tfvars|tftest\.hcl)$
             pass_filenames: false
 
           - id: python-unittest-actions
@@ -119,13 +129,33 @@ repos:
             files: ^\.github/actions/camunda-smoke-test/scripts/port-forward\.sh$
             pass_filenames: false
 
+          - id: dr-procedure-offline-tests
+            name: DR procedure offline tests (EKS multi-region, ECS dual-region)
+            # Offline Go tests that drive the failover/failback shell helpers against
+            # fakes. The cloud suites are often skipped by label, so this is the check
+            # that runs on every change to the procedures (#3572).
+            # yamllint disable-line rule:line-length
+            entry: bash -c 'go -C aws/kubernetes/eks-multi-region-rdbms/test test -count=1 ./helpers/ && go -C aws/containers/ecs-dual-region-fargate/test/src
+                test -count=1 ./helpers/'
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^aws/(kubernetes/eks-multi-region-rdbms|containers/ecs-dual-region-fargate)/(procedure|test)/
+            pass_filenames: false
+
           - id: destroy-resources-selftest
             name: Destroy-resources classifier self-test
             # yamllint disable-line rule:line-length
             entry: bash .github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources.sh selftest
             language: system
             # yamllint disable-line rule:line-length
-            files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources\.sh$
+            files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/destroy-resources(-selftest)?\.sh$
+            pass_filenames: false
+
+          - id: aws-capacity-slot-selftest
+            name: AWS capacity slot self-test
+            entry: bash .github/actions/aws-capacity-slot/slot-selftest.sh
+            language: system
+            files: ^\.github/actions/aws-capacity-slot/slot(-selftest)?\.sh$
             pass_filenames: false
 
           - id: ghost-rosa-cleanup-selftest
@@ -137,6 +167,13 @@ repos:
             files: ^\.github/actions/aws-generic-terraform-cleanup/scripts/cleanup-ghost-rosa-clusters\.sh$
             pass_filenames: false
 
+          - id: rosa-installer-role-inventory-selftest
+            name: ROSA installer-role inventory self-test
+            entry: bash scripts/inventory-rosa-installer-roles.sh selftest
+            language: system
+            files: ^scripts/inventory-rosa-installer-roles\.sh$
+            pass_filenames: false
+
           - id: skip-decision-selftest
             name: Skip-label decision self-test
             # yamllint disable-line rule:line-length
@@ -144,6 +181,20 @@ repos:
             language: system
             # yamllint disable-line rule:line-length
             files: ^\.github/actions/internal-triage-skip/scripts/skip-decision\.sh$
+            pass_filenames: false
+
+          - id: release-stable-branches-selftest
+            name: Stable-branch release script self-test
+            entry: bash .github/scripts/release-stable-branches.sh selftest
+            language: system
+            files: ^\.github/scripts/release-stable-branches\.sh$
+            pass_filenames: false
+
+          - id: changelog-check-selftest
+            name: Changelog check self-test
+            entry: bash .github/scripts/changelog-check.sh selftest
+            language: system
+            files: ^\.github/scripts/changelog-check\.sh$
             pass_filenames: false
 
           - id: cleanup-coverage
@@ -160,6 +211,22 @@ repos:
             entry: python3 -m unittest discover -s .lint/cleanup-coverage -p 'test_*.py'
             language: system
             files: ^\.lint/cleanup-coverage/.*\.py$
+            pass_filenames: false
+
+          - id: action-filter-coverage
+            name: Workflows trigger on the actions they run
+            entry: .lint/action-filter-coverage/check-action-filter-coverage.py
+            language: script
+            # yamllint disable-line rule:line-length
+            files: ^\.github/workflows/.*\.ya?ml$|^\.github/actions/|^\.lint/action-filter-coverage/
+            pass_filenames: false
+
+          - id: python-unittest-action-filter-coverage
+            name: Python unit tests (action filter coverage)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/action-filter-coverage -p 'test_*.py'
+            language: system
+            files: ^\.lint/action-filter-coverage/.*\.py$
             pass_filenames: false
 
           - id: reporter-coverage
@@ -224,6 +291,21 @@ repos:
             entry: python3 -m unittest discover -s .lint/path-filters -p 'test_*.py'
             language: system
             files: ^\.lint/path-filters/.*\.py$
+            pass_filenames: false
+
+          - id: capacity-needs
+            name: Capacity slots reserve every quota their golden plan creates
+            entry: .lint/capacity-needs/check-capacity-needs.py
+            language: script
+            files: (^\.github/workflows/.*\.yml|/test/golden/tfplan-golden\.json|^\.lint/capacity-needs/.*\.py)$
+            pass_filenames: false
+
+          - id: python-unittest-capacity-needs
+            name: Python unit tests (capacity needs)
+            # yamllint disable-line rule:line-length
+            entry: python3 -m unittest discover -s .lint/capacity-needs -p 'test_*.py'
+            language: system
+            files: ^\.lint/capacity-needs/.*\.py$
             pass_filenames: false
 
     - repo: https://github.com/tekwizely/pre-commit-golang

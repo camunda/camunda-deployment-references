@@ -138,8 +138,8 @@ run "postgresql_engine_selects_default_version" {
   }
 
   assert {
-    condition     = aws_rds_cluster.primary.engine_version == "18.4"
-    error_message = "PostgreSQL engine_version should default to postgresql_engine_version (18.4)"
+    condition     = aws_rds_cluster.primary.engine_version == "18.6"
+    error_message = "PostgreSQL engine_version should default to postgresql_engine_version (18.6)"
   }
 }
 
@@ -156,8 +156,8 @@ run "mysql_engine_selects_default_version" {
   }
 
   assert {
-    condition     = aws_rds_cluster.primary.engine_version == "8.4.mysql_aurora.8.4.7"
-    error_message = "MySQL engine_version should default to mysql_engine_version (8.4.mysql_aurora.8.4.7)"
+    condition     = aws_rds_cluster.primary.engine_version == "8.4.mysql_aurora.8.4.8"
+    error_message = "MySQL engine_version should default to mysql_engine_version (8.4.mysql_aurora.8.4.8)"
   }
 
   assert {
@@ -190,7 +190,7 @@ run "per_engine_versions_do_not_leak_across_engines" {
   }
 
   assert {
-    condition     = aws_rds_cluster.primary.engine_version == "18.4"
+    condition     = aws_rds_cluster.primary.engine_version == "18.6"
     error_message = "mysql_engine_version must not affect the PostgreSQL path"
   }
 }
@@ -591,7 +591,7 @@ run "null_engine_version_falls_back_to_the_pinned_default" {
   }
 
   assert {
-    condition     = aws_rds_global_cluster.this.engine_version == "18.4"
+    condition     = aws_rds_global_cluster.this.engine_version == "18.6"
     error_message = "A null postgresql_engine_version should fall back to the module default"
   }
 }

@@ -3,6 +3,13 @@
 # renovate: datasource=github-releases depName=gotestyourself/gotestsum
 gotestsum_version := "v1.13.0"
 
+# Read-only inventory of ROSA clusters and their installer-role trust policies.
+rosa-orphan-inventory:
+    ./scripts/inventory-rosa-installer-roles.sh
+
+rosa-orphan-inventory-selftest:
+    ./scripts/inventory-rosa-installer-roles.sh selftest
+
 # Launch a single test using go test in verbose mode
 aws-tf-modules-test-verbose testname: aws-tf-modules-install-tests-go-mod
     cd aws/modules/.test/src/ && go test -v --timeout=120m -p 1 -run {{testname}}

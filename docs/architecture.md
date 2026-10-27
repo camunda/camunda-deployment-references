@@ -55,7 +55,7 @@ Camunda 8 deployments consist of two logical clusters:
 - Elasticsearch / OpenSearch (search-heavy / analytics workloads)
 - RDBMS / PostgreSQL (relational preference; Optimize still requires Elasticsearch/OpenSearch)
 
-RDBMS secondary storage is available since 8.9 for the Orchestration Cluster (Operate, Tasklist, v2 REST API). For backend trade-offs and benchmarks, see [secondary storage architecture](https://docs.camunda.io/docs/self-managed/reference-architecture/reference-architecture/#secondary-storage-architecture) and [RDBMS benchmark results](https://docs.camunda.io/docs/self-managed/concepts/secondary-storage/rdbms-benchmark-results/) in the product documentation. Reference implementations with a dedicated RDBMS variant (the `*-rdbms` declination of a ref-arch uses a relational database instead of a document store):
+RDBMS secondary storage is available since 8.9 for the Orchestration Cluster (Operate, Tasklist, v2 REST API). For backend trade-offs and benchmarks, see [secondary storage architecture](https://docs.camunda.io/docs/self-managed/reference-architecture/#secondary-storage-architecture) and [RDBMS benchmark results](https://docs.camunda.io/docs/self-managed/concepts/secondary-storage/rdbms-benchmark-results/) in the product documentation. Reference implementations with a dedicated RDBMS variant (the `*-rdbms` declination of a ref-arch uses a relational database instead of a document store):
 
 | Reference architecture | RDBMS backend |
 |------------------------|---------------|
@@ -88,7 +88,7 @@ both folded in from [`camunda/camunda-load-tests-ecs`](https://github.com/camund
 
 | Piece | Path | Applies to |
 |---|---|---|
-| Persistent Prometheus with Cloud Map discovery | `aws/modules/ecs/fargate/monitoring` | ECS Fargate |
+| Long-lived Prometheus with Cloud Map discovery | `aws/modules/ecs/fargate/monitoring` | ECS Fargate |
 | Load generator (public community benchmark) | `aws/modules/ecs/fargate/load-generator` | ECS Fargate |
 | AWS FIS chaos experiments | `aws/common/procedure/chaos-fis` | Any ECS Orchestration Cluster |
 | Load generator Job | `aws/kubernetes/eks-multi-region-rdbms/procedure/load-generator.sh` | Kubernetes |

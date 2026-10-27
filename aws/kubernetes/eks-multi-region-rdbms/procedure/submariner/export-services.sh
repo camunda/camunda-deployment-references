@@ -4,8 +4,9 @@ set -euo pipefail
 # Exports the Camunda services of every active cluster to the Submariner
 # ClusterSet, then waits for the resulting ServiceImports to appear.
 #
-# One service, the headless <release>-zeebe: it carries Raft replication and the
-# per-pod DNS records the brokers dial each other on.
+# One service per region, the headless <release>-zeebe-<zone>: it carries Raft
+# replication and the per-pod DNS records the brokers dial each other on. The
+# chart renders it per zone in zone-aware mode.
 #
 # Headless is what makes this work. Lighthouse resolves a headless export to the
 # remote pod IPs, which the Transit Gateway routes because the VPC CIDRs are
@@ -22,43 +23,47 @@ set -euo pipefail
 : "${CAMUNDA_ACTIVE_REGIONS:?CAMUNDA_ACTIVE_REGIONS must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_NAMESPACE:?CAMUNDA_NAMESPACE must be set, source export_environment_prerequisites.sh}"
 : "${CAMUNDA_RELEASE_NAME:?CAMUNDA_RELEASE_NAME must be set, source export_environment_prerequisites.sh}"
+: "${CAMUNDA_ZONE_NAMES:?CAMUNDA_ZONE_NAMES must be set, source export-terraform-outputs.sh}"
 
 DNS_WAIT_TIMEOUT="${DNS_WAIT_TIMEOUT:-300}"
 
 read -r -a contexts <<<"$CLUSTER_CONTEXTS"
-
-services=(
-    "${CAMUNDA_RELEASE_NAME}-zeebe"
-)
+read -r -a zone_names <<<"$CAMUNDA_ZONE_NAMES"
+if [ "${#zone_names[@]}" -lt "$CAMUNDA_ACTIVE_REGIONS" ]; then
+    echo "ERROR: CAMUNDA_ZONE_NAMES has ${#zone_names[@]} entries; expected at least $CAMUNDA_ACTIVE_REGIONS." >&2
+    echo "       It comes from the zone_names Terraform output; re-source export-terraform-outputs.sh." >&2
+    exit 1
+fi
 
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     context="${contexts[$i]}"
+    svc="${CAMUNDA_RELEASE_NAME}-zeebe-${zone_names[$i]}"
 
-    for svc in "${services[@]}"; do
-        if ! kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" get svc "$svc" >/dev/null 2>&1; then
-            echo "  skipping $svc on $context: service does not exist (yet)"
-            continue
-        fi
-        echo "Exporting $svc from $context"
-        subctl --context "$context" export service --namespace "$CAMUNDA_NAMESPACE" "$svc"
-    done
+    if ! kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" get svc "$svc" >/dev/null 2>&1; then
+        echo "  skipping $svc on $context: service does not exist (yet)"
+        continue
+    fi
+    echo "Exporting $svc from $context"
+    subctl --context "$context" export service --namespace "$CAMUNDA_NAMESPACE" "$svc"
 done
 
 echo
 echo "Waiting for Lighthouse ServiceImports to be published ..."
 
 deadline=$((SECONDS + DNS_WAIT_TIMEOUT))
-zeebe_svc="${CAMUNDA_RELEASE_NAME}-zeebe"
-
+# Every cluster must import the service of every region.
 for ((i = 0; i < CAMUNDA_ACTIVE_REGIONS; i++)); do
     context="${contexts[$i]}"
-    while ! kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" get serviceimport "$zeebe_svc" >/dev/null 2>&1; do
-        if [ "$SECONDS" -ge "$deadline" ]; then
-            echo "WARNING: ServiceImport $zeebe_svc not visible on $context after ${DNS_WAIT_TIMEOUT}s." >&2
-            echo "         Broker startup is gated on clusterset DNS anyway (see helm-values/camunda-values.yml)." >&2
-            break
-        fi
-        sleep 5
+    for ((j = 0; j < CAMUNDA_ACTIVE_REGIONS; j++)); do
+        zeebe_svc="${CAMUNDA_RELEASE_NAME}-zeebe-${zone_names[$j]}"
+        while ! kubectl --context "$context" -n "$CAMUNDA_NAMESPACE" get serviceimport "$zeebe_svc" >/dev/null 2>&1; do
+            if [ "$SECONDS" -ge "$deadline" ]; then
+                echo "WARNING: ServiceImport $zeebe_svc not visible on $context after ${DNS_WAIT_TIMEOUT}s." >&2
+                echo "         Broker startup is gated on clusterset DNS anyway (see helm-values/camunda-values.yml)." >&2
+                break
+            fi
+            sleep 5
+        done
     done
 done
 

@@ -32,6 +32,14 @@ on:
             - generic/kubernetes/single-region/tests/integration/**
             - .github/actions/kubernetes-eck-operator/**
             - .github/actions/kubernetes-eck-operator-cleanup/**
+            - .github/actions/internal-configure-wildcard-cert/**
+            - .github/actions/internal-wait-oidc-issuer/**
+            - .github/actions/kubernetes-ingress-cleanup/**
+            - .github/actions/kubernetes-keycloak-operator/**
+            - .github/actions/kubernetes-keycloak-operator-cleanup/**
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/kubernetes-cnpg-cluster/**
+            - .github/actions/kubernetes-cnpg-cluster-cleanup/**
             - generic/kubernetes/operator-based/elasticsearch/**
 
     workflow_dispatch:
@@ -163,7 +171,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -190,7 +198,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -221,13 +229,23 @@ jobs:
             - name: Create K8S cluster and login
               uses: ./.github/actions/azure-kubernetes-aks-single-region-create
               id: create_cluster
+              # Request fresh GitHub assertions during Terraform token refreshes, not through the CLI cache.
+              env:
+                  ARM_USE_OIDC: 'true'
+                  ARM_USE_CLI: 'false'
+                  ARM_CLIENT_ID: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  ARM_TENANT_ID: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  ARM_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
               # Do not interrupt tests; otherwise, the Terraform state may become inconsistent.
               if: always() && success()
-              timeout-minutes: 120
+              timeout-minutes: 180
               with:
                   resource-prefix: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
                   cluster-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-aks
                   resource-group-name: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-rg
+                  azure-client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  azure-tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  azure-subscription-id: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
                   location: ${{ env.AZURE_REGION }}
                   s3-backend-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   s3-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -254,14 +272,14 @@ jobs:
             # cleanup-clusters needs: prepare-clusters, so dumping here is always
             # before teardown. See #3354.
             # The OIDC assertion minted at job start lives five minutes, but the create
-            # step is allowed two hours before it fails, so by the time the dump runs the
+            # step is allowed three hours before it fails, so by the time the dump runs the
             # session is long dead and every az call returns AADSTS700024. Re-authenticate
             # first, best effort: this exists to explain a failure, never to add one.
             - name: 🔐 Refresh the Azure login before dumping diagnostics
               if: failure() && steps.create_cluster.outcome == 'failure'
               continue-on-error: true
               timeout-minutes: 10
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
                   tenant-id: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
@@ -297,7 +315,7 @@ jobs:
                   # attempt without needing a start timestamp threaded through.
                   az monitor activity-log list \
                     --resource-group "$RESOURCE_GROUP_NAME" \
-                    --offset 3h \
+                    --offset 4h \
                     --max-events 500 \
                     --output json \
                     > "${DUMP_DIR}/activity-log-full.json" 2>"${DUMP_DIR}/activity-log-full.err" || rc_activity=$?
@@ -346,7 +364,7 @@ jobs:
 
             - name: 📤 Upload Azure Activity Log dump
               if: failure() && steps.azure_activity_log.outputs.dump-dir != ''
-              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
               with:
                   name: azure-activity-log-${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   path: ${{ steps.azure_activity_log.outputs.dump-dir }}
@@ -394,7 +412,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@32a6e03de12f6c9c08a2e0590bb5aef2d69e9d6c # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@d4e0239331f434375aaa358d9003e48a19688d83 # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -432,7 +450,7 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -487,7 +505,7 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
 
             - name: Azure Login with OIDC
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
               timeout-minutes: 10
               with:
                   client-id: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
@@ -679,11 +697,6 @@ jobs:
 
                   # Apply registry-harbor configuration (used in all scenarios for better performance)
                   yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/registry-harbor.yml\")" values.yml > values-result.yml
-                  cat values-result.yml && mv values-result.yml values.yml
-
-                  # TODO: [release-duty] drop this load together with the file it
-                  # reads; see camunda/camunda-platform-helm#7284.
-                  yq ". *+ load(\"generic/kubernetes/single-region/tests/helm-values/image-overrides.yml\")" values.yml > values-result.yml
                   cat values-result.yml && mv values-result.yml values.yml
 
                   # Add integration tests specific values
@@ -1019,6 +1032,7 @@ jobs:
 
     cleanup-clusters:
         name: Cleanup AKS clusters
+        timeout-minutes: 240
         if: always() && needs.clusters-info.result != 'skipped'
         needs:
             - prepare-clusters
@@ -1042,7 +1056,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -1060,7 +1074,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
 
             - name: Azure Login with OIDC
-              uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43 # v3.0.0
+              uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
               if: env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 10
               with:
@@ -1096,7 +1110,14 @@ jobs:
             - name: Delete on-demand AKS Cluster
               uses: ./.github/actions/azure-kubernetes-aks-single-region-cleanup
               if: always() && env.CLEANUP_CLUSTERS == 'true'
-              timeout-minutes: 125
+              # Allow 60m for the user pool, 120m for AKS, and 30m for other resources.
+              timeout-minutes: 210
+              env:
+                  ARM_USE_OIDC: 'true'
+                  ARM_USE_CLI: 'false'
+                  ARM_CLIENT_ID: ${{ steps.secrets.outputs.AZURE_CLIENT_ID }}
+                  ARM_TENANT_ID: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
+                  ARM_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
               with:
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
@@ -1133,11 +1154,11 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
-                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

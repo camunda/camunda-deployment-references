@@ -18,8 +18,11 @@ on:
             - .tool-versions
             - .github/workflows/aws_modules_eks_rds_os_tests.yml
             - justfile
+            - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-sanitize-tags/**
+            - .github/actions/aws-eks-cleanup-resources/**
 
 # limit to a single execution per ref of this workflow
 concurrency:
@@ -74,7 +77,7 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
-                  ref: ${{ github.head_ref }}
+                  ref: ${{ github.event.pull_request.head.sha }}
                   fetch-depth: 0
 
             - name: Get Short GitHub SHA
@@ -139,7 +142,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -149,6 +152,28 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
+
+            # Wait for a slot and for free quota instead of failing at terraform apply.
+            # `needs` is per region and per test function: one VPC with a single NAT gateway, one EKS
+            # cluster, one Aurora cluster with one instance and one OpenSearch domain.
+            - name: Acquire a capacity slot
+              id: capacity
+              uses: ./.github/actions/aws-capacity-slot
+              with:
+                  mode: acquire
+                  pool: aws-modules-eks-rds-os
+                  slots: '21'
+                  regions: ${{ env.AWS_REGION }}
+                  lease-minutes: '720'
+                  leg: ${{ matrix.test_function }}
+                  needs: |
+                      rds-clusters=1
+                      db-subnet-groups=1
+                      rds-instances=1
+                      vpcs=1
+                      elastic-ips=1
+                      eks-clusters=1
+                      opensearch-domains=1
 
             - name: Get go.mod details
               uses: Eun/go-mod-details@b719cd324463e2037cf3a0dd1dd6091bdc2730f4 # v1
@@ -219,7 +244,7 @@ jobs:
 
             - name: Upload test reports
               if: always()
-              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
               with:
                   name: test-reports-${{ matrix.test_function }}
                   path: ./aws/modules/.test/src/${{ matrix.test_function }}_unit-tests_filtered.xml
@@ -240,7 +265,7 @@ jobs:
             - integration-tests
         steps:
             - name: Download artifacts
-              uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+              uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
               with:
                   pattern: test-reports-*
                   path: /tmp/testreports
@@ -261,11 +286,11 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
-                  ref: ${{ github.head_ref }}
+                  ref: ${{ github.event.pull_request.head.sha }}
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -287,6 +312,22 @@ jobs:
                   max-age-hours: '0'
                   target: ${{ needs.configure-tests.outputs.cluster_id }}
                   fail-on-not-found: 'false' # tests are supposed to cleanup this
+
+            # Last, so the slots are held until this run's resources are gone. The
+            # create job is a matrix, so free the slot of every test function.
+            - name: Release the capacity slots
+              if: always()
+              env:
+                  POOL: aws-modules-eks-rds-os
+                  SLOTS: '21'
+                  RUN_PREFIX: ${{ github.repository }}/${{ github.run_id }}
+                  TEST_FUNCTIONS: ${{ needs.configure-tests.outputs.test_functions }}
+              run: |
+                  for test_function in $(jq -r '.[]' <<< "${TEST_FUNCTIONS:-[]}"); do
+                      OWNER="${RUN_PREFIX}/${test_function}" SLOT_KEY="" \
+                          bash .github/actions/aws-capacity-slot/slot.sh release \
+                          || echo "::warning::Could not release the slot of ${test_function}, its lease will expire."
+                  done
 
     report-success:
         name: Report success
@@ -319,11 +360,11 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
                   vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
-                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

@@ -5,11 +5,12 @@ on:
     workflow_dispatch:
     pull_request:
     push:
+        # TODO: [release-duty] switch to the new stable/8.x on the cut branch.
         branches: [main]
 
 jobs:
     lint:
-        uses: camunda/infraex-common-config/.github/workflows/lint-global.yml@9d485973624ec326ef0e92c73191b6c0f26ad39e # 2.3.6
+        uses: camunda/infraex-common-config/.github/workflows/lint-global.yml@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
         with:
             # Runs Renovate over the repository and fails on an annotation it reads and then
             # drops as unusable -- a dependency that looks tracked and can never be updated.

@@ -67,7 +67,8 @@ jobs:
         needs: [triage]
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
-        timeout-minutes: 260
+        # The two destroy passes (255) plus the Aurora detach step (30).
+        timeout-minutes: 290
         strategy:
             fail-fast: false
             matrix:
@@ -81,7 +82,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Use repo .tool-version as global version
               run: cp .tool-versions ~/.tool-versions
@@ -110,6 +111,18 @@ jobs:
 
             # A single Terraform state holds the EKS clusters, the Transit Gateway mesh and
             # the Aurora Global Database, so one destroy tears the whole architecture down.
+            # Same preparation as the test workflow teardown. It reads the age from
+            # the Terraform state the destroy below gates on, one hour ahead of the
+            # destroy's cutoff (see the script for why).
+            - name: Detach the readers of switched Aurora writers
+              timeout-minutes: 30
+              continue-on-error: true
+              env:
+                  STATE_BUCKET: ${{ env.S3_BACKEND_BUCKET }}
+                  STATE_BUCKET_REGION: ${{ env.S3_BUCKET_REGION }}
+                  STATE_PREFIX: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+              run: ./aws/kubernetes/eks-multi-region-rdbms/test/detach-switched-aurora-members.sh "^eks-mr-" "${MAX_AGE_HOURS_CLUSTER}"
+
             - name: Delete clusters
               id: delete_clusters
               # Covers both destroy passes below back to back, plus the cloud-nuke
@@ -137,7 +150,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Notify in Slack in case of failure
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

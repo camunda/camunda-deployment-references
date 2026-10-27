@@ -103,9 +103,7 @@ These are list-price ballparks for `us-east-1`; commit discounts, region, idle t
 
 ## Quick start
 
-Use the guided workflow (recommended): run `/ecs-dual-region/1-configure` … `/6-cleanup` in your Claude Code session.
-
-Or manually:
+Deploy the three layers in order:
 
 ```bash
 # 1. Deploy VPC layer (~5 min greenfield, < 1 min BYO-VPC)
@@ -126,7 +124,10 @@ source ../../procedure/export_environment_prerequisites.sh
 # 5. Verify cross-region DNS resolution (if enable_cross_region_dns_resolver = true)
 ../../procedure/test_cross_region_dns.sh
 
-# 6. Verify dual-region health
+# 6. Deploy the health-check process that verification starts instances of
+../../procedure/deploy_health_check_process.sh
+
+# 7. Verify dual-region health
 ../../procedure/verify_dual_region.sh
 ```
 
@@ -136,19 +137,54 @@ Customers with existing VPCs can skip greenfield VPC creation by setting `byo_vp
 
 ## Failover / Failback
 
+Both scripts drive the zone-aware [Zones API](https://docs.camunda.io/docs/next/self-managed/components/orchestration-cluster/zeebe/operations/management-api/):
+failover force-removes the lost zone, failback re-adds it. The zone names are
+the AWS region names, set by `CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_*_NAME`
+in `terraform/app/locals.tf`.
+
 ```bash
-# Planned failover (switchover) to region 1
-./procedure/failover.sh
+# Prerequisites for both
+. ./procedure/export_environment_prerequisites.sh
+brew install --cask session-manager-plugin   # macOS
 
-# Unplanned failover (detach + promote) to region 1
-./procedure/failover.sh --unplanned
+# Fail region 0 away: scale its tasks to 0, force-remove the zone, and move the
+# Aurora writer to region 1 if it was in region 0
+./procedure/failover.sh --failed-region 0
 
-# Failback to region 0
-./procedure/failback.sh
+# Validate the request without changing anything
+./procedure/failover.sh --failed-region 0 --dry-run
 
-# Failback and switch Aurora writer back to region 0
-./procedure/failback.sh --switch-writer
+# The region is already down, so skip the ECS scale-down
+./procedure/failover.sh --failed-region 0 --keep-tasks
+
+# The region is gone, Aurora included: also leave the writer alone, then
+# follow the AWS unplanned recovery procedure for Aurora
+./procedure/failover.sh --failed-region 0 --keep-tasks --keep-writer
+
+# Check the surviving region: replicationFactor 2 and every partition led
+./procedure/verify_dual_region.sh --failed-region 0
+
+# Restore region 0: scale it up, then re-add the zone
+./procedure/failback.sh --failed-region 0
+
+# ... and move the Aurora writer back to region 0
+./procedure/failback.sh --failed-region 0 --switch-writer
 ```
+
+> [!NOTE]
+> The management API (`/actuator/*`) listens on port 9600 and is **not** published
+> through the ALB — the 9600 listener in `terraform/infra/lb.tf` has a
+> fixed-response default and no forward rule. Both scripts therefore reach it
+> through an ECS Exec / Session Manager port-forward, which needs no bastion and
+> keeps the endpoint private. That is why `session-manager-plugin` is required.
+
+> [!IMPORTANT]
+> Failover passes `force=true` explicitly. The API defaults to `force=false`,
+> which *gracefully drains* the zone and so needs its brokers still running —
+> the opposite of a failover. With `replicationFactor = 4` across two zones each
+> partition keeps two replicas per zone, so losing a zone leaves two of four,
+> short of a majority: those partitions have no quorum until the zone is
+> removed. Removing it is what restores availability.
 
 ## Accessing the deployment
 
@@ -243,26 +279,71 @@ open http://localhost:8080
 
 #### Teardown after a failover
 
-If you ran `failover.sh` (planned or unplanned) before destroying, the Aurora Global cluster writer has moved to region 1. Terraform expects the original topology and `terraform destroy` may hang on Aurora resources. To work around this:
+Aurora Global Database never moves its writer across regions on its own.
+`failover.sh` moves it to the surviving region when it was in the failed one,
+and `failback.sh --switch-writer` moves it back. Both run a planned switchover,
+which needs the current Aurora primary to still be healthy. If the failed
+region's Aurora cluster is down too, `failover.sh` stops and points to the
+[Aurora Global Database unplanned recovery procedure](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html).
+Pass `--keep-writer` in that case to skip the switchover and let the script
+finish.
+
+While the writer is away from region 0, `terraform destroy` hangs on the
+Aurora resources, whatever the value of `db_force_destroy`. Terraform deletes
+region 1's cluster first, because it was created as the secondary. After a
+failover, region 1 holds the writer, and Aurora refuses to delete the writer's
+last instance while region 0 is still attached. Terraform retries until the
+delete timeout. `db_force_destroy` only acts on the global cluster, which
+Terraform deletes last, so the destroy never reaches it.
+
+Move the writer back to region 0 before you destroy. If you also bring region 0
+back, run `./procedure/failback.sh --failed-region 0 --switch-writer`. To move
+only the writer, run a planned switchover:
 
 ```bash
-# 1. Remove both clusters from the Global cluster
-aws rds remove-from-global-cluster \
+aws rds switchover-global-cluster \
+  --global-cluster-identifier <global-id> \
+  --target-db-cluster-identifier <region-0-cluster-arn>
+```
+
+The command returns before the writer moves. Wait until region 0 is the writer
+and no switchover is pending before you destroy:
+
+```bash
+until aws rds describe-global-clusters \
+  --global-cluster-identifier <global-id> \
+  --query 'GlobalClusters[0]' --output json |
+  jq -e --arg arn <region-0-cluster-arn> \
+    '(.GlobalClusterMembers[] | select(.IsWriter) | .DBClusterArn) == $arn
+     and (.FailoverState.Status // "") == ""' >/dev/null; do
+  sleep 30
+done
+```
+
+If region 0's Aurora cluster is lost and you cannot move the writer back,
+detach the members yourself and re-run:
+
+```bash
+# 1. Detach both clusters from the global cluster: the secondary (region 0) first, then the writer (region 1)
+aws rds remove-from-global-cluster --region <region-0> \
   --global-cluster-identifier <global-id> \
   --db-cluster-identifier <region-0-cluster-arn>
+aws rds remove-from-global-cluster --region <region-1> \
+  --global-cluster-identifier <global-id> \
+  --db-cluster-identifier <region-1-cluster-arn>
 
-# 2. Delete instances in both regions (skip-final-snapshot for dev)
+# 2. Delete the instances in both regions (skip the final snapshot only for non-production)
 aws rds delete-db-instance --db-instance-identifier <r0-instance> --skip-final-snapshot --region <region-0>
 aws rds delete-db-instance --db-instance-identifier <r1-instance> --skip-final-snapshot --region <region-1>
 
-# 3. Wait for instances to delete, then delete clusters
+# 3. Wait for the instances to be deleted, then delete the clusters
 aws rds delete-db-cluster --db-cluster-identifier <r0-cluster> --skip-final-snapshot --region <region-0>
 aws rds delete-db-cluster --db-cluster-identifier <r1-cluster> --skip-final-snapshot --region <region-1>
 
 # 4. Delete the global cluster
 aws rds delete-global-cluster --global-cluster-identifier <global-id>
 
-# 5. Remove Aurora resources from Terraform state and proceed with destroy
+# 5. Remove the Aurora resources from the Terraform state and continue the destroy
 terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster_instance.primary[0]'
 terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster_instance.secondary[0]'
 terraform -chdir=terraform/infra state rm 'module.aurora_global[0].aws_rds_cluster.primary'

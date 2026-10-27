@@ -7,7 +7,8 @@
       "Action": [
         "fis:CreateExperimentTemplate",
         "fis:DeleteExperimentTemplate",
-        "fis:GetExperimentTemplate"
+        "fis:GetExperimentTemplate",
+        "fis:TagResource"
       ],
       "Resource": [
         "arn:aws:fis:*:*:experiment-template/*",
@@ -20,7 +21,8 @@
       "Action": [
         "fis:StartExperiment",
         "fis:StopExperiment",
-        "fis:GetExperiment"
+        "fis:GetExperiment",
+        "fis:TagResource"
       ],
       "Resource": [
         "arn:aws:fis:*:*:experiment/*",
@@ -63,6 +65,7 @@
       "Effect": "Allow",
       "Action": [
         "ec2:DescribeSubnets",
+        "ec2:DescribeRouteTables",
         "ec2:DescribeVpcs",
         "ec2:DescribeNetworkInterfaces",
         "ecs:ListServices",

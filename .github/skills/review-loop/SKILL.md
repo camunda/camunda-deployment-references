@@ -172,7 +172,9 @@ review adds no new actionable findings.**
 ci_fb review resume --rerun
 ```
 
-Removes `skip_all` and re-runs each PR's latest completed run. The rerun is
+Removes `skip_all` and re-runs the latest completed run of every workflow on
+each PR's head commit, skipping GitHub-managed `dynamic` runs (the Copilot
+review) that cannot be re-run. The rerun is
 needed because removing a label is not a workflow trigger; pushing a fix
 re-triggers them too, in which case plain `ci_fb review resume` is enough.
 

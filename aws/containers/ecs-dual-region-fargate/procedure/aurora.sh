@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+# Aurora Global Database switchover helpers. Source this file, do not run it.
+#
+# The ECS dual-region and EKS multi-region references each carry a copy, so
+# each reference stays self-contained. Keep the two copies identical; an
+# offline test compares them:
+#   aws/containers/ecs-dual-region-fargate/procedure/aurora.sh
+#   aws/kubernetes/eks-multi-region-rdbms/procedure/aurora.sh
+#
+# Every function needs AURORA_GLOBAL_CLUSTER_ID, logs to stderr, and sends each
+# AWS call to an explicit region: the CLI default region can be the lost one.
+
+# aurora_settled_global <api-region> [timeout]
+#
+# Prints the GlobalClusters[0] object once no switchover runs. Early in a
+# switchover the old writer still has IsWriter set, so a caller that decides
+# from a running switchover starts a second one, which AWS rejects. Returns 1
+# when the read fails, and 2 when the switchover still runs at the timeout.
+aurora_settled_global() {
+    local region=$1 max_wait=${2:-900} global_json state
+    local deadline=$((SECONDS + max_wait))
+    while true; do
+        global_json=$(aws rds describe-global-clusters \
+            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+            --query 'GlobalClusters[0]' --output json --region "${region}") || return 1
+        state=$(echo "${global_json}" | jq -r '.FailoverState.Status // ""')
+        [ -z "${state}" ] && { echo "${global_json}"; return 0; }
+        if [ "${SECONDS}" -ge "${deadline}" ]; then
+            echo "ERROR: a switchover of ${AURORA_GLOBAL_CLUSTER_ID} is still ${state} after ${max_wait}s; rerun the script to wait for it." >&2
+            return 2
+        fi
+        echo "    A switchover is ${state}, waiting for it to settle." >&2
+        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+    done
+}
+
+# aurora_wait_writer <target-cluster-arn> [timeout]
+#
+# failover-global-cluster returns while the switchover is still pending, and
+# the target cluster reports "available" before the writer moves. Poll the
+# global cluster until the target is the writer and no FailoverState is left.
+# A failed read counts as "not done yet". Returns 2 when a rerun can finish
+# the move: the switchover still runs at the timeout, or it ended with another
+# writer (a second call can cancel it).
+aurora_wait_writer() {
+    local target_arn=$1 max_wait=${2:-900} region global_json writer state
+    [ -n "${target_arn}" ] || { echo "ERROR: no target writer ARN" >&2; return 1; }
+    region=$(echo "${target_arn}" | cut -d: -f4)
+    local deadline=$((SECONDS + max_wait))
+    while true; do
+        global_json=$(aws rds describe-global-clusters \
+            --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+            --query 'GlobalClusters[0]' --output json --region "${region}" 2>/dev/null) || global_json='{}'
+        writer=$(echo "${global_json}" | jq -r '.GlobalClusterMembers[]? | select(.IsWriter == true) | .DBClusterArn')
+        state=$(echo "${global_json}" | jq -r '.FailoverState.Status // ""')
+        if [ "${writer}" = "${target_arn}" ] && [ -z "${state}" ]; then
+            echo "    The Aurora switchover finished." >&2
+            return 0
+        fi
+        if [ -n "${writer}" ] && [ -z "${state}" ]; then
+            echo "ERROR: the Aurora switchover to ${target_arn} ended without moving the writer" \
+                "(writer: ${writer}). Another switchover request may have cancelled it; rerun the script." >&2
+            return 2
+        fi
+        if [ "${SECONDS}" -ge "${deadline}" ]; then
+            echo "ERROR: the Aurora switchover to ${target_arn} did not finish within ${max_wait}s" \
+                "(writer: ${writer:-none}, failover state: ${state:-none})." >&2
+            [ -n "${state}" ] && { echo "       It is still ${state}; rerun the script to wait for it." >&2; return 2; }
+            return 1
+        fi
+        echo "    Waiting for the Aurora switchover (writer: ${writer:-none}, state: ${state:-none})." >&2
+        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+    done
+}
+
+# aurora_switch_to <target-cluster-arn> [timeout]
+#
+# Makes the target the writer, and is safe to rerun: it lets a running
+# switchover settle, does nothing when the target is already the writer, and
+# otherwise runs a planned switchover and waits until it finished. The timeout
+# covers all of it. Returns 2 when a rerun can finish the move (see
+# aurora_wait_writer), so callers must not point to unplanned recovery.
+aurora_switch_to() {
+    local target_arn=$1 max_wait=${2:-900} region global_json writer out
+    [ -n "${target_arn}" ] || { echo "ERROR: no target writer ARN" >&2; return 1; }
+    region=$(echo "${target_arn}" | cut -d: -f4)
+    local deadline=$((SECONDS + max_wait))
+
+    global_json=$(aurora_settled_global "${region}" "${max_wait}") || return
+    writer=$(echo "${global_json}" | jq -r '.GlobalClusterMembers[]? | select(.IsWriter == true) | .DBClusterArn')
+    if [ "${writer}" = "${target_arn}" ]; then
+        echo "    The Aurora writer is already ${target_arn}." >&2
+        return 0
+    fi
+
+    # Settling may have used the whole budget: never start a switchover that
+    # could not be awaited, it would keep running after this returns an error.
+    if [ "${SECONDS}" -ge "${deadline}" ]; then
+        echo "ERROR: no time left to switch the Aurora writer to ${target_arn}." >&2
+        return 1
+    fi
+
+    echo "    Planned switchover from ${writer:-none} to ${target_arn}." >&2
+    # Right after a switchover, AWS refuses the next one while replication is
+    # still being set up ("Please retry"). Right after a cancelled switchover,
+    # it refuses it while the target is "in the modifying state". Both clear
+    # within seconds: retry those errors only.
+    while ! out=$(aws rds failover-global-cluster \
+        --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
+        --target-db-cluster-identifier "${target_arn}" \
+        --region "${region}" --no-cli-pager 2>&1 >/dev/null); do
+        if [[ "${out}" != *"replication setup is still in progress"* && "${out}" != *"in the modifying state"* ]]; then
+            echo "ERROR: ${out}" >&2
+            return 1
+        fi
+        echo "    The global cluster is not ready for a switchover yet, retrying." >&2
+        sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+        # Check after the sleep: a retry past the deadline could start a
+        # switchover that nothing waits for.
+        if [ "${SECONDS}" -ge "${deadline}" ]; then
+            echo "ERROR: no budget left to retry the switchover to ${target_arn}; none was started. Last error: ${out}" >&2
+            return 1
+        fi
+    done
+    aurora_wait_writer "${target_arn}" "$((deadline > SECONDS ? deadline - SECONDS : 0))"
+}
+
+# aurora_unplanned_hint
+#
+# Points to the AWS unplanned recovery, the only way to move a writer whose
+# region is down. That recovery can lose data: never print this for a
+# switchover that a rerun finishes.
+aurora_unplanned_hint() {
+    echo "Follow the Aurora Global Database unplanned recovery procedure:" >&2
+    echo "  https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html" >&2
+    echo "Camunda keeps processing; exporting waits until a writer is available." >&2
+    echo "When the Aurora primary is down as well, rerun the script with --keep-writer." >&2
+}
+
+# aurora_planned_switch <writer-arn> <target-arn>
+#
+# Planned switchover out of the writer's region. It needs that writer to be
+# available, so the status is checked first. Returns aurora_switch_to's code:
+# 2 means a rerun finishes the move. Every other failure gets the
+# unplanned-recovery hint.
+aurora_planned_switch() {
+    local writer_arn=$1 target_arn=$2 region status rc=0
+    region=$(echo "${writer_arn}" | cut -d: -f4)
+    # Keep the AWS error: denied permissions are not an outage.
+    if ! status=$(aws rds describe-db-clusters --region "${region}" \
+        --db-cluster-identifier "${writer_arn}" \
+        --query 'DBClusters[0].Status' --output text); then
+        echo "ERROR: could not read the Aurora writer in ${region} (AWS error above). If ${region} is down, a planned switchover cannot run." >&2
+        aurora_unplanned_hint
+        return 1
+    fi
+    if [ "${status}" != "available" ]; then
+        echo "ERROR: the Aurora writer in ${region} is ${status}, so a planned switchover cannot run." >&2
+        aurora_unplanned_hint
+        return 1
+    fi
+    # The status can still say "available" early in an outage: a rejected or
+    # stalled switchover gets the same hint.
+    aurora_switch_to "${target_arn}" || rc=$?
+    if [ "${rc}" -ne 0 ]; then
+        echo "ERROR: the planned switchover to ${target_arn} did not complete." >&2
+        [ "${rc}" -eq 2 ] || aurora_unplanned_hint
+    fi
+    return "${rc}"
+}
