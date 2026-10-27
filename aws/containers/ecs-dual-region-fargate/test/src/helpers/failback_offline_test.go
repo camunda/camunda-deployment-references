@@ -43,17 +43,23 @@ func TestFailbackCompletes(t *testing.T) {
 	for _, tc := range []struct {
 		name, mode, want string
 		args             []string
-		wantError        bool
+		wantError, wipe  bool
 	}{
-		{"writer switch", "healthy", "Failback complete", []string{"--switch-writer"}, false},
-		{"no writer switch", "healthy", "Failback complete", nil, false},
+		{"writer switch", "healthy", "Failback complete", []string{"--switch-writer"}, false, true},
+		{"no writer switch", "healthy", "Failback complete", nil, false, true},
 		// The gateway going away after the zone is re-added must be reported as
 		// such, not as a count of zero brokers.
-		{"gateway lost after re-add", "alb-down", "stopped answering", nil, true},
+		{"gateway lost after re-add", "alb-down", "stopped answering", nil, true, true},
 		// Pending brokers would start against EFS while the wipe deletes it.
-		{"service not scaled down", "pending", "not scaled to 0", nil, true},
+		{"service not scaled down", "pending", "not scaled to 0", nil, true, false},
 		// An interrupted run can leave a wipe that would delete data after this one.
-		{"leftover wipe task", "leftover", "left by an earlier run", nil, false},
+		{"leftover wipe task", "leftover", "left by an earlier run", nil, false, true},
+		{"wipe still stopping", "stopping", "Waiting for earlier tasks", nil, false, true},
+		// A zone still in the partition distribution hosts live replicas.
+		{"zone still present", "zone-present", "keeping its data", nil, false, false},
+		{"keep data", "healthy", "--keep-data given", []string{"--keep-data"}, false, false},
+		{"wipe fails", "wipe-fails", "exit code 1", nil, true, true},
+		{"wipe not placed", "not-placed", "could not start the wipe task", nil, true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Given: offline CLI and management API responses for one failback.
@@ -76,7 +82,7 @@ mgmt_err() { echo "$*" >&2; }
 mgmt_tunnel_open() { return 0; }
 mgmt_tunnel_close() { :; }
 mgmt_topology_summary() { :; }
-mgmt_zone_present() { [ -f "$FAKE_DIR/added" ]; }
+mgmt_zone_present() { [ -f "$FAKE_DIR/added" ] || [ "$MODE" = zone-present ]; }
 mgmt_request() { touch "$FAKE_DIR/added"; echo '{"changeId":"2","plannedChanges":[]}'; }
 mgmt_wait_change() { return 0; }
 `,
@@ -91,15 +97,21 @@ case "$*" in
   *describe-services*)
     if [ "$MODE" = pending ]; then echo '{"taskDefinition":"td","networkConfiguration":{},"desiredCount":2,"pendingCount":2,"runningCount":0}'
     else echo '{"taskDefinition":"td","networkConfiguration":{},"desiredCount":0,"pendingCount":0,"runningCount":0}'; fi ;;
+  *list-tasks*--started-by*STOPPED*) if [ "$MODE" = stopping ]; then echo '["old-wipe"]'; else echo '[]'; fi ;;
   *list-tasks*--started-by*) if [ "$MODE" = leftover ]; then echo '["old-wipe"]'; else echo '[]'; fi ;;
   *list-tasks*) echo '[]' ;;
-  *stop-task*) touch "$FAKE_DIR/stopped" ;;
+  *stop-task*) ;;
   *describe-task-definition*)
     echo '{"family":"f","volumes":[{"name":"camunda-volume"}],"containerDefinitions":[{"name":"orchestration-cluster","image":"i","mountPoints":[{"sourceVolume":"camunda-volume"}]}]}' ;;
-  *register-task-definition*) echo wipe-td ;;
-  # The data must be gone before any broker of the zone starts again.
-  *run-task*) [ ! -f "$FAKE_DIR/scaledup" ] && touch "$FAKE_DIR/wiped"; echo task ;;
-  *describe-tasks*) echo 0 ;;
+  *deregister-task-definition*) touch "$FAKE_DIR/deregistered" ;;
+  *register-task-definition*) touch "$FAKE_DIR/registered"; echo wipe-td ;;
+  *run-task*)
+    if [ "$MODE" = not-placed ]; then echo '{"tasks":[],"failures":[{"reason":"RESOURCE:ENI"}]}'; exit 0; fi
+    # The data must be gone before any broker of the zone starts again.
+    [ ! -f "$FAKE_DIR/scaledup" ] && touch "$FAKE_DIR/wiped"
+    echo '{"tasks":[{"taskArn":"task"}],"failures":[]}' ;;
+  *describe-tasks*--query*) if [ "$MODE" = wipe-fails ]; then echo 1; else echo 0; fi ;;
+  *describe-tasks*) echo '{"tasks":[{"lastStatus":"STOPPED"}]}' ;;
   *update-service*) touch "$FAKE_DIR/scaledup" ;;
   *failover-global-cluster*) echo PROMOTED >&2 ;;
   *describe-db-clusters*) echo available ;;
@@ -134,8 +146,13 @@ if [ -f "$FAKE_DIR/scaledup" ]; then cat "$FAKE_DIR/restored.json"; else cat "$F
 			if (err != nil) != tc.wantError || !strings.Contains(string(out), tc.want) {
 				t.Fatalf("got %v, wantError=%t, missing %q\n%s", err, tc.wantError, tc.want, out)
 			}
-			if _, err := os.Stat(filepath.Join(fake, "wiped")); (err == nil) != (tc.mode != "pending") {
-				t.Fatalf("wipe ran=%t, want %t (#3766)\n%s", err == nil, tc.mode != "pending", out)
+			if _, err := os.Stat(filepath.Join(fake, "wiped")); (err == nil) != tc.wipe {
+				t.Fatalf("wipe ran=%t, want %t (#3766)\n%s", err == nil, tc.wipe, out)
+			}
+			_, registered := os.Stat(filepath.Join(fake, "registered"))
+			_, deregistered := os.Stat(filepath.Join(fake, "deregistered"))
+			if (registered == nil) != (deregistered == nil) {
+				t.Fatalf("wipe task definition registered=%t, deregistered=%t\n%s", registered == nil, deregistered == nil, out)
 			}
 		})
 	}
