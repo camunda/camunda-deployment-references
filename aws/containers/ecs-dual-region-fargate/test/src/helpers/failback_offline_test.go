@@ -52,6 +52,8 @@ func TestFailbackCompletes(t *testing.T) {
 		{"gateway lost after re-add", "alb-down", "stopped answering", nil, true},
 		// Pending brokers would start against EFS while the wipe deletes it.
 		{"service not scaled down", "pending", "not scaled to 0", nil, true},
+		// An interrupted run can leave a wipe that would delete data after this one.
+		{"leftover wipe task", "leftover", "left by an earlier run", nil, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Given: offline CLI and management API responses for one failback.
@@ -89,7 +91,9 @@ case "$*" in
   *describe-services*)
     if [ "$MODE" = pending ]; then echo '{"taskDefinition":"td","networkConfiguration":{},"desiredCount":2,"pendingCount":2,"runningCount":0}'
     else echo '{"taskDefinition":"td","networkConfiguration":{},"desiredCount":0,"pendingCount":0,"runningCount":0}'; fi ;;
-  *list-tasks*) echo None ;;
+  *list-tasks*--started-by*) if [ "$MODE" = leftover ]; then echo '["old-wipe"]'; else echo '[]'; fi ;;
+  *list-tasks*) echo '[]' ;;
+  *stop-task*) touch "$FAKE_DIR/stopped" ;;
   *describe-task-definition*)
     echo '{"family":"f","volumes":[{"name":"camunda-volume"}],"containerDefinitions":[{"name":"orchestration-cluster","image":"i","mountPoints":[{"sourceVolume":"camunda-volume"}]}]}' ;;
   *register-task-definition*) echo wipe-td ;;

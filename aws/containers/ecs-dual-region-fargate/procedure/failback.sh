@@ -130,8 +130,9 @@ get_global_cluster_members() {
 # Empties the recovered region's EFS primary storage with a one-off task that
 # reuses the orchestration-cluster task definition's image, roles, network and
 # EFS volume, so it needs no extra infrastructure.
+WIPE_STARTED_BY=failback-wipe
 wipe_primary_storage() {
-    local service svc td_arn network counts stopping wipe_def wipe_arn task_arn exit_code
+    local service svc td_arn network counts leftover stopping wipe_def wipe_arn task_arn exit_code
     # shellcheck disable=SC2016 # backticks are a JMESPath literal
     service=$(aws ecs list-services --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
         --query 'serviceArns[?ends_with(@, `-orchestration-cluster`)] | [0]' --output text)
@@ -145,13 +146,23 @@ wipe_primary_storage() {
         err "${service##*/} is not scaled to 0 (${counts}); scale it to 0 before failback."
         exit 1
     fi
+    # A wipe left running by an interrupted run must not delete data after this one.
+    leftover=$(aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+        --started-by "${WIPE_STARTED_BY}" --query 'taskArns' --output json | jq -r '.[]')
+    for task_arn in ${leftover}; do
+        log "  Stopping wipe task ${task_arn} left by an earlier run..."
+        aws ecs stop-task --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+            --task "${task_arn}" --no-cli-pager > /dev/null
+    done
     # Tasks that are still stopping can hold the EFS volume open.
     stopping=$(aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
-        --service-name "${service}" --desired-status STOPPED --query 'taskArns[:100]' --output text)
-    if [ -n "${stopping}" ] && [ "${stopping}" != "None" ]; then
-        log "  Waiting for stopped ${service##*/} tasks to finish stopping..."
-        # shellcheck disable=SC2086 # one argument per task ARN
-        aws ecs wait tasks-stopped --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" --tasks ${stopping}
+        --service-name "${service}" --desired-status STOPPED --query 'taskArns' --output json | jq -r '.[]')
+    if [ -n "${leftover}${stopping}" ]; then
+        log "  Waiting for earlier tasks to finish stopping..."
+        # DescribeTasks, which the waiter calls, accepts at most 100 tasks.
+        # shellcheck disable=SC2086 # one line per task ARN
+        printf '%s\n' ${leftover} ${stopping} | xargs -n 100 aws ecs wait tasks-stopped \
+            --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" --tasks
     fi
 
     log "  Wiping primary storage of ${RECOVERED_ZONE} (stale Raft state from before failover)..."
@@ -171,8 +182,13 @@ wipe_primary_storage() {
         --cli-input-json "${wipe_def}" --query 'taskDefinition.taskDefinitionArn' --output text)
     task_arn=$(aws ecs run-task --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
         --launch-type FARGATE --task-definition "${wipe_arn}" --network-configuration "${network}" \
-        --query 'tasks[0].taskArn' --output text)
-    aws ecs wait tasks-stopped --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" --tasks "${task_arn}"
+        --started-by "${WIPE_STARTED_BY}" --query 'tasks[0].taskArn' --output text)
+    if ! aws ecs wait tasks-stopped --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" --tasks "${task_arn}"; then
+        aws ecs stop-task --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+            --task "${task_arn}" --no-cli-pager > /dev/null || true
+        err "Wipe task ${task_arn} did not stop in time; it was asked to stop. Re-run failback.sh."
+        exit 1
+    fi
     exit_code=$(aws ecs describe-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
         --tasks "${task_arn}" --query 'tasks[0].containers[0].exitCode' --output text)
     aws ecs deregister-task-definition --region "${RECOVERED_AWS_REGION}" \
