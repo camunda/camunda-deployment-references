@@ -172,9 +172,11 @@ wipe_primary_storage() {
         exit 1
     fi
     # A wipe from an interrupted run must not delete data after this one starts
-    # brokers. Its stop may already be requested while its container still runs,
-    # so STOPPED-desired wipes are waited for too. Service tasks that are still
-    # stopping can hold the EFS volume open.
+    # brokers. ListTasks accepts startedBy only as its sole filter, so running
+    # wipes are found by startedBy, and everything already asked to stop (an
+    # earlier wipe or a service task still holding the EFS volume) by listing
+    # all STOPPED-desired tasks of the cluster. Separate assignments, so a
+    # failed AWS call stops the script under set -e.
     running_wipes=$(aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
         --started-by "${WIPE_STARTED_BY}" --query 'taskArns' --output json | jq -r '.[]')
     for WIPE_TASK in ${running_wipes}; do
@@ -182,13 +184,10 @@ wipe_primary_storage() {
         aws ecs stop-task --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
             --task "${WIPE_TASK}" --no-cli-pager > /dev/null
     done
-    earlier=$( {
-        echo "${running_wipes}"
-        aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
-            --started-by "${WIPE_STARTED_BY}" --desired-status STOPPED --query 'taskArns' --output json | jq -r '.[]'
-        aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
-            --service-name "${service}" --desired-status STOPPED --query 'taskArns' --output json | jq -r '.[]'
-    } | sort -u | sed '/^$/d')
+    earlier=$(aws ecs list-tasks --region "${RECOVERED_AWS_REGION}" --cluster "${RECOVERED_CLUSTER}" \
+        --desired-status STOPPED --query 'taskArns' --output json | jq -r '.[]')
+    # shellcheck disable=SC2086 # one line per task ARN
+    earlier=$(printf '%s\n' ${running_wipes} ${earlier} | sort -u | sed '/^$/d')
     if [ -n "${earlier}" ]; then
         log "  Waiting for earlier tasks to finish stopping..."
         # shellcheck disable=SC2086 # one argument per task ARN
