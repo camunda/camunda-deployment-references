@@ -6,7 +6,7 @@ Changes will appear here during the development cycle.
 
 ### AWS ECS Fargate
 
-- The load test Prometheus can export its series to a Google Cloud Storage bucket every 15 minutes while it runs, through workload identity federation with write-only access and no key. The export is off by default (`export_gcs_bucket`, `load_tests_export_gcs_bucket`). The `instance` label now carries the task id instead of the task IP ([#3570](https://github.com/camunda/camunda-deployment-references/pull/3570)).
+- The load test Prometheus can export its series to a Google Cloud Storage bucket every 15 minutes while it runs. It authenticates through workload identity federation, with write-only access and no key. The export is off by default (`export_gcs_bucket`, `load_tests_export_gcs_bucket`). The `instance` label now carries the task id instead of the task IP ([#3570](https://github.com/camunda/camunda-deployment-references/pull/3570)).
 
 ### AWS ROSA HCP
 
