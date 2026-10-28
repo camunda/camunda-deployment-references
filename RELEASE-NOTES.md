@@ -21,6 +21,7 @@ Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fi
 - Added the dual-region `db_force_destroy` input (default `true`), so `terraform destroy` can remove the Aurora Global cluster after a failover. It controls member detachment only; it is not deletion protection ([#3595](https://github.com/camunda/camunda-deployment-references/pull/3595), backport [#3755](https://github.com/camunda/camunda-deployment-references/pull/3755)).
 - Uses Camunda 8.10.5, which fixes a dual-region forced zone removal that never completed when a broker had seen no peer ([#3765](https://github.com/camunda/camunda-deployment-references/pull/3765)).
 - ECS `failback.sh` empties the recovered zone's EFS primary storage before it scales the brokers back up, so they do not rejoin with stale Raft state. It refuses to run while the service is not scaled to 0 ([#3767](https://github.com/camunda/camunda-deployment-references/pull/3767), backport [#3874](https://github.com/camunda/camunda-deployment-references/pull/3874)).
+- ECS `failback.sh` requires `--failed-region 0|1`. Before, it defaulted to region 0, the region whose EFS primary storage it wipes.
 
 ### AWS EKS
 
