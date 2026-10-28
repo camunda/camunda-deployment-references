@@ -25,7 +25,7 @@ Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fi
 - The ECS and EKS Aurora switchover helpers fail at once when a second switchover cancels the pending one, instead of waiting 900 seconds. They return `2` and ask for a rerun when a switchover is still running at the timeout ([#3681](https://github.com/camunda/camunda-deployment-references/pull/3681), backport [#3682](https://github.com/camunda/camunda-deployment-references/pull/3682)).
 - ECS and EKS `failback.sh` report the AWS error when `describe-global-clusters` fails. Before, it read the error as an empty topology ([#3681](https://github.com/camunda/camunda-deployment-references/pull/3681), backport [#3682](https://github.com/camunda/camunda-deployment-references/pull/3682)).
 - ECS `failback.sh` empties the recovered zone's EFS primary storage before it scales the brokers back up, so they do not rejoin with stale Raft state. It refuses to run while the service is not scaled to 0 ([#3767](https://github.com/camunda/camunda-deployment-references/pull/3767), backport [#3874](https://github.com/camunda/camunda-deployment-references/pull/3874)).
-- ECS `failback.sh` requires `--failed-region 0|1`. Before, it defaulted to region 0, the region whose EFS primary storage it wipes ([#3894](https://github.com/camunda/camunda-deployment-references/pull/3894)).
+- ECS `failback.sh` requires `--failed-region 0|1`. Before, it defaulted to region 0, the region whose EFS primary storage it wipes ([#3894](https://github.com/camunda/camunda-deployment-references/pull/3894), backport [#3895](https://github.com/camunda/camunda-deployment-references/pull/3895)).
 
 ### AWS EKS
 
