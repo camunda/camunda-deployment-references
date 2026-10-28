@@ -22,7 +22,7 @@
 #   four restored brokers sit idle with zero replicas.                        #
 #                                                                             #
 # Usage:                                                                      #
-#   ./failback.sh [--failed-region 0|1] [--switch-writer] [--dry-run]         #
+#   ./failback.sh --failed-region 0|1 [--switch-writer] [--dry-run]           #
 #                [--replicas N] [--priority N] [--brokers N] [--keep-data]    #
 #                                                                             #
 # --keep-data skips the wipe of the recovered zone's EFS primary storage.     #
@@ -64,7 +64,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # Argument parsing                                                            #
 ###############################################################################
 
-FAILED_REGION="0"
+FAILED_REGION=""
 SWITCH_WRITER=false
 DRY_RUN=false
 KEEP_DATA=false
@@ -86,7 +86,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$FAILED_REGION" != "0" && "$FAILED_REGION" != "1" ]]; then
-  echo "ERROR: --failed-region must be 0 or 1"
+  # No default: failback wipes this region's EFS, so the operator must name it.
+  echo "ERROR: --failed-region 0|1 is required"
   exit 1
 fi
 
