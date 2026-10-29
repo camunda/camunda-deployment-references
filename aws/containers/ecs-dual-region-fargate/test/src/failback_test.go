@@ -111,7 +111,7 @@ func runFailbackTest(t *testing.T, label, failbackFlag string, expectWriterMoves
 		"after failover: writer should be in region 1")
 
 	// Step 2: failback.
-	args := []string{}
+	args := []string{"--failed-region", "0"}
 	if failbackFlag != "" {
 		args = append(args, failbackFlag)
 	}
