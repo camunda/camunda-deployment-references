@@ -470,6 +470,7 @@ jobs:
               with:
                   encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   redact-values: |
+                      ${{ env.CAMUNDA_BASIC_AUTH_PASSWORD }}
                       ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
                   context: ${{ env.CLUSTER_NAME }}-london
@@ -481,6 +482,7 @@ jobs:
               with:
                   encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   redact-values: |
+                      ${{ env.CAMUNDA_BASIC_AUTH_PASSWORD }}
                       ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   context: ${{ env.CLUSTER_NAME }}-paris
