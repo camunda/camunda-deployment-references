@@ -51,6 +51,10 @@ jobs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            issues: read # the Slack action looks up silence issues
+            id-token: write # required for Vault JWT login
         steps:
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
