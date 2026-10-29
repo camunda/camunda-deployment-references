@@ -96,6 +96,7 @@ jobs:
         permissions:
             contents: read
             pull-requests: write # comments and labels on the pull request
+            id-token: write # required for Vault JWT login
         steps:
             - uses: camunda/infra-global-github-actions/start-build-monitor@85dbb218176a20bbedac15278ac3ff4d86672db4 # main
 
@@ -511,6 +512,9 @@ jobs:
         needs:
             - triage
             - report-success
+        permissions:
+            contents: read
+            id-token: write # required for Vault JWT login
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification

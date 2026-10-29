@@ -279,6 +279,9 @@ jobs:
             - define-matrix
             - schedule-workflows
             - close-scheduled-prs
+        permissions:
+            contents: read
+            id-token: write # required for Vault JWT login
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification

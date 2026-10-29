@@ -16,6 +16,10 @@ jobs:
     lint:
         name: links-check
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            issues: write # create-issue-from-file and issue reopen
+            id-token: write # required for Vault JWT login
         steps:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
