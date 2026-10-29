@@ -43,7 +43,7 @@ jobs:
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
-            - uses: camunda/camunda-deployment-references/.github/actions/aws-configure-cli@f7371146e93aaf7b2f33c07f1df56f46d06796df # main
+            - uses: camunda/camunda-deployment-references/.github/actions/aws-configure-cli@a5868fc307e5645f7e91bb35e5dc4633c282056b # main
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}

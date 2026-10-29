@@ -74,7 +74,7 @@ repos:
             args: [--strict, --force-scope]
 
     - repo: https://github.com/antonbabenko/pre-commit-terraform
-      rev: v1.109.2
+      rev: v1.109.3
       hooks:
           - id: terraform_fmt
           - id: terraform_tflint
