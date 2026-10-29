@@ -105,6 +105,7 @@ jobs:
         permissions:
             contents: read
             pull-requests: write # internal-apply-skip-label creates the label, applies it and comments
+            id-token: write # required for Vault JWT login
         steps:
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
