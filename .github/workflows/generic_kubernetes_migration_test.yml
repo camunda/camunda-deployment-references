@@ -129,6 +129,7 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false'
         permissions:
             contents: read
+            issues: read # required by the reusable workflow for the Slack silence lookup
             id-token: write # required by the reusable workflow for Vault JWT login
         uses: ./.github/workflows/_migration_test_run.yml
         with:
@@ -143,6 +144,7 @@ jobs:
         if: needs.triage.outputs.should_skip == 'false' && needs.clusters-info.outputs.has-heavy == 'true'
         permissions:
             contents: read
+            issues: read # required by the reusable workflow for the Slack silence lookup
             id-token: write # required by the reusable workflow for Vault JWT login
         uses: ./.github/workflows/_migration_test_run.yml
         with:
