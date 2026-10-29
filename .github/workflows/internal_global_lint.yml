@@ -9,5 +9,8 @@ on:
 
 jobs:
     lint:
+        permissions:
+            contents: read
+            id-token: write # required for Vault JWT login
         uses: camunda/infraex-common-config/.github/workflows/lint-global.yml@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # 1.3.9
         secrets: inherit
