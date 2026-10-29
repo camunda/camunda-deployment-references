@@ -152,6 +152,7 @@ jobs:
             - cleanup-clusters
         permissions:
             contents: read
+            issues: read # the Slack action looks up silence issues
             id-token: write # required for Vault JWT login
         steps:
             - name: Notify in Slack in case of failure
