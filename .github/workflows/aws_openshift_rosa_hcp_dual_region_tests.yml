@@ -865,6 +865,7 @@ jobs:
               with:
                   encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   redact-values: |
+                      ${{ env.CAMUNDA_BASIC_AUTH_PASSWORD }}
                       ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                       ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                       ${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}
@@ -879,6 +880,7 @@ jobs:
               with:
                   encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   redact-values: |
+                      ${{ env.CAMUNDA_BASIC_AUTH_PASSWORD }}
                       ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                       ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                       ${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}
