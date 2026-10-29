@@ -9,6 +9,9 @@ on:
 
 jobs:
     lint:
+        permissions:
+            contents: read
+            id-token: write # required for Vault JWT login
         uses: camunda/infraex-common-config/.github/workflows/lint-global.yml@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
         with:
             # Runs Renovate over the repository and fails on an annotation it reads and then

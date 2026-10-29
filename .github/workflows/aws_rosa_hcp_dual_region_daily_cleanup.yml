@@ -56,6 +56,9 @@ jobs:
             - triage
         if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write # required for Vault JWT login
         steps:
             - name: Checkout repository
               uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
