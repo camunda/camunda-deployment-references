@@ -203,6 +203,9 @@ jobs:
         # patch, refuses what it should not commit, applies it, mints a repository-scoped app
         # token last and commits through the API. It runs no repository code -- which is the
         # whole point, since everything that produced this patch ran in `regenerate`.
+        permissions:
+            contents: read
+            id-token: write # required for Vault JWT login
         uses: camunda/infraex-common-config/.github/workflows/commit-patch-global.yml@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
         with:
             # Literals, deliberately, and not read from `regenerate`'s outputs: that job runs

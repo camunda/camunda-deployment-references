@@ -121,6 +121,7 @@ jobs:
         permissions:
             contents: read
             issues: read
+            id-token: write # required for Vault JWT login
         needs:
             - branches
             - release
