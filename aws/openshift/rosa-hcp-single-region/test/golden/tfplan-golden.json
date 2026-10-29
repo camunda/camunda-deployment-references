@@ -376,6 +376,7 @@
                   "schema_version": 0,
                   "sensitive_values": {
                     "account_role_policies": {},
+                    "ocm_role_policies": {},
                     "operator_role_policies": {}
                   },
                   "type": "rhcs_hcp_policies"
@@ -1653,7 +1654,6 @@
                       null,
                       null
                     ],
-                    "channel_group": "stable",
                     "compute_machine_type": "m7i.xlarge",
                     "create_admin_user": null,
                     "destroy_timeout": null,
@@ -1671,6 +1671,7 @@
                     "max_replicas": null,
                     "min_replicas": null,
                     "name": "my-rosa",
+                    "no_cni": false,
                     "pod_cidr": "10.0.64.0/18",
                     "private": false,
                     "properties": {
@@ -1681,16 +1682,16 @@
                     "replicas": 6,
                     "service_cidr": "10.0.128.0/18",
                     "shared_vpc": null,
+                    "spot_termination_queue_url": null,
                     "sts": {
                       "instance_iam_roles": {},
-                      "operator_role_prefix": "my-rosa-operator",
-                      "trust_policy_external_id": null
+                      "operator_role_prefix": "my-rosa-operator"
                     },
                     "tags": {
                       "owner": "ARN_REDACTED"
                     },
                     "upgrade_acknowledgements_for": null,
-                    "version": "4.18.16",
+                    "version": "4.18.57",
                     "wait_for_create_complete": true,
                     "wait_for_std_compute_nodes_complete": true,
                     "worker_disk_size": null
@@ -1704,6 +1705,7 @@
                   "sensitive_values": {},
                   "type": "rhcs_hcp_default_ingress",
                   "values": {
+                    "component_routes": null,
                     "listening_method": "external"
                   }
                 }

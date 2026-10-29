@@ -96,7 +96,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # 1.3.9
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -124,7 +124,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # 1.3.9
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -238,7 +238,7 @@ jobs:
             - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
             - name: Install asdf tools with cache for the project
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # 1.3.9
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Install CLI tools from OpenShift Mirror
               uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
@@ -625,7 +625,7 @@ jobs:
 
             - name: Install asdf tools with cache
               if: env.CLEANUP_CLUSTERS == 'true'
-              uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # 1.3.9
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Import Secrets
               id: secrets
@@ -692,11 +692,15 @@ jobs:
         runs-on: ubuntu-latest
         needs:
             - report-success
+        permissions:
+            contents: read
+            issues: read # the Slack action looks up silence issues
+            id-token: write # required for Vault JWT login
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: ${{ env.IS_SCHEDULE == 'true' }}
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

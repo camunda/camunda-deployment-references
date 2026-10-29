@@ -50,7 +50,7 @@ jobs:
                   token: ${{ steps.generate-github-token.outputs.token }}
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@193a21e1e56c9a65517a822224ac3b4ffa4d6ae4 # 1.5.9
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
             - name: Run go mod tidy
               run: |
