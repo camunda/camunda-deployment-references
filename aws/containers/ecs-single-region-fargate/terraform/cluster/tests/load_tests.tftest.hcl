@@ -156,3 +156,32 @@ run "benchmark_cluster_profile_applies_the_absorbed_settings" {
     error_message = "The write limit should match the absorbed benchmark"
   }
 }
+
+run "series_export_reaches_the_monitoring_module" {
+  command = plan
+
+  variables {
+    enable_load_tests                       = true
+    load_tests_export_gcs_bucket            = "results"
+    load_tests_export_namespace             = "ecs-ci-1"
+    load_tests_export_gcp_credential_config = "{\"type\":\"external_account\"}"
+  }
+
+  assert {
+    condition     = output.load_tests_series_export == "results/ecs-ci/ecs-ci-1"
+    error_message = "The overlay should forward the export settings to the monitoring module"
+  }
+}
+
+run "series_export_off_by_default" {
+  command = plan
+
+  variables {
+    enable_load_tests = true
+  }
+
+  assert {
+    condition     = output.load_tests_series_export == null
+    error_message = "No series should leave the VPC unless load_tests_export_gcs_bucket is set"
+  }
+}

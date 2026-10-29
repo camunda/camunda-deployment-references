@@ -56,6 +56,11 @@ output "prometheus_endpoint" {
   description = "In-VPC base URL of the load test Prometheus, or null when enable_load_tests is false."
 }
 
+output "load_tests_series_export" {
+  value       = one(module.monitoring[*].series_export)
+  description = "Where the load test series are exported, as <bucket>/<prefix>/<namespace>, with a UTC date directory inserted before <namespace>, or null when the export or the overlay is off."
+}
+
 output "load_generator_log_group" {
   value       = one(module.load_generator[*].log_group_name)
   description = "CloudWatch log group carrying the load generator's throughput lines, or null when enable_load_tests is false."
