@@ -1,0 +1,70 @@
+---
+name: Encrypted artifact upload
+description: >
+    Pack files into a tar.gz archive, encrypt it with OpenSSL AES-256-CBC (PBKDF2, same parameters as
+    internal-generic-encrypt-export) and upload it as a workflow artifact. The repository is public, so
+    every artifact is downloadable by any GitHub user. Nothing is uploaded when the key is empty.
+    Decrypt with: openssl enc -d -aes-256-cbc -pbkdf2 -in artifact.tar.gz.enc -pass env:CI_ENCRYPTION_KEY | tar -xz
+inputs:
+    name:
+        description: Artifact name
+        required: true
+    path:
+        description: Newline-separated files, directories or glob patterns to pack
+        required: true
+    encryption-key:
+        description: Encryption key (CI_ENCRYPTION_KEY from Vault)
+        required: true
+    retention-days:
+        description: Artifact retention in days
+        required: false
+        default: '7'
+runs:
+    using: composite
+    steps:
+        - name: 🔐 Pack and encrypt artifact
+          id: pack
+          shell: bash
+          run: |
+              set -euo pipefail
+              umask 077
+
+              if [[ -z "${INPUTS_ENCRYPTION_KEY}" ]]; then
+                echo "::warning::No encryption key; skipping upload of artifact '${INPUTS_NAME}' to avoid publishing it in clear text."
+                exit 0
+              fi
+
+              shopt -s nullglob
+              files=()
+              while IFS= read -r pattern; do
+                [[ -z "$pattern" ]] && continue
+                # shortcut: word-splits patterns, so paths with spaces break; quote-aware globbing if a caller needs it.
+                # shellcheck disable=SC2206 # glob expansion is intended
+                matches=($pattern)
+                files+=("${matches[@]}")
+              done <<< "${INPUTS_PATH}"
+
+              if [[ ${#files[@]} -eq 0 ]]; then
+                echo "::warning::No files found for artifact '${INPUTS_NAME}'; nothing to upload."
+                exit 0
+              fi
+
+              out_dir="${RUNNER_TEMP}/encrypted-artifact-$(uuidgen)"
+              mkdir -p "$out_dir"
+              out_file="${out_dir}/artifact.tar.gz.enc"
+              tar -czf - "${files[@]}" \
+                | openssl enc -aes-256-cbc -salt -pbkdf2 -pass env:INPUTS_ENCRYPTION_KEY -out "$out_file"
+
+              echo "file=${out_file}" >> "$GITHUB_OUTPUT"
+          env:
+              INPUTS_NAME: ${{ inputs.name }}
+              INPUTS_PATH: ${{ inputs.path }}
+              INPUTS_ENCRYPTION_KEY: ${{ inputs.encryption-key }}
+
+        - name: 📤 Upload encrypted artifact
+          if: steps.pack.outputs.file != ''
+          uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+          with:
+              name: ${{ inputs.name }}
+              path: ${{ steps.pack.outputs.file }}
+              retention-days: ${{ inputs.retention-days }}
