@@ -110,7 +110,7 @@ variable "rdbms_extra_jdbc_params" {
 variable "connectors_image" {
   type = string
   # TODO: [release-duty] replace SNAPSHOT with a published 8.11 alpha or stable tag.
-  default     = "camunda/connectors-bundle:8.11-SNAPSHOT"
+  default     = "camunda/connectors-bundle:8.11.0-alpha1"
   description = "Container image for the Camunda connectors-bundle tasks. Separate from camunda_image because connectors ship as a distinct artifact from the orchestration cluster."
 }
 
