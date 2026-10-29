@@ -310,6 +310,9 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  redact-values: |
+                      ${{ steps.secrets.outputs.S3_BACKUP_ACCESS_KEY }}
+                      ${{ steps.secrets.outputs.S3_BACKUP_SECRET_KEY }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
                   artifact-suffix: cluster-0
 
@@ -317,6 +320,9 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  redact-values: |
+                      ${{ steps.secrets.outputs.S3_BACKUP_ACCESS_KEY }}
+                      ${{ steps.secrets.outputs.S3_BACKUP_SECRET_KEY }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   artifact-suffix: cluster-1
 
