@@ -151,7 +151,13 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        permissions:
+            contents: read
+            id-token: write
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -265,6 +271,14 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
                   artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}
 
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.distro.name }}/${{ matrix.scenario.name }}
+                  build_status: ${{ job.status }}
+
     load-tests:
         name: Assert the load generator drives the cluster - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
         runs-on: ubuntu-latest
@@ -277,7 +291,13 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
+        permissions:
+            contents: read
+            id-token: write
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Import artifact encryption key
@@ -428,6 +448,14 @@ jobs:
                   aws-region: ${{ env.AWS_REGION }}
                   artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
 
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.distro.name }}/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
+                  build_status: ${{ job.status }}
+
     cleanup-clusters:
         name: Cleanup ECS cluster
         if: always() && needs.clusters-info.result != 'skipped'
@@ -441,7 +469,13 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        permissions:
+            contents: read
+            id-token: write
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
@@ -505,6 +539,14 @@ jobs:
                   mode: release
                   pool: aws-ecs-single-region-fargate-load
                   leg: ${{ matrix.scenario.name }}
+
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.distro.name }}/${{ matrix.scenario.name }}
+                  build_status: ${{ job.status }}
 
     report-success:
         name: Report success
