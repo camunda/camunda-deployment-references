@@ -861,6 +861,11 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  redact-values: |
+                      ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                      ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+                      ${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}
+                      ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_0 || format('camunda-{0}', env.CLUSTER_0) }}
                   context: ${{ env.CLUSTER_0 }}
                   artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-cluster-0
@@ -869,6 +874,11 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  redact-values: |
+                      ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                      ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+                      ${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}
+                      ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 || format('camunda-{0}', env.CLUSTER_1) }}
                   context: ${{ env.CLUSTER_1 }}
                   artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-cluster-1

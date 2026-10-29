@@ -464,6 +464,9 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  redact-values: |
+                      ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
+                      ${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   context: ${{ env.CLUSTER_NAME }}
                   artifact-suffix: ${{ env.CLUSTER_NAME }}
