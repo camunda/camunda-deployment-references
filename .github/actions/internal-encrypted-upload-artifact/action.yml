@@ -41,7 +41,10 @@ runs:
                 # shortcut: word-splits patterns, so paths with spaces break; quote-aware globbing if a caller needs it.
                 # shellcheck disable=SC2206 # glob expansion is intended
                 matches=($pattern)
-                files+=("${matches[@]}")
+                # nullglob drops unmatched globs but keeps literal paths, so check existence.
+                for m in ${matches[@]+"${matches[@]}"}; do
+                  [[ -e "$m" ]] && files+=("$m")
+                done
               done <<< "${INPUTS_PATH}"
 
               if [[ ${#files[@]} -eq 0 ]]; then
