@@ -9,6 +9,7 @@ on:
         - cron: 0 3 * * 2 # Runs at 3 AM on Tuesday
     pull_request:
         paths:
+            - .github/actions/internal-encrypted-upload-artifact/**
             - .github/workflows/aws_openshift_rosa_hcp_dual_region_tests.yml
             - .github/workflows-config/aws-openshift-rosa-hcp-dual-region/test_matrix.yml
             - .tool-versions
@@ -821,6 +822,7 @@ jobs:
               timeout-minutes: 60
               uses: ./.github/actions/internal-multi-region-tests
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   cluster-0-name: ${{ env.CLUSTER_0 }}
                   cluster-1-name: ${{ env.CLUSTER_1 }}
                   cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
@@ -846,6 +848,7 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   redact-values: |
                       ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                       ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
@@ -859,6 +862,7 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   redact-values: |
                       ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                       ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
@@ -1003,6 +1007,7 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
                   secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
 
             - name: Configure AWS CLI
@@ -1032,6 +1037,7 @@ jobs:
                   CLUSTER_0_AWS_REGION: ${{ env.CLUSTER_0_AWS_REGION }}
                   CLUSTER_1_AWS_REGION: ${{ env.CLUSTER_1_AWS_REGION }}
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0

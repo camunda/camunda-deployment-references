@@ -9,6 +9,7 @@ on:
         - cron: 0 3 * * 1 # Runs at 3 AM on Monday
     pull_request:
         paths:
+            - .github/actions/internal-encrypted-upload-artifact/**
             - .github/workflows/aws_openshift_rosa_hcp_single_region_tests.yml
             - .github/workflows-config/aws-openshift-rosa-hcp-single-region/test_matrix.yml
             - .tool-versions
@@ -848,6 +849,7 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   redact-values: |
                       ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
                       ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
@@ -945,6 +947,7 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
                   secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
 
             - name: Configure AWS CLI
@@ -972,6 +975,7 @@ jobs:
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
