@@ -25,6 +25,10 @@ jobs:
               github.event.action == 'closed' ||
               startsWith(github.event.label.name, 'backport ')
             )
+        permissions:
+            contents: write
+            pull-requests: write
+            id-token: write # required for Vault JWT login
         steps:
             # GITHUB_TOKEN cannot push anything under .github/workflows/, whatever permissions
             # the workflow declares -- `workflows` is an App/PAT scope, not a GITHUB_TOKEN one.

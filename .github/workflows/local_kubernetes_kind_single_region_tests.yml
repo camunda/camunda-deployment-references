@@ -96,6 +96,7 @@ jobs:
         permissions:
             contents: read
             pull-requests: write # internal-helm-deprecation-check upserts a comment on the pull request
+            id-token: write # required for Vault JWT login
         steps:
             # Telemetry must never block the job: a monitoring outage may cost a
             # duration metric, never a teardown.
@@ -495,6 +496,9 @@ jobs:
         needs:
             - triage
             - report-success
+        permissions:
+            contents: read
+            id-token: write # required for Vault JWT login
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification

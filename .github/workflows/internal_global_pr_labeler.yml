@@ -25,6 +25,7 @@ jobs:
         permissions:
             contents: read
             pull-requests: write # only allow updates of the tags
+            id-token: write # required for Vault JWT login
         runs-on: ubuntu-latest
         steps:
             - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7
