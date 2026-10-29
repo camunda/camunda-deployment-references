@@ -68,6 +68,8 @@ func TestFailbackCompletes(t *testing.T) {
 		{"task state unreadable", "describe-fails", "could not be read", nil, true, true},
 		// The script dies before it saves the task ARN, as on an interruption.
 		{"run-task output lost", "run-task-dies", "", nil, true, true},
+		// The wipe target must never come from a default.
+		{"failed region missing", "no-region", "--failed-region 0|1 is required", nil, true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			// Given: offline CLI and management API responses for one failback.
@@ -155,7 +157,11 @@ if [ -f "$FAKE_DIR/scaledup" ]; then cat "$FAKE_DIR/restored.json"; else cat "$F
 				}
 			}
 
-			cmd := exec.Command("bash", append([]string{filepath.Join(fake, "failback.sh")}, tc.args...)...)
+			args := []string{filepath.Join(fake, "failback.sh")}
+			if tc.mode != "no-region" {
+				args = append(args, "--failed-region", "0")
+			}
+			cmd := exec.Command("bash", append(args, tc.args...)...)
 			cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake, "MODE="+tc.mode,
 				"REGION_0=eu-west-2", "REGION_1=eu-west-3", "CLUSTER_0=a", "CLUSTER_1=b",
 				"ALB_ENDPOINT_0=a", "ALB_ENDPOINT_1=b", "ADMIN_USER=admin", "ADMIN_PASS=test",
