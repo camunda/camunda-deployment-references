@@ -684,6 +684,8 @@ jobs:
               with:
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+                  redact-values: |
+                      ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
 
     cleanup-clusters:
         name: Cleanup ROSA clusters
