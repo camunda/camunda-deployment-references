@@ -9,6 +9,7 @@ This GitHub Action automates the deletion of generic terraform resources using a
 
 | name | description | required | default |
 | --- | --- | --- | --- |
+| `encryption-key` | <p>Key used to encrypt the uploaded artifact (CI<em>ENCRYPTION</em>KEY). Without it the artifact is not uploaded.</p> | `false` | `""` |
 | `tf-bucket` | <p>Bucket containing the resources</p> | `true` | `""` |
 | `tf-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION</p> | `false` | `""` |
 | `tf-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
@@ -40,6 +41,12 @@ This action is a `composite` action.
 ```yaml
 - uses: camunda/camunda-deployment-references/.github/actions/aws-generic-terraform-cleanup@main
   with:
+    encryption-key:
+    # Key used to encrypt the uploaded artifact (CI_ENCRYPTION_KEY). Without it the artifact is not uploaded.
+    #
+    # Required: false
+    # Default: ""
+
     tf-bucket:
     # Bucket containing the resources
     #

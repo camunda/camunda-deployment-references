@@ -8,6 +8,7 @@ Collect debug info from failed pods (CrashLoopBackOff, Error, not ready) and upl
 
 | name | description | required | default |
 | --- | --- | --- | --- |
+| `encryption-key` | <p>Key used to encrypt the uploaded artifact (CI<em>ENCRYPTION</em>KEY). Without it the artifact is not uploaded.</p> | `false` | `""` |
 | `namespace` | <p>The Kubernetes namespace to inspect</p> | `true` | `""` |
 | `context` | <p>The kubectl context to use (for multi-cluster setups). If empty, the current context is used.</p> | `false` | `""` |
 | `log-tail-lines` | <p>Number of log tail lines shown inline in the CI output; the artifact keeps up to artifact-log-tail-lines per container</p> | `false` | `200` |
@@ -25,6 +26,12 @@ This action is a `composite` action.
 ```yaml
 - uses: camunda/camunda-deployment-references/.github/actions/internal-debug-failed-pods@main
   with:
+    encryption-key:
+    # Key used to encrypt the uploaded artifact (CI_ENCRYPTION_KEY). Without it the artifact is not uploaded.
+    #
+    # Required: false
+    # Default: ""
+
     namespace:
     # The Kubernetes namespace to inspect
     #
