@@ -123,7 +123,13 @@ jobs:
             # reaching a single test. Unique names make each run start clean;
             # leftovers are swept by age by the daily cleanup workflow.
             CLUSTER_NAME: ${{ matrix.distro.clusterName }}
+        permissions:
+            contents: read
+            id-token: write
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -367,6 +373,14 @@ jobs:
               working-directory: aws/kubernetes/${{ env.REF_ARCH }}/test
               run: go test --count=1 -v -timeout 30m -run TestMultiRegionCleanup || true
 
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.distro.name }}/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
+                  build_status: ${{ job.status }}
+
     # Teardown owns its own job on purpose. As a step of `integration-tests` it
     # shared that job's lifetime: when the job hit its own `timeout-minutes`, or
     # when the run was cancelled, the runner was killed and `if: always()` never
@@ -393,7 +407,13 @@ jobs:
             matrix: ${{ fromJson(needs.clusters-info.outputs.platform-matrix) }}
         env:
             CLUSTER_NAME: ${{ matrix.distro.clusterName }}
+        permissions:
+            contents: read
+            id-token: write
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -484,6 +504,14 @@ jobs:
                   mode: release
                   pool: aws-eks-multi-region-rdbms
                   leg: ${{ matrix.distro.name }}
+
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.distro.name }}/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
+                  build_status: ${{ job.status }}
 
     report-failure:
         if: failure() && github.event_name == 'schedule'
