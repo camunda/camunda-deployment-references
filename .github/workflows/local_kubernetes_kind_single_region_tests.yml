@@ -18,7 +18,6 @@ on:
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-integration-tests/**
-            - .github/actions/observe-build-status/**
             - generic/kubernetes/single-region/tests/integration/**
             - .tool-versions
             - generic/kubernetes/operator-based/postgresql/**
@@ -98,7 +97,8 @@ jobs:
             pull-requests: write # comments and labels on the pull request
             id-token: write # required for Vault JWT login
         steps:
-            - uses: camunda/infra-global-github-actions/start-build-monitor@85dbb218176a20bbedac15278ac3ff4d86672db4 # main
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
 
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -481,16 +481,13 @@ jobs:
                   echo "Cleaning up Kind cluster: ${{ env.CLUSTER_NAME }}"
                   kind delete cluster --name "${{ env.CLUSTER_NAME }}" || true
 
-            - name: Observe build status
+            - name: Submit build status
               if: always()
               continue-on-error: true
-              uses: ./.github/actions/observe-build-status
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
               with:
-                  job_name: ${{ github.job }}/${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+                  job_name_override: ${{ github.job }}/${{ matrix.scenario.name }}-${{ matrix.declination.name }}
                   build_status: ${{ job.status }}
-                  secret_vault_address: ${{ secrets.VAULT_ADDR }}
-                  secret_vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
-                  secret_vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
 
     report-success:
         name: Report success
