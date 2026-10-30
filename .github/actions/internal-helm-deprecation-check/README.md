@@ -49,8 +49,9 @@ See: https://github.com/camunda/camunda-platform-helm/issues/4564
 | `comment-section-key` | <p>Optional extra identifier mixed into the PR comment section ID. Use this when the same workflow + job + release-name + namespace tuple runs more than once (e.g. across matrix entries) and each run should produce its own section in the shared PR comment.</p> | `false` | `""` |
 | `github-token` | <p>Token used to read and update the shared PR comment. Defaults to the workflow-provided <code>GITHUB_TOKEN</code>. The token needs <code>pull-requests: write</code> permission for the comment to be posted. Beware that a job-level <code>permissions:</code> block REPLACES the workflow-level one, so it must repeat every permission the job needs. On a <code>pull_request</code> run from a fork the <code>GITHUB_TOKEN</code> is read-only whatever the workflow requests, so the comment is skipped; <code>pull_request_target</code> runs in the base context and is unaffected. A denied token is reported as an <code>::error::</code> annotation and the comment is skipped; a transient API failure is retried and then reported as a <code>::warning::</code>. Neither ever fails the job.</p> | `false` | `${{ github.token }}` |
 | `vault-addr` | <p>HashiCorp Vault address. Required only when posting a Slack alert on scheduled runs. Pass secrets.VAULT_ADDR from the caller.</p> | `false` | `""` |
-| `vault-role-id` | <p>HashiCorp Vault AppRole role id. Required only when posting a Slack alert on scheduled runs. Pass secrets.VAULT<em>ROLE</em>ID from the caller.</p> | `false` | `""` |
-| `vault-secret-id` | <p>HashiCorp Vault AppRole secret id. Required only when posting a Slack alert on scheduled runs. Pass secrets.VAULT<em>SECRET</em>ID from the caller.</p> | `false` | `""` |
+| `vault-jwt-path` | <p>HashiCorp Vault auth backend path for GitHub OIDC (JWT) login. Required only when posting a Slack alert on scheduled runs. Pass secrets.VAULT<em>JWT</em>PATH from the caller.</p> | `false` | `""` |
+| `vault-jwt-role` | <p>HashiCorp Vault role for GitHub OIDC (JWT) login. Required only when posting a Slack alert on scheduled runs. Pass secrets.VAULT<em>JWT</em>ROLE from the caller.</p> | `false` | `""` |
+| `vault-jwt-audience` | <p>HashiCorp Vault GitHub OIDC audience for the JWT login. Required only when posting a Slack alert on scheduled runs. Pass secrets.VAULT<em>JWT</em>AUDIENCE from the caller.</p> | `false` | `""` |
 | `slack-channel-id` | <p>Slack channel id to alert when findings are detected on a (real or simulated) scheduled run. When left empty, the action defaults to the standard infraex channels:</p> <ul> <li><code>C076N4G1162</code> (infraex-alerts) on real schedule events</li> <li><code>C07E4FF6YMB</code> (infraex-test)   on every other event (simulated schedules via <code>schedules/*</code> head<em>ref,  workflow</em>dispatch, etc.) Set explicitly to override.</li> </ul> | `false` | `""` |
 | `slack-mention-people` | <p>Slack handles or group mentions to include in the scheduled-run alert (e.g. <code>@smx-medic</code>). Only used when the caller workflow advertises <code>IS_SCHEDULE=true</code> (real or simulated schedule).</p> | `false` | `""` |
 
@@ -145,16 +146,23 @@ This action is a `composite` action.
     # Required: false
     # Default: ""
 
-    vault-role-id:
-    # HashiCorp Vault AppRole role id. Required only when posting a
-    # Slack alert on scheduled runs. Pass secrets.VAULT_ROLE_ID from the caller.
+    vault-jwt-path:
+    # HashiCorp Vault auth backend path for GitHub OIDC (JWT) login. Required only when posting a Slack
+    # alert on scheduled runs. Pass secrets.VAULT_JWT_PATH from the caller.
     #
     # Required: false
     # Default: ""
 
-    vault-secret-id:
-    # HashiCorp Vault AppRole secret id. Required only when posting a
-    # Slack alert on scheduled runs. Pass secrets.VAULT_SECRET_ID from the caller.
+    vault-jwt-role:
+    # HashiCorp Vault role for GitHub OIDC (JWT) login. Required only when posting a Slack
+    # alert on scheduled runs. Pass secrets.VAULT_JWT_ROLE from the caller.
+    #
+    # Required: false
+    # Default: ""
+
+    vault-jwt-audience:
+    # HashiCorp Vault GitHub OIDC audience for the JWT login. Required only when posting a Slack
+    # alert on scheduled runs. Pass secrets.VAULT_JWT_AUDIENCE from the caller.
     #
     # Required: false
     # Default: ""

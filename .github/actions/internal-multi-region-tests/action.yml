@@ -80,11 +80,15 @@ inputs:
         description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
         required: false
         default: ''
-    vault-role-id:
+    vault-jwt-path:
         description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
         required: false
         default: ''
-    vault-secret-id:
+    vault-jwt-role:
+        description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
+        required: false
+        default: ''
+    vault-jwt-audience:
         description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
         required: false
         default: ''
@@ -248,8 +252,9 @@ runs:
               # TODO: [release-duty] remove local-chart plumbing on the cut branch.
               local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
-              vault-role-id: ${{ inputs.vault-role-id }}
-              vault-secret-id: ${{ inputs.vault-secret-id }}
+              vault-jwt-path: ${{ inputs.vault-jwt-path }}
+              vault-jwt-role: ${{ inputs.vault-jwt-role }}
+              vault-jwt-audience: ${{ inputs.vault-jwt-audience }}
               slack-channel-id: ${{ inputs.slack-channel-id }}
               slack-mention-people: ${{ inputs.slack-mention-people }}
 
@@ -264,8 +269,9 @@ runs:
               # TODO: [release-duty] remove local-chart plumbing on the cut branch.
               local-chart-path: ${{ env.HELM_CHART_NAME }}
               vault-addr: ${{ inputs.vault-addr }}
-              vault-role-id: ${{ inputs.vault-role-id }}
-              vault-secret-id: ${{ inputs.vault-secret-id }}
+              vault-jwt-path: ${{ inputs.vault-jwt-path }}
+              vault-jwt-role: ${{ inputs.vault-jwt-role }}
+              vault-jwt-audience: ${{ inputs.vault-jwt-audience }}
               slack-channel-id: ${{ inputs.slack-channel-id }}
               slack-mention-people: ${{ inputs.slack-mention-people }}
 
