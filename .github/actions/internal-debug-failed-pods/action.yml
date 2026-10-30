@@ -2,6 +2,10 @@
 name: Debug failed Pods
 description: Collect debug info from failed pods (CrashLoopBackOff, Error, not ready) and upload logs and cluster state as an artifact
 inputs:
+    encryption-key:
+        description: Key used to encrypt the uploaded artifact (CI_ENCRYPTION_KEY). Without it the artifact is not uploaded.
+        required: false
+        default: ''
     namespace:
         description: The Kubernetes namespace to inspect
         required: true
@@ -17,6 +21,11 @@ inputs:
         description: Per-container log line cap for the artifact dump and root-cause scan (bounds noisy logs)
         required: false
         default: '100000'
+    redact-values:
+        description: Newline-separated secret values to replace with ***REDACTED*** in every dumped file before upload (Actions log masking does not apply
+            to artifacts)
+        required: false
+        default: ''
     artifact-suffix:
         description: Suffix appended to the artifact name (e.g. scenario/declination identifier)
         required: false
@@ -266,16 +275,25 @@ runs:
                 done
               done || true
 
+              # Pod logs (e.g. chart test jobs) can echo secrets; scrub the given values from every file.
+              while IFS= read -r secret_value; do
+                [[ -z "$secret_value" ]] && continue
+                SECRET_VALUE="$secret_value" find "$DUMP_DIR" -type f -exec \
+                  perl -pi -e 's/\Q$ENV{SECRET_VALUE}\E/***REDACTED***/g' {} + || true
+              done <<< "${INPUTS_REDACT_VALUES}"
+
               echo "dump-dir=${DUMP_DIR}" >> "$GITHUB_OUTPUT"
           id: dump
           env:
               INPUTS_NAMESPACE: ${{ inputs.namespace }}
               INPUTS_ARTIFACT_LOG_TAIL_LINES: ${{ inputs.artifact-log-tail-lines }}
               INPUTS_CONTEXT: ${{ inputs.context }}
+              INPUTS_REDACT_VALUES: ${{ inputs.redact-values }}
 
         - name: 📤 Upload Pod debug dump
-          uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+          uses: ./.github/actions/internal-encrypted-upload-artifact
           with:
+              encryption-key: ${{ inputs.encryption-key }}
               name: pod-debug-dump${{ inputs.artifact-suffix != '' && format('-{0}', inputs.artifact-suffix) || '' }}
               retention-days: 7
               path: ${{ steps.dump.outputs.dump-dir }}

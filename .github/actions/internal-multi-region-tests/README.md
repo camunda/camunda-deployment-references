@@ -8,6 +8,7 @@ Run tests across multiple regions
 
 | name | description | required | default |
 | --- | --- | --- | --- |
+| `encryption-key` | <p>Key used to encrypt the uploaded artifact (CI<em>ENCRYPTION</em>KEY). Without it the artifact is not uploaded.</p> | `false` | `""` |
 | `cluster-0-namespace` | <p>Camunda namespace for Cluster 0</p> | `true` | `camunda-platform` |
 | `cluster-1-namespace` | <p>Camunda namespace for Cluster 1</p> | `true` | `camunda-platform` |
 | `helm-version` | <p>Helm version to test</p> | `true` | `""` |
@@ -41,6 +42,12 @@ This action is a `composite` action.
 ```yaml
 - uses: camunda/camunda-deployment-references/.github/actions/internal-multi-region-tests@main
   with:
+    encryption-key:
+    # Key used to encrypt the uploaded artifact (CI_ENCRYPTION_KEY). Without it the artifact is not uploaded.
+    #
+    # Required: false
+    # Default: ""
+
     cluster-0-namespace:
     # Camunda namespace for Cluster 0
     #

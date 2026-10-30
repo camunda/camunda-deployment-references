@@ -121,6 +121,7 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
                   secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
@@ -464,6 +465,10 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+                  redact-values: |
+                      ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
+                      ${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   context: ${{ env.CLUSTER_NAME }}
                   artifact-suffix: ${{ env.CLUSTER_NAME }}

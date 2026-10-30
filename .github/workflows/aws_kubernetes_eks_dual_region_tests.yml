@@ -45,6 +45,7 @@ on:
             - generic/kubernetes/operator-based/elasticsearch/**
             - .tool-versions
             - .github/actions/internal-multi-region-tests/**
+            - .github/actions/internal-encrypted-upload-artifact/**
             - .github/actions/internal-helm-deprecation-check/**
             - .github/actions/internal-camunda-ci-credentials/**
 # limit to a single execution per actor of this workflow
@@ -446,6 +447,7 @@ jobs:
               timeout-minutes: 60
               uses: ./.github/actions/internal-multi-region-tests
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   cluster-0-name: ${{ env.CLUSTER_0 }}
                   cluster-1-name: ${{ env.CLUSTER_1 }}
                   cluster-0-namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
@@ -467,6 +469,10 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+                  redact-values: |
+                      ${{ env.CAMUNDA_BASIC_AUTH_PASSWORD }}
+                      ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
                   context: ${{ env.CLUSTER_NAME }}-london
                   artifact-suffix: ${{ env.CLUSTER_NAME }}-london
@@ -475,6 +481,10 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+                  redact-values: |
+                      ${{ env.CAMUNDA_BASIC_AUTH_PASSWORD }}
+                      ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   context: ${{ env.CLUSTER_NAME }}-paris
                   artifact-suffix: ${{ env.CLUSTER_NAME }}-paris
@@ -535,6 +545,19 @@ jobs:
             ################## Checkout ##################
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+            - name: Import artifact encryption key
+              id: artifact-key
+              continue-on-error: true # never block cleanup; upload is skipped without a key
+              if: env.CLEANUP_CLUSTERS == 'true'
+              uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@06dbc3c3960fe23138de789e3bf80065fe6c52e0 # 2.3.11
@@ -614,6 +637,7 @@ jobs:
               if: always() && env.CLEANUP_CLUSTERS == 'true'
               timeout-minutes: 125
               with:
+                  encryption-key: ${{ steps.artifact-key.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
