@@ -80,11 +80,15 @@ inputs:
         description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
         required: false
         default: ''
-    vault-role-id:
+    vault-jwt-path:
         description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
         required: false
         default: ''
-    vault-secret-id:
+    vault-jwt-role:
+        description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
+        required: false
+        default: ''
+    vault-jwt-audience:
         description: Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
         required: false
         default: ''
@@ -198,8 +202,9 @@ runs:
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
               vault-addr: ${{ inputs.vault-addr }}
-              vault-role-id: ${{ inputs.vault-role-id }}
-              vault-secret-id: ${{ inputs.vault-secret-id }}
+              vault-jwt-path: ${{ inputs.vault-jwt-path }}
+              vault-jwt-role: ${{ inputs.vault-jwt-role }}
+              vault-jwt-audience: ${{ inputs.vault-jwt-audience }}
               slack-channel-id: ${{ inputs.slack-channel-id }}
               slack-mention-people: ${{ inputs.slack-mention-people }}
 
@@ -212,8 +217,9 @@ runs:
               exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
               vault-addr: ${{ inputs.vault-addr }}
-              vault-role-id: ${{ inputs.vault-role-id }}
-              vault-secret-id: ${{ inputs.vault-secret-id }}
+              vault-jwt-path: ${{ inputs.vault-jwt-path }}
+              vault-jwt-role: ${{ inputs.vault-jwt-role }}
+              vault-jwt-audience: ${{ inputs.vault-jwt-audience }}
               slack-channel-id: ${{ inputs.slack-channel-id }}
               slack-mention-people: ${{ inputs.slack-mention-people }}
 
