@@ -15,6 +15,7 @@ on:
             - aws/compute/ec2-single-region*/**
             - '!aws/compute/ec2-single-region/terraform/*/test/golden/**'
             - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/internal-encrypted-upload-artifact/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/observe-build-status/**
 
@@ -67,6 +68,20 @@ jobs:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
+            - name: Import artifact encryption key
+              id: artifact-key
+              # A key import failure must not block infrastructure teardown.
+              continue-on-error: true
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@06dbc3c3960fe23138de789e3bf80065fe6c52e0 # 2.3.11
 
@@ -95,6 +110,7 @@ jobs:
               timeout-minutes: 125
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
+                  encryption-key: ${{ steps.artifact-key.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
@@ -114,6 +130,7 @@ jobs:
               timeout-minutes: 125
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
+                  encryption-key: ${{ steps.artifact-key.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0 # the previous step alters the age and resets it to 0

@@ -20,6 +20,7 @@ on:
             - '!azure/kubernetes/aks-single-region-rdbms/test/golden/**'
             - .github/actions/azure-kubernetes-aks-single-region-create/**
             - .github/actions/azure-kubernetes-aks-single-region-cleanup/**
+            - .github/actions/internal-encrypted-upload-artifact/**
             - .github/actions/azure-kubernetes-ingress-setup/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/actions/internal-clean-namespace/**
@@ -364,8 +365,9 @@ jobs:
 
             - name: 📤 Upload Azure Activity Log dump
               if: failure() && steps.azure_activity_log.outputs.dump-dir != ''
-              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+              uses: ./.github/actions/internal-encrypted-upload-artifact
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   name: azure-activity-log-${{ matrix.distro.name }}-${{ matrix.scenario.name }}
                   path: ${{ steps.azure_activity_log.outputs.dump-dir }}
                   retention-days: 7
@@ -991,6 +993,11 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+                  redact-values: |
+                      ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                      ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+                      ${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   artifact-suffix: ${{ matrix.scenario.name }}-${{ matrix.declination.name }}
 
@@ -1069,6 +1076,7 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
                   secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
                       secret/data/products/infrastructure-experience/ci/common AZURE_CLIENT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_TENANT_ID;
                       secret/data/products/infrastructure-experience/ci/common AZURE_SUBSCRIPTION_ID;
@@ -1119,6 +1127,7 @@ jobs:
                   ARM_TENANT_ID: ${{ steps.secrets.outputs.AZURE_TENANT_ID }}
                   ARM_SUBSCRIPTION_ID: ${{ steps.secrets.outputs.AZURE_SUBSCRIPTION_ID }}
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0

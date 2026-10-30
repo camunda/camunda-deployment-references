@@ -8,6 +8,7 @@ Collect debug info from an ECS cluster (services, tasks, stopped reasons, CloudW
 
 | name | description | required | default |
 | --- | --- | --- | --- |
+| `encryption-key` | <p>Key used to encrypt the uploaded artifact (CI<em>ENCRYPTION</em>KEY). Without it the artifact is not uploaded.</p> | `false` | `""` |
 | `cluster-name` | <p>The ECS cluster name or ARN to inspect</p> | `true` | `""` |
 | `aws-region` | <p>The AWS region the cluster lives in</p> | `true` | `""` |
 | `log-group-prefix` | <p>CloudWatch log group name prefix to fetch logs from. If empty, defaults to <code>/ecs/&lt;cluster-name without trailing -cluster&gt;</code>.</p> | `false` | `""` |
@@ -25,6 +26,12 @@ This action is a `composite` action.
 ```yaml
 - uses: camunda/camunda-deployment-references/.github/actions/internal-debug-failed-ecs-tasks@main
   with:
+    encryption-key:
+    # Key used to encrypt the uploaded artifact (CI_ENCRYPTION_KEY). Without it the artifact is not uploaded.
+    #
+    # Required: false
+    # Default: ""
+
     cluster-name:
     # The ECS cluster name or ARN to inspect
     #
