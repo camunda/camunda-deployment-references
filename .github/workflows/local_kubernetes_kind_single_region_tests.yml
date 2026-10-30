@@ -16,6 +16,7 @@ on:
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-helm-deprecation-check/**
+            - .github/actions/internal-encrypted-upload-artifact/**
             - .github/actions/camunda-smoke-test/**
             - .github/actions/internal-integration-tests/**
             - .github/actions/observe-build-status/**
@@ -124,6 +125,7 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
                   secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_USER;
                       secret/data/products/infrastructure-experience/ci/common DOCKERHUB_PASSWORD;
                       secret/data/products/infrastructure-experience/ci/common CI_CAMUNDA_USER_TEST_CLIENT_ID;
@@ -445,6 +447,10 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-pods
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+                  redact-values: |
+                      ${{ steps.local-credentials.outputs.LOCAL_CLIENT_SECRET }}
+                      ${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   # kind registers its kubectl context as `kind-<cluster name>`, so the
                   # bare CLUSTER_NAME makes every kubectl call here fail with
