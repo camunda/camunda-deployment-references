@@ -61,7 +61,13 @@ jobs:
                 scenario:
                     - name: eks-dual-region
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
@@ -141,6 +147,14 @@ jobs:
                   max-age-hours: 0 # the previous step alters the age and resets it to 0
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: clusters
+
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.scenario.name }}
+                  build_status: ${{ job.status }}
 
     report-failure:
         name: Report failures
