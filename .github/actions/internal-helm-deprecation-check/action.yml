@@ -105,16 +105,22 @@ inputs:
             alert on scheduled runs. Pass secrets.VAULT_ADDR from the caller.
         required: false
         default: ''
-    vault-role-id:
+    vault-jwt-path:
         description: |
-            HashiCorp Vault AppRole role id. Required only when posting a
-            Slack alert on scheduled runs. Pass secrets.VAULT_ROLE_ID from the caller.
+            HashiCorp Vault auth backend path for GitHub OIDC (JWT) login. Required only when posting a Slack
+            alert on scheduled runs. Pass secrets.VAULT_JWT_PATH from the caller.
         required: false
         default: ''
-    vault-secret-id:
+    vault-jwt-role:
         description: |
-            HashiCorp Vault AppRole secret id. Required only when posting a
-            Slack alert on scheduled runs. Pass secrets.VAULT_SECRET_ID from the caller.
+            HashiCorp Vault role for GitHub OIDC (JWT) login. Required only when posting a Slack
+            alert on scheduled runs. Pass secrets.VAULT_JWT_ROLE from the caller.
+        required: false
+        default: ''
+    vault-jwt-audience:
+        description: |
+            HashiCorp Vault GitHub OIDC audience for the JWT login. Required only when posting a Slack
+            alert on scheduled runs. Pass secrets.VAULT_JWT_AUDIENCE from the caller.
         required: false
         default: ''
     slack-channel-id:
@@ -152,8 +158,9 @@ runs:
           if: |
               env.IS_SCHEDULE == 'true'
               && inputs.vault-addr != ''
-              && inputs.vault-role-id != ''
-              && inputs.vault-secret-id != ''
+              && inputs.vault-jwt-path != ''
+              && inputs.vault-jwt-role != ''
+              && inputs.vault-jwt-audience != ''
           shell: bash
           env:
               # renovate: datasource=github-tags depName=cli/cli
@@ -585,16 +592,18 @@ runs:
               && env.IS_SCHEDULE == 'true'
               && steps.report-findings.outputs.findings-present == 'true'
               && inputs.vault-addr != ''
-              && inputs.vault-role-id != ''
-              && inputs.vault-secret-id != ''
+              && inputs.vault-jwt-path != ''
+              && inputs.vault-jwt-role != ''
+              && inputs.vault-jwt-audience != ''
           # report-warning-on-slack posts an advisory (non-failure) Slack message, so
           # non-blocking Helm drift on scheduled stable/* runs no longer looks like a
           # red "STABLE BRANCH FAILURE" alert pointing at a green run.
-          uses: camunda/infraex-common-config/.github/actions/report-warning-on-slack@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
+          uses: camunda/infraex-common-config/.github/actions/report-warning-on-slack@e2923304b40dfc031b3f595bcc1445e90c981adb # 3.0.0
           with:
               vault_addr: ${{ inputs.vault-addr }}
-              vault_role_id: ${{ inputs.vault-role-id }}
-              vault_secret_id: ${{ inputs.vault-secret-id }}
+              vault_jwt_path: ${{ inputs.vault-jwt-path }}
+              vault_jwt_role: ${{ inputs.vault-jwt-role }}
+              vault_jwt_audience: ${{ inputs.vault-jwt-audience }}
               slack_channel_id: ${{ inputs.slack-channel-id != '' && inputs.slack-channel-id || (github.event_name == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB')
                   }}
               slack_mention_people: ${{ inputs.slack-mention-people }}
