@@ -27,8 +27,9 @@ Run tests across multiple regions
 | `exclude-deprecation-patterns` | <p>Newline-separated list of fixed strings to exclude from deprecation warnings. Passed through to internal-helm-deprecation-check using grep -F (fixed-string) semantics.</p> | `false` | `""` |
 | `check-unknown-keys` | <p>Forwarded to internal-helm-deprecation-check. Set to 'false' to skip the strict unknown-keys validation against the chart JSON Schema (e.g. while waiting for an upstream chart fix).</p> | `false` | `true` |
 | `vault-addr` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
-| `vault-role-id` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
-| `vault-secret-id` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
+| `vault-jwt-path` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
+| `vault-jwt-role` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
+| `vault-jwt-audience` | <p>Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.</p> | `false` | `""` |
 | `slack-channel-id` | <p>Forwarded to internal-helm-deprecation-check. Overrides the default infraex channel.</p> | `false` | `""` |
 | `slack-mention-people` | <p>Forwarded to internal-helm-deprecation-check. Slack handles/groups to mention on scheduled-run alerts.</p> | `false` | `""` |
 
@@ -159,13 +160,19 @@ This action is a `composite` action.
     # Required: false
     # Default: ""
 
-    vault-role-id:
+    vault-jwt-path:
     # Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
     #
     # Required: false
     # Default: ""
 
-    vault-secret-id:
+    vault-jwt-role:
+    # Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
+    #
+    # Required: false
+    # Default: ""
+
+    vault-jwt-audience:
     # Forwarded to internal-helm-deprecation-check for Slack alerting on scheduled runs.
     #
     # Required: false
