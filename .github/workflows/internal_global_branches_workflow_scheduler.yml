@@ -280,6 +280,7 @@ jobs:
             - schedule-workflows
             - close-scheduled-prs
         permissions:
+            issues: read # the Slack action looks up silence issues
             contents: read
             id-token: write # required for Vault JWT login
         steps:
