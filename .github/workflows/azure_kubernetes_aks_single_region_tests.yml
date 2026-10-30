@@ -22,6 +22,7 @@ on:
             - .github/actions/azure-kubernetes-ingress-setup/**
             - .github/actions/internal-terraform-drift-detect/**
             - .github/actions/internal-clean-namespace/**
+            - .github/actions/internal-debug-failed-pods/**
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/kubernetes-wildcard-certificate/**
             - .github/actions/internal-camunda-chart-tests/**
@@ -887,16 +888,17 @@ jobs:
                   kubectl -n "$CAMUNDA_NAMESPACE" describe certificates
 
             - name: 🔬🚨 Get failed Pods info
+              timeout-minutes: 10
               if: failure()
-              run: |
-                  set -euo pipefail
-
-                  kubectl -n "$CAMUNDA_NAMESPACE" get po
-                  kubectl -n "$CAMUNDA_NAMESPACE" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-                    echo -e "\n###Failed Pod: ${pod_name}###\n";
-                    kubectl -n "$CAMUNDA_NAMESPACE" describe po "$pod_name";
-                    kubectl -n "$CAMUNDA_NAMESPACE" logs "$pod_name";
-                  done
+              uses: ./.github/actions/internal-debug-failed-pods
+              with:
+                  namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  artifact-suffix: ${{ matrix.distro.name }}-${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
+                  redact-values: |
+                      ${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}
+                      ${{ steps.secrets.outputs.CI_CAMUNDA_USER_TEST_CLIENT_SECRET }}
+                      ${{ steps.secrets.outputs.MACHINE_PWD }}
 
             - name: 🧹 Cleanup Namespace
               if: always() && env.CLEANUP_CLUSTERS == 'true'
