@@ -22,6 +22,7 @@ on:
                 default: '12'
     pull_request:
         paths:
+            - .github/actions/internal-encrypted-upload-artifact/**
             - .github/workflows/aws_ecs_dual_region_fargate_daily_cleanup.yml
             - .tool-versions
             - aws/containers/ecs-dual-region-fargate/terraform/cleanup/**
@@ -79,6 +80,19 @@ jobs:
               with:
                   persist-credentials: false
 
+            - name: Import artifact encryption key
+              id: artifact-key
+              continue-on-error: true # never block cleanup; upload is skipped without a key
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -110,6 +124,7 @@ jobs:
               timeout-minutes: 170
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
+                  encryption-key: ${{ steps.artifact-key.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
@@ -140,6 +155,19 @@ jobs:
               with:
                   persist-credentials: false
 
+            - name: Import artifact encryption key
+              id: artifact-key
+              continue-on-error: true # never block cleanup; upload is skipped without a key
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -169,6 +197,7 @@ jobs:
               timeout-minutes: 170
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
+                  encryption-key: ${{ steps.artifact-key.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}

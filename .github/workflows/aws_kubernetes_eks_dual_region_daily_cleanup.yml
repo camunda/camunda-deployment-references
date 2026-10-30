@@ -10,6 +10,7 @@ on:
                 default: '12'
     pull_request:
         paths:
+            - .github/actions/internal-encrypted-upload-artifact/**
             - .github/workflows/aws_kubernetes_eks_dual_region_daily_cleanup.yml
             - .tool-versions
             - aws/kubernetes/eks-dual-region/**
@@ -73,6 +74,19 @@ jobs:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
 
+            - name: Import artifact encryption key
+              id: artifact-key
+              continue-on-error: true # never block cleanup; upload is skipped without a key
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
+
             - name: Install asdf tools with cache
               uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
@@ -107,6 +121,7 @@ jobs:
               timeout-minutes: 125
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
+                  encryption-key: ${{ steps.artifact-key.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
@@ -126,6 +141,7 @@ jobs:
               timeout-minutes: 125
               uses: ./.github/actions/aws-generic-terraform-cleanup
               with:
+                  encryption-key: ${{ steps.artifact-key.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0 # the previous step alters the age and resets it to 0

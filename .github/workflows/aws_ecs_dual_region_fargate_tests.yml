@@ -38,6 +38,7 @@ on:
                 default: true
     pull_request:
         paths:
+            - .github/actions/internal-encrypted-upload-artifact/**
             - .github/actions/aws-containers-ecs-dual-region-fargate-create/**
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/aws-capacity-slot/**
@@ -160,6 +161,19 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   persist-credentials: false
+
+            - name: Import artifact encryption key
+              id: artifact-key
+              continue-on-error: true # never block cleanup; upload is skipped without a key
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -411,6 +425,7 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-ecs-tasks
               with:
+                  encryption-key: ${{ steps.artifact-key.outputs.CI_ENCRYPTION_KEY }}
                   cluster-name: ${{ env.CLUSTER_0 || format('{0}-r0-cluster', needs.triage.outputs.cluster_name) }}
                   aws-region: ${{ env.REGION_0 }}
                   artifact-suffix: tests-r0
@@ -419,6 +434,7 @@ jobs:
               if: failure()
               uses: ./.github/actions/internal-debug-failed-ecs-tasks
               with:
+                  encryption-key: ${{ steps.artifact-key.outputs.CI_ENCRYPTION_KEY }}
                   cluster-name: ${{ env.CLUSTER_1 || format('{0}-r1-cluster', needs.triage.outputs.cluster_name) }}
                   aws-region: ${{ env.REGION_1 }}
                   artifact-suffix: tests-r1
@@ -435,6 +451,20 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   persist-credentials: false
+
+            - name: Import artifact encryption key
+              id: artifact-key
+              continue-on-error: true # never block cleanup; upload is skipped without a key
+              if: env.DELETE_CLUSTERS == 'true'
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: false
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: Configure AWS CLI
               if: env.DELETE_CLUSTERS == 'true'
@@ -483,6 +513,7 @@ jobs:
                   TF_VAR_region_0: ${{ env.REGION_0 }}
                   TF_VAR_region_1: ${{ env.REGION_1 }}
               with:
+                  encryption-key: ${{ steps.artifact-key.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   tf-bucket-key-prefix: ${{ needs.triage.outputs.backend_key_prefix }}
