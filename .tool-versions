@@ -36,8 +36,6 @@ jq 1.7.1
 
 just 1.40.0
 
-helm 3.17.3
-
 kubectl 1.32.13
 
 kustomize 5.6.0 # used by the tests
