@@ -59,7 +59,7 @@ jobs:
                   sudo apt-get install -y -qq build-essential libssl-dev zlib1g-dev libffi-dev gettext-base
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@06dbc3c3960fe23138de789e3bf80065fe6c52e0 # 2.3.11
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@e2923304b40dfc031b3f595bcc1445e90c981adb # 3.0.0
 
             - name: Import Secrets
               id: secrets
@@ -317,8 +317,9 @@ jobs:
                   exclude-patterns: |
                       Bitnami-based subcharts are deprecated
                   vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+                  vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+                  vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
             # =================================================================
             # STEP 1.5: Generate Test Data for Migration Validation
@@ -587,8 +588,9 @@ jobs:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
                   vault-addr: ${{ secrets.VAULT_ADDR }}
-                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
+                  vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
+                  vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
             # --- Phase 4: Validate ---
             - name: Phase 4 - Validate migration
