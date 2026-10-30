@@ -46,6 +46,7 @@ jobs:
         name: Scan camunda-docs PRs
         runs-on: ubuntu-latest
         permissions:
+            issues: read # the Slack action looks up silence issues
             contents: read
             id-token: write
         steps:
