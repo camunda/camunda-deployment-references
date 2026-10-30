@@ -97,6 +97,9 @@ jobs:
             contents: read
             id-token: write # OIDC token for the cloud login in this job
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - name: Checkout repository
               uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
               with:
@@ -205,6 +208,14 @@ jobs:
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours-cluster: 0 # the previous step alters the age and resets it to 0
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.scenario.name }}
+                  build_status: ${{ job.status }}
 
     report-failure:
         name: Report failures
