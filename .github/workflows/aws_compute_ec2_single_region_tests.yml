@@ -499,6 +499,7 @@ jobs:
             - report-success
             - test-report
         permissions:
+            issues: read # the Slack action looks up silence issues
             contents: read
             id-token: write # required for Vault JWT login
         steps:

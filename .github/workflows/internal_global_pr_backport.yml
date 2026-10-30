@@ -26,6 +26,7 @@ jobs:
               startsWith(github.event.label.name, 'backport ')
             )
         permissions:
+            issues: read # the Slack action looks up silence issues
             contents: write
             pull-requests: write
             id-token: write # required for Vault JWT login

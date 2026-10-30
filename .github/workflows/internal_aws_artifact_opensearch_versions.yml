@@ -33,6 +33,7 @@ jobs:
     save-opensearch-versions:
         runs-on: ubuntu-latest
         permissions:
+            issues: read # the Slack action looks up silence issues
             contents: write # push the generated files to the gh-pages branch
             id-token: write # required for Vault JWT login
 
