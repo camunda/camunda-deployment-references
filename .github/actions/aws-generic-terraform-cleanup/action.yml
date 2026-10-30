@@ -5,6 +5,11 @@ description: |
     This GitHub Action automates the deletion of generic terraform resources using a shell script.
 
 inputs:
+    encryption-key:
+        description: Key used to encrypt the uploaded artifact (CI_ENCRYPTION_KEY). Without it the artifact is not uploaded.
+        required: false
+        default: ''
+
     tf-bucket:
         description: Bucket containing the resources
         required: true
@@ -244,8 +249,9 @@ runs:
 
         - name: Upload cleanup logs
           if: always()
-          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          uses: ./.github/actions/internal-encrypted-upload-artifact
           with:
               name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG }}
               path: ./logs/
               retention-days: 7
+              encryption-key: ${{ inputs.encryption-key }}

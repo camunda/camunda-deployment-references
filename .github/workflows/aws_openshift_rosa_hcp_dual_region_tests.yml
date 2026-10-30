@@ -18,6 +18,7 @@ on:
             - '!aws/openshift/rosa-hcp-dual-region/terraform/*/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-dual-region-create/**
             - .github/actions/aws-generic-terraform-cleanup/**
+            - .github/actions/internal-encrypted-upload-artifact/**
             - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
@@ -855,6 +856,7 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: false
                   secrets: |
+                      secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
                       secret/data/products/infrastructure-experience/ci/common RH_OPENSHIFT_TOKEN;
 
             - name: Configure AWS CLI
@@ -882,6 +884,7 @@ jobs:
               env:
                   RHCS_TOKEN: ${{ steps.secrets.outputs.RH_OPENSHIFT_TOKEN }}
               with:
+                  encryption-key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
                   max-age-hours: 0
