@@ -1,6 +1,5 @@
 ---
 name: Tests - Daily Cleanup - AWS Kubernetes EKS Single Region (IRSA)
-
 on:
     workflow_dispatch:
         inputs:
@@ -8,48 +7,29 @@ on:
                 description: Maximum age of clusters in hours
                 required: true
                 default: '12'
-    pull_request:
-        paths:
-            - .github/workflows/aws_eks_single_region_daily_cleanup.yml
-            - .tool-versions
-            - aws/kubernetes/eks-single-region*/**
-            - '!aws/kubernetes/eks-single-region/terraform/*/test/golden/**'
-            - '!aws/kubernetes/eks-single-region-irsa/terraform/*/test/golden/**'
-            - .github/actions/aws-generic-terraform-cleanup/**
-            - .github/actions/internal-encrypted-upload-artifact/**
-            - .github/actions/aws-configure-cli/**
-
+    pull_request: {}
     schedule:
-        - cron: 0 4 * * * # At 04:00 everyday.
-
-# limit to a single execution per actor of this workflow
+        - cron: 0 4 * * *
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    # we don't cancel the previous run, so it can finish it and let clusters in a proper state
     cancel-in-progress: false
-
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
-
     MAX_AGE_HOURS_CLUSTER: ${{ github.event.inputs.max_age_hours_cluster || '12' }}
-
-    # please keep those variables synced with aws_kubernetes_eks_single_region_tests.yml
     AWS_PROFILE: infex
     S3_BACKEND_BUCKET: tests-ra-aws-rosa-hcp-tf-state-eu-central-1
     S3_BUCKET_REGION: eu-central-1
     AWS_REGION: eu-west-2
-
 jobs:
     triage:
         runs-on: ubuntu-latest
         outputs:
             should_skip: ${{ steps.skip_check.outputs.should_skip }}
         steps:
-            - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+            - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
             - name: Check labels
               id: skip_check
               uses: ./.github/actions/internal-triage-skip
-
     cleanup-clusters:
         needs:
             - triage
@@ -63,15 +43,14 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout repository
-              uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+              uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
               with:
                   ref: ${{ github.ref }}
                   fetch-depth: 0
-
             - name: Import artifact encryption key
               id: artifact-key
-              continue-on-error: true # never block cleanup; upload is skipped without a key
-              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc # v4
+              continue-on-error: true
+              uses: hashicorp/vault-action@892a26828f195e65540a40b4768ae4571f51ebfc
               with:
                   url: ${{ secrets.VAULT_ADDR }}
                   method: approle
@@ -80,20 +59,16 @@ jobs:
                   exportEnv: false
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
-
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@e2923304b40dfc031b3f595bcc1445e90c981adb # 3.0.0
-
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@e2923304b40dfc031b3f595bcc1445e90c981adb
             - name: Use repo .tool-version as global version
               run: cp .tool-versions ~/.tool-versions
-
             - name: Set current target branch
               id: target-branch
               run: |
                   set -euo pipefail
                   TARGET_BRANCH=$(cat .target-branch)
                   echo "TARGET_BRANCH=$TARGET_BRANCH" | tee -a "$GITHUB_OUTPUT"
-
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -102,13 +77,11 @@ jobs:
                   vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
                   aws-profile: ${{ env.AWS_PROFILE }}
                   aws-region: ${{ env.AWS_REGION }}
-
             - name: Export S3_BACKEND_BUCKET based on matrix
               id: s3_prefix
               run: |
                   set -euo pipefail
                   echo "S3_BACKEND_BUCKET_PREFIX=aws/kubernetes/${{ matrix.scenario.name }}/" | tee -a "$GITHUB_OUTPUT"
-
             - name: Delete clusters
               id: delete_clusters
               continue-on-error: true
@@ -121,14 +94,6 @@ jobs:
                   max-age-hours: ${{ env.MAX_AGE_HOURS_CLUSTER }}
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: vpn,cluster
-
-            # The previous step has a continue-on-error set to true in case of schedule run.
-            # This means that the workflow is not marked as failed, but the step is.
-            # We can't use the `if: failure()` condition here, as the overall job is succeeding.
-            # Instead, we check the outcome of the previous step and if it failed, we retry the deletion.
-            # If the retry fails, then the report-failure job will be triggered as normally.
-
-            # There are cases where the deletion of resources fails due to dependencies.
             - name: Retry delete clusters
               id: retry_delete_clusters
               if: steps.delete_clusters.outcome == 'failure'
@@ -138,10 +103,9 @@ jobs:
                   encryption-key: ${{ steps.artifact-key.outputs.CI_ENCRYPTION_KEY }}
                   tf-bucket: ${{ env.S3_BACKEND_BUCKET }}
                   tf-bucket-region: ${{ env.S3_BUCKET_REGION }}
-                  max-age-hours: 0 # the previous step alters the age and resets it to 0
+                  max-age-hours: 0
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
                   modules-order: vpn,cluster
-
     report-failure:
         name: Report failures
         if: needs.triage.outputs.should_skip == 'false' && (failure())
@@ -151,12 +115,12 @@ jobs:
             - cleanup-clusters
         permissions:
             contents: read
-            issues: read # the Slack action looks up silence issues
-            id-token: write # required for Vault JWT login
+            issues: read
+            id-token: write
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e2923304b40dfc031b3f595bcc1445e90c981adb # 3.0.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e2923304b40dfc031b3f595bcc1445e90c981adb
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}
@@ -165,3 +129,5 @@ jobs:
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
                   slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}
+
+# Scheduled trigger: 2026-10-31T03:11:32Z - Everyday schedules 8.8
