@@ -166,6 +166,9 @@ jobs:
             contents: read
             id-token: write # required for azure/login
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               with:
                   ref: ${{ github.ref }}
@@ -401,6 +404,14 @@ jobs:
                   outputs: |-
                       outputs_raw: ${{ steps.encrypt_outputs.outputs.encrypted_file_base64 }}
 
+
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.distro.name }}/${{ matrix.scenario.name }}
+                  build_status: ${{ job.status }}
     access-info:
         name: Read outputs from matrix
         runs-on: ubuntu-latest
@@ -449,6 +460,9 @@ jobs:
             id-token: write # required for azure/login
             pull-requests: write # internal-helm-deprecation-check upserts a comment on the pull request
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache for the project
@@ -1038,6 +1052,14 @@ jobs:
                   wait-for-dns-cleanup: 'true'
                   dns-cleanup-wait-seconds: '45'
 
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.distro.name }}/${{ matrix.scenario.name }}/${{ matrix.declination.name }}
+                  build_status: ${{ job.status }}
+
     cleanup-clusters:
         name: Cleanup AKS clusters
         timeout-minutes: 240
@@ -1057,6 +1079,9 @@ jobs:
             contents: read
             id-token: write # required for azure/login
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
               if: env.CLEANUP_CLUSTERS == 'true'
               with:
@@ -1134,6 +1159,14 @@ jobs:
                   max-age-hours-cluster: 0
                   target: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}-rg
                   tf-bucket-key-prefix: ${{ steps.s3_prefix.outputs.S3_BACKEND_BUCKET_PREFIX }}${{ steps.target-branch.outputs.TARGET_BRANCH }}/
+
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.distro.name }}/${{ matrix.scenario.name }}
+                  build_status: ${{ job.status }}
 
     report-success:
         name: Report success
