@@ -144,7 +144,13 @@ jobs:
         timeout-minutes: 180
         env:
             CLUSTER_NAME: ${{ matrix.distro.clusterName }}-${{matrix.scenario.shortName }}
+        permissions:
+            contents: read
+            id-token: write
         steps:
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
@@ -257,6 +263,14 @@ jobs:
                   outputs: |-
                       sensitive_values_raw: ${{ steps.export_secrets.outputs.encrypted_file_base64 }}
 
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.distro.name }}/${{ matrix.scenario.name }}
+                  build_status: ${{ job.status }}
+
     access-info:
         name: Read S3 credentials from matrix
         runs-on: ubuntu-latest
@@ -288,6 +302,9 @@ jobs:
             id-token: write # required for Vault JWT login
         steps:
             ################## Checkout ##################
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -528,6 +545,14 @@ jobs:
                   " 2>/dev/null || echo "Connectivity test failed or timed out"
                   echo "::endgroup::"
 
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.distro.name }}/${{ matrix.scenario.name }}
+                  build_status: ${{ job.status }}
+
     cleanup-clusters:
         runs-on: ubuntu-latest
         timeout-minutes: 60
@@ -541,8 +566,14 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
+        permissions:
+            contents: read
+            id-token: write
         steps:
             ################## Checkout ##################
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
+
             - name: Checkout repository
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -660,6 +691,14 @@ jobs:
                   mode: release
                   pool: aws-kubernetes-eks-dual-region
                   leg: ${{ matrix.scenario.name }}
+
+            - name: Submit build status
+              if: always()
+              continue-on-error: true
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
+              with:
+                  job_name_override: ${{ github.job }}/${{ matrix.distro.name }}/${{ matrix.scenario.name }}
+                  build_status: ${{ job.status }}
 
     report-success:
         name: Report success
