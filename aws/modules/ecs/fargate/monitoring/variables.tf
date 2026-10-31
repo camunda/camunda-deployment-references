@@ -168,7 +168,7 @@ variable "discovery_image" {
   description = "The container image used by the Cloud Map discovery sidecar. It only needs the AWS CLI."
   type        = string
   # renovate: datasource=docker depName=amazon/aws-cli
-  default = "amazon/aws-cli:2.38.4"
+  default = "amazon/aws-cli:2.39.3"
 }
 
 variable "discovery_namespace_suffix" {
