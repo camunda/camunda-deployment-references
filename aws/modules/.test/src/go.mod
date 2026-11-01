@@ -13,14 +13,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/rds v1.108.9
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.7
 	github.com/aws/aws-sdk-go-v2/service/sts v1.46.0
-	github.com/aws/smithy-go v1.28.6
+	github.com/aws/smithy-go v1.28.7
 	github.com/gruntwork-io/terratest v0.51.0
 	github.com/sethvargo/go-password v0.3.1
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
-	k8s.io/api v0.36.5
-	k8s.io/apimachinery v0.36.5
-	k8s.io/client-go v0.36.5
+	k8s.io/api v0.36.6
+	k8s.io/apimachinery v0.36.6
+	k8s.io/client-go v0.36.6
 	sigs.k8s.io/aws-iam-authenticator v0.7.24
 )
 
@@ -144,7 +144,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
-	k8s.io/streaming v0.36.5 // indirect
+	k8s.io/streaming v0.36.6 // indirect
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
