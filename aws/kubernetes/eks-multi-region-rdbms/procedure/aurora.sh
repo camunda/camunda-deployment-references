@@ -17,10 +17,11 @@
 # from a running switchover starts a second one, which AWS rejects. Right
 # after a membership change the global cluster can also report no writer for
 # a moment, so an empty writer is retried AURORA_WRITER_TRIES times (default
-# 12) before the object is returned as is, and the caller reports it. Returns
-# 1 when the read fails, and 2 when the switchover still runs at the timeout.
+# 12), or until the timeout, before the object is returned as is, and the
+# caller reports it. Returns 1 when the read fails, and 2 when the switchover
+# still runs at the timeout.
 aurora_settled_global() {
-    local region=$1 max_wait=${2:-900} global_json state writers
+    local region=$1 max_wait=${2:-900} global_json state writers nap
     local writer_tries=${AURORA_WRITER_TRIES:-12}
     local deadline=$((SECONDS + max_wait))
     while true; do
@@ -30,13 +31,15 @@ aurora_settled_global() {
         state=$(echo "${global_json}" | jq -r '.FailoverState.Status // ""')
         writers=$(echo "${global_json}" | jq '[.GlobalClusterMembers[]? | select(.IsWriter == true)] | length')
         if [ -z "${state}" ]; then
-            if [ "${writers}" -gt 0 ] || [ "${writer_tries}" -le 0 ]; then
+            if [ "${writers}" -gt 0 ] || [ "${writer_tries}" -le 0 ] || [ "${SECONDS}" -ge "${deadline}" ]; then
                 echo "${global_json}"
                 return 0
             fi
             writer_tries=$((writer_tries - 1))
             echo "    The global cluster reports no writer, waiting for it." >&2
-            sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+            nap=${AURORA_WRITER_POLL_SECONDS:-15}
+            [ "${nap}" -le $((deadline - SECONDS)) ] || nap=$((deadline - SECONDS))
+            sleep "${nap}"
             continue
         fi
         if [ "${SECONDS}" -ge "${deadline}" ]; then
