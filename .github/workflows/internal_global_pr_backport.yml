@@ -39,7 +39,7 @@ jobs:
             # only a comment on the source pull request. An App token carries the scope.
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@85dbb218176a20bbedac15278ac3ff4d86672db4 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@1a10a8e84ce7e9cbbfed6f1c482f5bff65748238 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
