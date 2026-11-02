@@ -70,6 +70,46 @@ cat "$FAKE_DIR/calls"`)
 	}
 }
 
+// A global cluster can report no writer for a moment after a membership
+// change: aurora_settled_global waits for one, and gives up after the tries.
+func TestAuroraSettledGlobalWaitsForAWriter(t *testing.T) {
+	t.Parallel()
+
+	fake := t.TempDir()
+	script := `#!/usr/bin/env bash
+n=$(( $(cat "$FAKE_DIR/calls" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$FAKE_DIR/calls"
+if [ "$n" -le "${FAKE_EMPTY:-2}" ]; then
+  echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":false}]}'
+else
+  echo '{"GlobalClusterMembers":[{"DBClusterArn":"arn:aws:rds:eu-west-2:1:cluster:a","IsWriter":true}]}'
+fi
+`
+	if err := os.WriteFile(filepath.Join(fake, "aws"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	run := func(empty, tries string) string {
+		_ = os.Remove(filepath.Join(fake, "calls"))
+		cmd := exec.Command("bash", "-c", `set -euo pipefail
+. ./aurora.sh
+aurora_settled_global eu-west-2 60 2>/dev/null | jq -r '[.GlobalClusterMembers[] | select(.IsWriter)] | length'
+cat "$FAKE_DIR/calls"`)
+		cmd.Dir = filepath.Join("..", "..", "..", "procedure")
+		cmd.Env = append(os.Environ(), "PATH="+fake+":"+os.Getenv("PATH"), "FAKE_DIR="+fake, "FAKE_EMPTY="+empty,
+			"AURORA_GLOBAL_CLUSTER_ID=g", "AURORA_WRITER_POLL_SECONDS=0", "AURORA_WRITER_TRIES="+tries)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%v\n%s", err, out)
+		}
+		return strings.Join(strings.Fields(string(out)), " ")
+	}
+	if got := run("2", "5"); got != "1 3" {
+		t.Errorf("did not wait for the writer: %q", got)
+	}
+	if got := run("99", "3"); got != "0 4" {
+		t.Errorf("did not stop after the tries: %q", got)
+	}
+}
+
 // Every procedure that moves the Aurora writer goes through aurora_switch_to,
 // which settles, skips a writer already in place, and waits for the global
 // cluster (#3572). Both references carry the same aurora.sh.

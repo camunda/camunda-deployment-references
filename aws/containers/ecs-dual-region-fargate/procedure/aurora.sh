@@ -14,17 +14,31 @@
 #
 # Prints the GlobalClusters[0] object once no switchover runs. Early in a
 # switchover the old writer still has IsWriter set, so a caller that decides
-# from a running switchover starts a second one, which AWS rejects. Returns 1
-# when the read fails, and 2 when the switchover still runs at the timeout.
+# from a running switchover starts a second one, which AWS rejects. Right
+# after a membership change the global cluster can also report no writer for
+# a moment, so an empty writer is retried AURORA_WRITER_TRIES times (default
+# 12) before the object is returned as is, and the caller reports it. Returns
+# 1 when the read fails, and 2 when the switchover still runs at the timeout.
 aurora_settled_global() {
-    local region=$1 max_wait=${2:-900} global_json state
+    local region=$1 max_wait=${2:-900} global_json state writers
+    local writer_tries=${AURORA_WRITER_TRIES:-12}
     local deadline=$((SECONDS + max_wait))
     while true; do
         global_json=$(aws rds describe-global-clusters \
             --global-cluster-identifier "${AURORA_GLOBAL_CLUSTER_ID}" \
             --query 'GlobalClusters[0]' --output json --region "${region}") || return 1
         state=$(echo "${global_json}" | jq -r '.FailoverState.Status // ""')
-        [ -z "${state}" ] && { echo "${global_json}"; return 0; }
+        writers=$(echo "${global_json}" | jq '[.GlobalClusterMembers[]? | select(.IsWriter == true)] | length')
+        if [ -z "${state}" ]; then
+            if [ "${writers}" -gt 0 ] || [ "${writer_tries}" -le 0 ]; then
+                echo "${global_json}"
+                return 0
+            fi
+            writer_tries=$((writer_tries - 1))
+            echo "    The global cluster reports no writer, waiting for it." >&2
+            sleep "${AURORA_WRITER_POLL_SECONDS:-15}"
+            continue
+        fi
         if [ "${SECONDS}" -ge "${deadline}" ]; then
             echo "ERROR: a switchover of ${AURORA_GLOBAL_CLUSTER_ID} is still ${state} after ${max_wait}s; rerun the script to wait for it." >&2
             return 2
