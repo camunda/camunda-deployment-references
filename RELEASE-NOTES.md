@@ -22,6 +22,7 @@ Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fi
 - Uses Camunda 8.10.5, which fixes a dual-region forced zone removal that never completed when a broker had seen no peer ([#3765](https://github.com/camunda/camunda-deployment-references/pull/3765)).
 - ECS `failback.sh` empties the recovered zone's EFS primary storage before it scales the brokers back up, so they do not rejoin with stale Raft state. It refuses to run while the service is not scaled to 0 ([#3767](https://github.com/camunda/camunda-deployment-references/pull/3767), backport [#3874](https://github.com/camunda/camunda-deployment-references/pull/3874)).
 - ECS `failback.sh` requires `--failed-region 0|1`. Before, it defaulted to region 0, the region whose EFS primary storage it wipes ([#3894](https://github.com/camunda/camunda-deployment-references/pull/3894)).
+- ECS and EKS `aurora_settled_global()` waits until a global cluster member reports `IsWriter` before the failover reads the topology. Before, it could read a topology with no writer during a switchover. Tune it with `AURORA_WRITER_TRIES` (default 12) and `AURORA_WRITER_POLL_SECONDS` (default 15) ([#3971](https://github.com/camunda/camunda-deployment-references/pull/3971), backport [#3974](https://github.com/camunda/camunda-deployment-references/pull/3974)).
 
 ### AWS EKS
 
