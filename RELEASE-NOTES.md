@@ -6,7 +6,7 @@ Changes will appear here during the development cycle.
 
 ### AWS ECS Fargate and AWS EKS
 
-- ECS and EKS `aurora_settled_global()` waits until a global cluster member reports `IsWriter` before the failover reads the topology. Before, it could read a topology with no writer during a switchover. Tune it with `AURORA_WRITER_TRIES` (default 12) and `AURORA_WRITER_POLL_SECONDS` (default 15) ([#3971](https://github.com/camunda/camunda-deployment-references/pull/3971)).
+- ECS and EKS `aurora_settled_global()` waits until a global cluster member reports `IsWriter` before the failover reads the topology. Before, it could read a topology with no writer right after a global cluster membership change. Tune it with `AURORA_WRITER_TRIES` (default 12) and `AURORA_WRITER_POLL_SECONDS` (default 15) ([#3971](https://github.com/camunda/camunda-deployment-references/pull/3971)).
 
 ### AWS ROSA HCP
 
