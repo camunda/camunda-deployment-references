@@ -104,6 +104,10 @@ Skip labels (e.g. `skip_<filename_without_ext>`) are **created automatically** b
 
 _Note:_ One should apply the label during the creation of the PR; otherwise, the first run will trigger all workflows.
 
+## 📊 Build Status Telemetry
+
+Onboarded jobs run `start-build-monitor` first and `submit-build-status` last, with best-effort telemetry in the `build_status_v2` BigQuery table. Submission uses Workload Identity Federation and requires `id-token: write` alongside each job's workload permissions. Duration is calculated from the monitor's timestamp file and omitted when that file is missing or invalid.
+
 ## Idempotent Kubernetes Resource Creation
 
 When creating Kubernetes resources (secrets, namespaces, configmaps, etc.) in scripts and CI, use the **dry-run + apply** pattern to make commands idempotent:
