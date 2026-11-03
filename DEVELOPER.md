@@ -74,3 +74,7 @@ A label can be added to a pull request or issue to skip a specific workflow exec
 If the required label does not exist, it must be created manually on GitHub at [GitHub Labels](https://github.com/camunda/camunda-deployment-references/issues/labels) with the color `#1D76DB`.
 
 _Note:_ One should create and apply the label during the creation of the PR; otherwise, the first run will trigger all workflows.
+
+## 📊 Build Status Telemetry
+
+Onboarded jobs run `start-build-monitor` first and `submit-build-status` last, with best-effort telemetry in the `build_status_v2` BigQuery table. Submission uses Workload Identity Federation and requires `id-token: write` alongside each job's workload permissions. Duration is calculated from the monitor's timestamp file and omitted when that file is missing or invalid.
