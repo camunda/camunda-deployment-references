@@ -52,8 +52,9 @@ variable "default_tags" {
 
 variable "camunda_image" {
   type = string
-  # TODO: [release-duty] replace SNAPSHOT with a published 8.11 alpha or stable tag.
-  default     = "camunda/camunda:8.11-SNAPSHOT"
+  # TODO: [release-duty] replace SNAPSHOT with the first published 8.11 tag that contains
+  # camunda/camunda#67372 (ECS failback, #3766), then drop the ignore marker.
+  default     = "camunda/camunda:8.11-SNAPSHOT" # alpha-availability-check:ignore
   description = "Container image for the Camunda orchestration cluster tasks (Zeebe broker + gateway + webapps)"
 }
 
