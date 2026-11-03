@@ -154,7 +154,7 @@ CI emits complementary operational signals:
 
 - `internal_global_ci_events_reporter.yml` records workflow-run failures and warnings in a Google Sheet.
 - `report-failure-on-slack` notifies the responsible Slack channel when a workflow fails.
-- Onboarded jobs use `start-build-monitor` as their first step and `observe-build-status` as their final, non-blocking step to record status and duration in the `build_status_v2` BigQuery table. The action uses the workflow's existing Vault AppRole credentials to retrieve its upload key.
+- Onboarded jobs use `start-build-monitor` as their first step and call `submit-build-status` directly as their final, non-blocking step to record status and duration in the `build_status_v2` BigQuery table. The upstream action calculates duration from the monitor's start-timestamp file; if that timestamp is missing or invalid, duration is omitted without blocking status submission. Submission authenticates keylessly through Workload Identity Federation, without a local wrapper, telemetry-only checkout, Vault credentials or a service account key. Each monitored job needs `id-token: write` alongside its existing workload permissions. Job-level permission maps replace inherited permissions, so they must retain every grant the workload needs. Vault authentication for cloud access and Slack notifications is unchanged.
 
 ## Workflow Scheduling
 
