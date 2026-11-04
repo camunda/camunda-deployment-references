@@ -41,8 +41,21 @@ export TF_STATE_BUCKET=my-state-bucket TF_STATE_REGION=eu-west-1
 
 ## Not part of this proof of concept
 
-Bundled Keycloak, Management Identity, Camunda Hub, load tests, the second region (see the
-evolution runbook), and generated golden plans.
+Parked, with the decisions already taken:
+
+- **OIDC provider deployed on ECS.** Called "OIDC provider" in code and docs, never by the
+  product name; the first implementation will be the one the single-region reference ships
+  today. It is a second producer of the identity layer's `oidc` object, so the Camunda layer
+  does not change.
+- **Management Identity.** Follows the OIDC provider: it needs an OIDC provider and its own
+  database in the storage layer.
+- **Camunda Hub.** One Hub for the whole estate, connectable to several Orchestration
+  Clusters, so it is its own layer (`hub`), not part of the `camunda` layer. It takes its own
+  database and the identity layer's `oidc` object, and the Orchestration Clusters it manages
+  are a list of inputs (name, URLs, client) rather than something one cluster owns.
+
+Also out of this proof of concept: load tests, the second region (see the evolution
+runbook), and generated golden plans.
 
 ## Validation
 

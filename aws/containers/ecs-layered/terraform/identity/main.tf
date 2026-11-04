@@ -1,11 +1,11 @@
 # Identity layer. Today it covers two modes:
 #
 #   basic   no identity provider; the Orchestration Cluster and Connectors use built-in users.
-#   oidc    your own OIDC provider (Entra ID, Okta, Keycloak you run elsewhere...).
+#   oidc    your own OIDC provider (Entra ID, Okta, or any other OIDC-compliant provider).
 #
 # Both produce the same output, so the Camunda layer never knows which provider is behind
-# it. A provider deployed on ECS, such as the bundled Keycloak of the single-region
-# reference, would be another producer of the same object.
+# it. An OIDC provider deployed on ECS by this architecture (parked, see the README)
+# would be another producer of the same object.
 
 locals {
   oidc_enabled = var.authentication_mode == "oidc"

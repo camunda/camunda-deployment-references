@@ -25,7 +25,7 @@ variable "external_oidc" {
     connectors_client_id            = string
     connectors_client_secret_arn    = string
 
-    # Claim names. The defaults are what Keycloak emits; Entra ID, for one, identifies the
+    # Claim names. The defaults are the most common claim names; Entra ID, for one, identifies the
     # calling application with azp or appid instead of client_id.
     username_claim  = optional(string, "preferred_username")
     client_id_claim = optional(string, "client_id")
