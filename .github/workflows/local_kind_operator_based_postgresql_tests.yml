@@ -70,7 +70,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@e2923304b40dfc031b3f595bcc1445e90c981adb # 3.0.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
 
             # Creates its own three-node Kind cluster: the drain under test needs a node to
             # switch the primary over to. Everything it pulls comes from ghcr.io, so no
