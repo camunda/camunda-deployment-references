@@ -10,6 +10,11 @@ resource "aws_rds_cluster" "aurora_cluster" {
   master_username = var.username
   database_name   = var.default_database_name
 
+  # Set to attach this cluster to an Aurora Global Database that was created from it
+  # (aws_rds_global_cluster with source_db_cluster_identifier). Without it, a plan after
+  # the attach shows the attribute going back to null, which would detach the cluster.
+  global_cluster_identifier = var.global_cluster_identifier
+
   iam_database_authentication_enabled = var.iam_auth_enabled
 
   # don't assign twice the roles, otherwise you may encounter conflicts

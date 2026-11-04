@@ -376,3 +376,56 @@ variable "service_circuit_breaker_enabled" {
   type        = bool
   default     = true
 }
+
+variable "lease_bucket_name" {
+  description = "Existing S3 bucket for the node ID leases. When empty, the module creates a bucket and its KMS key. Use one bucket per zone: never share it with another zone or cluster."
+  type        = string
+  default     = ""
+}
+
+variable "lease_access_policy_arn" {
+  description = "ARN of the IAM policy granting access to lease_bucket_name and its KMS key. Required when lease_bucket_name is set."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.lease_bucket_name == "" || var.lease_access_policy_arn != ""
+    error_message = "lease_access_policy_arn is required when lease_bucket_name is set."
+  }
+}
+
+################################################################
+#                       Zone-aware brokers                     #
+################################################################
+
+variable "zone" {
+  description = "Zone of the brokers of this module (CAMUNDA_CLUSTER_ZONE). Empty keeps numbered brokers. Must be listed in zones. 63 characters at most, alphanumerics and hyphens, starting with an alphanumeric."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.zone == "" || can(regex("^[A-Za-z0-9][A-Za-z0-9-]{0,62}$", var.zone))
+    error_message = "zone must be at most 63 characters of [A-Za-z0-9-], starting with an alphanumeric."
+  }
+}
+
+variable "zones" {
+  description = "Complete zone list of the cluster (identical for every zone): CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_<i>_*. Only list zones whose brokers run. Empty disables zone-aware partitioning."
+  type = list(object({
+    name               = string
+    number_of_brokers  = number
+    number_of_replicas = number
+    priority           = number
+  }))
+  default = []
+
+  validation {
+    condition     = length(var.zones) == 0 || var.zone != ""
+    error_message = "zone must be set when zones is set."
+  }
+
+  validation {
+    condition     = var.zone == "" || contains([for z in var.zones : z.name], var.zone)
+    error_message = "zone must be one of the names in zones."
+  }
+}

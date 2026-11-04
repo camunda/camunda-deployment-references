@@ -75,3 +75,83 @@ run "prefix_used_in_resource_names" {
     error_message = "CloudWatch log group name should include the prefix"
   }
 }
+
+run "no_zone_env_by_default" {
+  command = plan
+
+  assert {
+    condition     = !strcontains(aws_ecs_task_definition.orchestration_cluster.container_definitions, "CAMUNDA_CLUSTER_ZONE")
+    error_message = "zone-aware settings must be absent unless zones are configured"
+  }
+}
+
+run "zone_aware_env_rendered" {
+  command = plan
+
+  variables {
+    zone = "london"
+    zones = [
+      { name = "london", number_of_brokers = 3, number_of_replicas = 3, priority = 1000 },
+    ]
+  }
+
+  assert {
+    condition = alltrue([
+      strcontains(aws_ecs_task_definition.orchestration_cluster.container_definitions, "CAMUNDA_CLUSTER_PARTITIONING_SCHEME"),
+      strcontains(aws_ecs_task_definition.orchestration_cluster.container_definitions, "ZONE_AWARE"),
+      strcontains(aws_ecs_task_definition.orchestration_cluster.container_definitions, "CAMUNDA_CLUSTER_ZONE"),
+      strcontains(aws_ecs_task_definition.orchestration_cluster.container_definitions, "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_0_NUMBEROFBROKERS"),
+    ])
+    error_message = "zone-aware env vars must be rendered into the task definition"
+  }
+}
+
+run "cluster_size_must_match_zone_brokers" {
+  command = plan
+
+  variables {
+    zone = "london"
+    zones = [
+      { name = "london", number_of_brokers = 4, number_of_replicas = 3, priority = 1000 },
+    ]
+  }
+
+  expect_failures = [aws_ecs_task_definition.orchestration_cluster]
+}
+
+run "zone_must_be_listed" {
+  command = plan
+
+  variables {
+    zone = "paris"
+    zones = [
+      { name = "london", number_of_brokers = 3, number_of_replicas = 3, priority = 1000 },
+    ]
+  }
+
+  expect_failures = [var.zones]
+}
+
+run "external_lease_bucket_skips_creation" {
+  command = plan
+
+  variables {
+    lease_bucket_name       = "my-lease-bucket"
+    lease_access_policy_arn = "arn:aws:iam::000000000000:policy/lease"
+  }
+
+  assert {
+    condition     = length(aws_s3_bucket.main) == 0 && output.s3_bucket_name == "my-lease-bucket"
+    error_message = "no bucket must be created when lease_bucket_name is set"
+  }
+}
+
+run "external_lease_bucket_needs_policy" {
+  command = plan
+
+  variables {
+    lease_bucket_name = "my-lease-bucket"
+  }
+
+  expect_failures = [var.lease_access_policy_arn]
+}

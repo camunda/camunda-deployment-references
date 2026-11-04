@@ -13,6 +13,22 @@ locals {
     var.region_id >= 0 ? [{ name = "CAMUNDA_MULTIREGION_REGIONID", value = tostring(var.region_id) }] : [],
   )
 
+  # Zone-aware partitioning (only set when zones are configured)
+  zone_env_vars = length(var.zones) == 0 ? [] : concat(
+    [
+      { name = "CAMUNDA_CLUSTER_PARTITIONING_SCHEME", value = "ZONE_AWARE" },
+      { name = "CAMUNDA_CLUSTER_ZONE", value = var.zone },
+    ],
+    flatten([
+      for i, z in var.zones : [
+        { name = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_${i}_NAME", value = z.name },
+        { name = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_${i}_NUMBEROFBROKERS", value = tostring(z.number_of_brokers) },
+        { name = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_${i}_NUMBEROFREPLICAS", value = tostring(z.number_of_replicas) },
+        { name = "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_${i}_PRIORITY", value = tostring(z.priority) },
+      ]
+    ])
+  )
+
   # Base environment variables shared between main container and restore init container
   base_environment_variables = concat([
     # Graceful shutdown
@@ -43,7 +59,7 @@ locals {
     },
     {
       name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_BUCKETNAME"
-      value = aws_s3_bucket.main.id
+      value = local.lease_bucket_name
     },
     {
       name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_LEASEDURATION"
@@ -53,7 +69,7 @@ locals {
       name  = "CAMUNDA_CLUSTER_NODEIDPROVIDER_S3_REGION"
       value = var.aws_region
     }
-  ], local.dual_region_env_vars)
+  ], local.dual_region_env_vars, local.zone_env_vars)
 }
 
 resource "aws_ecs_task_definition" "orchestration_cluster" {
@@ -70,6 +86,10 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
   }
 
   lifecycle {
+    precondition {
+      condition     = length(var.zones) == 0 || local.effective_cluster_size == sum([for z in var.zones : z.number_of_brokers])
+      error_message = "cluster size (cluster_size, or task_desired_count when 0) must equal the sum of number_of_brokers over zones."
+    }
     precondition {
       condition     = !var.init_container_enabled || var.init_container_image != ""
       error_message = "When init_container_enabled is true, init_container_image must be set."

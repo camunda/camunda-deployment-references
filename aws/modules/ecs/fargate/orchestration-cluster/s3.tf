@@ -1,31 +1,78 @@
+# The lease bucket is created here unless var.lease_bucket_name points to an existing one
+# (for example from the object-storage layer). One bucket per zone: never share it with
+# another zone or cluster, the node ID leases rely on S3 conditional writes per bucket.
+locals {
+  create_lease_bucket = var.lease_bucket_name == ""
+  lease_bucket_name   = local.create_lease_bucket ? aws_s3_bucket.main[0].id : var.lease_bucket_name
+  lease_policy_arn    = local.create_lease_bucket ? aws_iam_policy.s3_access[0].arn : var.lease_access_policy_arn
+}
+
+moved {
+  from = aws_s3_bucket.main
+  to   = aws_s3_bucket.main[0]
+}
+
+moved {
+  from = aws_kms_key.s3
+  to   = aws_kms_key.s3[0]
+}
+
+moved {
+  from = aws_kms_alias.s3
+  to   = aws_kms_alias.s3[0]
+}
+
+moved {
+  from = aws_s3_bucket_server_side_encryption_configuration.main
+  to   = aws_s3_bucket_server_side_encryption_configuration.main[0]
+}
+
+moved {
+  from = aws_s3_bucket_public_access_block.main
+  to   = aws_s3_bucket_public_access_block.main[0]
+}
+
+moved {
+  from = aws_iam_policy.s3_access
+  to   = aws_iam_policy.s3_access[0]
+}
+
 # S3 bucket
 # trivy:ignore:AVD-AWS-0089 S3 bucket logging ignored for this use case, but can be enabled by customers themselves if needed
 # trivy:ignore:AVD-AWS-0090 S3 bucket versioning ignored for this use case as the metadata changes cause excessive versioning with no benefit
 resource "aws_s3_bucket" "main" {
+  count = local.create_lease_bucket ? 1 : 0
+
   bucket        = "${var.prefix}-bucket"
   force_destroy = var.s3_force_destroy
 }
 
 # KMS key for S3 bucket encryption
 resource "aws_kms_key" "s3" {
+  count = local.create_lease_bucket ? 1 : 0
+
   description             = "KMS key for ${var.prefix} S3 bucket encryption"
   deletion_window_in_days = 10
   enable_key_rotation     = true
 }
 
 resource "aws_kms_alias" "s3" {
+  count = local.create_lease_bucket ? 1 : 0
+
   name          = "alias/${var.prefix}-s3-encryption"
-  target_key_id = aws_kms_key.s3.key_id
+  target_key_id = aws_kms_key.s3[0].key_id
 }
 
 # Enable server-side encryption with customer managed KMS key
 resource "aws_s3_bucket_server_side_encryption_configuration" "main" {
-  bucket = aws_s3_bucket.main.id
+  count = local.create_lease_bucket ? 1 : 0
+
+  bucket = aws_s3_bucket.main[0].id
 
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = "aws:kms"
-      kms_master_key_id = aws_kms_key.s3.arn
+      kms_master_key_id = aws_kms_key.s3[0].arn
     }
     bucket_key_enabled = true
   }
@@ -33,7 +80,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "main" {
 
 # Block public access
 resource "aws_s3_bucket_public_access_block" "main" {
-  bucket = aws_s3_bucket.main.id
+  count = local.create_lease_bucket ? 1 : 0
+
+  bucket = aws_s3_bucket.main[0].id
 
   block_public_acls       = true
   block_public_policy     = true
@@ -54,6 +103,8 @@ resource "aws_s3_bucket_public_access_block" "main" {
 #     one region. The wildcard still requires the call to come from S3 on
 #     the role's behalf, just without pinning to a region.
 resource "aws_iam_policy" "s3_access" {
+  count = local.create_lease_bucket ? 1 : 0
+
   name = "${var.prefix}-s3-access-policy"
 
   policy = jsonencode({
@@ -66,7 +117,7 @@ resource "aws_iam_policy" "s3_access" {
           "s3:ListBucket",
           "s3:GetBucketLocation"
         ]
-        Resource = aws_s3_bucket.main.arn
+        Resource = aws_s3_bucket.main[0].arn
         Condition = {
           StringEquals = {
             "aws:RequestedRegion" = var.aws_region
@@ -81,7 +132,7 @@ resource "aws_iam_policy" "s3_access" {
           "s3:PutObject",
           "s3:DeleteObject"
         ]
-        Resource = "${aws_s3_bucket.main.arn}/*"
+        Resource = "${aws_s3_bucket.main[0].arn}/*"
         Condition = {
           StringEquals = {
             "aws:RequestedRegion" = var.aws_region
@@ -100,7 +151,7 @@ resource "aws_iam_policy" "s3_access" {
           "kms:GenerateDataKey",
           "kms:DescribeKey"
         ]
-        Resource = aws_kms_key.s3.arn
+        Resource = aws_kms_key.s3[0].arn
         Condition = {
           StringLike = {
             "kms:ViaService" = "s3.*.amazonaws.com"

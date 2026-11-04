@@ -1,5 +1,5 @@
 output "s3_bucket_name" {
-  value       = aws_s3_bucket.main.id
+  value       = local.lease_bucket_name
   description = "The name of the S3 bucket"
 }
 

@@ -31,6 +31,12 @@ variable "instance_class" {
   description = "The instance type of the Aurora instances"
 }
 
+variable "global_cluster_identifier" {
+  type        = string
+  default     = null
+  description = "ID of an aws_rds_global_cluster this cluster belongs to. Leave null for a standalone cluster. Set it once the cluster has been attached to a global cluster, so that Terraform does not plan to detach it. Global databases do not support db.t3/db.t4g instance classes."
+}
+
 variable "num_instances" {
   default     = "1"
   description = "Number of instances"

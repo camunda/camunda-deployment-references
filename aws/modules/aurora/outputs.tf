@@ -39,3 +39,13 @@ output "aurora_iam_role_access_policy_arns" {
 
   sensitive = false
 }
+
+output "aurora_security_group_id" {
+  value       = aws_security_group.this.id
+  description = "ID of the security group attached to the Aurora cluster"
+}
+
+output "aurora_port" {
+  value       = aws_rds_cluster.aurora_cluster.port
+  description = "The port of the Aurora cluster"
+}
