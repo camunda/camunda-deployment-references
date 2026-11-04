@@ -49,7 +49,7 @@ inputs:
         description: Version of the OpenShift to install
         required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.20.42
+        default: 4.20.44
 
     delete-ghost-rosa-clusters:
         description: Specify whether to delete ghost rosa clusters (true or false)
@@ -90,7 +90,7 @@ runs:
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@e2923304b40dfc031b3f595bcc1445e90c981adb # 3.0.0
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
 
         - name: Install Cloud Nuke for retry
           shell: bash
