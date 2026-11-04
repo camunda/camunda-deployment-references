@@ -556,7 +556,7 @@ runs:
           # report-warning-on-slack posts an advisory (non-failure) Slack message, so
           # non-blocking Helm drift on scheduled stable/* runs no longer looks like a
           # red "STABLE BRANCH FAILURE" alert pointing at a green run.
-          uses: camunda/infraex-common-config/.github/actions/report-warning-on-slack@e2923304b40dfc031b3f595bcc1445e90c981adb # 3.0.0
+          uses: camunda/infraex-common-config/.github/actions/report-warning-on-slack@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
           with:
               vault_addr: ${{ inputs.vault-addr }}
               vault_jwt_path: ${{ inputs.vault-jwt-path }}
