@@ -4,12 +4,12 @@ go 1.27.3
 
 require (
 	github.com/aws/aws-sdk-go v1.55.8
-	github.com/aws/aws-sdk-go-v2/config v1.33.12
+	github.com/aws/aws-sdk-go-v2/config v1.33.13
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.343.0
 	github.com/aws/aws-sdk-go-v2/service/eks v1.105.2
 	github.com/gruntwork-io/terratest v1.0.1
 	github.com/stretchr/testify v1.12.1
-	k8s.io/apimachinery v0.37.1
+	k8s.io/apimachinery v0.37.2
 )
 
 require (
@@ -19,7 +19,7 @@ require (
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.47.5 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.9 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.12 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.13 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.5 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.1.17 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.8 // indirect
@@ -44,12 +44,12 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.62.6 // indirect
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.99.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.41.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.12.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.12.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sns v1.39.16 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sqs v1.42.26 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssm v1.68.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.39.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.39.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.6 // indirect
 	github.com/aws/smithy-go v1.28.7 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
@@ -146,7 +146,7 @@ require (
 	k8s.io/client-go v0.37.1 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad // indirect
-	k8s.io/streaming v0.37.1 // indirect
+	k8s.io/streaming v0.37.2 // indirect
 	k8s.io/utils v0.0.0-20260626114624-be93311217bd // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect

@@ -43,9 +43,9 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@e2923304b40dfc031b3f595bcc1445e90c981adb # 3.0.0
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
 
-            - uses: camunda/camunda-deployment-references/.github/actions/aws-configure-cli@a5868fc307e5645f7e91bb35e5dc4633c282056b # main
+            - uses: camunda/camunda-deployment-references/.github/actions/aws-configure-cli@853e862447b3ce30ed0a95c54c2c15c6f9affa53 # main
               with:
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
@@ -135,7 +135,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure()
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e2923304b40dfc031b3f595bcc1445e90c981adb # 3.0.0
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}
