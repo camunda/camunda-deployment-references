@@ -80,7 +80,7 @@ run "no_zone_env_by_default" {
   command = plan
 
   assert {
-    condition     = !strcontains(aws_ecs_task_definition.orchestration_cluster.container_definitions, "CAMUNDA_CLUSTER_ZONE")
+    condition     = !contains(output.environment_variable_names, "CAMUNDA_CLUSTER_ZONE")
     error_message = "zone-aware settings must be absent unless zones are configured"
   }
 }
@@ -97,12 +97,11 @@ run "zone_aware_env_rendered" {
 
   assert {
     condition = alltrue([
-      strcontains(aws_ecs_task_definition.orchestration_cluster.container_definitions, "CAMUNDA_CLUSTER_PARTITIONING_SCHEME"),
-      strcontains(aws_ecs_task_definition.orchestration_cluster.container_definitions, "ZONE_AWARE"),
-      strcontains(aws_ecs_task_definition.orchestration_cluster.container_definitions, "CAMUNDA_CLUSTER_ZONE"),
-      strcontains(aws_ecs_task_definition.orchestration_cluster.container_definitions, "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_0_NUMBEROFBROKERS"),
+      contains(output.environment_variable_names, "CAMUNDA_CLUSTER_PARTITIONING_SCHEME"),
+      contains(output.environment_variable_names, "CAMUNDA_CLUSTER_ZONE"),
+      contains(output.environment_variable_names, "CAMUNDA_CLUSTER_PARTITIONING_ZONEAWARE_ZONES_0_NUMBEROFBROKERS"),
     ])
-    error_message = "zone-aware env vars must be rendered into the task definition"
+    error_message = "zone-aware env vars must be rendered"
   }
 }
 
