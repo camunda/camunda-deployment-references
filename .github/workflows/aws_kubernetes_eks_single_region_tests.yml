@@ -1017,7 +1017,8 @@ jobs:
                   # until the health wait times out. `rollout restart` only patches the
                   # pod template, so each rotation is awaited before anything asserts
                   # health. One shared budget keeps the loop below this step's
-                  # timeout-minutes, so a stuck rollout degrades to a warning.
+                  # timeout-minutes. A failed wait or an exhausted budget stops the
+                  # loop, so no restart overlaps an unfinished rollout.
                   rollout_deadline=$(( $(date +%s) + 600 ))
                   for wl in "statefulset/${rel}-zeebe" "deployment/${rel}-connectors" "deployment/${rel}-identity"; do
                       # Distinguish a genuine "absent" (empty, exit 0) from a real
@@ -1029,17 +1030,19 @@ jobs:
                           echo "Skipping ${wl}: not present in namespace ${ns}."
                           continue
                       fi
+                      remaining=$(( rollout_deadline - $(date +%s) ))
+                      if [ "$remaining" -le 0 ]; then
+                          echo "::warning::rollout wait budget exhausted; not restarting ${wl} or the workloads after it"
+                          break
+                      fi
                       if ! kubectl -n "$ns" rollout restart "$wl"; then
                           echo "::warning::rollout restart ${wl} failed"
                           continue
                       fi
-                      remaining=$(( rollout_deadline - $(date +%s) ))
-                      if [ "$remaining" -le 0 ]; then
-                          echo "::warning::rollout wait budget exhausted; not waiting for ${wl}"
-                          continue
+                      if ! kubectl -n "$ns" rollout status "$wl" --timeout="${remaining}s"; then
+                          echo "::warning::rollout status ${wl} did not complete; stopping so the next restart does not overlap it."
+                          break
                       fi
-                      kubectl -n "$ns" rollout status "$wl" --timeout="${remaining}s" ||
-                          echo "::warning::rollout status ${wl} did not complete within the remaining budget"
                   done
 
             - name: 👀⏳ Wait for the deployment to be healthy using generic/kubernetes/single-region
