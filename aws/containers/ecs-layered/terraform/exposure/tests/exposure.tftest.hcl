@@ -39,3 +39,36 @@ run "tls_with_hostname" {
     error_message = "a certificate must enable the HTTPS listener and an https base URL"
   }
 }
+
+run "raft_nlb_is_off_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(aws_lb.raft) == 0 && output.nlb_raft_arn == ""
+    error_message = "no internal NLB unless asked for"
+  }
+}
+
+run "raft_nlb_needs_private_subnets" {
+  command = plan
+
+  variables {
+    enable_raft_nlb = true
+  }
+
+  expect_failures = [aws_lb.raft]
+}
+
+run "raft_nlb_created_when_enabled" {
+  command = plan
+
+  variables {
+    enable_raft_nlb    = true
+    private_subnet_ids = ["subnet-p1", "subnet-p2", "subnet-p3"]
+  }
+
+  assert {
+    condition     = length(aws_lb.raft) == 1
+    error_message = "enable_raft_nlb must create the internal NLB"
+  }
+}

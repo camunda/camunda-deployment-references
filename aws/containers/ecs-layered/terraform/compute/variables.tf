@@ -13,6 +13,12 @@ variable "vpc_cidr" {
   description = "Network layer output: CIDR block of the VPC, used for the intra-VPC security group rules"
 }
 
+variable "additional_cidr_blocks" {
+  type        = list(string)
+  default     = []
+  description = "CIDR blocks of other VPCs, for example the second region, allowed on the same Camunda ports. Empty for a single region."
+}
+
 variable "ports" {
   type = map(number)
   default = {

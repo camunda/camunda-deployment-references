@@ -12,6 +12,9 @@ locals {
   cluster_size       = sum([for z in var.zones : z.number_of_brokers])
   replication_factor = sum([for z in var.zones : z.number_of_replicas])
 
+  admin_user_password      = var.admin_user_password != "" ? var.admin_user_password : try(random_password.admin_user[0].result, "")
+  connectors_user_password = var.connectors_user_password != "" ? var.connectors_user_password : try(random_password.connectors_user[0].result, "")
+
   service_security_group_ids = [
     var.camunda_ports_security_group_id,
     var.egress_security_group_id,
@@ -65,7 +68,7 @@ resource "aws_secretsmanager_secret_version" "admin_user_password" {
   count = local.oidc_enabled ? 0 : 1
 
   secret_id     = aws_secretsmanager_secret.admin_user_password[0].id
-  secret_string = random_password.admin_user[0].result
+  secret_string = local.admin_user_password
 }
 
 resource "aws_secretsmanager_secret" "connectors_user_password" {
@@ -81,7 +84,7 @@ resource "aws_secretsmanager_secret_version" "connectors_user_password" {
   count = local.oidc_enabled ? 0 : 1
 
   secret_id     = aws_secretsmanager_secret.connectors_user_password[0].id
-  secret_string = random_password.connectors_user[0].result
+  secret_string = local.connectors_user_password
 }
 
 resource "aws_iam_policy" "basic_auth_secrets_read" {
@@ -171,6 +174,19 @@ module "orchestration_cluster" {
       { name = "CAMUNDA_DATA_BACKUP_S3_BUCKETNAME", value = var.backup_bucket_name },
       { name = "CAMUNDA_DATA_BACKUP_REPOSITORYNAME", value = var.backup_bucket_name },
     ],
+    var.cross_region_membership ? [
+      # The defaults (100 ms probe) are too tight for a link between regions.
+      { name = "CAMUNDA_CLUSTER_MEMBERSHIP_PROBETIMEOUT", value = "1000ms" },
+      { name = "CAMUNDA_CLUSTER_MEMBERSHIP_FAILURETIMEOUT", value = "10000ms" },
+    ] : [],
+    var.rdbms_async_replication_monitoring ? [
+      # The exporter acknowledges a record only once the replica region has it. See
+      # the dual-region reference for the trade-offs of the lag settings.
+      { name = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_ENABLED", value = "true" },
+      { name = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_TYPE", value = "LOG_SEQ" },
+      { name = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_MAXLAG", value = "PT1H" },
+      { name = "CAMUNDA_DATA_SECONDARYSTORAGE_RDBMS_ASYNCREPLICATION_PAUSEONMAXLAGEXCEEDED", value = "false" },
+    ] : [],
     local.oidc_enabled ? [
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_METHOD", value = "oidc" },
       { name = "CAMUNDA_SECURITY_AUTHENTICATION_OIDC_ISSUERURI", value = var.oidc.issuer_uri },
@@ -210,6 +226,10 @@ module "orchestration_cluster" {
     var.rds_db_connect_policy_arn,
     var.backup_access_policy_arn,
   ]
+
+  initial_contact_points            = var.initial_contact_points
+  internal_nlb_arn                  = var.raft_nlb_arn
+  enable_internal_nlb_raft_listener = var.enable_raft_listener
 }
 
 ################################################################

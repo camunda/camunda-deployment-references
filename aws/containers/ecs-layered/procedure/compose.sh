@@ -22,6 +22,11 @@
 # Environment:
 #   TF_STATE_BUCKET, TF_STATE_REGION   S3 backend of the layers (key: <layer>/terraform.tfstate)
 #   WORK_DIR                           where generated files go (default ./debug)
+#   STATE_KEY_PREFIX                   prefix of the state keys, for a second deployment
+#                                      (for example "region-b/") that must not share state
+#   STORAGE_OUTPUTS_FILE               JSON of `terraform output -json` to use as the outputs
+#                                      of the storage layer, when the database is not created
+#                                      by this run (the global-database root in a second region)
 set -euo pipefail
 
 ACTION="${1:?usage: compose.sh <apply|plan|destroy> <config-dir>}"
@@ -29,6 +34,8 @@ CONFIG_DIR="$(cd "${2:?usage: compose.sh <apply|plan|destroy> <config-dir>}" && 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../terraform" && pwd)"
 WORK_DIR="${WORK_DIR:-./debug}"
 SKIP_LAYERS="${SKIP_LAYERS:-}"
+STATE_KEY_PREFIX="${STATE_KEY_PREFIX:-}"
+STORAGE_OUTPUTS_FILE="${STORAGE_OUTPUTS_FILE:-}"
 : "${TF_STATE_BUCKET:?set TF_STATE_BUCKET}"
 : "${TF_STATE_REGION:?set TF_STATE_REGION}"
 
@@ -52,7 +59,9 @@ skipped() {
 
 # Output of an already applied layer, as JSON ({} when it was skipped or never applied).
 outputs_of() {
-  if [[ -f "$OUT/$1.outputs.json" ]]; then cat "$OUT/$1.outputs.json"; else echo '{}'; fi
+  if [[ "$1" == "storage" && -n "$STORAGE_OUTPUTS_FILE" ]]; then
+    cat "$STORAGE_OUTPUTS_FILE"
+  elif [[ -f "$OUT/$1.outputs.json" ]]; then cat "$OUT/$1.outputs.json"; else echo '{}'; fi
 }
 
 # The variables a layer takes from the layers before it. The names on the left are the
@@ -85,6 +94,7 @@ wiring_for() {
     exposure)
       jq -n --argjson n "$network" --argjson c "$compute" '{
         vpc_id: $n.vpc_id.value, public_subnet_ids: $n.public_subnet_ids.value,
+        private_subnet_ids: $n.private_subnet_ids.value,
         camunda_ports_security_group_id: $c.camunda_ports_security_group_id.value}'
       ;;
     identity)
@@ -117,6 +127,7 @@ wiring_for() {
         alb_listener_http_webapp_arn: $e.alb_listener_http_webapp_arn.value,
         alb_listener_http_management_arn: $e.alb_listener_http_management_arn.value,
         nlb_grpc_arn: $e.nlb_grpc_arn.value,
+        raft_nlb_arn: ($e.nlb_raft_arn.value // ""),
         oidc: $i.oidc.value}'
       ;;
   esac
@@ -139,7 +150,7 @@ for layer in "${ORDER[@]}"; do
   terraform -chdir="$dir" init -input=false -reconfigure \
     -backend-config="bucket=$TF_STATE_BUCKET" \
     -backend-config="region=$TF_STATE_REGION" \
-    -backend-config="key=$layer/terraform.tfstate" >/dev/null
+    -backend-config="key=${STATE_KEY_PREFIX}$layer/terraform.tfstate" >/dev/null
 
   case "$ACTION" in
     apply)

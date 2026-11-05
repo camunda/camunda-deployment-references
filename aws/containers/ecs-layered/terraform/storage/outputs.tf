@@ -33,3 +33,13 @@ output "db_seed_done" {
   value       = var.db_seed_enabled ? null_resource.run_db_seed_task[0].id : "disabled"
   description = "Changes once the seed task has run. Pass it to the Camunda layer so that it starts after the database users exist."
 }
+
+output "cluster_arn" {
+  value       = module.aurora.aurora_cluster_arn
+  description = "ARN of the Aurora cluster. The global-database root uses it as the source of the global cluster."
+}
+
+output "cluster_resource_id" {
+  value       = module.aurora.aurora_cluster_resource_id
+  description = "Resource ID of the Aurora cluster, used in rds-db:connect policies"
+}

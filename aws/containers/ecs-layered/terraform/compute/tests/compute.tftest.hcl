@@ -42,3 +42,16 @@ run "registry_credentials_are_optional" {
     error_message = "no registry secret without credentials"
   }
 }
+
+run "peered_cidrs_are_allowed_on_the_camunda_ports" {
+  command = plan
+
+  variables {
+    additional_cidr_blocks = ["10.191.0.0/16"]
+  }
+
+  assert {
+    condition     = alltrue([for r in aws_security_group.camunda_ports_within_vpc.ingress : contains(r.cidr_blocks, "10.191.0.0/16") if r.from_port != 2049])
+    error_message = "the other region's CIDR must be allowed wherever the VPC's own is"
+  }
+}

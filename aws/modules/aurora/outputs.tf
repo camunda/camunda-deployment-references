@@ -49,3 +49,8 @@ output "aurora_port" {
   value       = aws_rds_cluster.aurora_cluster.port
   description = "The port of the Aurora cluster"
 }
+
+output "aurora_cluster_arn" {
+  value       = aws_rds_cluster.aurora_cluster.arn
+  description = "ARN of the Aurora cluster, for example as the source of an Aurora Global Database"
+}

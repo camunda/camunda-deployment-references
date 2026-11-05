@@ -25,6 +25,14 @@ export TF_STATE_BUCKET=my-state-bucket TF_STATE_REGION=eu-west-1
 ./procedure/compose.sh apply examples/byo-vpc         # existing VPC
 ```
 
+## Growing to a second region
+
+[`EVOLVE-DUAL.md`](EVOLVE-DUAL.md) is the runbook: the delta only, with each step marked verified
+or not verified. It adds two optional roots, [`interconnect`](terraform/interconnect) and
+[`global-database`](terraform/global-database), runs the same layers again in the new region, and
+adds a zone to the running cluster with [`procedure/add-zone.sh`](procedure/add-zone.sh). The
+variables are in [`examples/dual`](examples/dual).
+
 ## Design points
 
 - **Zone-aware brokers from day one.** The Orchestration Cluster runs with one zone and three

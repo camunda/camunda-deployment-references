@@ -128,7 +128,12 @@ resource "aws_iam_role_policy_attachment" "registry_secrets" {
 #                      Security groups                         #
 ################################################################
 
-# Shared by every service: the Camunda ports inside the VPC, and NFS to EFS.
+locals {
+  # The VPC itself, plus the VPCs of other regions once the deployment grows.
+  peer_cidr_blocks = concat([var.vpc_cidr], var.additional_cidr_blocks)
+}
+
+# Shared by every service: the Camunda ports inside the VPC (and the peered ones), and NFS to EFS.
 resource "aws_security_group" "camunda_ports_within_vpc" {
   name        = "${var.prefix}-allow-necessary-camunda-ports-within-vpc"
   description = "Allow necessary Camunda ports within the VPC"
@@ -140,7 +145,7 @@ resource "aws_security_group" "camunda_ports_within_vpc" {
       from_port   = ingress.value
       to_port     = ingress.value
       protocol    = "TCP"
-      cidr_blocks = [var.vpc_cidr]
+      cidr_blocks = local.peer_cidr_blocks
       description = "Allow inbound traffic on port ${ingress.value}"
     }
   }
@@ -151,7 +156,7 @@ resource "aws_security_group" "camunda_ports_within_vpc" {
       from_port   = egress.value
       to_port     = egress.value
       protocol    = "TCP"
-      cidr_blocks = [var.vpc_cidr]
+      cidr_blocks = local.peer_cidr_blocks
       description = "Allow outbound traffic on port ${egress.value}"
     }
   }

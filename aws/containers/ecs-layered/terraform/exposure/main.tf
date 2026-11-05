@@ -109,3 +109,22 @@ resource "aws_lb" "grpc" {
   ]
   subnets = var.public_subnet_ids
 }
+
+# Internal NLB on 26502, the traffic between brokers. Only needed once brokers in another
+# region must reach this cluster: they use its DNS name as an initial contact point.
+resource "aws_lb" "raft" {
+  count = var.enable_raft_nlb ? 1 : 0
+
+  name               = "${var.prefix}-nlb-raft"
+  internal           = true
+  load_balancer_type = "network"
+  security_groups    = [var.camunda_ports_security_group_id]
+  subnets            = var.private_subnet_ids
+
+  lifecycle {
+    precondition {
+      condition     = length(var.private_subnet_ids) >= 3
+      error_message = "enable_raft_nlb = true requires private_subnet_ids (at least 3)."
+    }
+  }
+}

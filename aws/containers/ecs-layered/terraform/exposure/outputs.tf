@@ -29,3 +29,13 @@ output "public_base_url" {
   value       = local.public_base_url
   description = "Browser-facing base URL (scheme and host). OIDC redirect URIs and issuers are built from it."
 }
+
+output "nlb_raft_arn" {
+  value       = join("", aws_lb.raft[*].arn)
+  description = "ARN of the internal network load balancer for broker traffic, empty unless enable_raft_nlb is set"
+}
+
+output "nlb_raft_dns_name" {
+  value       = join("", aws_lb.raft[*].dns_name)
+  description = "DNS name of the internal network load balancer for broker traffic, empty unless enable_raft_nlb is set. The other region uses it as an initial contact point."
+}

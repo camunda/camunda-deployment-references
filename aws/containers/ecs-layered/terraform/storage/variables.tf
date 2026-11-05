@@ -22,6 +22,12 @@ variable "private_subnet_ids" {
   description = "Network layer output: private subnet IDs (at least 3, distinct availability zones)"
 }
 
+variable "additional_cidr_blocks" {
+  type        = list(string)
+  default     = []
+  description = "CIDR blocks of other VPCs, for example the second region, allowed to reach the database. Empty for a single region."
+}
+
 ################################################################
 #                     Inputs from the compute layer            #
 ################################################################

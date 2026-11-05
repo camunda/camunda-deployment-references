@@ -44,7 +44,7 @@ module "aurora" {
 
   vpc_id      = var.vpc_id
   subnet_ids  = var.private_subnet_ids
-  cidr_blocks = [var.vpc_cidr]
+  cidr_blocks = concat([var.vpc_cidr], var.additional_cidr_blocks)
 
   num_instances  = var.db_num_instances
   instance_class = var.db_instance_class

@@ -91,3 +91,36 @@ run "zone_must_be_listed" {
 
   expect_failures = [terraform_data.validate]
 }
+
+run "second_region_settings" {
+  command = plan
+
+  variables {
+    zone = "zone-b"
+    zones = [
+      { name = "zone-a", number_of_brokers = 3, number_of_replicas = 3, priority = 1000 },
+      { name = "zone-b", number_of_brokers = 3, number_of_replicas = 3, priority = 500 },
+    ]
+    initial_contact_points  = "orchestration-cluster-sc:26502,raft.example:26502"
+    cross_region_membership = true
+  }
+
+  assert {
+    condition     = local.cluster_size == 6 && local.replication_factor == 6
+    error_message = "two zones of 3 brokers and 3 replicas make size 6 and replication factor 6"
+  }
+}
+
+run "supplied_passwords_are_used" {
+  command = plan
+
+  variables {
+    admin_user_password      = "from-the-first-region"
+    connectors_user_password = "from-the-first-region-too"
+  }
+
+  assert {
+    condition     = output.admin_user_password == "from-the-first-region" && output.connectors_user_password == "from-the-first-region-too"
+    error_message = "a second region must reuse the passwords of the first one"
+  }
+}

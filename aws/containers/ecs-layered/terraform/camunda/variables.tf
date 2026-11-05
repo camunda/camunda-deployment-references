@@ -197,3 +197,51 @@ variable "partition_count" {
   default     = 3
   description = "Number of partitions. It does not change when a zone is added."
 }
+
+################################################################
+#            Growing into more than one region                 #
+################################################################
+
+variable "initial_contact_points" {
+  type        = string
+  default     = ""
+  description = "Initial contact points of the cluster (host:26502, comma separated). Empty keeps the local Service Connect name. A second region lists its own name and the first region's raft_nlb_dns_name here."
+}
+
+variable "raft_nlb_arn" {
+  type        = string
+  default     = ""
+  description = "Exposure layer output nlb_raft_arn: internal load balancer on which the brokers of other regions reach this one. Required when enable_raft_listener = true."
+}
+
+variable "enable_raft_listener" {
+  type        = bool
+  default     = false
+  description = "Register the brokers on raft_nlb_arn (port 26502). A plain flag, not derived from the ARN, because Terraform must know it at plan time."
+}
+
+variable "cross_region_membership" {
+  type        = bool
+  default     = false
+  description = "Relax the membership probe and failure timeouts for the latency between regions (the defaults are too tight for a cross-region link)."
+}
+
+variable "rdbms_async_replication_monitoring" {
+  type        = bool
+  default     = false
+  description = "Hold the Zeebe log until the secondary storage confirms replication to its replica region. Turn it on when the database is an Aurora Global Database."
+}
+
+variable "admin_user_password" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Password of the admin user in basic authentication mode. Empty generates one. A second region must receive the first region's: the user exists in the cluster, not in each region."
+}
+
+variable "connectors_user_password" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Password of the connectors user in basic authentication mode. Empty generates one. A second region must receive the first region's: the user exists in the cluster, not in each region."
+}

@@ -46,3 +46,15 @@ variable "alb_public_hostname" {
     error_message = "alb_public_hostname must be set when alb_certificate_arn is set."
   }
 }
+
+variable "enable_raft_nlb" {
+  type        = bool
+  default     = false
+  description = "Create an internal network load balancer for the cluster's internal traffic (26502). A second region's brokers join the cluster through it. Set it to true from the start if you expect to add a region: adding it later makes the Camunda layer register a target group on an existing ECS service, which Terraform may replace."
+}
+
+variable "private_subnet_ids" {
+  type        = list(string)
+  default     = []
+  description = "Network layer output: private subnet IDs. Required when enable_raft_nlb = true."
+}

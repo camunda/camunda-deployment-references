@@ -19,7 +19,13 @@ output "log_group_name" {
 }
 
 output "admin_user_password" {
-  value       = try(random_password.admin_user[0].result, "")
+  value       = local.admin_user_password
   sensitive   = true
   description = "Password of the admin user in basic authentication mode, empty with OIDC. Also stored in Secrets Manager."
+}
+
+output "connectors_user_password" {
+  value       = local.connectors_user_password
+  sensitive   = true
+  description = "Password of the connectors user in basic authentication mode, empty with OIDC. A second region takes it as connectors_user_password."
 }
