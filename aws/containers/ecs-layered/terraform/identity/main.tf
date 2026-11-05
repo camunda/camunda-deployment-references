@@ -23,6 +23,7 @@ locals {
     username_claim                  = "preferred_username"
     client_id_claim                 = "client_id"
     connectors_token_scope          = ""
+    client_secrets_kms_key_arn      = ""
   }
 
   oidc = local.oidc_enabled ? {
@@ -97,7 +98,7 @@ resource "aws_iam_policy" "client_secrets_read" {
       {
         Effect   = "Allow"
         Action   = ["kms:Decrypt", "kms:DescribeKey"]
-        Resource = var.secrets_kms_key_arn
+        Resource = distinct(compact([var.secrets_kms_key_arn, local.ext.client_secrets_kms_key_arn]))
       }
     ]
   })

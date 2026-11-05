@@ -15,6 +15,10 @@ locals {
   availability_zones = sort(distinct(data.aws_subnet.private[*].availability_zone))
 
   db_admin_password = var.db_admin_password != "" ? var.db_admin_password : random_password.db_admin[0].result
+
+  # Roles that authenticate with an IAM token: the seed users, and the databases with auth = iam.
+  iam_usernames      = toset(concat(var.db_seed_iam_usernames, [for k, d in var.databases : d.username if d.auth == "iam"]))
+  password_databases = { for k, d in var.databases : k => d if d.auth == "password" }
 }
 
 resource "random_password" "db_admin" {
@@ -99,7 +103,7 @@ resource "aws_iam_role_policy_attachment" "db_admin_password_read" {
 # One policy per IAM database user. The Camunda layer attaches the one of its user to
 # the task role.
 resource "aws_iam_policy" "rds_db_connect" {
-  for_each = toset(var.db_seed_iam_usernames)
+  for_each = local.iam_usernames
 
   name        = "${var.prefix}-rds-db-connect-${each.key}"
   description = "Allow ECS tasks to connect to Aurora PostgreSQL as the IAM database user '${each.key}'"
@@ -115,4 +119,62 @@ resource "aws_iam_policy" "rds_db_connect" {
       }
     ]
   })
+}
+
+################################################################
+#              Passwords of the further databases              #
+################################################################
+
+resource "random_password" "database" {
+  for_each = local.password_databases
+
+  length           = 32
+  special          = true
+  override_special = "!#%^()-_=+[]:?"
+}
+
+resource "aws_secretsmanager_secret" "database" {
+  for_each = local.password_databases
+
+  name                    = "${var.prefix}-${each.key}-db-password"
+  description             = "Password of the ${each.value.username} database role (${each.key})"
+  recovery_window_in_days = 0
+  kms_key_id              = var.secrets_kms_key_arn
+}
+
+resource "aws_secretsmanager_secret_version" "database" {
+  for_each = local.password_databases
+
+  secret_id     = aws_secretsmanager_secret.database[each.key].id
+  secret_string = random_password.database[each.key].result
+}
+
+resource "aws_iam_policy" "database_passwords_read" {
+  count = length(local.password_databases) > 0 ? 1 : 0
+
+  name        = "${var.prefix}-db-passwords-read"
+  description = "Allow the ECS task execution role to read the database passwords of the further databases"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = [for k, s in aws_secretsmanager_secret.database : s.arn]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt", "kms:DescribeKey"]
+        Resource = var.secrets_kms_key_arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "database_passwords_read" {
+  count = length(local.password_databases) > 0 ? 1 : 0
+
+  role       = var.task_execution_role_name
+  policy_arn = aws_iam_policy.database_passwords_read[0].arn
 }

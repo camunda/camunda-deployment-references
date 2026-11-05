@@ -131,6 +131,9 @@ resource "aws_iam_role_policy_attachment" "registry_secrets" {
 locals {
   # The VPC itself, plus the VPCs of other regions once the deployment grows.
   peer_cidr_blocks = concat([var.vpc_cidr], var.additional_cidr_blocks)
+
+  # Ports opened between the services: the Camunda ones, and the management plane ones on demand.
+  open_ports = merge(var.ports, var.enable_management_plane ? var.management_plane_ports : {})
 }
 
 # Shared by every service: the Camunda ports inside the VPC (and the peered ones), and NFS to EFS.
@@ -140,7 +143,7 @@ resource "aws_security_group" "camunda_ports_within_vpc" {
   vpc_id      = var.vpc_id
 
   dynamic "ingress" {
-    for_each = var.ports
+    for_each = local.open_ports
     content {
       from_port   = ingress.value
       to_port     = ingress.value
@@ -151,7 +154,7 @@ resource "aws_security_group" "camunda_ports_within_vpc" {
   }
 
   dynamic "egress" {
-    for_each = var.ports
+    for_each = local.open_ports
     content {
       from_port   = egress.value
       to_port     = egress.value
@@ -213,4 +216,21 @@ resource "aws_security_group" "efs" {
     protocol    = "TCP"
     cidr_blocks = [var.vpc_cidr]
   }
+}
+
+################################################################
+#         Service discovery and logs for the components        #
+################################################################
+
+# Components that run outside an Orchestration Cluster (the OIDC provider, Management
+# Identity, Camunda Hub) find each other through this Service Connect namespace and log
+# to this group. An Orchestration Cluster brings its own.
+resource "aws_service_discovery_http_namespace" "service_connect" {
+  name        = "${var.prefix}-sc"
+  description = "Service Connect namespace for the components of ${var.prefix}"
+}
+
+resource "aws_cloudwatch_log_group" "components" {
+  name              = "/ecs/${var.prefix}-components"
+  retention_in_days = 7
 }

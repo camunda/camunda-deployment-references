@@ -42,6 +42,40 @@ resource "aws_ecs_task_definition" "db_seed" {
               -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${user}\";"
           done
 
+          # Further databases: "<database>:<role>:<auth>" entries.
+          for entry in $${DATABASES}; do
+            db=$${entry%%:*}
+            rest=$${entry#*:}
+            role=$${rest%%:*}
+            auth=$${rest#*:}
+            echo "Provisioning database '$${db}' and role '$${role}' ($${auth} auth)"
+
+            ADMIN="host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${AURORA_DB_NAME} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require"
+
+            if [ "$${auth}" = "password" ]; then
+              var="DBPW_$(echo "$${role}" | tr a-z A-Z)"
+              eval "pw=\$$${var}"
+              psql "$${ADMIN}" -v ON_ERROR_STOP=1 \
+                -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${role}') THEN CREATE ROLE \"$${role}\" WITH LOGIN PASSWORD '$${pw}'; END IF; END \$\$;" \
+                -c "ALTER ROLE \"$${role}\" WITH LOGIN PASSWORD '$${pw}';"
+            else
+              psql "$${ADMIN}" -v ON_ERROR_STOP=1 \
+                -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$${role}') THEN CREATE ROLE \"$${role}\" WITH LOGIN; END IF; END \$\$;" \
+                -c "ALTER ROLE \"$${role}\" WITH LOGIN;" \
+                -c "GRANT rds_iam TO \"$${role}\";"
+            fi
+
+            # No OWNER: the RDS master role cannot create a database owned by another role.
+            psql "$${ADMIN}" -v ON_ERROR_STOP=1 \
+              -tc "SELECT 'CREATE DATABASE \"$${db}\"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$${db}')" \
+              | psql "$${ADMIN}" -v ON_ERROR_STOP=1
+
+            psql "host=$${AURORA_ENDPOINT} port=$${AURORA_PORT} dbname=$${db} user=$${AURORA_ADMIN_USERNAME} password=$${AURORA_ADMIN_PASSWORD} sslmode=require" \
+              -v ON_ERROR_STOP=1 \
+              -c "GRANT ALL PRIVILEGES ON DATABASE \"$${db}\" TO \"$${role}\";" \
+              -c "GRANT USAGE, CREATE ON SCHEMA public TO \"$${role}\";"
+          done
+
           echo "DB seeding complete."
         EOT
       ]
@@ -52,11 +86,13 @@ resource "aws_ecs_task_definition" "db_seed" {
         { name = "AURORA_DB_NAME", value = var.db_name },
         { name = "AURORA_ADMIN_USERNAME", value = var.db_admin_username },
         { name = "IAM_DB_USERS", value = join(" ", var.db_seed_iam_usernames) },
+        { name = "DATABASES", value = join(" ", [for k, d in var.databases : "${d.database_name}:${d.username}:${d.auth}"]) },
       ]
 
-      secrets = [
-        { name = "AURORA_ADMIN_PASSWORD", valueFrom = aws_secretsmanager_secret.db_admin_password.arn },
-      ]
+      secrets = concat(
+        [{ name = "AURORA_ADMIN_PASSWORD", valueFrom = aws_secretsmanager_secret.db_admin_password.arn }],
+        [for k, d in local.password_databases : { name = "DBPW_${upper(d.username)}", valueFrom = aws_secretsmanager_secret.database[k].arn }],
+      )
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -69,7 +105,10 @@ resource "aws_ecs_task_definition" "db_seed" {
     }
   ])
 
-  depends_on = [aws_iam_role_policy_attachment.db_admin_password_read]
+  depends_on = [
+    aws_iam_role_policy_attachment.db_admin_password_read,
+    aws_iam_role_policy_attachment.database_passwords_read,
+  ]
 }
 
 resource "null_resource" "run_db_seed_task" {
@@ -79,6 +118,8 @@ resource "null_resource" "run_db_seed_task" {
     aurora_endpoint = module.aurora.aurora_endpoint
     db_name         = var.db_name
     iam_users       = join(",", var.db_seed_iam_usernames)
+    databases       = join(",", [for k, d in var.databases : "${d.database_name}:${d.username}:${d.auth}"])
+    password_ids    = join(",", [for k, v in aws_secretsmanager_secret_version.database : v.version_id])
     # Re-run when the task definition changes, which is what happens when the SQL is
     # edited. Every statement is idempotent.
     seed_revision = aws_ecs_task_definition.db_seed[0].revision

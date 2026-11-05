@@ -32,6 +32,11 @@ variable "external_oidc" {
 
     # Scope for the connectors client-credentials request. Entra ID v2 needs <resource>/.default.
     connectors_token_scope = optional(string, "")
+
+    # KMS key the client secrets are encrypted with, when it is not the key of the compute layer
+    # (for example when an OIDC provider of the management plane created them). Empty uses the key of
+    # the compute layer.
+    client_secrets_kms_key_arn = optional(string, "")
   })
   default     = null
   description = "Your OIDC provider. Required when authentication_mode = oidc. Client secrets are existing Secrets Manager ARNs, never raw values, and must be encrypted with the AWS managed key or with the secrets_kms_key_arn of the compute layer, otherwise the task cannot decrypt them."

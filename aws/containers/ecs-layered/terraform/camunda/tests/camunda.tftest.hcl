@@ -124,3 +124,12 @@ run "supplied_passwords_are_used" {
     error_message = "a second region must reuse the passwords of the first one"
   }
 }
+
+run "cluster_registration_for_camunda_hub" {
+  command = plan
+
+  assert {
+    condition     = output.cluster_registration.version == "8.10.0" && endswith(output.cluster_registration.readiness_url, ":9600/actuator/health/readiness")
+    error_message = "Camunda Hub needs the version and the readiness URL of the management port"
+  }
+}

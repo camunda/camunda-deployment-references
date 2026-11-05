@@ -32,6 +32,26 @@ variable "ports" {
   description = "Ports opened between the tasks and the database inside the VPC"
 }
 
+variable "management_plane_ports" {
+  type = map(number)
+  default = {
+    management_identity_app        = 8084
+    management_identity_management = 8082
+    oidc_provider_http             = 18080
+    oidc_provider_management       = 9000
+    camunda_hub_restapi            = 8081
+    camunda_hub_management         = 8091
+    camunda_hub_websockets         = 8060
+  }
+  description = "Ports of the management plane components (OIDC provider, Management Identity, Camunda Hub), opened inside the VPC when enable_management_plane is true"
+}
+
+variable "enable_management_plane" {
+  type        = bool
+  default     = false
+  description = "Open the ports of the management plane components in the shared security group. Set it in the compute layer that hosts the OIDC provider, Management Identity, and Camunda Hub."
+}
+
 variable "registry_username" {
   type        = string
   default     = ""

@@ -42,3 +42,13 @@ output "efs_security_group_id" {
   value       = aws_security_group.efs.id
   description = "Security group of the EFS file systems"
 }
+
+output "service_connect_namespace_arn" {
+  value       = aws_service_discovery_http_namespace.service_connect.arn
+  description = "Service Connect namespace for the components that run outside an Orchestration Cluster"
+}
+
+output "components_log_group_name" {
+  value       = aws_cloudwatch_log_group.components.name
+  description = "CloudWatch log group for the components that run outside an Orchestration Cluster"
+}

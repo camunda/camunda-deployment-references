@@ -55,3 +55,25 @@ run "peered_cidrs_are_allowed_on_the_camunda_ports" {
     error_message = "the other region's CIDR must be allowed wherever the VPC's own is"
   }
 }
+
+run "management_plane_ports_are_closed_by_default" {
+  command = plan
+
+  assert {
+    condition     = !anytrue([for r in aws_security_group.camunda_ports_within_vpc.ingress : r.from_port == 8084])
+    error_message = "management plane ports are opened only on demand"
+  }
+}
+
+run "management_plane_ports_open_on_demand" {
+  command = plan
+
+  variables {
+    enable_management_plane = true
+  }
+
+  assert {
+    condition     = anytrue([for r in aws_security_group.camunda_ports_within_vpc.ingress : r.from_port == 8084])
+    error_message = "enable_management_plane must open the Management Identity port"
+  }
+}

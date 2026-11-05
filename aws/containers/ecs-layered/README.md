@@ -25,6 +25,29 @@ export TF_STATE_BUCKET=my-state-bucket TF_STATE_REGION=eu-west-1
 ./procedure/compose.sh apply examples/byo-vpc         # existing VPC
 ```
 
+## The management plane
+
+Camunda Hub is one for the whole estate and connects to several Orchestration Clusters. It needs
+Management Identity, which needs an OIDC provider, so these three form the management plane. It is
+deployed once, with `PLAN=management`, with the same network, compute, storage, and exposure layers
+as a cluster, and three more:
+
+| Layer | Root | Takes from | Produces |
+|-------|------|------------|----------|
+| OIDC provider | [`oidc-provider`](terraform/oidc-provider) | network, compute, exposure, storage | `clusters` (one `external_oidc` object per Orchestration Cluster), `management` |
+| Management Identity | [`management-identity`](terraform/management-identity) | the layers above, OIDC provider | `internal_url`, `hub_authorization_enabled` |
+| Camunda Hub | [`hub`](terraform/hub) | the layers above, Management Identity, `cluster_registration` of each cluster | `public_url`, `clusters` |
+
+```bash
+PLAN=management ./procedure/compose.sh apply examples/management-plane
+```
+
+Each Orchestration Cluster then runs its identity layer with `authentication_mode = "oidc"` and the
+`clusters` entry of the OIDC provider as `external_oidc` (`examples/management-plane/cluster`), and
+its Camunda layer publishes `cluster_registration`, which goes into the `clusters` of the Camunda
+Hub layer. The databases of the three components are declared in the storage layer (`databases`):
+the storage layer creates the roles and the passwords, and the components read them from its output.
+
 ## Growing to a second region
 
 [`EVOLVE-DUAL.md`](EVOLVE-DUAL.md) is the runbook: the delta only, with each step marked verified
@@ -52,21 +75,10 @@ variables are in [`examples/dual`](examples/dual).
 
 ## Not part of this proof of concept
 
-Parked, with the decisions already taken:
-
-- **OIDC provider deployed on ECS.** Called "OIDC provider" in code and docs, never by the
-  product name; the first implementation will be the one the single-region reference ships
-  today. It is a second producer of the identity layer's `oidc` object, so the Camunda layer
-  does not change.
-- **Management Identity.** Follows the OIDC provider: it needs an OIDC provider and its own
-  database in the storage layer.
-- **Camunda Hub.** One Hub for the whole estate, connectable to several Orchestration
-  Clusters, so it is its own layer (`hub`), not part of the `camunda` layer. It takes its own
-  database and the identity layer's `oidc` object, and the Orchestration Clusters it manages
-  are a list of inputs (name, URLs, client) rather than something one cluster owns.
-
-Also out of this proof of concept: load tests, the second region (see the evolution
-runbook), and generated golden plans.
+Load tests, and generated golden plans. Adding an Orchestration Cluster to a running OIDC provider:
+the realm is imported when the provider starts for the first time, so a cluster that you add later is
+registered in the provider's administration console with the values of the `clusters` output, the same
+way as for an OIDC provider that you run yourself.
 
 ## Validation
 

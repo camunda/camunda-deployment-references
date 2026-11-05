@@ -4,7 +4,12 @@
 # Terraform root that takes variables, so you can run one on its own, skip one, or
 # replace one with something you already have (see examples/byo-vpc).
 #
-# Usage: compose.sh <apply|plan|destroy> <config-dir>
+# Usage: [PLAN=cluster|management] compose.sh <apply|plan|destroy> <config-dir>
+#
+#   PLAN=cluster      (default) network, compute, object storage, storage, exposure, identity and
+#                     the Camunda layer: one Orchestration Cluster.
+#   PLAN=management   network, compute, storage, exposure, OIDC provider, Management Identity and
+#                     Camunda Hub: the management plane, deployed once for all clusters.
 #
 # <config-dir> holds one <layer>.tfvars per layer that you configure yourself.
 #
@@ -39,14 +44,25 @@ STORAGE_OUTPUTS_FILE="${STORAGE_OUTPUTS_FILE:-}"
 : "${TF_STATE_BUCKET:?set TF_STATE_BUCKET}"
 : "${TF_STATE_REGION:?set TF_STATE_REGION}"
 
-LAYERS=(network compute object-storage storage exposure identity camunda)
+PLAN="${PLAN:-cluster}"
+case "$PLAN" in
+  cluster) LAYERS=(network compute object-storage storage exposure identity camunda) ;;
+  management) LAYERS=(network compute storage exposure oidc-provider management-identity hub) ;;
+  *)
+    echo "unknown PLAN: $PLAN" >&2
+    exit 1
+    ;;
+esac
 OUT="$WORK_DIR/layers"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
 
 case "$ACTION" in
   apply | plan) ORDER=("${LAYERS[@]}") ;;
-  destroy) ORDER=(camunda identity exposure storage object-storage compute network) ;;
+  destroy)
+    ORDER=()
+    for ((i = ${#LAYERS[@]} - 1; i >= 0; i--)); do ORDER+=("${LAYERS[i]}"); done
+    ;;
   *)
     echo "unknown action: $ACTION" >&2
     exit 1
@@ -68,13 +84,15 @@ outputs_of() {
 # layer's variables, the expressions on the right are the previous layers' outputs.
 wiring_for() {
   local layer="$1"
-  local network compute objects storage exposure identity
+  local network compute objects storage exposure identity oidc_provider mgmt_identity
   network="$(outputs_of network)"
   compute="$(outputs_of compute)"
   objects="$(outputs_of object-storage)"
   storage="$(outputs_of storage)"
   exposure="$(outputs_of exposure)"
   identity="$(outputs_of identity)"
+  oidc_provider="$(outputs_of oidc-provider)"
+  mgmt_identity="$(outputs_of management-identity)"
 
   case "$layer" in
     network | object-storage) echo '{}' ;;
@@ -102,6 +120,38 @@ wiring_for() {
         task_execution_role_name: $c.task_execution_role_name.value,
         secrets_kms_key_arn: $c.secrets_kms_key_arn.value,
         public_base_url: $e.public_base_url.value}'
+      ;;
+    oidc-provider | management-identity | hub)
+      # The components of the management plane share one wiring: where they run, how they are
+      # exposed, and the database that the storage layer made for them.
+      local db_key
+      case "$layer" in
+        oidc-provider) db_key=oidc_provider ;;
+        management-identity) db_key=management_identity ;;
+        hub) db_key=camunda_hub ;;
+      esac
+      jq -n --arg db_key "$db_key" --arg layer "$layer" \
+        --argjson n "$network" --argjson c "$compute" --argjson s "$storage" --argjson e "$exposure" \
+        --argjson o "$oidc_provider" --argjson m "$mgmt_identity" '{
+        vpc_id: $n.vpc_id.value, private_subnet_ids: $n.private_subnet_ids.value,
+        ecs_cluster_id: $c.ecs_cluster_id.value,
+        task_execution_role_arn: $c.task_execution_role_arn.value,
+        task_execution_role_name: $c.task_execution_role_name.value,
+        secrets_kms_key_arn: $c.secrets_kms_key_arn.value,
+        registry_credentials_arn: $c.registry_credentials_arn.value,
+        camunda_ports_security_group_id: $c.camunda_ports_security_group_id.value,
+        egress_security_group_id: $c.egress_security_group_id.value,
+        service_connect_namespace_arn: $c.service_connect_namespace_arn.value,
+        log_group_name: $c.components_log_group_name.value,
+        alb_listener_http_webapp_arn: $e.alb_listener_http_webapp_arn.value,
+        public_base_url: $e.public_base_url.value,
+        database: $s.databases.value[$db_key],
+        db_seed_done: $s.db_seed_done.value}
+        + (if $layer == "oidc-provider" then {} else {oidc: $o.management.value} end)
+        + (if $layer == "hub" then {
+            management_identity_url: $m.internal_url.value,
+            management_identity_hub_authorization_enabled: $m.hub_authorization_enabled.value
+          } else {} end)'
       ;;
     camunda)
       local zone

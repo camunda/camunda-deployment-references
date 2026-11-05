@@ -68,3 +68,31 @@ run "iam_auth_is_required" {
 
   expect_failures = [var.db_iam_auth_enabled]
 }
+
+run "further_databases_get_roles_and_policies" {
+  command = plan
+
+  variables {
+    databases = {
+      hub      = { database_name = "camunda_hub", username = "camunda_hub" }
+      provider = { database_name = "oidc_provider", username = "oidc_provider", auth = "password" }
+    }
+  }
+
+  assert {
+    condition     = length(aws_secretsmanager_secret.database) == 1 && contains(keys(aws_iam_policy.rds_db_connect), "camunda_hub")
+    error_message = "a password database gets a secret, an IAM database gets a connect policy"
+  }
+}
+
+run "unsafe_database_names_rejected" {
+  command = plan
+
+  variables {
+    databases = {
+      bad = { database_name = "x\"; DROP", username = "x" }
+    }
+  }
+
+  expect_failures = [var.databases]
+}

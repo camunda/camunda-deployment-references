@@ -120,3 +120,31 @@ variable "db_seed_iam_usernames" {
   default     = ["camunda"]
   description = "Database users created for IAM authentication"
 }
+
+variable "databases" {
+  type = map(object({
+    database_name = string
+    username      = string
+    auth          = optional(string, "iam")
+  }))
+  default     = {}
+  description = "Further databases on the cluster for components that need their own, such as the OIDC provider, Management Identity, and Camunda Hub. Each gets a role and a database. auth = iam: the role authenticates with an IAM token (no password). auth = password: a random password is generated and stored in Secrets Manager."
+
+  validation {
+    condition = alltrue([
+      for k, d in var.databases :
+      can(regex("^[a-z][a-z0-9_]{0,62}$", d.database_name)) && can(regex("^[a-z][a-z0-9_]{0,62}$", d.username))
+    ])
+    error_message = "database_name and username must be lowercase letters, digits, and underscores, starting with a letter: they are used in SQL statements."
+  }
+
+  validation {
+    condition     = alltrue([for k, d in var.databases : contains(["iam", "password"], d.auth)])
+    error_message = "auth must be iam or password."
+  }
+
+  validation {
+    condition     = alltrue([for k, d in var.databases : d.auth == "password" || var.db_iam_auth_enabled])
+    error_message = "auth = iam requires db_iam_auth_enabled = true."
+  }
+}

@@ -29,3 +29,13 @@ output "connectors_user_password" {
   sensitive   = true
   description = "Password of the connectors user in basic authentication mode, empty with OIDC. A second region takes it as connectors_user_password."
 }
+
+output "cluster_registration" {
+  value = {
+    version       = var.camunda_version
+    rest_url      = "http://${module.orchestration_cluster.dns_a_record}:8080"
+    grpc_url      = "grpc://${module.orchestration_cluster.dns_a_record}:26500"
+    readiness_url = "http://${module.orchestration_cluster.dns_a_record}:9600/actuator/health/readiness"
+  }
+  description = "What Camunda Hub needs to connect to this cluster: add it to the clusters of the Camunda Hub layer. The addresses are service discovery names that resolve inside the VPC, and in a peered VPC through the Route 53 Resolver rules of the interconnect."
+}

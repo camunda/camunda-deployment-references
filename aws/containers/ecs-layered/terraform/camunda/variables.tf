@@ -192,6 +192,12 @@ variable "zones" {
   description = "Every zone of the cluster. List only zones whose brokers run. The replication factor is the sum of number_of_replicas."
 }
 
+variable "camunda_version" {
+  type        = string
+  default     = "8.10.0"
+  description = "Version that Camunda Hub is told this cluster runs. From 8.8 on it selects the REST and gRPC cluster API. Keep it in sync with the image of the Orchestration Cluster."
+}
+
 variable "partition_count" {
   type        = number
   default     = 3

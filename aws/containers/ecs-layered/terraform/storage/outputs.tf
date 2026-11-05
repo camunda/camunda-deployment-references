@@ -43,3 +43,22 @@ output "cluster_resource_id" {
   value       = module.aurora.aurora_cluster_resource_id
   description = "Resource ID of the Aurora cluster, used in rds-db:connect policies"
 }
+
+output "databases" {
+  value = {
+    for k, d in var.databases : k => {
+      database_name = d.database_name
+      username      = d.username
+      auth          = d.auth
+      host          = module.aurora.aurora_endpoint
+      port          = module.aurora.aurora_port
+      # IAM authentication goes through the AWS JDBC wrapper; a password goes through the plain driver.
+      jdbc_url = (d.auth == "iam"
+        ? "jdbc:aws-wrapper:postgresql://${module.aurora.aurora_endpoint}:${module.aurora.aurora_port}/${d.database_name}?wrapperPlugins=iam"
+      : "jdbc:postgresql://${module.aurora.aurora_endpoint}:${module.aurora.aurora_port}/${d.database_name}")
+      password_secret_arn = d.auth == "password" ? aws_secretsmanager_secret.database[k].arn : ""
+      connect_policy_arn  = d.auth == "iam" ? aws_iam_policy.rds_db_connect[d.username].arn : ""
+    }
+  }
+  description = "Per further database: its connection settings. Components read their database from here: the JDBC URL, the role, the password secret (auth = password) or the connect policy to attach to the task role (auth = iam)."
+}
