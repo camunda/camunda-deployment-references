@@ -72,6 +72,8 @@ No modules.
 | <a name="input_init_container_secrets"></a> [init\_container\_secrets](#input\_init\_container\_secrets) | ECS task secrets for the init container (rendered as container definition 'secrets'). | <pre>list(object({<br/>    name      = string<br/>    valueFrom = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_initial_contact_points"></a> [initial\_contact\_points](#input\_initial\_contact\_points) | Override for CAMUNDA\_CLUSTER\_INITIALCONTACTPOINTS. If set, replaces the default Service Connect-based value. | `string` | `""` | no |
 | <a name="input_internal_nlb_arn"></a> [internal\_nlb\_arn](#input\_internal\_nlb\_arn) | ARN of the internal NLB for cross-region Raft traffic on port 26502. If set, registers a target group. | `string` | `""` | no |
+| <a name="input_lease_access_policy_arn"></a> [lease\_access\_policy\_arn](#input\_lease\_access\_policy\_arn) | ARN of the IAM policy granting access to lease\_bucket\_name and its KMS key. Required when lease\_bucket\_name is set. | `string` | `""` | no |
+| <a name="input_lease_bucket_name"></a> [lease\_bucket\_name](#input\_lease\_bucket\_name) | Existing S3 bucket for the node ID leases. When empty, the module creates a bucket and its KMS key. Use one bucket per zone: never share it with another zone or cluster. | `string` | `""` | no |
 | <a name="input_nlb_arn"></a> [nlb\_arn](#input\_nlb\_arn) | The ARN of the Network Load Balancer to use | `string` | `""` | no |
 | <a name="input_partition_count"></a> [partition\_count](#input\_partition\_count) | Zeebe partition count. Must equal cluster\_size for dual-region. | `number` | `0` | no |
 | <a name="input_prefix"></a> [prefix](#input\_prefix) | The prefix to use for naming resources | `string` | n/a | yes |
@@ -99,11 +101,14 @@ No modules.
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | The VPC id where the ECS cluster and service are deployed | `string` | n/a | yes |
 | <a name="input_vpc_private_subnets"></a> [vpc\_private\_subnets](#input\_vpc\_private\_subnets) | List of private subnet IDs within the VPC | `list(string)` | n/a | yes |
 | <a name="input_wait_for_steady_state"></a> [wait\_for\_steady\_state](#input\_wait\_for\_steady\_state) | Whether to wait for the ECS service to reach a steady state after deployment | `bool` | `true` | no |
+| <a name="input_zone"></a> [zone](#input\_zone) | Zone of the brokers of this module (CAMUNDA\_CLUSTER\_ZONE). Empty keeps numbered brokers. Must be listed in zones. 63 characters at most, alphanumerics and hyphens, starting with an alphanumeric. | `string` | `""` | no |
+| <a name="input_zones"></a> [zones](#input\_zones) | Complete zone list of the cluster (identical for every zone): CAMUNDA\_CLUSTER\_PARTITIONING\_ZONEAWARE\_ZONES\_<i>\_*. Only list zones whose brokers run. Empty disables zone-aware partitioning. | <pre>list(object({<br/>    name               = string<br/>    number_of_brokers  = number<br/>    number_of_replicas = number<br/>    priority           = number<br/>  }))</pre> | `[]` | no |
 ## Outputs
 
 | Name | Description |
 | ---- | ----------- |
 | <a name="output_dns_a_record"></a> [dns\_a\_record](#output\_dns\_a\_record) | n/a |
+| <a name="output_environment_variable_names"></a> [environment\_variable\_names](#output\_environment\_variable\_names) | Names of the environment variables the module sets on the broker container (before var.environment\_variables is merged). Useful to check what a layer overrides. |
 | <a name="output_grpc_service_connect"></a> [grpc\_service\_connect](#output\_grpc\_service\_connect) | The Service Connect discovery name for the orchestration cluster ECS service targeting gRPC |
 | <a name="output_log_group_name"></a> [log\_group\_name](#output\_log\_group\_name) | The name of the CloudWatch log group for the orchestration cluster |
 | <a name="output_management_service_connect"></a> [management\_service\_connect](#output\_management\_service\_connect) | The Service Connect discovery name for the orchestration cluster management/actuator port (reachable at http://<this>:9600 within the ECS cluster) |
