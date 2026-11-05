@@ -128,6 +128,8 @@ runs:
                       # patched, so without the wait the caller's health gate can
                       # pass on pods about to be replaced. All rollouts share what
                       # is left of `timeout-seconds`, a *total* wall-clock budget.
+                      # A failed wait or an exhausted budget stops the loop, so no
+                      # restart overlaps an unfinished rollout.
                       for workload in "statefulset/${RELEASE_NAME}-zeebe" "deployment/${RELEASE_NAME}-connectors"; do
                           # --ignore-not-found keeps a genuine "absent" quiet
                           # (empty + exit 0) while real failures (no kubeconfig /
@@ -139,17 +141,19 @@ runs:
                               echo "Skipping ${workload}: not present in namespace ${NAMESPACE}."
                               continue
                           fi
+                          remaining=$(( deadline - $(date +%s) ))
+                          if [ "${remaining}" -le 0 ]; then
+                              echo "::warning::timeout-seconds budget exhausted; not restarting ${workload} or the workloads after it."
+                              break
+                          fi
                           if ! kubectl -n "${NAMESPACE}" rollout restart "${workload}"; then
                               echo "::warning::rollout restart ${workload} failed"
                               continue
                           fi
-                          remaining=$(( deadline - $(date +%s) ))
-                          if [ "${remaining}" -le 0 ]; then
-                              echo "::warning::timeout-seconds budget exhausted; ${workload} was restarted but its rollout is not awaited."
-                              continue
+                          if ! kubectl -n "${NAMESPACE}" rollout status "${workload}" --timeout="${remaining}s"; then
+                              echo "::warning::rollout status ${workload} did not complete; stopping so the next restart does not overlap it."
+                              break
                           fi
-                          kubectl -n "${NAMESPACE}" rollout status "${workload}" --timeout="${remaining}s" ||
-                              echo "::warning::rollout status ${workload} did not complete within the remaining budget"
                       done
                       exit 0
                   fi
