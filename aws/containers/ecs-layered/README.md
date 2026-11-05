@@ -39,6 +39,9 @@ variables are in [`examples/dual`](examples/dual).
   brokers (`<zone>_0` to `<zone>_2`), replication factor 3. Growing to a second region later
   adds a zone through the management API; it does not rename or renumber the existing brokers.
   Increasing the number of brokers is fine; reducing it is not possible without losing data.
+- **An internal load balancer for the brokers from day one.** The examples set `enable_raft_nlb` and
+  `enable_raft_listener`. Nothing uses it in a single region, but it is what lets the second region's
+  brokers join later without Terraform replacing the Orchestration Cluster ECS service.
 - **One node ID lease bucket per zone.** On ECS a broker leases its node index from S3, with
   conditional writes scoped to the bucket. A lease bucket is never shared between zones or
   clusters.

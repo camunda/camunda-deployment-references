@@ -17,7 +17,7 @@ real regions (see step 1, 6 and 7).
 | A lease bucket per zone | The lease is scoped to the bucket. Never share one. | `object-storage` layer |
 | An r-class or serverless Aurora instance | Aurora Global Databases do not support `db.t3` or `db.t4g`. | step 1 |
 | Non-overlapping VPC CIDRs | Peering needs it. | step 2 |
-| Optional: `enable_raft_nlb = true` from the start | Region B's brokers reach region A through it. Adding it later makes Terraform register a target group on an existing ECS service, which may replace the service (see step 5). | `exposure` layer |
+| `enable_raft_nlb = true` and `enable_raft_listener = true` from the start (the single-region examples set both) | Region B's brokers reach region A through the internal load balancer. Adding it later makes Terraform register a target group on an existing ECS service, which may replace the service (see step 5). The variable defaults to `false`: set it yourself if you do not start from the examples. | `exposure` and `camunda` layers |
 
 You can increase the number of brokers later. You cannot reduce it without losing data.
 
@@ -71,8 +71,9 @@ Pass the output `additional_cidr_blocks_a` as `additional_cidr_blocks` to the `c
 
 ### 5. Prepare region A for the other region's brokers — partly verified
 
-Apply `exposure` with `enable_raft_nlb = true`, then `camunda` with `enable_raft_listener = true`
-(`examples/dual/region-a`).
+If you started from the single-region examples, both settings are already on: skip to step 6.
+Otherwise apply `exposure` with `enable_raft_nlb = true`, then `camunda` with
+`enable_raft_listener = true` (`examples/dual/region-a`).
 
 Before you apply the `camunda` layer: **read the plan**. If it shows the ECS service
 `orchestration-cluster` being replaced rather than updated, the cluster is down while it is
