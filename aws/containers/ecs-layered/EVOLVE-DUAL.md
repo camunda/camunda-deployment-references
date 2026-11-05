@@ -5,9 +5,8 @@ rebuilding the first. Only the delta is described here.
 
 **Status of every step.** `verified` means it was run or read in the product source or
 documentation. `not verified` means it follows from the design and has not been run on AWS.
-Nothing in this runbook was applied from the workbench that wrote it, which has no cloud
-credentials; the Aurora steps are the exception: they come from an experiment run against
-real regions (see step 1, 6 and 7).
+The Aurora steps (1, 6 and 7) come from an experiment run against real regions. The other
+steps haven't been applied on AWS yet.
 
 ## What the starting point must already be
 
