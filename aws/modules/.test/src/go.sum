@@ -8,8 +8,6 @@ github.com/apparentlymart/go-textseg/v15 v15.0.0 h1:uYvfpb3DyLSCGWnctWKGj857c6ew
 github.com/apparentlymart/go-textseg/v15 v15.0.0/go.mod h1:K8XmNZdhEBkdlyDdvbmmsvpAG721bKi0joRfFdHIWJ4=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
-github.com/aws/aws-sdk-go-v2 v1.47.5 h1:5yA+A+BiXbDq1ZLbYwPViwhEGDMdR0MEhL8Jh2LnLS4=
-github.com/aws/aws-sdk-go-v2 v1.47.5/go.mod h1:iNIkogrRvFwm+1OQIUOP2lPBtlXZboOIUWiCa+pHEMw=
 github.com/aws/aws-sdk-go-v2 v1.47.8 h1:fuClo7Un+Bi0EDTnSIPWxVEoJcze+wkGzNA4Vo3jRcQ=
 github.com/aws/aws-sdk-go-v2 v1.47.8/go.mod h1:I8lFSH4MGrZiw2m7miCrRYHsgpC1+HW8uiVGOiPYPcw=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.25 h1:MW0Iql1SOTgQPj8mCxrU/eH/K/AIDWi08ItOsXaWRLU=
@@ -22,12 +20,8 @@ github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.5 h1:iXjy2SFhGYNB1jWZBhQqq8H
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.5/go.mod h1:k0RUiBnyXU0AXRJ9tJmY2jQke6XUIX2PNVnWtvgaPtc=
 github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.1.17 h1:95y7/EqethAhFwMKJ9cDutzBhsS1h8uBwkJ5rp8pNTU=
 github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.1.17/go.mod h1:77baheqr62SkTw77HWH8qpdWTd2gXKN0xg0qLvDSkpk=
-github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.8 h1:gzIWc3DTPfPbWKrQnmL6BV6WD7NPD1htxzgdk/bQ/Z4=
-github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.8/go.mod h1:vvUA5cDAZWGo4R14FZPZfXfJCmgsafOWEq78Kg0D+ug=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.11 h1:LTxHSJ/rwTFfaXqi5mlKKHJOW+shFB+HQ7NrCa4OQ48=
 github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.11/go.mod h1:GF0bVKZVQX4UeUtPmTuWZj3gw0eRCdkVhW0xFnSRLmU=
-github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.8 h1:PWv+vG8aCLS8qd+HPdYhK7Vees90aKHWFFQ1AGYD/8E=
-github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.8/go.mod h1:xxPZEpflYHJA12366ZGyq66z9dHPCoeCIu99Jck+MPw=
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.11 h1:DGUM0yztI3Zz5kePulT/mMP/gVZFGTTISUiCcqSQtT0=
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.11/go.mod h1:kbcdJgN9cgSzZlUqsMveDl9IfexJqOzCihXjQXTNaPk=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.8 h1:WOp5De9iWdEHDPh2Kb0tBP3vGBm/dVAuRGh4a4tqduo=
@@ -40,8 +34,6 @@ github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.69.1 h1:2ANEV0YkO/NlWxVmH
 github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.69.1/go.mod h1:O7cQtpXZSk+P59gPFZIpcMpKwLk5d9zabFpV8fw68RM=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.2 h1:J2ibOhlMLx1o6QwDFsHHfbQjaZ6t5LXodiLNuK6jbZA=
 github.com/aws/aws-sdk-go-v2/service/dynamodb v1.57.2/go.mod h1:Tj8VcffnduuewrM8HN8xQ9wzzez0CJ0FGSGEovq7Sgs=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.343.0 h1:pOxNUJbUOy779gx205gEpySpT5fu3B0ifPD8jBxujZI=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.343.0/go.mod h1:khWfxrzSgMjGMAZIaYAHu3IobEo7KRRNwPYaHb1zpng=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.344.2 h1:c5qR4BCiQIJucpaAE961H5RXffITIfV39MRWCdtOWYc=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.344.2/go.mod h1:UJcny8iRigdxZmGv9o6Wy4n0qCSa2U+w6xCFwQQ+2G8=
 github.com/aws/aws-sdk-go-v2/service/ecr v1.57.1 h1:G/O4muLF2pe1UJBKEyF7J+kdokEEqFJjm42cU68FqH4=
@@ -54,16 +46,12 @@ github.com/aws/aws-sdk-go-v2/service/eks v1.105.2 h1:UAiPr4JgYcyjAilxTJTwYIThWgt
 github.com/aws/aws-sdk-go-v2/service/eks v1.105.2/go.mod h1:KyMQFkvY0AL4C7ZmsggrCIBdFLaR0azUriRlMrLNarw=
 github.com/aws/aws-sdk-go-v2/service/iam v1.64.6 h1:6tqE3gHbHFEvARPvlLHgRK1dXoD96ecolfPEurpYXyc=
 github.com/aws/aws-sdk-go-v2/service/iam v1.64.6/go.mod h1:lV0r+RVSkXRA6WhiaxW55qn8n60ObMwQShxaqrs9UeY=
-github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.23 h1:MCIR6iZaCKO4UE0hUvoWWLI6JVjppopV64JfAJaMjng=
-github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.23/go.mod h1:pphWFS+z0MmIPivj8c/6bATd1Z+Av7Ust75DPdEFsPA=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.24 h1:jGzHjc2jDx08Rji1JTBtMxuXUDG7muTEw+ExYXqFzPg=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.24/go.mod h1:uJt75pK2cEyY80F5C+DK9YkCkJWsMkJViHxLYZRHl8Y=
 github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.9 h1:GACgECI422Xt5n4Pojr3O0aocPv8lfH4PJe2Aon5Wv8=
 github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.9/go.mod h1:lPfnRkHpn1qWZJLbVEw10rIqSuCee1pNQTyGkUjAYh8=
 github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.11.22 h1:8IXbJCgOn8ztzvRUOm27iCeTSxmPW45JsSDW3EGi16M=
 github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.11.22/go.mod h1:l53RbOWvncp4DEmlEz6dSXJS913AIxtFqkJZ+Xz7pHs=
-github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.8 h1:+PMpWlJYOn2tm7sm6OZ/ZLd4jStl17T7wjNapd1Rczs=
-github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.8/go.mod h1:cnG3xZLGQL4c/bt8pjdzlFtZsW7epBBuNS04a5xMjdo=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.11 h1:PO7Tx443ecMI00nIxDrT99DVcbeMBQ6BUtJlDMRnY24=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.11/go.mod h1:n/9RixikO12YvNomZLP8k4TgUSoEkT1W23QIrpFAPvw=
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.8 h1:RS1Wt+K0r4X0ci9Vf4JYTUfHzsQihYA2LgGJeEneKpk=
@@ -74,8 +62,6 @@ github.com/aws/aws-sdk-go-v2/service/lambda v1.89.1 h1:JxHLwNK5mIKsh2Q0APTSijdzk
 github.com/aws/aws-sdk-go-v2/service/lambda v1.89.1/go.mod h1:7qoh/MlWG5QCnZwq9bvdXomEAkmumayXcjEjIemIV7U=
 github.com/aws/aws-sdk-go-v2/service/opensearch v1.87.1 h1:LRiVk0MRbFFPvqSsGfZ8v9Pbahp1qTuPlT8e+oN+4cY=
 github.com/aws/aws-sdk-go-v2/service/opensearch v1.87.1/go.mod h1:fuFUaBWYP6zTqxiwBUg0btczrZ6owOV5XHvBls/nmB8=
-github.com/aws/aws-sdk-go-v2/service/rds v1.131.2 h1:Rytfx+dmiAPJDxJKXCbK6X4staGfRUjfFDx8Lcy/LA8=
-github.com/aws/aws-sdk-go-v2/service/rds v1.131.2/go.mod h1:jh7YjzSQebRzJX2lw/h9tv/1wHo5wDJguuXmsX6SIDs=
 github.com/aws/aws-sdk-go-v2/service/rds v1.132.2 h1:oqJBWlAAvYiydGnIvO9FNxO1adJc+NT0vwlA2LlTN8o=
 github.com/aws/aws-sdk-go-v2/service/rds v1.132.2/go.mod h1:vykivXsEYPmJhBRHw6Is3k4H53bxkFN8OC3SwC62R6M=
 github.com/aws/aws-sdk-go-v2/service/route53 v1.62.6 h1:6b+KS0uVMMsCUKlW8OPNxmcEmoEUtqP1LfnzSzWmuQM=
