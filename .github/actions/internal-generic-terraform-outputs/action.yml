@@ -33,7 +33,7 @@ runs:
         - name: Checkout Repository
           uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@37bcb8168f0990c0c1786f55a350206289519c2d # 3.0.2
 
         - name: Set Terraform variables
           id: set-terraform-variables
