@@ -22,7 +22,7 @@ KEYCLOAK_CONFIG_FILE=${KEYCLOAK_CONFIG_FILE:-"keycloak-instance-no-domain.yml"}
 # Renovate reads for every base branch, groups them into one pull request so they also land
 # together.
 # renovate: datasource=docker depName=camunda/keycloak extractVersion=^quay-optimized-(?<version>\d+\.\d+\.\d+)$
-KEYCLOAK_VERSION="26.8.1"
+KEYCLOAK_VERSION="26.8.2"
 
 # Install Keycloak operator CRDs. The operator registers a watch on every kind it knows at
 # startup and exits if one is missing -- 26.7 added keycloakoidcclients and
