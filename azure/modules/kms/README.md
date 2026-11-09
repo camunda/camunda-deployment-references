@@ -13,6 +13,7 @@ No modules.
 | [azurerm_role_assignment.tf_sp_kv_admin](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.tf_sp_kv_crypto_officer](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.uami_crypto_user](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
+| [azurerm_role_assignment.uami_kv_reader](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.uami_secrets_user](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_user_assigned_identity.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity) | resource |
 | [azuread_service_principal.terraform_sp](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/data-sources/service_principal) | data source |
@@ -34,7 +35,7 @@ No modules.
 | Name | Description |
 | ---- | ----------- |
 | <a name="output_key_vault_id"></a> [key\_vault\_id](#output\_key\_vault\_id) | The Key Vault resource ID |
-| <a name="output_key_vault_key_id"></a> [key\_vault\_key\_id](#output\_key\_vault\_key\_id) | The specific Key Vault key ID for envelope encryption |
+| <a name="output_key_vault_key_id"></a> [key\_vault\_key\_id](#output\_key\_vault\_key\_id) | The versionless Key Vault key ID for envelope encryption |
 | <a name="output_uami_id"></a> [uami\_id](#output\_uami\_id) | User-Assigned Managed Identity ID |
 | <a name="output_uami_object_id"></a> [uami\_object\_id](#output\_uami\_object\_id) | Object ID (GUID) of the User Assigned Managed Identity |
 <!-- END_TF_DOCS -->

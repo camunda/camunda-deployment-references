@@ -174,7 +174,6 @@
             "ingress_application_gateway": [],
             "key_management_service": [
               {
-                "key_vault_id": null,
                 "key_vault_network_access": "Public"
               }
             ],
@@ -467,6 +466,21 @@
             "delegated_managed_identity_resource_id": null,
             "description": null,
             "role_definition_name": "Key Vault Crypto User",
+            "timeouts": null
+          }
+        },
+        "module.kms.azurerm_role_assignment.uami_kv_reader": {
+          "mode": "managed",
+          "name": "uami_kv_reader",
+          "provider_name": "registry.terraform.io/hashicorp/azurerm",
+          "schema_version": 0,
+          "sensitive_values": {},
+          "type": "azurerm_role_assignment",
+          "values": {
+            "condition": null,
+            "delegated_managed_identity_resource_id": null,
+            "description": null,
+            "role_definition_name": "Reader",
             "timeouts": null
           }
         },
