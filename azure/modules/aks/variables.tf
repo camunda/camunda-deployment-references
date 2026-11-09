@@ -150,7 +150,12 @@ variable "uami_object_id" {
 
 variable "kms_key_id" {
   type        = string
-  description = "Key Vault Key ID for envelope-encryption"
+  description = "Versionless Key Vault Key ID for envelope-encryption"
+}
+
+variable "kms_key_vault_id" {
+  type        = string
+  description = "Resource ID of the Key Vault holding the KMS key"
 }
 
 variable "dns_zone_id" {

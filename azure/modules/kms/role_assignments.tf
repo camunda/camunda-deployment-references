@@ -12,6 +12,13 @@ resource "azurerm_role_assignment" "uami_crypto_user" {
   principal_id         = azurerm_user_assigned_identity.this.principal_id
 }
 
+# The new AKS KMS (CMK) experience reads the vault resource (Microsoft.KeyVault/vaults/read) to validate it.
+resource "azurerm_role_assignment" "uami_kv_reader" {
+  scope                = azurerm_key_vault.this.id
+  role_definition_name = "Reader"
+  principal_id         = azurerm_user_assigned_identity.this.principal_id
+}
+
 # Grant the SP applying terraform full access to the Key Vault
 
 resource "azurerm_role_assignment" "tf_sp_kv_admin" {
