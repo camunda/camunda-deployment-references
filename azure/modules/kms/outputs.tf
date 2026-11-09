@@ -1,6 +1,9 @@
 output "key_vault_id" {
   description = "The Key Vault resource ID"
   value       = azurerm_key_vault.this.id
+
+  # AKS consumes this ID for KMS; the vault read grant must exist before cluster creation.
+  depends_on = [azurerm_role_assignment.uami_kv_reader]
 }
 
 output "key_vault_key_id" {
