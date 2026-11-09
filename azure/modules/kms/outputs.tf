@@ -4,8 +4,8 @@ output "key_vault_id" {
 }
 
 output "key_vault_key_id" {
-  description = "The specific Key Vault key ID for envelope encryption"
-  value       = azurerm_key_vault_key.this.id
+  description = "The versionless Key Vault key ID for envelope encryption"
+  value       = azurerm_key_vault_key.this.versionless_id
 }
 
 output "uami_id" {

@@ -62,7 +62,9 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 
   key_management_service {
+    # Versionless key + vault ID select the new AKS KMS (CMK) experience; AKS 1.37 rejects legacy KMS without a vault ID.
     key_vault_key_id         = var.kms_key_id
+    key_vault_id             = var.kms_key_vault_id
     key_vault_network_access = "Public"
   }
 

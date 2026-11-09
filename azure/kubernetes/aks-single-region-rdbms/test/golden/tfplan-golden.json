@@ -174,7 +174,6 @@
             "ingress_application_gateway": [],
             "key_management_service": [
               {
-                "key_vault_id": null,
                 "key_vault_network_access": "Public"
               }
             ],
