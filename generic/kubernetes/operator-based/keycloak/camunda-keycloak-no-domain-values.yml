@@ -51,8 +51,6 @@ orchestration:
 
 identityKeycloak:
     enabled: false
-    postgresql:
-        enabled: false
 
 identity:
     enabled: true

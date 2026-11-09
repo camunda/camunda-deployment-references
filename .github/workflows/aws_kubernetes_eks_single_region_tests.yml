@@ -969,6 +969,7 @@ jobs:
                   # TODO: remove exclude-patterns and global.opensearch from values once the legacy Operate connector is removed from the Helm chart
                   exclude-patterns: |
                       global.opensearch.enabled
+                      Helm CLI v3
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
                   vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}

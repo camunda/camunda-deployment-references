@@ -1451,11 +1451,10 @@ sync_keycloak_admin_credentials() {
 
     # Ensure the Bitnami secret has ALL keys that the operator chart references.
     # Bitnami generates some client tokens (optimize, admin) but NOT all
-    # (connectors, orchestration, console). Generate random tokens for missing keys.
+    # (connectors, orchestration). Generate random tokens for missing keys.
     local required_keys=(
         identity-connectors-client-token
         identity-orchestration-client-token
-        identity-console-client-token
     )
     local existing_keys
     existing_keys=$(kubectl get secret "$bitnami_secret" -n "${NAMESPACE}" \
@@ -1499,10 +1498,6 @@ global:
                 secret:
                     existingSecret: ${bitnami_secret}
                     existingSecretKey: identity-admin-client-token
-            console:
-                secret:
-                    existingSecret: ${bitnami_secret}
-                    existingSecretKey: identity-console-client-token
 connectors:
     security:
         authentication:
