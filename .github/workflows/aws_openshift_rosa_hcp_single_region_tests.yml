@@ -698,8 +698,6 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
-                  # The OpenShift Route re-encrypts upstream; the nginx-only warning is inapplicable.
-                  # Remove once https://github.com/camunda/camunda-platform-helm/pull/7823 is released.
                   exclude-patterns: orchestration.ingress.grpc.className is "openshift-default" rather than nginx
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
