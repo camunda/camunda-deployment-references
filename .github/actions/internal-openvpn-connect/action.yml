@@ -37,17 +37,21 @@ runs:
 
               log="${RUNNER_TEMP}/openvpn.log"
               pidfile="${RUNNER_TEMP}/openvpn.pid"
-              sudo openvpn --config "${CONFIG_FILE}" --daemon --log "${log}" --writepid "${pidfile}"
+              fail() {
+                  echo "::error::$1"
+                  # The log has no key material: inline keys stay in the config file.
+                  sudo cat "${log}" || true
+                  exit 1
+              }
+              sudo openvpn --config "${CONFIG_FILE}" --daemon --log "${log}" --writepid "${pidfile}" ||
+                  fail "openvpn failed to start."
 
               deadline=$((SECONDS + TIMEOUT_SECONDS))
               until sudo grep -q 'Initialization Sequence Completed' "${log}" 2>/dev/null; do
                   exited=false
                   if sudo test -s "${pidfile}" && ! sudo kill -0 "$(sudo cat "${pidfile}")" 2>/dev/null; then exited=true; fi
                   if ((SECONDS >= deadline)) || [[ "${exited}" == true ]]; then
-                      echo "::error::VPN connection not established after ${TIMEOUT_SECONDS}s (or openvpn exited)."
-                      # The log has no key material: inline keys stay in the config file.
-                      sudo cat "${log}" || true
-                      exit 1
+                      fail "VPN connection not established after ${TIMEOUT_SECONDS}s (or openvpn exited)."
                   fi
                   sleep 2
               done
