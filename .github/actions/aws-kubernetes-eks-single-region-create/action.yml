@@ -456,6 +456,36 @@ runs:
               echo "$config" > "$vpn_client_config_file"
               echo "vpn_client_config_file=$vpn_client_config_file" | tee -a "$GITHUB_OUTPUT"
 
+        # DEBUG (branch debug/vpn-ubuntu-26 only): try each OpenVPN variant for a bounded time and
+        # probe GitHub reachability while connected. openvpn is killed by `timeout`, so the runner recovers.
+        - name: DEBUG VPN variants
+          if: inputs.vpn-enabled == 'true'
+          shell: bash
+          run: |
+              set -uo pipefail
+              cfg='${{ steps.vpn.outputs.vpn_client_config_file }}'
+              cat /etc/os-release | grep PRETTY; uname -r; openvpn --version | head -1
+              probe() {
+                  echo "--- $(date -u +%T)"
+                  ip -br addr show dev tun0 2>/dev/null; ip -d link show tun0 2>/dev/null | grep -oE 'ovpn|tun type \S+' | head -1
+                  ip route | grep -vE '^(10\.1\.0|172\.17|168\.63|169\.254)' | head -8
+                  resolvectl dns 2>/dev/null | grep -v ': *$'
+                  curl -s -o /dev/null -m 4 -w 'api.github.com http=%{http_code} t=%{time_total}\n' https://api.github.com || echo 'api.github.com FAIL'
+                  getent hosts pipelines.actions.githubusercontent.com | head -1 || echo 'DNS FAIL'
+              }
+              for variant in default disable-dco; do
+                  echo "::group::variant ${variant}"
+                  c="$RUNNER_TEMP/ovpn-${variant}.ovpn"; l="$RUNNER_TEMP/ovpn-${variant}.log"
+                  cp "$cfg" "$c"; sed -i 's/^verb .*/verb 4/' "$c"
+                  [[ "$variant" == disable-dco ]] && echo 'disable-dco' >> "$c"
+                  sudo timeout 90 openvpn --config "$c" --log "$l" & pid=$!
+                  for _ in $(seq 1 15); do sleep 5; probe; done
+                  wait "$pid"; sleep 10; echo "after kill:"; probe
+                  echo "--- openvpn log"; sudo grep -vE 'BEGIN|END|^[A-Za-z0-9+/=]{40,}$' "$l" | tail -80
+                  echo "::endgroup::"
+              done
+              sudo ip link del tun0 2>/dev/null || true
+
         - name: Connect to VPN
           if: inputs.vpn-enabled == 'true'
           uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
