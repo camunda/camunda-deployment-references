@@ -35,10 +35,6 @@ global:
                 secret:
                     existingSecret: camunda-credentials
                     existingSecretKey: identity-connectors-client-token
-            console:
-                secret:
-                    existingSecret: camunda-credentials
-                    existingSecretKey: identity-console-client-token
             optimize:
                 secret:
                     existingSecret: camunda-credentials

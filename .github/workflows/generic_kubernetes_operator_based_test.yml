@@ -795,6 +795,7 @@ jobs:
               with:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE }}
+                  exclude-patterns: Helm CLI v3
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
                   vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
