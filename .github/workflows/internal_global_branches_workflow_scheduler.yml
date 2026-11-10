@@ -64,7 +64,7 @@ jobs:
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@1a10a8e84ce7e9cbbfed6f1c482f5bff65748238 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@6644ac7ceab8e1b32359cc25a5161c46156fc319 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -231,7 +231,7 @@ jobs:
             # BASH_ENV able to intercept it.
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@1a10a8e84ce7e9cbbfed6f1c482f5bff65748238 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@6644ac7ceab8e1b32359cc25a5161c46156fc319 # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -247,7 +247,7 @@ jobs:
                   vault-url: ${{ secrets.VAULT_ADDR }}
 
             - name: Create the schedule PR
-              uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+              uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8
               with:
                   token: ${{ steps.generate-github-token.outputs.token }}
                   branch: ${{ steps.branch-update.outputs.current_branch }}
