@@ -508,6 +508,10 @@ jobs:
                       ] }}
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
+            - name: DEBUG ignore the pushed DNS
+              if: ${{ matrix.scenario.private_vpc == true }}
+              run: echo 'pull-filter ignore "dhcp-option DNS"' >> "${{ github.workspace }}/.vpn/client.ovpn"
+
             - name: 🛡️ Connect to VPN
               if: ${{ matrix.scenario.private_vpc == true }}
               uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
