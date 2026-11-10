@@ -474,7 +474,7 @@ runs:
                   timeout 5 getent hosts api.github.com | head -1 || echo 'DNS FAIL'
                   resolvectl status tun0 2>/dev/null | grep -E 'Default Route|DNS Servers|DNS Domain'
               }
-              for variant in pull-filter-dns default; do
+              for variant in pull-filter-dns; do
                   echo "::group::variant ${variant}"
                   c="$RUNNER_TEMP/ovpn-${variant}.ovpn"; l="$RUNNER_TEMP/ovpn-${variant}.log"
                   cp "$cfg" "$c"; sed -i 's/^verb .*/verb 4/' "$c"
@@ -486,6 +486,8 @@ runs:
                   echo "::endgroup::"
               done
               sudo ip link del tun0 2>/dev/null || true
+              # Real connection below uses the same fix.
+              echo 'pull-filter ignore "dhcp-option DNS"' >> "$cfg"
 
         - name: Connect to VPN
           if: inputs.vpn-enabled == 'true'
