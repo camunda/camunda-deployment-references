@@ -1,0 +1,35 @@
+---
+# Temporary debug workflow (branch debug/vpn-ubuntu-26 only). Do not merge.
+name: Debug - VPN on ubuntu-26.04
+
+on:
+    push:
+        branches: [debug/vpn-ubuntu-26]
+
+permissions:
+    contents: read
+
+jobs:
+    probe:
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-24.04, ubuntu-26.04]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - name: Network and OpenVPN facts
+              run: |
+                  set -x
+                  uname -r
+                  ip -br addr
+                  ip route
+                  ip rule
+                  resolvectl status || true
+                  cat /etc/resolv.conf
+                  sudo apt-get update -qq
+                  sudo apt-get install -y -qq openvpn openvpn-systemd-resolved >/dev/null
+                  openvpn --version | head -3
+                  modinfo ovpn 2>&1 | head -5 || true
+                  modinfo ovpn-dco-v2 2>&1 | head -3 || true
+                  lsmod | grep -i ovpn || true
+                  ls -la /etc/openvpn/ || true
