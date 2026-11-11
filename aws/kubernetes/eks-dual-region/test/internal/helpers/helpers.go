@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"os"
@@ -89,7 +90,7 @@ func FetchSensitiveTerraformOutput(t *testing.T, options *terraform.Options, nam
 		options.Logger = nil
 	}()
 	options.Logger = logger.Discard
-	return terraform.Output(t, options, name)
+	return terraform.OutputContext(t, context.Background(), options, name)
 }
 
 // Combine two maps into a single map of string key-value pairs

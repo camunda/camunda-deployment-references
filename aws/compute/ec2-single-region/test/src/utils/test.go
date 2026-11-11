@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -27,7 +28,7 @@ func basicAuthCredentials(t *testing.T) string {
 
 func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Options, version string) {
 
-	tfOutputs := terraform.OutputAll(t, terraformOptions)
+	tfOutputs := terraform.OutputAllContext(t, context.Background(), terraformOptions)
 
 	alb := tfOutputs["alb_endpoint"].(string)
 
@@ -35,7 +36,7 @@ func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Opt
 		Command: "curl",
 		Args:    []string{"-u", basicAuthCredentials(t), fmt.Sprintf("%s/v2/topology", alb)},
 	}
-	output := shell.RunCommandAndGetStdOut(t, cmd)
+	output := shell.RunCommandContextAndGetStdOut(t, context.Background(), &cmd)
 
 	brokers := gjson.Get(output, "brokers").Array()
 	clusterSize := gjson.Get(output, "clusterSize").Int()
@@ -56,7 +57,7 @@ func APICheckCorrectCamundaVersion(t *testing.T, terraformOptions *terraform.Opt
 }
 
 func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options) {
-	tfOutputs := terraform.OutputAll(t, terraformOptions)
+	tfOutputs := terraform.OutputAllContext(t, context.Background(), terraformOptions)
 
 	alb := tfOutputs["alb_endpoint"].(string)
 
@@ -64,7 +65,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 		Command: "curl",
 		Args:    []string{"-u", basicAuthCredentials(t), "--form", "resources=@utils/single-task.bpmn", fmt.Sprintf("%s/v2/deployments", alb), "-H", "'Content-Type: multipart/form-data'", "-H", "'Accept: application/json'"},
 	}
-	output := shell.RunCommandAndGetStdOut(t, cmd)
+	output := shell.RunCommandContextAndGetStdOut(t, context.Background(), &cmd)
 
 	deployments := gjson.Get(output, "deployments").Array()
 	resourceName := gjson.Get(output, "deployments.0.processDefinition.resourceName").String()
@@ -81,7 +82,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 		Command: "curl",
 		Args:    []string{"-u", basicAuthCredentials(t), "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json", "--data-raw", fmt.Sprintf("{\"processDefinitionKey\":\"%d\"}", processDefinitionKey)},
 	}
-	shell.RunCommand(t, cmd)
+	shell.RunCommandContext(t, context.Background(), &cmd)
 
 	// Wait for the process instance to be committed
 	time.Sleep(10 * time.Second)
@@ -90,7 +91,7 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 		Command: "curl",
 		Args:    []string{"-u", basicAuthCredentials(t), "-L", "-X", "POST", fmt.Sprintf("%s/v2/process-instances/search", alb), "-H", "Content-Type: application/json", "-H", "Accept: application/json"},
 	}
-	output = shell.RunCommandAndGetStdOut(t, cmd)
+	output = shell.RunCommandContextAndGetStdOut(t, context.Background(), &cmd)
 
 	items := gjson.Get(output, "items").Array()
 	require.Equal(t, 1, len(items), "Expected 1 process instance, got %d", len(items))
@@ -100,11 +101,11 @@ func APIDeployAndStartWorkflow(t *testing.T, terraformOptions *terraform.Options
 		Command: "curl",
 		Args:    []string{"-u", basicAuthCredentials(t), "-L", "-X", "POST", fmt.Sprintf("%s/v2/resources/%d/deletion", alb, processDefinitionKey)},
 	}
-	shell.RunCommand(t, cmd)
+	shell.RunCommandContext(t, context.Background(), &cmd)
 }
 
 func ResetCamunda(t *testing.T, terraformOptions *terraform.Options, adminUsername string) {
-	tfOutputs := terraform.OutputAll(t, terraformOptions)
+	tfOutputs := terraform.OutputAllContext(t, context.Background(), terraformOptions)
 	camundaIps := tfOutputs["camunda_ips"].([]interface{})
 	bastionIp := tfOutputs["bastion_ip"].(string)
 	openSearchConnection := tfOutputs["aws_opensearch_domain"].(string)
@@ -115,20 +116,20 @@ func ResetCamunda(t *testing.T, terraformOptions *terraform.Options, adminUserna
 			Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, ip), "sudo systemctl stop camunda"},
 		}
 		// Ignore error as the service might not be running
-		shell.RunCommandE(t, cmd)
+		_ = shell.RunCommandContextE(t, context.Background(), &cmd)
 
 		cmd = shell.Command{
 			Command: "ssh",
 			Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, ip), "sudo systemctl stop connectors"},
 		}
 		// Ignore error as the service might not be running
-		shell.RunCommandE(t, cmd)
+		_ = shell.RunCommandContextE(t, context.Background(), &cmd)
 
 		cmd = shell.Command{
 			Command: "ssh",
 			Args:    []string{"-J", fmt.Sprintf("%s@%s", adminUsername, bastionIp), fmt.Sprintf("%s@%s", adminUsername, ip), "sudo rm -rf /opt/camunda/*"},
 		}
-		shell.RunCommand(t, cmd)
+		shell.RunCommandContext(t, context.Background(), &cmd)
 	}
 
 	cmd := shell.Command{
@@ -139,8 +140,8 @@ func ResetCamunda(t *testing.T, terraformOptions *terraform.Options, adminUserna
 	// AWS OpenSearch runs automatic hourly snapshots. A DELETE /_all racing with
 	// an in-progress snapshot returns snapshot_in_progress_exception (HTTP 400);
 	// retry until the snapshot completes (max ~5 minutes).
-	output := retry.DoWithRetry(t, "DELETE OpenSearch indices", 10, 30*time.Second, func() (string, error) {
-		out := shell.RunCommandAndGetStdOut(t, cmd)
+	output := retry.DoWithRetryContext(t, context.Background(), "DELETE OpenSearch indices", 10, 30*time.Second, func() (string, error) {
+		out := shell.RunCommandContextAndGetStdOut(t, context.Background(), &cmd)
 		if strings.Contains(out, "snapshot_in_progress_exception") {
 			return "", fmt.Errorf("OpenSearch snapshot in progress, retrying")
 		}

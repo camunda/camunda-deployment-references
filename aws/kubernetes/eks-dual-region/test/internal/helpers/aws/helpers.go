@@ -149,7 +149,7 @@ func CreateLoadBalancers(t *testing.T, source helpers.Cluster, k8sManifests stri
 
 	kubeResourcePath := fmt.Sprintf("%s/%s", k8sManifests, "internal-dns-lb.yml")
 
-	k8s.KubectlApply(t, &source.KubectlSystem, kubeResourcePath)
+	k8s.KubectlApplyContext(t, context.Background(), &source.KubectlSystem, kubeResourcePath)
 
 	// Tag the internal-dns load balancer for the AWS MAP program. This NLB is
 	// provisioned by the in-tree AWS cloud provider from the Service object and
@@ -158,12 +158,12 @@ func CreateLoadBalancers(t *testing.T, source helpers.Cluster, k8sManifests stri
 	// manifest free of Camunda's MAP id; the cloud provider then propagates the
 	// tag onto the load balancer. KubectlSystem already targets the kube-system
 	// namespace where internal-dns-lb lives.
-	k8s.RunKubectl(t, &source.KubectlSystem, "annotate", "service", "internal-dns-lb", "--overwrite",
+	k8s.RunKubectlContext(t, context.Background(), &source.KubectlSystem, "annotate", "service", "internal-dns-lb", "--overwrite",
 		"service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags=map-migrated=migARUADZHVWZ")
 
-	k8s.WaitUntilServiceAvailable(t, &source.KubectlSystem, "internal-dns-lb", 15, 6*time.Second)
+	k8s.WaitUntilServiceAvailableContext(t, context.Background(), &source.KubectlSystem, "internal-dns-lb", 15, 6*time.Second)
 
-	host := k8s.GetService(t, &source.KubectlSystem, "internal-dns-lb")
+	host := k8s.GetServiceContext(t, context.Background(), &source.KubectlSystem, "internal-dns-lb")
 	hostName := strings.Split(host.Status.LoadBalancer.Ingress[0].Hostname, ".")
 	hostName = strings.Split(hostName[0], "-")
 
@@ -205,7 +205,7 @@ func DNSChaining(t *testing.T, sourceCluster, targetCluster helpers.Cluster, k8s
 		os.Setenv("REGION_1", targetCluster.Region)
 
 		// Run the script and capture its output
-		output := shell.RunCommandAndGetOutput(t, shell.Command{
+		output := shell.RunCommandContextAndGetOutput(t, context.Background(), &shell.Command{
 			Command: "sh",
 			Args: []string{
 				"../procedure/generate_core_dns_entry.sh",
@@ -259,7 +259,7 @@ func generateAndApplyCoreDNSManifest(t *testing.T, targetCluster helpers.Cluster
 	}
 
 	// Apply the CoreDNS change to the target cluster to let it know how to reach the source cluster
-	k8s.KubectlApply(t, &targetCluster.KubectlSystem, filePath)
+	k8s.KubectlApplyContext(t, context.Background(), &targetCluster.KubectlSystem, filePath)
 
 	t.Log("[DNS CHAINING] Writing Placeholder CoreDNS ConfigMap back to file")
 	// Write the old file back to the file - required for bidirectional communication
@@ -326,7 +326,7 @@ func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile, tfB
 		NoColor: true,
 	})
 
-	terraform.InitAndApply(t, terraformOptions)
+	terraform.InitAndApplyContext(t, context.Background(), terraformOptions)
 }
 
 func GenerateAWSKubeConfig(t *testing.T, clusterName, awsProfile, awsRegion, regionName string) {
@@ -357,8 +357,8 @@ func TestTeardownTerraform(t *testing.T, terraformDir, clusterName, awsProfile, 
 		NoColor: true,
 	})
 
-	terraform.Init(t, terraformOptions)
-	terraform.Destroy(t, terraformOptions)
+	terraform.InitContext(t, context.Background(), terraformOptions)
+	terraform.DestroyContext(t, context.Background(), terraformOptions)
 }
 
 func TestRemoveKubeConfig(t *testing.T, regionName string) {
