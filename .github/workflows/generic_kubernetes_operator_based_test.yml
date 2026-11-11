@@ -285,7 +285,7 @@ jobs:
               working-directory: ${{ env.TF_MODULES_DIRECTORY }}aws/kubernetes/eks-single-region/terraform/cluster/
               id: dump_outputs
               run: |
-                  set -euo pipefail
+                  set +e -uo pipefail
 
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
 
