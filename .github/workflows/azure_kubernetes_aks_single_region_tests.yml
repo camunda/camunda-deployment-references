@@ -227,7 +227,8 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-                  export AZURE_SP_ID=$(az account show --query user.name -o tsv)
+                  AZURE_SP_ID=$(az account show --query user.name -o tsv)
+                  export AZURE_SP_ID
                   ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/tfvars-domain.sh
 
             - name: Create K8S cluster and login
