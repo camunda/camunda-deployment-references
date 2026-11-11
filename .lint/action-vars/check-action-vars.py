@@ -175,7 +175,7 @@ def read_mapping(lines: list[str], start: int, outer_indent: int, offset: int) -
         if len(match.group("indent")) != inner_indent:
             continue  # nested structure; not a value this check understands
         rest = match.group("rest").strip()
-        if rest.startswith("|") or rest.startswith(">"):
+        if rest.startswith(("|", ">")):
             scalar, index = block_body(body, index, inner_indent)
             rest = "\n".join(scalar)
         else:
@@ -275,7 +275,7 @@ def read_step(body: list[str], offset: int) -> Step:
                     entry.value for entry in entries if entry.key in SCRIPT_KEYS
                 )
         elif key == "run":
-            if rest.startswith("|") or rest.startswith(">"):
+            if rest.startswith(("|", ">")):
                 scalar, index = block_body(flattened, index, key_indent)
                 step.scripts.append("\n".join(scalar))
             else:
@@ -388,9 +388,11 @@ def check_file(path: Path) -> list[str]:
                 found.append(
                     (
                         step.line,
-                        f"{path}:{step.line}: step '{step.name}': reads ${{{name}}} "
-                        f"but no env in scope declares it. An env block that belongs "
-                        f"to this step is probably attached to another one.",
+                        (
+                            f"{path}:{step.line}: step '{step.name}': reads ${{{name}}} "
+                            f"but no env in scope declares it. An env block that belongs "
+                            f"to this step is probably attached to another one."
+                        ),
                     )
                 )
 
@@ -402,9 +404,11 @@ def check_file(path: Path) -> list[str]:
             found.append(
                 (
                     entry.line,
-                    f"{path}:{entry.line}: step '{step.name}': declares {entry.key} "
-                    f"but never reads it. Move it to the step that does, or add "
-                    f"'# {EXTERNAL_ESCAPE}' if a script it calls consumes it.",
+                    (
+                        f"{path}:{entry.line}: step '{step.name}': declares {entry.key} "
+                        f"but never reads it. Move it to the step that does, or add "
+                        f"'# {EXTERNAL_ESCAPE}' if a script it calls consumes it."
+                    ),
                 )
             )
 

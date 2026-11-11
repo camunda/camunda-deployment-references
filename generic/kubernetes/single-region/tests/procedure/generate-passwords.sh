@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2155 # predates the lint baseline
 
 export CONNECTORS_SECRET="$(openssl rand -hex 16)"
 export WEB_MODELER_SECRET="$(openssl rand -hex 16)"

@@ -342,6 +342,7 @@ jobs:
                   CAMUNDA_BASIC_AUTH_PASSWORD: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
               run: |
                   set -euo pipefail
+                  # shellcheck disable=SC2155 # predates the lint baseline
                   export PATH=$PATH:$(go env GOPATH)/bin
                   mkdir /home/runner/.ssh
                   touch /home/runner/.ssh/config

@@ -61,7 +61,6 @@ if not versions:
 os.makedirs("docs", exist_ok=True)
 
 with open("docs/openshift_acm_versions.txt", "w") as f:
-    for v in versions:
-        f.write(f"{v}\n")
+    f.writelines(f"{v}\n" for v in versions)
 
 print(f"Wrote {len(versions)} OpenShift ACM versions to docs/openshift_acm_versions.txt")

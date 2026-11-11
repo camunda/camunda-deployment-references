@@ -24,7 +24,6 @@ import json
 import re
 import sys
 
-
 # Keys the chart honours at runtime but forgot to declare in values.schema.json.
 # Reporting them is a false positive: dropping them from our values would
 # silently change the deployment. Each entry needs a reason and must be removed
@@ -233,7 +232,7 @@ def main():
         )
         for key_path in ignored:
             print(f"  - {key_path}")
-        print("")
+        print()
 
     if unknown_keys:
         print(f"Found {len(unknown_keys)} unknown key(s) in deployed values:\n")

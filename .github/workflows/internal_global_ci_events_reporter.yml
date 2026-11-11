@@ -10,7 +10,8 @@ name: Internal - Global - CI Events to Google Sheet
 # - workflow_dispatch : (re)bootstrap the sheet structure on demand.
 
 on:
-    workflow_run:
+    # checkout takes the default branch, never the observed run's ref
+    workflow_run: # zizmor: ignore[dangerous-triggers]
         types:
             - completed
         workflows:

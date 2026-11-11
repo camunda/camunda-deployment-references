@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2155 # predates the lint baseline
 
 export AURORA_ENDPOINT="$(terraform output -raw postgres_endpoint)"
 export AURORA_PORT=5432

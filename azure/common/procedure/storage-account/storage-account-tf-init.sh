@@ -2,6 +2,7 @@
 
 export AZURE_TF_KEY="camunda-terraform/terraform.tfstate"
 
+# shellcheck disable=SC2155 # predates the lint baseline
 export ARM_ACCESS_KEY=$(az storage account keys list \
   --resource-group "$RESOURCE_GROUP_NAME" \
   --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \

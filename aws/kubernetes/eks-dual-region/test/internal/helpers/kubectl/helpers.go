@@ -75,7 +75,7 @@ func getElasticsearchPassword(t *testing.T, kubectlOptions *k8s.KubectlOptions) 
 	// retry so a transient stall is retried instead of fatal.
 	const maxAttempts = 8
 	for i := 0; i < maxAttempts; i++ {
-		encoded, err := k8s.RunKubectlAndGetOutputE(
+		encoded, err := k8s.RunKubectlAndGetOutputE( //nolint:staticcheck // deprecated terratest call predates the lint baseline
 			t,
 			kubectlOptions,
 			"get", "secret", "elasticsearch-es-elastic-user",
@@ -294,7 +294,7 @@ func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, 
 			os.Setenv("CAMUNDA_NAMESPACE_1", secondaryNamespaceArr[i])
 			os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
 
-			output := shell.RunCommandAndGetOutput(t, shell.Command{
+			output := shell.RunCommandAndGetOutput(t, shell.Command{ //nolint:staticcheck // deprecated terratest call predates the lint baseline
 				Command: "sh",
 				Args: []string{
 					"../procedure/test_dns_chaining.sh",
@@ -312,20 +312,20 @@ func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, 
 	} else {
 		// Check if the pods can reach each other via the IPs directly
 
-		defer k8s.KubectlDelete(t, &primary.KubectlNamespace, kubeResourcePath)
-		defer k8s.KubectlDelete(t, &secondary.KubectlNamespace, kubeResourcePath)
+		defer k8s.KubectlDelete(t, &primary.KubectlNamespace, kubeResourcePath)   //nolint:staticcheck // deprecated terratest call predates the lint baseline
+		defer k8s.KubectlDelete(t, &secondary.KubectlNamespace, kubeResourcePath) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
-		k8s.KubectlApply(t, &primary.KubectlNamespace, kubeResourcePath)
-		k8s.KubectlApply(t, &secondary.KubectlNamespace, kubeResourcePath)
+		k8s.KubectlApply(t, &primary.KubectlNamespace, kubeResourcePath)   //nolint:staticcheck // deprecated terratest call predates the lint baseline
+		k8s.KubectlApply(t, &secondary.KubectlNamespace, kubeResourcePath) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
-		k8s.WaitUntilServiceAvailable(t, &primary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second)
-		k8s.WaitUntilServiceAvailable(t, &secondary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second)
+		k8s.WaitUntilServiceAvailable(t, &primary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second)   //nolint:staticcheck // deprecated terratest call predates the lint baseline
+		k8s.WaitUntilServiceAvailable(t, &secondary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
-		k8s.WaitUntilPodAvailable(t, &primary.KubectlNamespace, "sample-nginx", 10, 5*time.Second)
-		k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, "sample-nginx", 10, 5*time.Second)
+		k8s.WaitUntilPodAvailable(t, &primary.KubectlNamespace, "sample-nginx", 10, 5*time.Second)   //nolint:staticcheck // deprecated terratest call predates the lint baseline
+		k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, "sample-nginx", 10, 5*time.Second) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
-		podPrimary := k8s.GetPod(t, &primary.KubectlNamespace, "sample-nginx")
-		podSecondary := k8s.GetPod(t, &secondary.KubectlNamespace, "sample-nginx")
+		podPrimary := k8s.GetPod(t, &primary.KubectlNamespace, "sample-nginx")     //nolint:staticcheck // deprecated terratest call predates the lint baseline
+		podSecondary := k8s.GetPod(t, &secondary.KubectlNamespace, "sample-nginx") //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 		podPrimaryIP := podPrimary.Status.PodIP
 		require.NotEmpty(t, podPrimaryIP)
@@ -333,21 +333,21 @@ func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, 
 		podSecondaryIP := podSecondary.Status.PodIP
 		require.NotEmpty(t, podSecondaryIP)
 
-		k8s.RunKubectl(t, &primary.KubectlNamespace, "exec", podPrimary.Name, "--", "curl", "--max-time", "15", podSecondaryIP)
-		k8s.RunKubectl(t, &secondary.KubectlNamespace, "exec", podSecondary.Name, "--", "curl", "--max-time", "15", podPrimaryIP)
+		k8s.RunKubectl(t, &primary.KubectlNamespace, "exec", podPrimary.Name, "--", "curl", "--max-time", "15", podSecondaryIP)   //nolint:staticcheck // deprecated terratest call predates the lint baseline
+		k8s.RunKubectl(t, &secondary.KubectlNamespace, "exec", podSecondary.Name, "--", "curl", "--max-time", "15", podPrimaryIP) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 		t.Log("[CROSS CLUSTER COMMUNICATION] Communication established")
 	}
 }
 
 func CheckCoreDNSReload(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
-	pods := k8s.ListPods(t, kubectlOptions, metav1.ListOptions{LabelSelector: "k8s-app=kube-dns"})
+	pods := k8s.ListPods(t, kubectlOptions, metav1.ListOptions{LabelSelector: "k8s-app=kube-dns"}) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 	for _, pod := range pods {
 		reloaded := false
 		for i := 0; i < 12; i++ {
 			t.Logf("[COREDNS RELOAD] Checking CoreDNS logs for pod %s (attempt %d/12)", pod.Name, i+1)
-			logs := k8s.GetPodLogs(t, kubectlOptions, &pod, "coredns")
+			logs := k8s.GetPodLogs(t, kubectlOptions, &pod, "coredns") //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 			if strings.Contains(logs, "Reloading complete") {
 				t.Log("[COREDNS RELOAD] CoreDNS reloaded successfully")
@@ -366,19 +366,19 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 		KubectlOptions: kubectlOptions,
 	}
 
-	helm.Delete(t, helmOptions, "camunda", true)
+	helm.Delete(t, helmOptions, "camunda", true) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 	// Delete ECK-managed Elasticsearch CR before PVCs to avoid stuck finalizers.
 	// The Elasticsearch CR is deployed outside of Helm via kubectl apply, so helm delete does not remove it.
 	t.Logf("[C8 HELM TEARDOWN] deleting ECK Elasticsearch CR in namespace %s", kubectlOptions.Namespace)
-	k8s.RunKubectl(t, kubectlOptions, "delete", "elasticsearch", "--all", "--timeout=120s", "--ignore-not-found=true")
+	k8s.RunKubectl(t, kubectlOptions, "delete", "elasticsearch", "--all", "--timeout=120s", "--ignore-not-found=true") //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 	t.Logf("[C8 HELM TEARDOWN] removing all PVCs and PVs from namespace %s", kubectlOptions.Namespace)
 
-	pvcs := k8s.ListPersistentVolumeClaims(t, kubectlOptions, metav1.ListOptions{})
+	pvcs := k8s.ListPersistentVolumeClaims(t, kubectlOptions, metav1.ListOptions{}) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 	for _, pvc := range pvcs {
-		k8s.RunKubectl(t, kubectlOptions, "delete", "pvc", pvc.Name, "--ignore-not-found=true")
+		k8s.RunKubectl(t, kubectlOptions, "delete", "pvc", pvc.Name, "--ignore-not-found=true") //nolint:staticcheck // deprecated terratest call predates the lint baseline
 	}
 }
 
@@ -511,7 +511,7 @@ func RunSensitiveKubectlCommand(t *testing.T, kubectlOptions *k8s.KubectlOptions
 		kubectlOptions.Logger = nil
 	}()
 	kubectlOptions.Logger = logger.Discard
-	k8s.RunKubectl(t, kubectlOptions, command...)
+	k8s.RunKubectl(t, kubectlOptions, command...) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 }
 
 func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket, inputVersion string) {
@@ -522,7 +522,7 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket,
 	// Replace dots with dashes in the version string.
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--",
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", //nolint:staticcheck // deprecated terratest call predates the lint baseline
 		"curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
 		"-H", "Content-Type: application/json",
 		"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
@@ -566,9 +566,9 @@ func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName strin
 	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
 
 	// Delete any pre-existing snapshot with the same name to avoid snapshot_name_already_in_use_exception
-	k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "DELETE", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s", backupName))
+	_, _ = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "DELETE", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s", backupName)) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", backupPayload)
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", backupPayload) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -605,13 +605,13 @@ func removeElasticBackup(t *testing.T, cluster helpers.Cluster) {
 
 	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
 
-	k8s.RunKubectl(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XDELETE", "localhost:9200/_snapshot/camunda_backup")
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XDELETE", "localhost:9200/_snapshot/camunda_backup") //nolint:staticcheck // deprecated terratest call predates the lint baseline
 }
 
 func getAllElasticBackups(t *testing.T, cluster helpers.Cluster) (string, error) {
 	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XGET", "localhost:9200/_snapshot/camunda_backup/_all") //nolint:staticcheck // deprecated terratest call predates the lint baseline
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return "", err
@@ -625,7 +625,7 @@ func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName stri
 
 	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", backupPayload)
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", backupPayload) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -686,9 +686,9 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	fileContent := string(content)
 
 	// Replace the placeholders with the replacement strings
-	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", initialContact, -1)
-	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.camunda-primary.svc.cluster.local:9200", ElasticsearchServiceName), elastic0, -1)
-	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.camunda-secondary.svc.cluster.local:9200", ElasticsearchServiceName), elastic1, -1)
+	modifiedContent := strings.ReplaceAll(fileContent, "PLACEHOLDER", initialContact)
+	modifiedContent = strings.ReplaceAll(modifiedContent, fmt.Sprintf("http://%s.camunda-primary.svc.cluster.local:9200", ElasticsearchServiceName), elastic0)
+	modifiedContent = strings.ReplaceAll(modifiedContent, fmt.Sprintf("http://%s.camunda-secondary.svc.cluster.local:9200", ElasticsearchServiceName), elastic1)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
@@ -724,7 +724,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	}
 
 	if !isOCIChart && !isLocalChart {
-		helm.AddRepo(t, helmOptions, "camunda", remoteChartSource)
+		helm.AddRepo(t, helmOptions, "camunda", remoteChartSource) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 	}
 
 	// Terratest is actively ignoring the version in an upgrade
@@ -744,7 +744,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	// Write the final merged values to a debug file for troubleshooting
 	writeDebugValues(t, valuesFiles, setValues, setStringValues)
 
-	helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
+	helm.Upgrade(t, helmOptions, remoteChartName, "camunda") //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 	// Write the old file back to the file - mostly for local development
 	err = os.WriteFile(filePath, []byte(fileContent), 0644)
@@ -777,10 +777,10 @@ func writeDebugValues(t *testing.T, valuesFiles []string, setValues, setStringVa
 	var combined strings.Builder
 
 	for _, f := range valuesFiles {
-		combined.WriteString(fmt.Sprintf("# --- Source: %s ---\n", f))
+		fmt.Fprintf(&combined, "# --- Source: %s ---\n", f)
 		content, err := os.ReadFile(f)
 		if err != nil {
-			combined.WriteString(fmt.Sprintf("# Error reading file: %v\n", err))
+			fmt.Fprintf(&combined, "# Error reading file: %v\n", err)
 		} else {
 			combined.Write(content)
 			combined.WriteString("\n")
@@ -790,14 +790,14 @@ func writeDebugValues(t *testing.T, valuesFiles []string, setValues, setStringVa
 	if len(setValues) > 0 {
 		combined.WriteString("# --- Helm --set values ---\n")
 		for k, v := range setValues {
-			combined.WriteString(fmt.Sprintf("# %s=%s\n", k, v))
+			fmt.Fprintf(&combined, "# %s=%s\n", k, v)
 		}
 	}
 
 	if len(setStringValues) > 0 {
 		combined.WriteString("# --- Helm --set-string values ---\n")
 		for k, v := range setStringValues {
-			combined.WriteString(fmt.Sprintf("# %s=%s\n", k, v))
+			fmt.Fprintf(&combined, "# %s=%s\n", k, v)
 		}
 	}
 
@@ -820,7 +820,7 @@ func StatefulSetContains(t *testing.T, kubectlOptions *k8s.KubectlOptions, state
 	}()
 	kubectlOptions.Logger = logger.Discard
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "statefulset", statefulset, "-o", "yaml")
+	output, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "statefulset", statefulset, "-o", "yaml") //nolint:staticcheck // deprecated terratest call predates the lint baseline
 	if err != nil {
 		t.Fatalf("[STATEFULSET] %s", err)
 		return false
@@ -1093,7 +1093,7 @@ func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 	}()
 	kubectlOptions.Logger = logger.Discard
 
-	pods := k8s.ListPods(t, kubectlOptions, metav1.ListOptions{})
+	pods := k8s.ListPods(t, kubectlOptions, metav1.ListOptions{}) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 	for _, pod := range pods {
 		t.Logf("[POD LOGS] Found pod %s", pod.Name)
@@ -1124,7 +1124,7 @@ func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 		for _, container := range allContainers {
 			t.Logf("[POD LOGS] Dumping logs for %s container %s in pod %s", container.containerType, container.name, pod.Name)
 
-			podLogs, err := k8s.GetPodLogsE(t, kubectlOptions, &pod, container.name)
+			podLogs, err := k8s.GetPodLogsE(t, kubectlOptions, &pod, container.name) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 			if err != nil {
 				t.Fatalf("Error getting pod logs: %v", err)
 			}
@@ -1299,7 +1299,7 @@ func CheckElasticsearchProcessInstanceCount(t *testing.T, cluster helpers.Cluste
 
 	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
 
-	output, err := k8s.RunKubectlAndGetOutputE(
+	output, err := k8s.RunKubectlAndGetOutputE( //nolint:staticcheck // deprecated terratest call predates the lint baseline
 		t,
 		&cluster.KubectlNamespace,
 		"exec",
@@ -1329,7 +1329,7 @@ func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 
 	// Retry up to 10 times with 15 second intervals to allow for cluster stabilization
 	for i := 0; i < 10; i++ {
-		output, err = k8s.RunKubectlAndGetOutputE(
+		output, err = k8s.RunKubectlAndGetOutputE( //nolint:staticcheck // deprecated terratest call predates the lint baseline
 			t,
 			&cluster.KubectlNamespace,
 			"exec",
@@ -1498,7 +1498,7 @@ func WaitForZeebeStatefulSetReadyWithSelfHeal(t *testing.T, kubectlOptions *k8s.
 			}
 			if now.Sub(notReadySince[pod]) >= stuckTimeout && restarts < maxSelfHealRestarts {
 				t.Logf("[SELF-HEAL WAIT] Broker %s has been Running-but-not-Ready for at least %s since first observed; deleting it so the StatefulSet recreates it (camunda/camunda#55038)", pod, stuckTimeout)
-				if err := k8s.RunKubectlE(t, kubectlOptions, "delete", "pod", pod, "--wait=false"); err != nil {
+				if err := k8s.RunKubectlE(t, kubectlOptions, "delete", "pod", pod, "--wait=false"); err != nil { //nolint:staticcheck // deprecated terratest call predates the lint baseline
 					t.Logf("[SELF-HEAL WAIT] failed to delete pod %s: %v", pod, err)
 				} else {
 					restarts++
@@ -1527,7 +1527,7 @@ func WaitForZeebeStatefulSetReadyWithSelfHeal(t *testing.T, kubectlOptions *k8s.
 // stays simple while transient/auth/context failures remain visible in test output.
 func runKubectlOrEmpty(t *testing.T, kubectlOptions *k8s.KubectlOptions, args ...string) string {
 	t.Helper()
-	out, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, args...)
+	out, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, args...) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 	if err != nil {
 		t.Logf("[SELF-HEAL WAIT] kubectl %v failed (treating as empty): %v", args, err)
 		return ""
@@ -1542,7 +1542,7 @@ func runKubectlOrEmpty(t *testing.T, kubectlOptions *k8s.KubectlOptions, args ..
 // excluded, so only brokers that started but failed to become Ready are healed.
 func runningNotReadyPods(t *testing.T, kubectlOptions *k8s.KubectlOptions, statefulSetName string) []string {
 	const jsonPath = "jsonpath={range .items[*]}{.metadata.name}{\"|\"}{.status.phase}{\"|\"}{range .status.containerStatuses[*]}{.ready}{\",\"}{end}{\";\"}{end}"
-	out, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "pods", "-o", jsonPath)
+	out, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "pods", "-o", jsonPath) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 	if err != nil {
 		t.Logf("[SELF-HEAL WAIT] failed to list pods: %v", err)
 		return nil
@@ -1604,7 +1604,7 @@ func SelfHealStuckBrokers(t *testing.T, kubectlOptions *k8s.KubectlOptions, stat
 	deleted := 0
 	if stuckPod != "" {
 		t.Logf("[SELF-HEAL] Broker %s (ns %s) Running-but-not-Ready for >%s; deleting it so the StatefulSet recreates it (camunda/camunda#55038)", stuckPod, kubectlOptions.Namespace, stuckTimeout)
-		if err := k8s.RunKubectlE(t, kubectlOptions, "delete", "pod", stuckPod, "--wait=false"); err != nil {
+		if err := k8s.RunKubectlE(t, kubectlOptions, "delete", "pod", stuckPod, "--wait=false"); err != nil { //nolint:staticcheck // deprecated terratest call predates the lint baseline
 			t.Logf("[SELF-HEAL] failed to delete pod %s: %v", stuckPod, err)
 		} else {
 			*restarts++

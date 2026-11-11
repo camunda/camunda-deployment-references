@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2155 # predates the lint baseline
 
 export CLUSTER_NAME="$(terraform console <<<local.rosa_cluster_name | tail -n 1 | jq -r)"
 export CLUSTER_API_URL="$(terraform output -raw openshift_api_url)"

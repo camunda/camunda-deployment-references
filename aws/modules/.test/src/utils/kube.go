@@ -30,7 +30,7 @@ func WaitForJobCompletion(clientset *kubernetes.Clientset, namespace, jobName st
 	// Watch for job events
 	watch, err := clientset.BatchV1().Jobs(namespace).Watch(ctx, listOptions)
 	if err != nil {
-		return fmt.Errorf("Error creating watcher: %v", err)
+		return fmt.Errorf("Error creating watcher: %v", err) //nolint:staticcheck // capitalized error text predates the lint baseline
 	}
 	defer watch.Stop()
 
@@ -43,7 +43,7 @@ func WaitForJobCompletion(clientset *kubernetes.Clientset, namespace, jobName st
 		case event := <-eventChan:
 			job, ok := event.Object.(*batchv1.Job)
 			if !ok {
-				return fmt.Errorf("Unexpected event received: %v", event)
+				return fmt.Errorf("Unexpected event received: %v", event) //nolint:staticcheck // capitalized error text predates the lint baseline
 			}
 			if job.Name == jobName {
 				// Check if the job has completed
@@ -53,21 +53,21 @@ func WaitForJobCompletion(clientset *kubernetes.Clientset, namespace, jobName st
 					if job.Status.Succeeded == 1 {
 						return nil // Job completed successfully
 					} else {
-						return fmt.Errorf("Job completed with errors")
+						return fmt.Errorf("Job completed with errors") //nolint:staticcheck // capitalized error text predates the lint baseline
 					}
 				}
 			}
 		case <-time.After(timeout):
-			return fmt.Errorf("Timeout: job did not complete after %v minutes", timeout)
+			return fmt.Errorf("Timeout: job did not complete after %v minutes", timeout) //nolint:staticcheck // capitalized error text predates the lint baseline
 		}
 	}
 }
 
 func CreateIfNotExistsNamespace(t *testing.T, kubeCtlOptions *k8s.KubectlOptions, namespace string) {
-	_, errFindNamespace := k8s.GetNamespaceE(t, kubeCtlOptions, namespace)
+	_, errFindNamespace := k8s.GetNamespaceE(t, kubeCtlOptions, namespace) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 	if errFindNamespace != nil {
 		if errors.IsNotFound(errFindNamespace) {
-			k8s.CreateNamespace(t, kubeCtlOptions, namespace)
+			k8s.CreateNamespace(t, kubeCtlOptions, namespace) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 		} else {
 			require.NoError(t, errFindNamespace)
 		}
@@ -75,7 +75,7 @@ func CreateIfNotExistsNamespace(t *testing.T, kubeCtlOptions *k8s.KubectlOptions
 }
 
 func CreateIfNotExistsServiceAccount(t *testing.T, kubeCtlOptions *k8s.KubectlOptions, serviceAccountName string, annotations map[string]string) {
-	_, errFindSA := k8s.GetServiceAccountE(t, kubeCtlOptions, serviceAccountName)
+	_, errFindSA := k8s.GetServiceAccountE(t, kubeCtlOptions, serviceAccountName) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 	if errFindSA != nil {
 		if errors.IsNotFound(errFindSA) {
 			// Create service account with annotations if it does not exist
@@ -86,7 +86,7 @@ func CreateIfNotExistsServiceAccount(t *testing.T, kubeCtlOptions *k8s.KubectlOp
 					Annotations: annotations,
 				},
 			}
-			clientset, errClient := k8s.GetKubernetesClientFromOptionsE(t, kubeCtlOptions)
+			clientset, errClient := k8s.GetKubernetesClientFromOptionsE(t, kubeCtlOptions) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 			require.NoError(t, errClient)
 			_, errSA := clientset.CoreV1().ServiceAccounts(kubeCtlOptions.Namespace).Create(context.Background(), serviceAccount, metav1.CreateOptions{})
 			require.NoError(t, errSA)

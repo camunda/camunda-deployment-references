@@ -31,7 +31,7 @@ func RunTag() string {
 	if id := os.Getenv("TEST_RUN_ID"); len(id) >= 6 {
 		return id[len(id)-6:]
 	}
-	return strings.ToLower(random.UniqueId())
+	return strings.ToLower(random.UniqueId()) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 }
 
 // BackendKeyPrefix is the S3 key prefix of a test's states.
@@ -154,7 +154,7 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 	}
 	destroyOnCleanup(t, "vpc", vpcOpts)
 	t.Logf("Applying vpc/ state at %s", paths.VPC)
-	terraform.InitAndApply(t, vpcOpts)
+	terraform.InitAndApply(t, vpcOpts) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 	infraOpts = &terraform.Options{
 		TerraformDir:       paths.Infra,
@@ -166,7 +166,7 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 	}
 	destroyOnCleanup(t, "infra", infraOpts)
 	t.Logf("Applying infra/ state at %s", paths.Infra)
-	terraform.InitAndApply(t, infraOpts)
+	terraform.InitAndApply(t, infraOpts) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 	appOpts = &terraform.Options{
 		TerraformDir:       paths.App,
@@ -178,7 +178,7 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 	}
 	destroyOnCleanup(t, "app", appOpts)
 	t.Logf("Applying app/ state at %s", paths.App)
-	terraform.InitAndApply(t, appOpts)
+	terraform.InitAndApply(t, appOpts) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 
 	return vpcOpts, infraOpts, appOpts
 }
@@ -190,7 +190,7 @@ func destroyOnCleanup(t *testing.T, name string, opts *terraform.Options) {
 
 	t.Cleanup(func() {
 		t.Logf("Destroying %s state at %s", name, opts.TerraformDir)
-		if _, err := terraform.DestroyE(t, opts); err != nil {
+		if _, err := terraform.DestroyE(t, opts); err != nil { //nolint:staticcheck // deprecated terratest call predates the lint baseline
 			t.Errorf("destroy of %s failed: %v — manual cleanup may be required", name, err)
 		}
 	})

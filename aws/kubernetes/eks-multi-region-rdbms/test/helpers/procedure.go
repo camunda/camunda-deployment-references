@@ -208,7 +208,7 @@ func RunProcedure(t *testing.T, env Env, timeout time.Duration, script string, a
 		// already written: killing without waiting leaves a zombie until the test
 		// binary exits, and drops the tail of the output that explains the hang.
 		select {
-		case <-done:
+		case <-done: //nolint:errcheck // the test fails after this select; the error adds nothing
 		case <-time.After(5 * time.Second):
 		}
 		t.Logf("=== %s (timed out) ===\n%s", script, buf.String())

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2155 # predates the lint baseline
 
 # EKS Cluster
 export CERT_MANAGER_IRSA_ARN="$(terraform output -raw cert_manager_arn)"

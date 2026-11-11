@@ -376,7 +376,7 @@ func extractZip(zipPath, dest string) error {
 	return nil
 }
 
-func logsCmd() *cobra.Command {
+func logsCmd() *cobra.Command { //nolint:gocognit // predates the lint baseline
 	var (
 		filter   string
 		tailN    int

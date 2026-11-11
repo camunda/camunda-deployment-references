@@ -31,7 +31,7 @@ func ParseAuroraWriterRegion(raw []byte) (string, error) {
 		return "", fmt.Errorf("parse describe-global-clusters JSON: %w\n%s", err, raw)
 	}
 	if global.FailoverState != nil && global.FailoverState.Status != "" {
-		return "", fmt.Errorf("Aurora switchover still in progress (%s)", global.FailoverState.Status)
+		return "", fmt.Errorf("Aurora switchover still in progress (%s)", global.FailoverState.Status) //nolint:staticcheck // Aurora is a product name
 	}
 	for _, m := range global.GlobalClusterMembers {
 		if m.IsWriter {

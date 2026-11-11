@@ -2,7 +2,8 @@
 name: Internal - Global - PR Copilot review
 
 on:
-    pull_request_target:
+    # no checkout in this file; it calls the pinned shared review workflow
+    pull_request_target: # zizmor: ignore[dangerous-triggers]
         types: [opened, ready_for_review, labeled]
 
 permissions: {}

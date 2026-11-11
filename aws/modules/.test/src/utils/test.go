@@ -26,7 +26,7 @@ func DeferCleanup(t *testing.T, bucketRegion string, terraformOptions *terraform
 	}
 
 	destroyTerraform := func() {
-		terraform.Destroy(t, terraformOptions)
+		terraform.Destroy(t, terraformOptions) //nolint:staticcheck // deprecated terratest call predates the lint baseline
 		deleteObjectsFromS3()
 	}
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2155 # predates the lint baseline
 set -euo pipefail
 
 # Retrieve all outputs as JSON
