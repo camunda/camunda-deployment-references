@@ -197,6 +197,15 @@ repos:
             files: ^\.github/scripts/changelog-check\.sh$
             pass_filenames: false
 
+          - id: python-unittest-acm-versions
+            name: Python unit tests (ACM versions script)
+            # yamllint disable-line rule:line-length
+            entry: python3 -I -m unittest discover -s .github/scripts -p 'test_*.py'
+            language: system
+            # yamllint disable-line rule:line-length
+            files: ^\.github/scripts/(get_acm_versions|test_get_acm_versions)\.py$|^\.github/scripts/fixtures/acm_versions/
+            pass_filenames: false
+
           - id: cleanup-coverage
             name: Daily cleanups cover every test scenario
             entry: .lint/cleanup-coverage/check-cleanup-coverage.py

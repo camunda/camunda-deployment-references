@@ -1,0 +1,146 @@
+[
+  {
+    "name": "art-bundle-2.16-v2"
+  },
+  {
+    "name": "auto-merge-art-digest-prs"
+  },
+  {
+    "name": "auto-update/art-acm-217-digest"
+  },
+  {
+    "name": "feat/split-art-state-files"
+  },
+  {
+    "name": "github-token"
+  },
+  {
+    "name": "konflux/mintmaker/release-2.11/github.com-openshift-api-digest"
+  },
+  {
+    "name": "konflux/mintmaker/release-2.15/github.com-openshift-api-digest"
+  },
+  {
+    "name": "konflux/mintmaker/release-2.16/github.com-openshift-api-digest"
+  },
+  {
+    "name": "konflux/mintmaker/release-5.0/github.com-openshift-api-digest"
+  },
+  {
+    "name": "konflux/mintmaker/release-5.0/github.com-prometheus-common-0.x"
+  },
+  {
+    "name": "konflux/mintmaker/release-5.0/go.yaml.in-yaml-v3-3.x"
+  },
+  {
+    "name": "konflux/mintmaker/release-5.1/github.com-openshift-api-digest"
+  },
+  {
+    "name": "konflux/mintmaker/release-5.2/github.com-openshift-api-digest"
+  },
+  {
+    "name": "konflux-multiclusterhub-operator-acm-51"
+  },
+  {
+    "name": "main"
+  },
+  {
+    "name": "ownnamespace-only-release-5.0"
+  },
+  {
+    "name": "rbac-fix"
+  },
+  {
+    "name": "regenerate-chart-main"
+  },
+  {
+    "name": "regenerate-operator-bundles-2.12"
+  },
+  {
+    "name": "release-1.0.0"
+  },
+  {
+    "name": "release-2.0"
+  },
+  {
+    "name": "release-2.1"
+  },
+  {
+    "name": "release-2.1.2-emergency"
+  },
+  {
+    "name": "release-2.2"
+  },
+  {
+    "name": "release-2.3"
+  },
+  {
+    "name": "release-2.4"
+  },
+  {
+    "name": "release-2.5"
+  },
+  {
+    "name": "release-2.6"
+  },
+  {
+    "name": "release-2.7"
+  },
+  {
+    "name": "release-2.8"
+  },
+  {
+    "name": "release-2.9"
+  },
+  {
+    "name": "release-2.10"
+  },
+  {
+    "name": "release-2.11"
+  },
+  {
+    "name": "release-2.12"
+  },
+  {
+    "name": "release-2.13"
+  },
+  {
+    "name": "release-2.14"
+  },
+  {
+    "name": "release-2.15"
+  },
+  {
+    "name": "release-2.16"
+  },
+  {
+    "name": "release-2.17"
+  },
+  {
+    "name": "release-2.18"
+  },
+  {
+    "name": "release-5.0"
+  },
+  {
+    "name": "release-5.1"
+  },
+  {
+    "name": "release-5.2"
+  },
+  {
+    "name": "release-9.9"
+  },
+  {
+    "name": "sonarcloud-dockerfile-fixes"
+  },
+  {
+    "name": "test-hardened-core-runtime-image"
+  },
+  {
+    "name": "test-hardened-go-image-experiment"
+  },
+  {
+    "name": "updated-chart-automation"
+  }
+]

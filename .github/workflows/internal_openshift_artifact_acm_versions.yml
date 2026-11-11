@@ -15,12 +15,24 @@ on:
     pull_request:
         paths:
             - .github/workflows/internal_openshift_artifact_acm_versions.yml
+            - .github/scripts/get_acm_versions.py
+            - .github/scripts/test_get_acm_versions.py
+            - .github/scripts/fixtures/acm_versions/**
 
 # The five workflows that publish to `gh-pages` share one lock, so a publish never
 # races another publish -- `! [rejected] ... (fetch first)` happened three times on
 # 2026-08-20 -- and is never cancelled midway. A pull request run validates the
 # generation without publishing, so it gets its own per-ref group and may be
 # superseded.
+#
+# A source outage is not a failure right away. The script exits 3 when docs.redhat.com
+# (which blocks GitHub-hosted runners from time to time) and the upstream branches are
+# both unreachable. A scheduled or dispatched run then warns and keeps the published
+# file as long as it was confirmed within the last STALE_AFTER_DAYS days, and fails --
+# which alerts Slack -- after that. A run that reaches a source records a confirmation
+# on `gh-pages` (an `Update` commit when the list changed, a `Confirm` commit when not),
+# and the age of the newest one is what the rule reads. A pull request run never
+# touches Red Hat: it checks the parser against saved fixtures.
 concurrency:
     group: ${{ github.event_name == 'pull_request' && format('{0}-{1}', github.workflow, github.ref) || 'gh-pages-publish' }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -32,27 +44,59 @@ jobs:
             issues: read # the Slack action looks up silence issues
             contents: write # push the generated files to the gh-pages branch
             id-token: write # required for Vault JWT login
+        env:
+            # How long the published file may go without a confirmation while every
+            # source is unreachable before the run fails.
+            STALE_AFTER_DAYS: 7
 
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-            - name: Switch to gh-pages branch
+            - name: Test the ACM versions script offline
               run: |
-                  cp .github/scripts/get_acm_versions.py /tmp/get_acm_versions.py
+                  # Copied out of the working tree because the next step switches branch.
+                  rm -rf /tmp/acm-scripts
+                  mkdir -p /tmp/acm-scripts
+                  cp -r .github/scripts/get_acm_versions.py .github/scripts/test_get_acm_versions.py \
+                      .github/scripts/fixtures /tmp/acm-scripts/
+                  python3 -I -m unittest discover -v -s /tmp/acm-scripts -p 'test_*.py'
+
+            - name: Switch to gh-pages branch
+              if: github.event_name != 'pull_request'
+              run: |
                   git fetch origin gh-pages
                   git checkout gh-pages
 
             - name: Retrieve OpenShift ACM versions
+              id: versions
+              if: github.event_name != 'pull_request'
               shell: bash
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
                   set -euo pipefail
 
-                  python3 -m venv acm-venv
-                  source acm-venv/bin/activate
+                  status=0
+                  python3 /tmp/acm-scripts/get_acm_versions.py || status=$?
 
-                  pip install requests bs4
-
-                  python /tmp/get_acm_versions.py
+                  if [ "$status" -eq 3 ]; then
+                    # Every source is blocked or unreachable: an upstream outage.
+                    since=$(date -u -d "${STALE_AFTER_DAYS} days ago" +%Y-%m-%dT%H:%M:%SZ)
+                    confirmed=$(gh api "repos/${GITHUB_REPOSITORY}/commits?sha=gh-pages&since=${since}&per_page=100" \
+                      --jq '[.[] | select(.commit.message | test("^(Update|Confirm) OpenShift ACM versions"))]
+                            | (.[0].commit.committer.date // "")')
+                    if [ -n "$confirmed" ]; then
+                      echo "::warning::Every OpenShift ACM version source is unreachable. Keeping the published file," \
+                        "last confirmed ${confirmed}; this fails after ${STALE_AFTER_DAYS} days without a confirmation."
+                      echo "fetched=false" >> "$GITHUB_OUTPUT"
+                      exit 0
+                    fi
+                    echo "::error::Every OpenShift ACM version source is unreachable and the published file was not confirmed in the last ${STALE_AFTER_DAYS} days."
+                    exit 3
+                  elif [ "$status" -ne 0 ]; then
+                    exit "$status"
+                  fi
 
                   echo "Printing: ./docs/openshift_acm_versions.txt"
                   cat "./docs/openshift_acm_versions.txt"
@@ -62,33 +106,38 @@ jobs:
                     echo "::error::Generated './docs/openshift_acm_versions.txt' is empty or has no version numbers; aborting to avoid publishing an empty artifact."
                     exit 1
                   fi
+                  echo "fetched=true" >> "$GITHUB_OUTPUT"
 
             - name: Commit and push OpenShift ACM versions file to gh-pages
               # A pull request run is here to prove this workflow still produces a valid
               # artifact, not to publish one: it targets a branch the pull request never
               # merges into, so nothing about that write is reviewed, and two of them at
-              # once is what rejected the push three times on 2026-08-20.
-              if: github.event_name != 'pull_request'
+              # once is what rejected the push three times on 2026-08-20. A run whose
+              # sources were all unreachable has nothing new to record.
+              if: github.event_name != 'pull_request' && steps.versions.outputs.fetched == 'true'
               shell: bash
               run: |
                   set -euo pipefail
 
-                  git diff --exit-code docs/openshift_acm_versions.txt || {
+                  git config --local user.name "github-actions[bot]"
+                  git config --local user.email "github-actions[bot]@users.noreply.github.com"
+                  if git diff --quiet docs/openshift_acm_versions.txt; then
+                    echo "No change, recording a confirmation on gh-pages"
+                    git commit --allow-empty -m "Confirm OpenShift ACM versions"
+                  else
                     echo "Changes detected, committing and pushing to gh-pages"
-                    git config --local user.name "github-actions[bot]"
-                    git config --local user.email "github-actions[bot]@users.noreply.github.com"
                     git add docs/openshift_acm_versions.txt
                     git commit -m "Update OpenShift ACM versions"
-                    for attempt in 1 2 3; do
-                      if git push origin gh-pages; then
-                        exit 0
-                      fi
-                      echo "::warning::gh-pages rejected the push (attempt ${attempt}/3); rebasing onto the remote and retrying."
-                      git pull --rebase origin gh-pages
-                    done
-                    echo "::error::could not push to gh-pages after three attempts."
-                    exit 1
-                  }
+                  fi
+                  for attempt in 1 2 3; do
+                    if git push origin gh-pages; then
+                      exit 0
+                    fi
+                    echo "::warning::gh-pages rejected the push (attempt ${attempt}/3); rebasing onto the remote and retrying."
+                    git pull --rebase origin gh-pages
+                  done
+                  echo "::error::could not push to gh-pages after three attempts."
+                  exit 1
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
