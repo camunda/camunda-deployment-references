@@ -89,7 +89,7 @@ func FetchSensitiveTerraformOutput(t *testing.T, options *terraform.Options, nam
 		options.Logger = nil
 	}()
 	options.Logger = logger.Discard
-	return terraform.Output(t, options, name) //nolint:staticcheck // deprecated terratest call predates the lint baseline
+	return terraform.Output(t, options, name)
 }
 
 // Combine two maps into a single map of string key-value pairs

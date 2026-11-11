@@ -1,5 +1,4 @@
 #!/bin/bash
-# shellcheck disable=SC2155 # predates the lint baseline
 
 # Retrieve all outputs as JSON
 outputs_json=$(terraform output -json)

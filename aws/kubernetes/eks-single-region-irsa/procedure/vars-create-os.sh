@@ -1,5 +1,4 @@
 #!/bin/bash
-# shellcheck disable=SC2155 # predates the lint baseline
 
 # OpenSearch Credentials (replace with your own values from the #opensearch-module-setup step)
 export OPENSEARCH_MASTER_USERNAME="$(terraform console <<<local.opensearch_master_username | tail -n 1 | jq -r)"

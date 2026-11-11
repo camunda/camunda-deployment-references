@@ -1,5 +1,4 @@
 #!/bin/bash
-# shellcheck disable=SC2155 # predates the lint baseline
 
 # Cluster 0
 export CLUSTER_0_NAME="$(terraform console <<<local.rosa_cluster_0_name | tail -n 1 | jq -r)"

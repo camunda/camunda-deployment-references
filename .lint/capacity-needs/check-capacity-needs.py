@@ -20,6 +20,7 @@ Stdlib only.
 
 from __future__ import annotations
 
+import itertools
 import json
 import re
 import sys
@@ -73,7 +74,7 @@ def golden_types(plan: Path) -> dict[str, str]:
 def acquire_steps(text: str) -> list[str]:
     """The text of each step that acquires a slot. Each one must reserve on its own."""
     starts = [m.start() for m in STEP_START.finditer(text)] + [len(text)]
-    steps = [text[a:b] for a, b in zip(starts, starts[1:])]  # noqa: RUF007  # the hook runs system python3; pairwise needs 3.10
+    steps = [text[a:b] for a, b in itertools.pairwise(starts)]
     return [step for step in steps if ACQUIRE.search(step)]
 
 

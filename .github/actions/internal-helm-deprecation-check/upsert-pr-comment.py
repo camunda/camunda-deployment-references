@@ -297,7 +297,7 @@ def main() -> int:
             f"`{args.workflow}` / `{args.job}` — release "
             f"`{args.release_name}` in `{args.namespace}`{ctx_suffix}"
         )
-        timestamp = dt.datetime.now(tz=dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")  # noqa: UP017  # runs on the runner's python3; datetime.UTC needs 3.11
+        timestamp = dt.datetime.now(tz=dt.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         section_block: str | None = build_section(
             sid=sid,
             title=title,

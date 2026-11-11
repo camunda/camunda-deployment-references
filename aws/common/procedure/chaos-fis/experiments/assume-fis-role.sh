@@ -54,11 +54,8 @@ if ! CREDS=$(aws sts assume-role \
 fi
 
 # Export credentials
-# shellcheck disable=SC2155 # predates the lint baseline
 export AWS_ACCESS_KEY_ID=$(echo "${CREDS}" | jq -r '.Credentials.AccessKeyId')
-# shellcheck disable=SC2155 # predates the lint baseline
 export AWS_SECRET_ACCESS_KEY=$(echo "${CREDS}" | jq -r '.Credentials.SecretAccessKey')
-# shellcheck disable=SC2155 # predates the lint baseline
 export AWS_SESSION_TOKEN=$(echo "${CREDS}" | jq -r '.Credentials.SessionToken')
 
 # Verify. The status matters: this file is sourced, so it runs without set -e,

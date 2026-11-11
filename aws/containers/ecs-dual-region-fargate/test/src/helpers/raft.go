@@ -28,7 +28,7 @@ func AdminPassword(t *testing.T, infraOpts *terraform.Options) string {
 
 	quiet := *infraOpts
 	quiet.Logger = logger.Discard
-	password := terraform.Output(t, &quiet, "admin_user_password") //nolint:staticcheck // deprecated terratest call predates the lint baseline
+	password := terraform.Output(t, &quiet, "admin_user_password")
 	if os.Getenv("GITHUB_ACTIONS") == "true" {
 		fmt.Printf("::add-mask::%s\n", password)
 	}

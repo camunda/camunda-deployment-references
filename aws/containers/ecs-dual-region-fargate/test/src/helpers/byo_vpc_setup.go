@@ -46,7 +46,7 @@ func SetupBYOVPCs(t *testing.T, fixtureDir, prefix, awsProfile, region0, region1
 	destroyOnCleanup(t, "byo-vpc fixture", opts)
 
 	t.Logf("Applying BYO-VPC fixture at %s", fixtureDir)
-	terraform.InitAndApply(t, opts) //nolint:staticcheck // deprecated terratest call predates the lint baseline
+	terraform.InitAndApply(t, opts)
 
 	return &BYOVPCFixture{opts: opts}
 }
@@ -56,15 +56,15 @@ func SetupBYOVPCs(t *testing.T, fixtureDir, prefix, awsProfile, region0, region1
 func (f *BYOVPCFixture) ToTFVars(t *testing.T) map[string]interface{} {
 	t.Helper()
 	return map[string]interface{}{
-		"region_0_vpc_id":                  terraform.Output(t, f.opts, "region_0_vpc_id"),                      //nolint:staticcheck // deprecated terratest call predates the lint baseline
-		"region_0_vpc_cidr":                terraform.Output(t, f.opts, "region_0_vpc_cidr"),                    //nolint:staticcheck // deprecated terratest call predates the lint baseline
-		"region_0_private_subnet_ids":      terraform.OutputList(t, f.opts, "region_0_private_subnet_ids"),      //nolint:staticcheck // deprecated terratest call predates the lint baseline
-		"region_0_public_subnet_ids":       terraform.OutputList(t, f.opts, "region_0_public_subnet_ids"),       //nolint:staticcheck // deprecated terratest call predates the lint baseline
-		"region_0_private_route_table_ids": terraform.OutputList(t, f.opts, "region_0_private_route_table_ids"), //nolint:staticcheck // deprecated terratest call predates the lint baseline
-		"region_1_vpc_id":                  terraform.Output(t, f.opts, "region_1_vpc_id"),                      //nolint:staticcheck // deprecated terratest call predates the lint baseline
-		"region_1_vpc_cidr":                terraform.Output(t, f.opts, "region_1_vpc_cidr"),                    //nolint:staticcheck // deprecated terratest call predates the lint baseline
-		"region_1_private_subnet_ids":      terraform.OutputList(t, f.opts, "region_1_private_subnet_ids"),      //nolint:staticcheck // deprecated terratest call predates the lint baseline
-		"region_1_public_subnet_ids":       terraform.OutputList(t, f.opts, "region_1_public_subnet_ids"),       //nolint:staticcheck // deprecated terratest call predates the lint baseline
-		"region_1_private_route_table_ids": terraform.OutputList(t, f.opts, "region_1_private_route_table_ids"), //nolint:staticcheck // deprecated terratest call predates the lint baseline
+		"region_0_vpc_id":                  terraform.Output(t, f.opts, "region_0_vpc_id"),
+		"region_0_vpc_cidr":                terraform.Output(t, f.opts, "region_0_vpc_cidr"),
+		"region_0_private_subnet_ids":      terraform.OutputList(t, f.opts, "region_0_private_subnet_ids"),
+		"region_0_public_subnet_ids":       terraform.OutputList(t, f.opts, "region_0_public_subnet_ids"),
+		"region_0_private_route_table_ids": terraform.OutputList(t, f.opts, "region_0_private_route_table_ids"),
+		"region_1_vpc_id":                  terraform.Output(t, f.opts, "region_1_vpc_id"),
+		"region_1_vpc_cidr":                terraform.Output(t, f.opts, "region_1_vpc_cidr"),
+		"region_1_private_subnet_ids":      terraform.OutputList(t, f.opts, "region_1_private_subnet_ids"),
+		"region_1_public_subnet_ids":       terraform.OutputList(t, f.opts, "region_1_public_subnet_ids"),
+		"region_1_private_route_table_ids": terraform.OutputList(t, f.opts, "region_1_private_route_table_ids"),
 	}
 }

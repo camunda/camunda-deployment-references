@@ -561,17 +561,14 @@ jobs:
                   echo "Load outputs values from creation of the clusters"
 
                   # shellcheck disable=SC2086
-                  # shellcheck disable=SC2155 # predates the lint baseline
                   export BACKUP_BUCKET_S3_AWS_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml")
                   # protect sensitive values
                   echo "::add-mask::$BACKUP_BUCKET_S3_AWS_ACCESS_KEY"
                   # shellcheck disable=SC2086
-                  # shellcheck disable=SC2155 # predates the lint baseline
                   export BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY=$(yq eval '.["backup-bucket-s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml")
                   # protect sensitive values
                   echo "::add-mask::$BACKUP_BUCKET_S3_AWS_SECRET_ACCESS_KEY"
                   # shellcheck disable=SC2086
-                  # shellcheck disable=SC2155 # predates the lint baseline
                   export BACKUP_BUCKET_S3_BUCKET_NAME=$(yq eval '.["backup-bucket-s3-bucket-name"]' "${{ runner.temp }}/sensitive.yaml")
                   # Persist for multi-region test step (backup-bucket input)
                   echo "BACKUP_BUCKET_S3_BUCKET_NAME=$BACKUP_BUCKET_S3_BUCKET_NAME" >> "$GITHUB_ENV"

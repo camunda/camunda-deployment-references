@@ -227,7 +227,6 @@ jobs:
               timeout-minutes: 10
               run: |
                   set -euo pipefail
-                  # shellcheck disable=SC2155 # predates the lint baseline
                   export AZURE_SP_ID=$(az account show --query user.name -o tsv)
                   ${{ github.workspace }}/azure/kubernetes/${{ matrix.scenario.name }}/procedure/tfvars-domain.sh
 
