@@ -43,7 +43,7 @@ Internal workflows are prefixed `internal_<scope>_<purpose>.yml` with display na
 
 ## Workflow Structure
 
-Every workflow must include a `triage` job with `internal-triage-skip`:
+Every workflow of this repository must include a `triage` job with `internal-triage-skip`:
 
 ```yaml
 triage:
@@ -60,6 +60,8 @@ next-job:
   needs: [triage]
   if: needs.triage.outputs.should_skip == 'false'
 ```
+
+`lint.yml` is the exception: camunda/infraex-terraform writes that file, and it has no `triage` job.
 
 Skip labels are auto-created by the action (color `#1D76DB`). Apply them at PR creation time; the first run will still trigger all workflows if the label is added afterward.
 
