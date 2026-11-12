@@ -81,7 +81,7 @@ Submit each change through a pull request. A maintainer merges the pull requests
 
    * Set `.camunda-version` to the released minor, for example `8.10`.
    * Set `.target-branch` to `stable/8.x` on the stable branch only.
-   * Change marked action branch defaults and lint push filters to `stable/8.x` on the cut branch.
+   * Change marked action branch defaults and lint push filters to `stable/8.x` on the cut branch. This includes the `push` filter of `.github/workflows/lint.yml`, which has no `release-duty` marker because camunda/infraex-terraform writes that file only on `main`.
    * Keep `c8-sm-checks` references on `main`. Do not add a cut-switch marker to that default.
 
 4. **Maintain `RELEASE-NOTES.md` on both branches**
