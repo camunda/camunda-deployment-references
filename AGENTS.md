@@ -21,6 +21,7 @@ For detailed context, read:
 - ALWAYS use the dry-run + apply pattern for idempotent `kubectl create` operations.
 - ALWAYS use Conventional Commits (scope optional, subject ≤120 chars).
 - ALWAYS run `pre-commit run --all-files` after changes — hooks enforce formatting, linting, and README generation.
+  - `lint / baseline`: the central hook list of camunda/infraex-common-config ([Baseline](https://github.com/camunda/infraex-common-config/blob/main/README.md#baseline)). Local run: clone that repository into `.infraex-common-config`, then run `pre-commit run --config .infraex-common-config/baseline/.pre-commit-config.yaml --all-files`. Do not stage that folder.
 - ALWAYS keep the `.target-branch` file in sync when changing branching strategy.
 - ALWAYS use `just` recipes rather than raw commands to match CI behavior.
 
