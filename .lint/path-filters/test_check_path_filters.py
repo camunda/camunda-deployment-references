@@ -241,11 +241,12 @@ class MainTest(unittest.TestCase):
         self.workflows = Path(self.tmp.name)
 
     def run_main(self, files):
-        with mock.patch.object(check_path_filters, "WORKFLOWS", self.workflows):
-            with mock.patch.object(check_path_filters, "tracked_files", lambda: files):
-                stderr = io.StringIO()
-                with contextlib.redirect_stderr(stderr):
-                    return check_path_filters.main(), stderr.getvalue()
+        with mock.patch.object(check_path_filters, "WORKFLOWS", self.workflows), mock.patch.object(
+            check_path_filters, "tracked_files", lambda: files
+        ):
+            stderr = io.StringIO()
+            with contextlib.redirect_stderr(stderr):
+                return check_path_filters.main(), stderr.getvalue()
 
     def test_passes_when_every_filter_matches(self):
         write_workflow(self.workflows, pull_request("aws/x/**"), "tests.yml")

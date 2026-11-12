@@ -16,7 +16,8 @@ name: Internal - Global - Pull Request Labeler
 # `.github/labeler.yml` -- so that trigger could never fire. Removed rather than
 # repaired: `pull_request_target` already covers every pull request.
 on:
-    pull_request_target:
+    # no checkout; actions/labeler reads the diff through the API
+    pull_request_target: # zizmor: ignore[dangerous-triggers]
     schedule:
         - cron: 0 1 * * 1
 

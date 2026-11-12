@@ -282,7 +282,7 @@ class CommandLineTest(unittest.TestCase):
     def test_known_schema_gap_is_reported_as_ignored_not_unknown(self):
         # Build the nested schema/values shape for a SCHEMA_GAPS entry so the
         # test follows the constant instead of hard-coding one key path.
-        gap = sorted(validate_unknown_keys.SCHEMA_GAPS)[0]
+        gap = min(validate_unknown_keys.SCHEMA_GAPS)
         schema, values = self.schema_and_values_for_gap(gap)
 
         result = self.run_script(schema, values)
@@ -293,7 +293,7 @@ class CommandLineTest(unittest.TestCase):
     def test_schema_gap_does_not_mask_a_real_unknown_key(self):
         # Both must be present at once: a gap alone would pass even if the
         # filter wrongly discarded every unknown key found beside it.
-        gap = sorted(validate_unknown_keys.SCHEMA_GAPS)[0]
+        gap = min(validate_unknown_keys.SCHEMA_GAPS)
         schema, values = self.schema_and_values_for_gap(gap)
         schema["properties"]["a"] = {"type": "object", "properties": {}}
         values["a"] = {"typo": 1}

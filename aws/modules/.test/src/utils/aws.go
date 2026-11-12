@@ -106,7 +106,7 @@ func CreateS3BucketIfNotExists(sess aws.Config, s3Bucket string, description str
 		return nil
 	} else {
 		var responseError *awshttp.ResponseError
-		if errors.As(err, &responseError) && responseError.ResponseError.HTTPStatusCode() == http.StatusNotFound {
+		if errors.As(err, &responseError) && responseError.HTTPStatusCode() == http.StatusNotFound {
 			fmt.Printf("Bucket %s does not exist\n", s3Bucket)
 		} else {
 			return fmt.Errorf("failed to check if bucket exists: %v", err)

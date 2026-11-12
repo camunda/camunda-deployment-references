@@ -20,6 +20,7 @@ Stdlib only.
 
 from __future__ import annotations
 
+import itertools
 import json
 import re
 import sys
@@ -42,8 +43,8 @@ QUOTAS = {
 LB_QUOTAS = {"application": "albs", "network": "nlbs"}
 
 GOLDEN_FILTER = re.compile(r"""['"]!(?P<glob>[^'"]*/test/golden)/\*\*['"]""")
-ACQUIRE = re.compile(r"""^\s+mode:\s*['"]?acquire['"]?\s*(#.*)?$""", re.M)
-STEP_START = re.compile(r"^\s+- (?=\w[\w-]*:)", re.M)
+ACQUIRE = re.compile(r"""^\s+mode:\s*['"]?acquire['"]?\s*(#.*)?$""", re.MULTILINE)
+STEP_START = re.compile(r"^\s+- (?=\w[\w-]*:)", re.MULTILINE)
 NEEDS_KEY = re.compile(r"^\s+(?P<key>[a-z-]+)=\d+\s*$")
 
 
@@ -73,7 +74,7 @@ def golden_types(plan: Path) -> dict[str, str]:
 def acquire_steps(text: str) -> list[str]:
     """The text of each step that acquires a slot. Each one must reserve on its own."""
     starts = [m.start() for m in STEP_START.finditer(text)] + [len(text)]
-    steps = [text[a:b] for a, b in zip(starts, starts[1:])]
+    steps = [text[a:b] for a, b in itertools.pairwise(starts)]
     return [step for step in steps if ACQUIRE.search(step)]
 
 

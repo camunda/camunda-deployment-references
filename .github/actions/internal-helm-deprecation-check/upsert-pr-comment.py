@@ -107,7 +107,7 @@ def gh_api(
     if query:
         url = f"{url}?{urllib.parse.urlencode(query)}"
     data = json.dumps(body).encode("utf-8") if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method)  # noqa: S310 -- https only
+    req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Authorization", f"Bearer {_token()}")
     req.add_header("Accept", "application/vnd.github+json")
     req.add_header("X-GitHub-Api-Version", "2022-11-28")
@@ -115,7 +115,7 @@ def gh_api(
     if data is not None:
         req.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(req) as resp:  # noqa: S310 -- https only
+        with urllib.request.urlopen(req) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         payload = exc.read() or b""
@@ -297,7 +297,7 @@ def main() -> int:
             f"`{args.workflow}` / `{args.job}` — release "
             f"`{args.release_name}` in `{args.namespace}`{ctx_suffix}"
         )
-        timestamp = dt.datetime.now(tz=dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        timestamp = dt.datetime.now(tz=dt.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         section_block: str | None = build_section(
             sid=sid,
             title=title,
@@ -340,7 +340,7 @@ def main() -> int:
         except RuntimeError as exc:
             last_error = str(exc)
         if attempt < MAX_ATTEMPTS:
-            sleep_s = 1 + random.random() * 3  # noqa: S311 -- jitter, not crypto
+            sleep_s = 1 + random.random() * 3
             print(
                 f"Comment upsert attempt {attempt} did not converge "
                 f"({last_error}); retrying in {sleep_s:.1f}s.",

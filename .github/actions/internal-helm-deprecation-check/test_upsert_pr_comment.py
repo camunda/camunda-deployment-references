@@ -152,11 +152,10 @@ class MainFailureModesTest(unittest.TestCase):
         stdout = io.StringIO()
         with unittest.mock.patch.object(upsert, "attempt_upsert", attempt_upsert), (
             unittest.mock.patch.object(upsert.time, "sleep", lambda _: None)
-        ), unittest.mock.patch.object(upsert.sys, "argv", self.argv):
-            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(
-                io.StringIO()
-            ):
-                exit_code = upsert.main()
+        ), unittest.mock.patch.object(upsert.sys, "argv", self.argv), contextlib.redirect_stdout(
+            stdout
+        ), contextlib.redirect_stderr(io.StringIO()):
+            exit_code = upsert.main()
         return exit_code, len(attempts), stdout.getvalue()
 
     def test_missing_permission_fails_fast_with_error_annotation(self):
