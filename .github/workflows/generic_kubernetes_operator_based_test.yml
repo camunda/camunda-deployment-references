@@ -285,9 +285,10 @@ jobs:
               working-directory: ${{ env.TF_MODULES_DIRECTORY }}aws/kubernetes/eks-single-region/terraform/cluster/
               id: dump_outputs
               run: |
-                  set +e -uo pipefail
+                  set -euo pipefail
 
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
+                  set +e
 
                   export_new_env_vars_to_file \
                       ${{ github.workspace }}/aws/kubernetes/eks-single-region/procedure/export-helm-values.sh
