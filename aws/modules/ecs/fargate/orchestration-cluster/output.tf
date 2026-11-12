@@ -45,5 +45,5 @@ output "log_group_name" {
 
 output "environment_variable_names" {
   value       = [for e in local.base_environment_variables : e.name]
-  description = "Names of the environment variables the module sets on the broker container (before var.environment_variables is merged). Useful to check what a layer overrides."
+  description = "Names of the environment variables the module sets on the broker container (before var.environment_variables is merged). Useful to check what a stage overrides."
 }
