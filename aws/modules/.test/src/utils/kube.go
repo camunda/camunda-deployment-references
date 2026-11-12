@@ -64,10 +64,10 @@ func WaitForJobCompletion(clientset *kubernetes.Clientset, namespace, jobName st
 }
 
 func CreateIfNotExistsNamespace(t *testing.T, kubeCtlOptions *k8s.KubectlOptions, namespace string) {
-	_, errFindNamespace := k8s.GetNamespaceE(t, kubeCtlOptions, namespace)
+	_, errFindNamespace := k8s.GetNamespaceContextE(t, context.Background(), kubeCtlOptions, namespace)
 	if errFindNamespace != nil {
 		if errors.IsNotFound(errFindNamespace) {
-			k8s.CreateNamespace(t, kubeCtlOptions, namespace)
+			k8s.CreateNamespaceContext(t, context.Background(), kubeCtlOptions, namespace)
 		} else {
 			require.NoError(t, errFindNamespace)
 		}
@@ -75,7 +75,7 @@ func CreateIfNotExistsNamespace(t *testing.T, kubeCtlOptions *k8s.KubectlOptions
 }
 
 func CreateIfNotExistsServiceAccount(t *testing.T, kubeCtlOptions *k8s.KubectlOptions, serviceAccountName string, annotations map[string]string) {
-	_, errFindSA := k8s.GetServiceAccountE(t, kubeCtlOptions, serviceAccountName)
+	_, errFindSA := k8s.GetServiceAccountContextE(t, context.Background(), kubeCtlOptions, serviceAccountName)
 	if errFindSA != nil {
 		if errors.IsNotFound(errFindSA) {
 			// Create service account with annotations if it does not exist
@@ -86,7 +86,7 @@ func CreateIfNotExistsServiceAccount(t *testing.T, kubeCtlOptions *k8s.KubectlOp
 					Annotations: annotations,
 				},
 			}
-			clientset, errClient := k8s.GetKubernetesClientFromOptionsE(t, kubeCtlOptions)
+			clientset, errClient := k8s.GetKubernetesClientFromOptionsContextE(t, context.Background(), kubeCtlOptions)
 			require.NoError(t, errClient)
 			_, errSA := clientset.CoreV1().ServiceAccounts(kubeCtlOptions.Namespace).Create(context.Background(), serviceAccount, metav1.CreateOptions{})
 			require.NoError(t, errSA)
