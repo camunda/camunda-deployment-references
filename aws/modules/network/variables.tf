@@ -7,7 +7,7 @@ variable "name" {
 variable "byo_vpc" {
   type        = bool
   default     = false
-  description = "When true, no VPC is created: the module validates and re-exposes the supplied vpc_id and subnet IDs so that downstream layers consume one contract, whoever built the network."
+  description = "When true, no VPC is created: the module validates and re-exposes the supplied vpc_id and subnet IDs so that downstream stages consume one contract, whoever built the network."
 }
 
 variable "cidr" {

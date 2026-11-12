@@ -1,4 +1,4 @@
-# Network contract: these outputs are the inputs of every downstream layer.
+# Network contract: these outputs are the inputs of every downstream stage.
 
 output "vpc_id" {
   value       = var.byo_vpc ? var.vpc_id : module.vpc[0].vpc_id

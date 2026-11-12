@@ -108,7 +108,7 @@ No modules.
 | Name | Description |
 | ---- | ----------- |
 | <a name="output_dns_a_record"></a> [dns\_a\_record](#output\_dns\_a\_record) | n/a |
-| <a name="output_environment_variable_names"></a> [environment\_variable\_names](#output\_environment\_variable\_names) | Names of the environment variables the module sets on the broker container (before var.environment\_variables is merged). Useful to check what a layer overrides. |
+| <a name="output_environment_variable_names"></a> [environment\_variable\_names](#output\_environment\_variable\_names) | Names of the environment variables the module sets on the broker container (before var.environment\_variables is merged). Useful to check what a stage overrides. |
 | <a name="output_grpc_service_connect"></a> [grpc\_service\_connect](#output\_grpc\_service\_connect) | The Service Connect discovery name for the orchestration cluster ECS service targeting gRPC |
 | <a name="output_log_group_name"></a> [log\_group\_name](#output\_log\_group\_name) | The name of the CloudWatch log group for the orchestration cluster |
 | <a name="output_management_service_connect"></a> [management\_service\_connect](#output\_management\_service\_connect) | The Service Connect discovery name for the orchestration cluster management/actuator port (reachable at http://<this>:9600 within the ECS cluster) |

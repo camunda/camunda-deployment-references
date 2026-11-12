@@ -6,8 +6,8 @@ Changes will appear here during the development cycle.
 
 ### AWS ECS Fargate
 
-- Added a layered, composable reference architecture for Amazon ECS under `aws/containers/ecs-layered`: separate Terraform roots for the network, compute, secondary storage, object storage, exposure, identity, and Camunda layers, each taking the outputs of the layers before it as variables. The network layer accepts an existing VPC.
-- Added the management plane as layers: an OIDC provider, Management Identity, and one Camunda Hub that connects to several Orchestration Clusters.
+- Added a guided, composable reference architecture for Amazon ECS under `aws/containers/ecs-guided`: separate Terraform roots for the network, compute, secondary storage, object storage, exposure, identity, and Camunda stages, each taking the outputs of the stages before it as variables. The network stage accepts an existing VPC.
+- Added the management plane as stages: Management Identity and one Camunda Hub that connects to several Orchestration Clusters, plus the OIDC provider that they and the clusters sign in against.
 - Added a runbook and Terraform roots (`interconnect`, `global-database`) to grow a single-region deployment into two regions by adding a zone to the running cluster.
 - Added the `network` and `s3-bucket` modules. The `orchestration-cluster` module takes optional `zone`, `zones`, `lease_bucket_name`, and `lease_access_policy_arn` inputs, and the `aurora` module an optional `global_cluster_identifier`. The existing references keep their behavior.
 

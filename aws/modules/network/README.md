@@ -35,7 +35,7 @@ Requirements on your VPC: DNS support and DNS hostnames enabled, outbound access
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_az_count"></a> [az\_count](#input\_az\_count) | Number of availability zones (and private/public subnet pairs) to create. Ignored in BYO mode. | `number` | `3` | no |
-| <a name="input_byo_vpc"></a> [byo\_vpc](#input\_byo\_vpc) | When true, no VPC is created: the module validates and re-exposes the supplied vpc\_id and subnet IDs so that downstream layers consume one contract, whoever built the network. | `bool` | `false` | no |
+| <a name="input_byo_vpc"></a> [byo\_vpc](#input\_byo\_vpc) | When true, no VPC is created: the module validates and re-exposes the supplied vpc\_id and subnet IDs so that downstream stages consume one contract, whoever built the network. | `bool` | `false` | no |
 | <a name="input_cidr"></a> [cidr](#input\_cidr) | CIDR block of the VPC to create. Ignored in BYO mode. | `string` | `"10.200.0.0/16"` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name prefix of the VPC and its resources. Ignored in BYO mode. | `string` | `"camunda"` | no |
 | <a name="input_private_route_table_ids"></a> [private\_route\_table\_ids](#input\_private\_route\_table\_ids) | BYO mode: private route table IDs. Only needed later, for peering or transit gateway routes. | `list(string)` | `[]` | no |

@@ -1,5 +1,5 @@
 # The lease bucket is created here unless var.lease_bucket_name points to an existing one
-# (for example from the object-storage layer). One bucket per zone: never share it with
+# (for example from the object-storage stage). One bucket per zone: never share it with
 # another zone or cluster, the node ID leases rely on S3 conditional writes per bucket.
 locals {
   create_lease_bucket = var.lease_bucket_name == ""
