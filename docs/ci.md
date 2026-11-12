@@ -195,7 +195,7 @@ All reusable CI logic lives in `.github/actions/`. Each action has:
 - **Auto-labeling:** `.github/labeler.yml` assigns labels based on changed paths (e.g. `aws/`, `azure/`, `generic/`)
 - **Release notes:** `internal_global_pr_changelog_check.yml` fails a pull request to `main` or `stable/*` that does not change `RELEASE-NOTES.md`. Add the change to the matching `## 8.x` section. If the change is not visible to users (CI, tests, internal tooling), add the `no-changelog` label. Pull requests from bots pass without notes.
 - **Renovate:** `.github/renovate.json5` extends `github>camunda/infraex-common-config:default.json5`. This shared config governs scheduling (weekends only, except CVEs), grouping (minor+patch together), automerge, and custom regex managers for non-standard deps (ROSA, Helm chart versions). Update `baseBranchPatterns` when branches are added/removed.
-- **Renovate lookup:** the repository variable `LINT_CHECK_RENOVATE_LOOKUP` is `true`, so `lint.yml` also runs the job `lint / renovate lookup`. It fails on a Renovate annotation that resolves to no updatable dependency. A pin parked on a development version carries `renovate-inert-ok`.
+- **Renovate lookup:** the repository variable `LINT_CHECK_RENOVATE_LOOKUP` is `true`, so `lint.yml` also runs the job `lint / renovate lookup`. It fails when Renovate drops an annotated dependency because it cannot parse its current value or version (`invalid-value`, `invalid-version`), unless the annotation carries `renovate-inert-ok`, as a pin parked on a development version does.
 
 ## Customer-Facing Repo
 
