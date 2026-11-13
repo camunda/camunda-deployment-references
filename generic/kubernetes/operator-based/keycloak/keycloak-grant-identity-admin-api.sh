@@ -39,7 +39,8 @@
 #   KEYCLOAK_STATEFULSET                 Keycloak statefulset, the name of the Keycloak CR (default: keycloak)
 #   KEYCLOAK_POD                         Keycloak pod to run kcadm in (default: <KEYCLOAK_STATEFULSET>-0)
 #   KEYCLOAK_CONTAINER                   container in that pod (default: the pod's default container)
-#   KEYCLOAK_LOCAL_URL                   Keycloak URL inside the pod (default: http://localhost:18080/auth)
+#   KEYCLOAK_LOCAL_URL                   Keycloak URL inside the pod (default: http://localhost:<port>/auth, with the
+#                                        CR's spec.http.httpPort, 8080 if unset; 18080 if the CR cannot be read)
 #   KEYCLOAK_REALM                       realm Identity manages (default: camunda-platform)
 #   IDENTITY_CLIENT_ID                   Identity's own client (default: camunda-identity)
 #   KEYCLOAK_ADMIN_API_TIMEOUT_SECONDS   total wall-clock budget in seconds (default: 600)
@@ -54,7 +55,7 @@ release="${CAMUNDA_RELEASE_NAME:-camunda}"
 identity_deployment="${IDENTITY_DEPLOYMENT:-${release}-identity}"
 keycloak_statefulset="${KEYCLOAK_STATEFULSET:-keycloak}"
 keycloak_pod="${KEYCLOAK_POD:-${keycloak_statefulset}-0}"
-keycloak_url="${KEYCLOAK_LOCAL_URL:-http://localhost:18080/auth}"
+keycloak_url="${KEYCLOAK_LOCAL_URL:-}"
 realm="${KEYCLOAK_REALM:-camunda-platform}"
 client="${IDENTITY_CLIENT_ID:-camunda-identity}"
 timeout_seconds="${KEYCLOAK_ADMIN_API_TIMEOUT_SECONDS:-600}"
@@ -102,6 +103,17 @@ warn() {
 if ! command -v "$KUBECTL" >/dev/null 2>&1; then
     warn "'$KUBECTL' is not available; skipping the '${scope}' grant."
     exit 0
+fi
+
+# The Keycloak CR sets the HTTP port (18080 in this directory, the operator's 8080 when
+# unset, as on older branches), so read it rather than assume it.
+if [ -z "$keycloak_url" ]; then
+    if http_port="$("$KUBECTL" --namespace "$namespace" get keycloaks.k8s.keycloak.org "$keycloak_statefulset" \
+        -o jsonpath='{.spec.http.httpPort}' 2>/dev/null)"; then
+        keycloak_url="http://localhost:${http_port:-8080}/auth"
+    else
+        keycloak_url="http://localhost:18080/auth"
+    fi
 fi
 
 case "$timeout_seconds" in
