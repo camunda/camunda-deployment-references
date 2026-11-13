@@ -86,7 +86,12 @@ kcadm config credentials --server "$url" --realm master \
 client_id="$(kcadm get clients -r "$realm" -q clientId="$client" --fields id --format csv --noquotes 2>/dev/null)" || exit 12
 [ -n "$client_id" ] || exit 12
 
-scope_id="$(kcadm get client-scopes -r "$realm" --fields id,name --format csv --noquotes | awk -F, -v s="$scope" "\$2 == s { print \$1 }")"
+# Plain bash: the Keycloak image ships no awk.
+scopes="$(kcadm get client-scopes -r "$realm" --fields id,name --format csv --noquotes)"
+scope_id=""
+while IFS=, read -r id name; do
+    if [ "$name" = "$scope" ]; then scope_id="$id"; break; fi
+done <<<"$scopes"
 [ -n "$scope_id" ] || exit 11
 
 if kcadm get "clients/$client_id/default-client-scopes" -r "$realm" --fields name --format csv --noquotes | grep -qx "$scope"; then
