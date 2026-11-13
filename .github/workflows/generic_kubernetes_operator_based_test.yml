@@ -798,6 +798,18 @@ jobs:
                   vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
                   vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
 
+            # Keycloak 26.8.2 (CVE-2026-19688) accepts Admin REST API tokens only with the
+            # `kc-admin-api` scope, which the Identity client lacks, so Management Identity
+            # stops with HTTP 401 (camunda/camunda#69230). The script waits for Identity to
+            # create its client, grants the scope and restarts Identity; it is a no-op on a
+            # Keycloak without the check and fails open (the health wait is the hard gate).
+            # It runs before the domain-only issuer wait: Identity creates the realm before
+            # it fails, so the issuer answers while Identity is still down.
+            - name: 🔑 Grant the Keycloak Admin API scope to Management Identity
+              timeout-minutes: 12
+              working-directory: ./generic/kubernetes/operator-based/
+              run: ./keycloak/keycloak-grant-identity-admin-api.sh
+
             # In domain + OIDC mode the Camunda app pods fetch the OIDC discovery
             # document from the public Keycloak issuer at startup, which only
             # converges minutes after install (realm provisioning + DNS + cert +
