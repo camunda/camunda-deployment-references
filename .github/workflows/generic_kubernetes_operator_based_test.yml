@@ -288,6 +288,7 @@ jobs:
                   set -euo pipefail
 
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
+                  set +e
 
                   export_new_env_vars_to_file \
                       ${{ github.workspace }}/aws/kubernetes/eks-single-region/procedure/export-helm-values.sh

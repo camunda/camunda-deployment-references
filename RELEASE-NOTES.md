@@ -13,6 +13,10 @@ Changes will appear here during the development cycle.
 - The `rhcs` provider constraint skips version 1.7.11, which was published without its provider binary. `terraform init` failed with `provider binary not found` ([#3818](https://github.com/camunda/camunda-deployment-references/pull/3818)).
 - OpenShift installs with gRPC TLS now trust the service CA through `global.tls.caBundle`. `procedure/install-chart.sh` runs `procedure/create-service-ca-secret.sh` before Helm, and the overlay mounts the `camunda-platform-service-ca` Secret as required. Run that script before `helm install` if you do not use `install-chart.sh` ([#3972](https://github.com/camunda/camunda-deployment-references/pull/3972)).
 
+### AWS EKS, AWS ROSA HCP and Azure AKS
+
+- The procedure scripts that read Terraform outputs or the cloud CLI assign each variable before they export it: `export-helm-values.sh`, `vars-create-db.sh`, `vars-create-os.sh`, `gather-cluster-login-id.sh`, `tfvars-domain.sh`, `tfvars-no-domain.sh` and `storage-account-tf-init.sh`. A shell with `set -e` now stops when such a command fails. Before, `export` hid the failure and the variable stayed empty ([#4050](https://github.com/camunda/camunda-deployment-references/pull/4050)).
+
 ## 8.10
 
 Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fixes backported to `stable/8.10` since.

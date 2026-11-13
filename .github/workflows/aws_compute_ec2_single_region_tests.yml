@@ -342,7 +342,8 @@ jobs:
                   CAMUNDA_BASIC_AUTH_PASSWORD: ${{ steps.camunda-credentials.outputs.CAMUNDA_BASIC_AUTH_PASSWORD }}
               run: |
                   set -euo pipefail
-                  export PATH=$PATH:$(go env GOPATH)/bin
+                  PATH=$PATH:$(go env GOPATH)/bin
+                  export PATH
                   mkdir /home/runner/.ssh
                   touch /home/runner/.ssh/config
                   go install gotest.tools/gotestsum@latest
