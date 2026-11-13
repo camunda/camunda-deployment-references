@@ -24,6 +24,8 @@ SECONDARY_STORAGE=elasticsearch make no-domain.clean   # Full cleanup (no-domain
 
 > **If the platform never converges:** the `camunda-platform` realm is provisioned by the **Identity** component, so a permanently failing OIDC discovery (`503`/`404` on the issuer) usually means Identity itself never started, not that Keycloak is slow. `wait-for-keycloak.sh` reports the Identity pod state in that case, and `make camunda.wait` prints the unready containers (restarts, `CrashLoopBackOff`, `OOMKilled`, exit codes) and recent warning events roughly once a minute, then fails after `DEPLOYMENT_READY_TIMEOUT_SECONDS` (default: `900`). Restarting Zeebe or Connectors cannot help while Identity is down.
 
+> **Keycloak 26.8.2 and later:** the Keycloak Admin REST API only accepts tokens that carry the `kc-admin-api` client scope (CVE-2026-19688), and Identity's own `camunda-identity` client does not get it, so Identity stops with `HTTP status code: 401` (camunda/camunda#69230). Both `camunda.deploy-*` targets run the shared `generic/kubernetes/operator-based/keycloak/keycloak-grant-identity-admin-api.sh`, which waits for Identity to create the client, assigns it the scope and restarts Identity. On a Keycloak without the check it does nothing.
+
 > **Resources:** the full domain stack (Elasticsearch, Keycloak, three PostgreSQL clusters and every Camunda component) needs noticeably more than the 8 GB documented minimum. If pods are `OOMKilled`, give the container runtime more memory or deploy with `SECONDARY_STORAGE=postgres`, which skips Elasticsearch and Optimize.
 
 ## Credentials
