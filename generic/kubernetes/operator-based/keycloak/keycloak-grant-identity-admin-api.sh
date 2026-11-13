@@ -44,6 +44,10 @@
 #   KEYCLOAK_REALM                       realm Identity manages (default: camunda-platform)
 #   IDENTITY_CLIENT_ID                   Identity's own client (default: camunda-identity)
 #   KEYCLOAK_ADMIN_API_TIMEOUT_SECONDS   total wall-clock budget in seconds (default: 600)
+#   KEYCLOAK_ADMIN_SECRET                secret (keys username, password) to log in with instead of the pod's
+#                                        bootstrap env; needed when the master realm no longer has that user,
+#                                        e.g. after the Bitnami migration restores the Keycloak database.
+#                                        The credentials go to kcadm over stdin, never on a command line.
 
 set -uo pipefail
 
@@ -76,6 +80,10 @@ fi
 in_pod_script='
 set -euo pipefail
 url="$1"; realm="$2"; client="$3"; scope="$4"
+if [ "${5:-}" = stdin ]; then
+    IFS= read -r KC_BOOTSTRAP_ADMIN_USERNAME
+    IFS= read -r KC_BOOTSTRAP_ADMIN_PASSWORD
+fi
 config="$(mktemp /tmp/kcadm.XXXXXX)"
 trap "rm -f \"$config\"" EXIT
 kcadm() { /opt/keycloak/bin/kcadm.sh "$@" --config "$config"; }
@@ -121,6 +129,24 @@ if [ -z "$keycloak_url" ]; then
     fi
 fi
 
+# Optional login from a secret (see KEYCLOAK_ADMIN_SECRET), fed to the pod over stdin.
+admin_credentials=""
+exec_opts=()
+creds_mode=""
+if [ -n "${KEYCLOAK_ADMIN_SECRET:-}" ]; then
+    if admin_user="$("$KUBECTL" --namespace "$namespace" get secret "$KEYCLOAK_ADMIN_SECRET" -o jsonpath='{.data.username}' | base64 -d)" &&
+        admin_password="$("$KUBECTL" --namespace "$namespace" get secret "$KEYCLOAK_ADMIN_SECRET" -o jsonpath='{.data.password}' | base64 -d)" &&
+        [ -n "$admin_user" ] && [ -n "$admin_password" ]; then
+        admin_credentials="$(printf '%s\n%s\n' "$admin_user" "$admin_password")"
+        exec_opts=(--stdin)
+        creds_mode=stdin
+    else
+        warn "could not read username/password from secret '${KEYCLOAK_ADMIN_SECRET}'; skipping the '${scope}' grant."
+        exit 0
+    fi
+    unset admin_user admin_password
+fi
+
 case "$timeout_seconds" in
     '' | *[!0-9]*) timeout_seconds=600 ;;
 esac
@@ -130,8 +156,9 @@ deadline=$(($(date +%s) + timeout_seconds))
 attempt=0
 while [ "$(date +%s)" -lt "$deadline" ]; do
     attempt=$((attempt + 1))
-    "$KUBECTL" --namespace "$namespace" exec "$keycloak_pod" "${container_opts[@]}" -- \
-        env HOME=/tmp bash -c "$in_pod_script" _ "$keycloak_url" "$realm" "$client" "$scope"
+    "$KUBECTL" --namespace "$namespace" exec "${exec_opts[@]}" "$keycloak_pod" "${container_opts[@]}" -- \
+        env HOME=/tmp bash -c "$in_pod_script" _ "$keycloak_url" "$realm" "$client" "$scope" "$creds_mode" \
+        <<<"$admin_credentials"
     rc=$?
     case "$rc" in
         0)
