@@ -62,6 +62,11 @@ else
         --values helm-values/values-mkcert.yml
 fi
 
+# Keycloak >= 26.8.2 rejects Identity's own client on the Admin API unless it has the
+# `kc-admin-api` client scope (camunda/camunda#69230); grant it once Identity has
+# created the realm. Fail-open, see the script header.
+"$OPERATOR_VALUES_DIR/keycloak/keycloak-grant-identity-admin-api.sh"
+
 # Wait (bounded, fail-open) for the public Keycloak issuer, then restart the app
 # pods so they recover from the first-start crash-loop instead of waiting out the
 # backoff. On timeout it warns and continues. Reuses the shared readiness script
