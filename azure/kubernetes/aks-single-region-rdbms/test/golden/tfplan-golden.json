@@ -40,6 +40,7 @@
                 "linux_os_config": [],
                 "node_labels": {},
                 "node_network_profile": [],
+                "security": [],
                 "upgrade_settings": [
                   {}
                 ],
@@ -137,6 +138,7 @@
                 "pod_subnet_id": null,
                 "proximity_placement_group_id": null,
                 "scale_down_mode": "Delete",
+                "security": [],
                 "snapshot_id": null,
                 "tags": null,
                 "temporary_name_for_rotation": null,
@@ -254,6 +256,7 @@
             "linux_os_config": [],
             "node_labels": {},
             "node_network_profile": [],
+            "security": [],
             "tags": {},
             "upgrade_settings": [
               {}
@@ -299,6 +302,7 @@
             "priority": "Regular",
             "proximity_placement_group_id": null,
             "scale_down_mode": "Delete",
+            "security": [],
             "snapshot_id": null,
             "spot_max_price": -1,
             "tags": {
@@ -904,6 +908,7 @@
             "address_space": [
               "10.1.0.0/16"
             ],
+            "advertised_gateway_prefixes": null,
             "bgp_community": null,
             "ddos_protection_plan": [],
             "edge_zone": null,
@@ -1016,6 +1021,7 @@
             "custom_network_interface_name": null,
             "edge_zone": null,
             "ip_configuration": [],
+            "ip_version_type": "IPv4",
             "location": "swedencentral",
             "name": "camunda-pg-server-endpoint",
             "private_dns_zone_group": [
