@@ -14,6 +14,7 @@ on:
             - .tool-versions
             - generic/kubernetes/single-region/**
             - generic/openshift/single-region/**
+            - generic/kubernetes/operator-based/keycloak/**
             - aws/openshift/rosa-hcp-single-region/**
             - '!aws/openshift/rosa-hcp-single-region/terraform/*/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
@@ -690,6 +691,19 @@ jobs:
                   fi
 
                   ./generic/openshift/single-region/procedure/install-chart.sh
+
+            # Keycloak 26.8.2 (CVE-2026-19688) rejects Admin API tokens without the
+            # kc-admin-api scope, so Management Identity stops with HTTP 401
+            # (camunda/camunda#69230). Runs before the issuer wait and the DNS-refresh
+            # restart: Identity must be able to start before either waits on it.
+            # The script is fail-open; the health wait below is the hard gate.
+            - name: 🔑 Grant the Keycloak Admin API to the Identity client (keycloak-operator mode)
+              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
+              timeout-minutes: 15
+              run: |
+                  set -euo pipefail
+
+                  ./generic/kubernetes/operator-based/keycloak/keycloak-grant-identity-admin-api.sh
 
             - name: 🔍 Check for Helm deprecation warnings
               uses: ./.github/actions/internal-helm-deprecation-check
