@@ -35,6 +35,7 @@ on:
             - .github/actions/kubernetes-restart-coredns/**
             - .github/actions/aws-kubernetes-ingress-setup/**
             - .github/actions/kubernetes-wildcard-certificate/**
+            - generic/kubernetes/operator-based/keycloak/**
 
     workflow_dispatch:
         inputs:
@@ -973,6 +974,23 @@ jobs:
                   vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
                   vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
                   vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
+
+            # Keycloak >= 26.8.2 (CVE-2026-19688) rejects Admin API tokens without the
+            # kc-admin-api scope, so Management Identity stops with HTTP 401 until its
+            # client gets it (camunda/camunda#69230). Runs before the issuer wait and the
+            # DNS-refresh restart, so the Identity restart issued here is superseded by,
+            # and awaited in, that step in domain mode instead of racing it.
+            - name: 🔑 Grant the Keycloak Admin API scope to Management Identity
+              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
+              # The script is fail-open on its own 600s budget; this only stops
+              # a wedged step from running unbounded.
+              timeout-minutes: 15
+              env:
+                  # Pinned: the oidc scenario exports a Cognito IDENTITY_CLIENT_ID to the job env.
+                  IDENTITY_CLIENT_ID: camunda-identity
+              run: |
+                  set -euo pipefail
+                  ./generic/kubernetes/operator-based/keycloak/keycloak-grant-identity-admin-api.sh
 
             - name: ⏳ Wait for the OIDC issuer to be reachable
               if: matrix.declination.name == 'domain'
