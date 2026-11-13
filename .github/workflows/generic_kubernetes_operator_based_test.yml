@@ -24,6 +24,7 @@ on:
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-openvpn-connect/**
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
