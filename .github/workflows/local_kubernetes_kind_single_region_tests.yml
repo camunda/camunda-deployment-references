@@ -1,4 +1,5 @@
 ---
+# CI re-trigger for the kc-admin-api fix (#4069): runs only this suite on top of it. Do not merge.
 name: Tests - Integration - Local Kubernetes Kind Single Region
 
 permissions:
