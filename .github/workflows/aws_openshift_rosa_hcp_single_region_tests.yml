@@ -151,7 +151,7 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04 # test: OpenVPN on ubuntu-26.04 loses the runner
         permissions:
             contents: read
             id-token: write
@@ -338,7 +338,7 @@ jobs:
 
     integration-tests:
         name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04 # test: OpenVPN on ubuntu-26.04 loses the runner
         needs:
             - clusters-info
             - access-info
