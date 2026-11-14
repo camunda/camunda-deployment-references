@@ -157,7 +157,7 @@ jobs:
             matrix:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04 # test: OpenVPN on ubuntu-26.04 loses the runner
         env:
             TF_MODULES_PATH: ./.action-tf-modules/aws-kubernetes-eks-single-region-create/
         permissions:
@@ -435,7 +435,7 @@ jobs:
 
     integration-tests:
         name: Run integration tests - ${{ matrix.distro.name }} - ${{ matrix.scenario.name }} - ${{ matrix.declination.name }}
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04 # test: OpenVPN on ubuntu-26.04 loses the runner
         concurrency:
             # instead of running sequentially in a matrix, we use concurrency to run the different scenarios
             # in parallel but the declinations sequentially
