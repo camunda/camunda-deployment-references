@@ -121,7 +121,7 @@ fi
 # The Keycloak CR sets the HTTP port (18080 in this directory, the operator's 8080 when
 # unset, as on older branches), so read it rather than assume it.
 if [ -z "$keycloak_url" ]; then
-    if http_port="$("$KUBECTL" --namespace "$namespace" get keycloaks.k8s.keycloak.org "$keycloak_statefulset" \
+    if http_port="$("$KUBECTL" --namespace "$namespace" --request-timeout=30s get keycloaks.k8s.keycloak.org "$keycloak_statefulset" \
         -o jsonpath='{.spec.http.httpPort}' 2>/dev/null)"; then
         keycloak_url="http://localhost:${http_port:-8080}/auth"
     else
@@ -134,8 +134,8 @@ admin_credentials=""
 exec_opts=()
 creds_mode=""
 if [ -n "${KEYCLOAK_ADMIN_SECRET:-}" ]; then
-    if admin_user="$("$KUBECTL" --namespace "$namespace" get secret "$KEYCLOAK_ADMIN_SECRET" -o jsonpath='{.data.username}' | base64 -d)" &&
-        admin_password="$("$KUBECTL" --namespace "$namespace" get secret "$KEYCLOAK_ADMIN_SECRET" -o jsonpath='{.data.password}' | base64 -d)" &&
+    if admin_user="$("$KUBECTL" --namespace "$namespace" --request-timeout=30s get secret "$KEYCLOAK_ADMIN_SECRET" -o jsonpath='{.data.username}' | base64 -d)" &&
+        admin_password="$("$KUBECTL" --namespace "$namespace" --request-timeout=30s get secret "$KEYCLOAK_ADMIN_SECRET" -o jsonpath='{.data.password}' | base64 -d)" &&
         [ -n "$admin_user" ] && [ -n "$admin_password" ]; then
         admin_credentials="$(printf '%s\n%s\n' "$admin_user" "$admin_password")"
         exec_opts=(--stdin)
@@ -153,17 +153,30 @@ esac
 
 echo "Waiting for the '${client}' client in realm '${realm}' to grant it '${scope}' (up to ${timeout_seconds}s, pod ${namespace}/${keycloak_pod})..."
 deadline=$(($(date +%s) + timeout_seconds))
+# Bound each exec by the remaining budget so a stalled exec cannot outlive it
+# (GNU `timeout`; without it, e.g. on stock macOS, the exec runs unbounded).
+bound=()
+if command -v timeout >/dev/null 2>&1; then
+    bound=(timeout --kill-after=10)
+fi
 attempt=0
 while [ "$(date +%s)" -lt "$deadline" ]; do
     attempt=$((attempt + 1))
-    "$KUBECTL" --namespace "$namespace" exec "${exec_opts[@]}" "$keycloak_pod" "${container_opts[@]}" -- \
+    remaining=$((deadline - $(date +%s)))
+    [ "$remaining" -gt 0 ] || break
+    if [ ${#bound[@]} -gt 0 ]; then
+        limit=("${bound[@]}" "$remaining")
+    else
+        limit=()
+    fi
+    "${limit[@]}" "$KUBECTL" --namespace "$namespace" exec "${exec_opts[@]}" "$keycloak_pod" "${container_opts[@]}" -- \
         env HOME=/tmp bash -c "$in_pod_script" _ "$keycloak_url" "$realm" "$client" "$scope" "$creds_mode" \
         <<<"$admin_credentials"
     rc=$?
     case "$rc" in
         0)
             echo "Assigned '${scope}' to '${client}'; restarting Identity so it starts without waiting out its backoff."
-            "$KUBECTL" --namespace "$namespace" rollout restart "deployment/${identity_deployment}" ||
+            "$KUBECTL" --namespace "$namespace" --request-timeout=30s rollout restart "deployment/${identity_deployment}" ||
                 warn "could not restart deployment/${identity_deployment}; it picks the scope up on its next restart."
             exit 0
             ;;
@@ -176,9 +189,12 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
             exit 0
             ;;
         12) echo "[attempt ${attempt}] '${client}' not created yet; Identity creates it on startup. Retrying in 10s..." ;;
+        124 | 137) echo "[attempt ${attempt}] exec did not finish within the remaining budget." ;;
         *) echo "[attempt ${attempt}] kcadm failed (exit code ${rc}); retrying in 10s..." ;;
     esac
-    sleep 10
+    remaining=$((deadline - $(date +%s)))
+    [ "$remaining" -gt 0 ] || break
+    sleep $((remaining < 10 ? remaining : 10))
 done
 
 warn "'${client}' did not get '${scope}' within ${timeout_seconds}s; Identity may stop with HTTP 401 (camunda/camunda#69230)."
