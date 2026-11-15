@@ -1,0 +1,64 @@
+---
+name: Connect to an OpenVPN server
+
+description: |
+    Installs the OpenVPN client if needed, connects the runner with the given
+    config file, and waits until the tunnel is up.
+
+    It replaces kota65535/github-openvpn-connect-action: no external
+    dependency, a configurable timeout, and the OpenVPN log is printed when
+    the connection fails. The runner is ephemeral, so there is no disconnect
+    step; the connection ends with the job.
+
+inputs:
+    config-file:
+        description: Path to the OpenVPN client config file (.ovpn).
+        required: true
+    timeout-seconds:
+        description: Maximum time to wait for the tunnel to come up.
+        default: '120'
+
+runs:
+    using: composite
+    steps:
+        - name: Connect to the VPN
+          shell: bash
+          env:
+              CONFIG_FILE: ${{ inputs.config-file }}
+              TIMEOUT_SECONDS: ${{ inputs.timeout-seconds }}
+          run: |
+              set -euo pipefail
+
+              if ! command -v openvpn >/dev/null 2>&1; then
+                  sudo apt-get update -qq
+                  sudo apt-get install -y -qq openvpn
+              fi
+              openvpn --version | head -1
+
+              log="${RUNNER_TEMP}/openvpn.log"
+              pidfile="${RUNNER_TEMP}/openvpn.pid"
+              fail() {
+                  echo "::error::$1"
+                  # The log has no key material: inline keys stay in the config file.
+                  sudo cat "${log}" || true
+                  exit 1
+              }
+              # Ignore the DNS server pushed by the VPN. OpenVPN 2.7 (Ubuntu 26.04) applies it to systemd-resolved;
+              # AWS Client VPN pushes the VPC resolver, unreachable from the runner, so all name resolution breaks.
+              sudo openvpn --config "${CONFIG_FILE}" --pull-filter ignore "dhcp-option DNS" \
+                  --daemon --log "${log}" --writepid "${pidfile}" ||
+                  fail "openvpn failed to start."
+
+              deadline=$((SECONDS + TIMEOUT_SECONDS))
+              until sudo grep -q 'Initialization Sequence Completed' "${log}" 2>/dev/null; do
+                  exited=false
+                  if sudo test -s "${pidfile}" && ! sudo kill -0 "$(sudo cat "${pidfile}")" 2>/dev/null; then exited=true; fi
+                  if ((SECONDS >= deadline)) || [[ "${exited}" == true ]]; then
+                      fail "VPN connection not established after ${TIMEOUT_SECONDS}s (or openvpn exited)."
+                  fi
+                  sleep 2
+              done
+              echo "VPN connected."
+              ip -br addr show dev tun0 || true
+              # The runner must still resolve public names, or it loses contact with GitHub.
+              timeout 10 getent hosts api.github.com >/dev/null || fail "DNS resolution broken after the VPN connected."
