@@ -23,6 +23,7 @@ on:
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-openvpn-connect/**
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
@@ -419,10 +420,9 @@ jobs:
 
             - name: 🛡️ Connect to VPN
               if: ${{ matrix.distro.private_vpc == true }}
-              uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
+              uses: ./.github/actions/internal-openvpn-connect
               with:
-                  config_file: ${{ github.workspace }}/.vpn/client.ovpn
-                  echo_config: 'false'
+                  config-file: ${{ github.workspace }}/.vpn/client.ovpn
 
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
