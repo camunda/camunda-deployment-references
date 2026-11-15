@@ -19,6 +19,7 @@ on:
             - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-openvpn-connect/**
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/internal-encrypted-upload-artifact/**
             - .github/actions/internal-generic-encrypt-export/**
@@ -434,10 +435,9 @@ jobs:
 
             - name: 🛡️ Connect to VPN
               if: ${{ matrix.scenario.private_vpc == true }}
-              uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
+              uses: ./.github/actions/internal-openvpn-connect
               with:
-                  config_file: ${{ github.workspace }}/.vpn/client.ovpn
-                  echo_config: 'false'
+                  config-file: ${{ github.workspace }}/.vpn/client.ovpn
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
