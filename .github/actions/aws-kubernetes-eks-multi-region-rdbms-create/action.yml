@@ -229,6 +229,5 @@ runs:
 
               # Same two commands a reader runs by hand; the procedure owns the
               # alias convention so that CLUSTER_CONTEXTS keeps addressing them.
-              # shellcheck disable=SC1091
               source ../../procedure/export-terraform-outputs.sh
               ../../procedure/register-kubecontexts.sh

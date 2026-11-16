@@ -28,7 +28,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 # Declare expected exports so shellcheck can track them across the source boundary.
-# shellcheck disable=SC2034
 REGION_0="${REGION_0:-}" REGION_1="${REGION_1:-}"
 CLUSTER_0="${CLUSTER_0:-}" CLUSTER_1="${CLUSTER_1:-}"
 ALB_ENDPOINT_0="${ALB_ENDPOINT_0:-}" ALB_ENDPOINT_1="${ALB_ENDPOINT_1:-}"
