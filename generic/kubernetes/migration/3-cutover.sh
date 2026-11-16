@@ -410,8 +410,12 @@ if [[ ${#HELM_VALUES_ARGS[@]} -gt 0 ]]; then
     # The restored master realm has the Bitnami admin, so log in with the synced
     # operator secret rather than the pod's bootstrap env.
     if [[ "${MIGRATE_KEYCLOAK}" == "true" ]] && ! is_external_keycloak; then
-        KEYCLOAK_ADMIN_SECRET=keycloak-initial-admin CAMUNDA_NAMESPACE="${NAMESPACE}" CAMUNDA_RELEASE_NAME="${RELEASE}" \
-            "${SCRIPT_DIR}/../operator-based/keycloak/keycloak-grant-identity-admin-api.sh"
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "[dry-run] Would grant kc-admin-api to the Identity client and restart Identity"
+        else
+            KEYCLOAK_ADMIN_SECRET=keycloak-initial-admin CAMUNDA_NAMESPACE="${NAMESPACE}" CAMUNDA_RELEASE_NAME="${RELEASE}" \
+                "${SCRIPT_DIR}/../operator-based/keycloak/keycloak-grant-identity-admin-api.sh"
+        fi
     fi
 else
     log_warn "No helm values to apply"
