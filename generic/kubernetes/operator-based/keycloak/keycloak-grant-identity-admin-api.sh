@@ -155,21 +155,22 @@ echo "Waiting for the '${client}' client in realm '${realm}' to grant it '${scop
 deadline=$(($(date +%s) + timeout_seconds))
 # Bound each exec by the remaining budget so a stalled exec cannot outlive it
 # (GNU `timeout`; without it, e.g. on stock macOS, the exec runs unbounded).
-bound=()
+# Arrays below are expanded with ${a[@]+"${a[@]}"}: a plain "${a[@]}" of an empty
+# array aborts under `set -u` on Bash < 4.4 (the macOS system Bash 3.2).
+have_timeout=false
 if command -v timeout >/dev/null 2>&1; then
-    bound=(timeout --kill-after=10)
+    have_timeout=true
 fi
 attempt=0
 while [ "$(date +%s)" -lt "$deadline" ]; do
     attempt=$((attempt + 1))
     remaining=$((deadline - $(date +%s)))
     [ "$remaining" -gt 0 ] || break
-    if [ ${#bound[@]} -gt 0 ]; then
-        limit=("${bound[@]}" "$remaining")
-    else
-        limit=()
+    limit=()
+    if [ "$have_timeout" = true ]; then
+        limit=(timeout --kill-after=10 "$remaining")
     fi
-    "${limit[@]}" "$KUBECTL" --namespace "$namespace" exec "${exec_opts[@]}" "$keycloak_pod" "${container_opts[@]}" -- \
+    ${limit[@]+"${limit[@]}"} "$KUBECTL" --namespace "$namespace" exec ${exec_opts[@]+"${exec_opts[@]}"} "$keycloak_pod" ${container_opts[@]+"${container_opts[@]}"} -- \
         env HOME=/tmp bash -c "$in_pod_script" _ "$keycloak_url" "$realm" "$client" "$scope" "$creds_mode" \
         <<<"$admin_credentials"
     rc=$?
