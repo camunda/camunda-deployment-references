@@ -146,7 +146,7 @@ repos:
             name: ci-feedback-loop skill Go tests
             entry: go -C .github/skills/ci-feedback-loop test -count=1 ./...
             language: system
-            files: ^\.github/skills/ci-feedback-loop/
+            always_run: true
             pass_filenames: false
 
           - id: destroy-resources-selftest
