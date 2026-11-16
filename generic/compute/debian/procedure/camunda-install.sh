@@ -145,10 +145,8 @@ if [[ -f "${CACHED_CAMUNDA_TARBALL}" ]]; then
     echo "[INFO] Using pre-staged Camunda distribution from ${CACHED_CAMUNDA_TARBALL} (download cache)."
     cp "${CACHED_CAMUNDA_TARBALL}" "${MNT_DIR}/camunda.tar.gz"
 elif [[ "${CAMUNDA_VERSION}" =~ "SNAPSHOT" ]]; then
-    # shellcheck disable=SC2086
     curl -fL ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_SNAPSHOT_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
 else
-    # shellcheck disable=SC2086
     curl -fL ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${CAMUNDA_VERSION}/camunda-zeebe-${CAMUNDA_VERSION}.tar.gz" -o "${MNT_DIR}/camunda.tar.gz"
 fi
 
@@ -166,10 +164,8 @@ if [[ -f "${CACHED_CONNECTORS_JAR}" ]]; then
     echo "[INFO] Using pre-staged connectors bundle from ${CACHED_CONNECTORS_JAR} (download cache)."
     cp "${CACHED_CONNECTORS_JAR}" "${MNT_DIR}/connectors/connectors.jar"
 elif [[ "${CAMUNDA_CONNECTORS_VERSION}" =~ "SNAPSHOT" ]]; then
-    # shellcheck disable=SC2086
     curl -L --fail-with-body --show-error -w "[INFO] connectors download: HTTP %{http_code} (%{size_download} bytes)\n" ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CONNECTORS_SNAPSHOT_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar" || { echo "[FAIL] connectors download failed; response body:"; cat "${MNT_DIR}/connectors/connectors.jar" 2>/dev/null | head -c 4096; echo; exit 1; }
 else
-    # shellcheck disable=SC2086
     curl -L --fail-with-body --show-error -w "[INFO] connectors download: HTTP %{http_code} (%{size_download} bytes)\n" ${CURL_NETRC_OPT} "https://artifacts.camunda.com/artifactory/connectors/io/camunda/connector/connector-runtime-bundle/${CAMUNDA_CONNECTORS_VERSION}/connector-runtime-bundle-${CAMUNDA_CONNECTORS_VERSION}-with-dependencies.jar" -o "${MNT_DIR}/connectors/connectors.jar" || { echo "[FAIL] connectors download failed; response body:"; cat "${MNT_DIR}/connectors/connectors.jar" 2>/dev/null | head -c 4096; echo; exit 1; }
 fi
 
@@ -192,7 +188,6 @@ sudo -u "${USERNAME}" tee "${MNT_DIR}/connectors/start.sh" > /dev/null <<'LAUNCH
 #!/bin/bash
 set -eu
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-# shellcheck disable=SC2086
 exec java ${JAVA_OPTS:-} -jar "${SCRIPT_DIR}/connectors.jar"
 LAUNCH
 sudo chmod +x "${MNT_DIR}/connectors/start.sh"

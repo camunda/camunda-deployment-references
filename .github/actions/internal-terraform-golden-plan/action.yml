@@ -53,6 +53,7 @@ runs:
 
         - name: Compare Terraform plan with golden file
           shell: bash
+          # no caller of this action runs on pull_request_target or workflow_run
           run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
@@ -66,6 +67,7 @@ runs:
         - name: Manage Terraform diff comment
           if: always() && github.event_name == 'pull_request'
           shell: bash
+          # no caller of this action runs on pull_request_target or workflow_run
           run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 

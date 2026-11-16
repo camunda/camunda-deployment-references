@@ -258,7 +258,6 @@ jobs:
                   # this same workspace, so it is read straight from there.
                   TF_DIR="${GITHUB_WORKSPACE}/${TF_MODULES_PATH}/aws/containers/ecs-dual-region-fargate/terraform/infra"
                   export TF_DIR
-                  # shellcheck disable=SC1091
                   . ./export_environment_prerequisites.sh
 
                   echo "::add-mask::${ADMIN_PASS}"

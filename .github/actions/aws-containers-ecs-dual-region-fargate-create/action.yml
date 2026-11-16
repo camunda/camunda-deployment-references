@@ -89,7 +89,7 @@ runs:
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
-          run: |  # zizmor: ignore[github-env]
+          run: |
               set -euo pipefail
 
               # The three layers share one key prefix. Each layer appends its own

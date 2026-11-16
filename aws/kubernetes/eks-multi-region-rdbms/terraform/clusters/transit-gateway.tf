@@ -12,7 +12,6 @@
 ################################################################################
 
 module "tgw_hub" {
-  # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/transit-gateway-hub"
 
   for_each = local.active_regions
@@ -54,7 +53,6 @@ locals {
 }
 
 module "tgw_peering" {
-  # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/transit-gateway-peering"
 
   for_each = local.tgw_peering_pairs

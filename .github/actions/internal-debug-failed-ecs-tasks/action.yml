@@ -105,14 +105,12 @@ runs:
               echo "$SERVICE_ARNS" | tr '\t' '\n' > "${DUMP_DIR}/services.txt"
 
               echo "::group::Services overview"
-              # shellcheck disable=SC2086
               aws ecs describe-services --cluster "$CLUSTER" \
                 --services $SERVICE_ARNS \
                 --query 'services[].{name:serviceName,status:status,desired:desiredCount,running:runningCount,pending:pendingCount,launch:launchType,taskDef:taskDefinition}' \
                 --output table || true
               echo "::endgroup::"
 
-              # shellcheck disable=SC2086
               aws ecs describe-services --cluster "$CLUSTER" \
                 --services $SERVICE_ARNS \
                 --output yaml > "${DUMP_DIR}/services-describe.yaml" || true
@@ -175,17 +173,14 @@ runs:
                 fi
 
                 echo "::group::${title}"
-                # shellcheck disable=SC2086
                 aws ecs describe-tasks --cluster "$CLUSTER" --tasks $arns \
                   --query "$Q" --output yaml \
                   | tee "${DUMP_DIR}/${label}.yaml" || true
                 echo "::endgroup::"
 
-                # shellcheck disable=SC2086
                 aws ecs describe-tasks --cluster "$CLUSTER" --tasks $arns \
                   --output yaml > "${DUMP_DIR}/${label}-full.yaml" 2>&1 || true
 
-                # shellcheck disable=SC2086
                 local td td_safe
                 for td in $(aws ecs describe-tasks --cluster "$CLUSTER" --tasks $arns \
                               --query 'tasks[].taskDefinitionArn' --output text 2>/dev/null \

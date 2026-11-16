@@ -152,9 +152,9 @@ _multiregion_count() { echo "$#"; }
 # Word splitting is intentional here: the region lists are space-separated.
 # shellcheck disable=SC2086
 _aws_region_count="$(_multiregion_count $AWS_REGIONS)"
-# shellcheck disable=SC2086
+# shellcheck disable=SC2086 # word splitting is intended: the function counts the list entries
 _context_count="$(_multiregion_count $CLUSTER_CONTEXTS)"
-# shellcheck disable=SC2086
+# shellcheck disable=SC2086 # word splitting is intended: the function counts the list entries
 _submariner_id_count="$(_multiregion_count $SUBMARINER_CLUSTER_IDS)"
 
 if [ "$_aws_region_count" -lt "$CAMUNDA_ACTIVE_REGIONS" ] ||

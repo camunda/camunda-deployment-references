@@ -224,7 +224,6 @@ jobs:
                     # Check against watchlist patterns (glob match)
                     while IFS= read -r file; do
                       for pattern in "${WATCHLIST_PATTERNS[@]}"; do
-                        # shellcheck disable=SC2254
                         case "$file" in
                           $pattern*)
                             watchlist_matches+=("$file")

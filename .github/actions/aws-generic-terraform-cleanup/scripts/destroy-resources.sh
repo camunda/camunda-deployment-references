@@ -167,7 +167,7 @@ cleanup_vpc_dependencies() {
     --output text --region "$region" 2>/dev/null)
   if [[ -n "$vpce_ids" && "$vpce_ids" != "None" ]]; then
     echo "  Deleting VPC Endpoints: $vpce_ids"
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2086 # word splitting is intended: one argument for each endpoint ID
     aws ec2 delete-vpc-endpoints --vpc-endpoint-ids $vpce_ids --region "$region" || true
   fi
 

@@ -193,12 +193,11 @@ runs:
           id: outputs
           working-directory: aws/kubernetes/${{ inputs.ref-arch }}/terraform/clusters/
           shell: bash
+          # no caller of this action runs on pull_request_target or workflow_run
           run: | # zizmor: ignore[github-env]
               set -euo pipefail
 
-              # shellcheck disable=SC1091
               source ../../procedure/export-terraform-outputs.sh
-              # shellcheck disable=SC1091
               source ../../procedure/export_environment_prerequisites.sh
 
               {

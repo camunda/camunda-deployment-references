@@ -662,7 +662,7 @@ def main() -> int:
     # the dashboard's date math is consistent across old and new rows.
     try:
         _migrate_timestamps(service, spreadsheet_id, events_tab)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # best-effort step: a failure only warns and the bootstrap goes on
         _warn(f"timestamp migration step failed: {exc}")
 
     _ensure_tab(service, spreadsheet_id, meta, "triage")
@@ -679,19 +679,19 @@ def main() -> int:
         _write(service, spreadsheet_id, "dashboard!I6", [["Recent events (latest first)"]])
         _write(service, spreadsheet_id, "dashboard!I7", [[_recent_events_query(events_tab)]])
         print("Wrote dashboard layout.")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # best-effort step: a failure only warns and the bootstrap goes on
         _warn(f"dashboard layout step failed: {exc}")
 
     try:
         _apply_conditional_formatting(service, spreadsheet_id, events_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # best-effort step: a failure only warns and the bootstrap goes on
         _warn(f"conditional formatting step failed: {exc}")
 
     try:
         meta = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
         pivot_id = _ensure_tab(service, spreadsheet_id, meta, "pivot")
         _build_pivot(service, spreadsheet_id, events_id, pivot_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # best-effort step: a failure only warns and the bootstrap goes on
         _warn(f"pivot step failed: {exc}")
 
     try:
@@ -702,7 +702,7 @@ def main() -> int:
             _apply_display_formatting(
                 service, spreadsheet_id, events_id, triage_id, dashboard_id
             )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # best-effort step: a failure only warns and the bootstrap goes on
         _warn(f"display formatting step failed: {exc}")
 
     try:
@@ -710,12 +710,12 @@ def main() -> int:
         dashboard_id = _sheet_id(meta, "dashboard")
         if dashboard_id is not None:
             _apply_dashboard_formatting(service, spreadsheet_id, dashboard_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # best-effort step: a failure only warns and the bootstrap goes on
         _warn(f"dashboard formatting step failed: {exc}")
 
     try:
         _apply_events_filter(service, spreadsheet_id, events_id)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001  # best-effort step: a failure only warns and the bootstrap goes on
         _warn(f"events filter step failed: {exc}")
 
     print("Bootstrap complete.")

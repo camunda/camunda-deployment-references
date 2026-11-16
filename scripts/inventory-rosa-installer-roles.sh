@@ -49,7 +49,7 @@ selftest() {
 
   mkdir -p "$(dirname "$SELF")/../debug"
   tmp=$(mktemp -d "$(dirname "$SELF")/../debug/inventory-rosa.XXXXXX")
-  # shellcheck disable=SC2064
+  # shellcheck disable=SC2064 # expand now: tmp is local and is gone when the EXIT trap runs
   trap "rm -rf '$tmp'" EXIT
   mkdir "$tmp/bin"
 

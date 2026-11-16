@@ -3,7 +3,6 @@
 ################################
 
 module "eks_cluster_region_0" {
-  # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/eks-cluster"
 
   region                = local.owner.region
@@ -20,7 +19,6 @@ module "eks_cluster_region_0" {
 }
 
 module "eks_cluster_region_1" {
-  # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/eks-cluster"
 
   region                = local.accepter.region
