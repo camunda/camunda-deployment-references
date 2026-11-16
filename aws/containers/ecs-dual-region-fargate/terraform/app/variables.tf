@@ -53,7 +53,7 @@ variable "default_tags" {
 variable "camunda_image" {
   type = string
   # renovate: datasource=docker depName=camunda/camunda versioning=regex:^8\.10\.(?<patch>\d+)$
-  default     = "camunda/camunda:8.10.8"
+  default     = "camunda/camunda:8.10.9"
   description = "Container image for the Camunda orchestration cluster tasks (Zeebe broker + gateway + webapps)"
 }
 
@@ -110,7 +110,7 @@ variable "rdbms_extra_jdbc_params" {
 variable "connectors_image" {
   type = string
   # renovate: datasource=docker depName=camunda/connectors-bundle versioning=regex:^8\.10\.(?<patch>\d+)$
-  default     = "camunda/connectors-bundle:8.10.3"
+  default     = "camunda/connectors-bundle:8.10.5"
   description = "Container image for the Camunda connectors-bundle tasks. Separate from camunda_image because connectors ship as a distinct artifact from the orchestration cluster."
 }
 
