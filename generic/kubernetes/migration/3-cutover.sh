@@ -404,6 +404,19 @@ fi
 
 if [[ ${#HELM_VALUES_ARGS[@]} -gt 0 ]]; then
     helm_upgrade "${HELM_VALUES_ARGS[@]}"
+
+    # Keycloak 26.8.2 (CVE-2026-19688) only accepts Admin API tokens with the
+    # kc-admin-api scope; grant it to Identity's client (camunda/camunda#69230).
+    # The restored master realm has the Bitnami admin, so log in with the synced
+    # operator secret rather than the pod's bootstrap env.
+    if [[ "${MIGRATE_KEYCLOAK}" == "true" ]] && ! is_external_keycloak; then
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "[dry-run] Would grant kc-admin-api to the Identity client and restart Identity"
+        else
+            KEYCLOAK_ADMIN_SECRET=keycloak-initial-admin CAMUNDA_NAMESPACE="${NAMESPACE}" CAMUNDA_RELEASE_NAME="${RELEASE}" \
+                "${SCRIPT_DIR}/../operator-based/keycloak/keycloak-grant-identity-admin-api.sh"
+        fi
+    fi
 else
     log_warn "No helm values to apply"
 fi

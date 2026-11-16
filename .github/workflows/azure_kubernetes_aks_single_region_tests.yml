@@ -34,6 +34,7 @@ on:
             - .github/actions/kubernetes-eck-operator/**
             - .github/actions/kubernetes-eck-operator-cleanup/**
             - generic/kubernetes/operator-based/elasticsearch/**
+            - generic/kubernetes/operator-based/keycloak/**
 
     workflow_dispatch:
         inputs:
@@ -871,6 +872,19 @@ jobs:
               timeout-minutes: 10
               with:
                   cluster-type: kubernetes
+
+            # Keycloak >= 26.8.2 (CVE-2026-19688) rejects Admin REST API tokens without
+            # the kc-admin-api scope, so Management Identity stops with HTTP 401
+            # (camunda/camunda#69230). Grant the scope to its client once Identity has
+            # created it. In domain mode this runs after the CoreDNS refresh, so
+            # Identity reaches its client setup, and before the restart below, which
+            # then bounces Identity with the grant in place and awaits the rollout.
+            - name: 🔑 Grant the Keycloak Admin API scope to the Identity client
+              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
+              timeout-minutes: 15
+              run: |
+                  set -euo pipefail
+                  ./generic/kubernetes/operator-based/keycloak/keycloak-grant-identity-admin-api.sh
 
             # DNS cache is fresh now — bounce the OIDC workloads so they reconnect
             # with working in-cluster + domain resolution instead of a stale
