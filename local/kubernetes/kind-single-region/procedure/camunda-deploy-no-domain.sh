@@ -83,6 +83,11 @@ fi
 #         --values "$OPERATOR_VALUES_DIR/postgresql/camunda-rdbms-values.yml"
 # fi
 
+# Keycloak >= 26.8.2 rejects Identity's own client on the Admin API unless it has the
+# `kc-admin-api` client scope (camunda/camunda#69230); grant it once Identity has
+# created the realm. Fail-open, see the script header.
+"$OPERATOR_VALUES_DIR/keycloak/keycloak-grant-identity-admin-api.sh"
+
 echo ""
 if [[ "$SECONDARY_STORAGE" == "postgres" ]]; then
     echo "Camunda Platform deployed (PostgreSQL RDBMS — Optimize disabled)"
