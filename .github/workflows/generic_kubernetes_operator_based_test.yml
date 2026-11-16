@@ -280,7 +280,6 @@ jobs:
 
 
             # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
-            # Reason for skipping pipefail in the next step
             - name: Dump relevant Terraform outputs for cluster module
               if: always() && matrix.distro.type != 'openshift'
               working-directory: ${{ env.TF_MODULES_DIRECTORY }}aws/kubernetes/eks-single-region/terraform/cluster/
@@ -289,6 +288,7 @@ jobs:
                   set -euo pipefail
 
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
+                  set +e
 
                   export_new_env_vars_to_file \
                       ${{ github.workspace }}/aws/kubernetes/eks-single-region/procedure/export-helm-values.sh

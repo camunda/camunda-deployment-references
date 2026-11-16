@@ -291,7 +291,6 @@ jobs:
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
-            # Reason for skipping pipefail in the next step
             - name: Dump relevant Terraform outputs for cluster module
               if: always()
               working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/

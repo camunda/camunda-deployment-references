@@ -17,6 +17,10 @@ Changes will appear here during the development cycle.
 
 - Added `keycloak-grant-identity-admin-api.sh` to the operator-based Keycloak, run after the Camunda Helm install by the Kind deploy procedures and the AKS, EKS, ROSA and operator-based test workflows. It assigns the `kc-admin-api` client scope to Identity's `camunda-identity` client. Keycloak 26.8.2 requires it on the Admin REST API (CVE-2026-19688), and without it Management Identity stops at startup with HTTP 401 ([camunda/camunda#69230](https://github.com/camunda/camunda/issues/69230)).
 
+### AWS EKS, AWS ROSA HCP and Azure AKS
+
+- The procedure scripts that read Terraform outputs or the cloud CLI assign each variable before they export it: `export-helm-values.sh`, `vars-create-db.sh`, `vars-create-os.sh`, `gather-cluster-login-id.sh`, `tfvars-domain.sh`, `tfvars-no-domain.sh` and `storage-account-tf-init.sh`. A shell with `set -e` now stops when such a command fails. Before, `export` hid the failure and the variable stayed empty ([#4050](https://github.com/camunda/camunda-deployment-references/pull/4050)).
+
 ## 8.10
 
 Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fixes backported to `stable/8.10` since.
