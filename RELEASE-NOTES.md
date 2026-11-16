@@ -61,6 +61,7 @@ Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fi
 
 - Configured operator-managed PostgreSQL with two instances, required pod anti-affinity, and dedicated WAL volumes ([#3463](https://github.com/camunda/camunda-deployment-references/pull/3463)).
 - Added a Keycloak readiness procedure to recover from transient OIDC discovery failures ([#2718](https://github.com/camunda/camunda-deployment-references/pull/2718)).
+- Added `keycloak-grant-identity-admin-api.sh` to the operator-based Keycloak, run after the Camunda Helm install by the Kind deploy procedures and the AKS, EKS, ROSA and operator-based test workflows. It assigns the `kc-admin-api` client scope to Identity's `camunda-identity` client. Keycloak 26.8.2 requires it on the Admin REST API (CVE-2026-19688), and without it Management Identity stops at startup with HTTP 401 ([camunda/camunda#69230](https://github.com/camunda/camunda/issues/69230)).
 
 ### Changed configuration and removed references
 
