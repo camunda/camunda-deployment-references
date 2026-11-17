@@ -37,6 +37,8 @@ jobs:
             id-token: write # required for Vault JWT login
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+              with:
+                  persist-credentials: false
 
             - name: Read Camunda version
               id: version
@@ -100,17 +102,15 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  CAMUNDA_VERSION="${{ steps.version.outputs.camunda_version }}"
-                  IMAGES='${{ steps.scan.outputs.images }}'
                   AVAILABLE=()
 
                   # Authenticate to Docker Hub API
                   DOCKERHUB_TOKEN=$(curl -s -X POST "https://hub.docker.com/v2/users/login" \
                     -H "Content-Type: application/json" \
-                    -d "{\"username\": \"${{ steps.secrets.outputs.DOCKERHUB_USER }}\", \"password\": \"${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}\"}" \
+                    -d "$(jq -n --arg u "$DOCKERHUB_USER" --arg p "$DOCKERHUB_PASSWORD" '{username: $u, password: $p}')" \
                     | jq -r '.token')
 
-                  for image in $(echo "$IMAGES" | jq -r '.[]'); do
+                  while IFS= read -r image; do
                     alpha_tag="${CAMUNDA_VERSION}.0-alpha1"
                     echo "Checking ${image}:${alpha_tag} on Docker Hub..."
 
@@ -125,7 +125,7 @@ jobs:
                     else
                       echo "  ❌ ${image}:${alpha_tag} not found (HTTP ${status})"
                     fi
-                  done
+                  done < <(jq -r '.[]' <<< "$IMAGES")
 
                   if [[ ${#AVAILABLE[@]} -gt 0 ]]; then
                     echo "has_alpha=true" >> "$GITHUB_OUTPUT"
@@ -140,6 +140,11 @@ jobs:
                     echo "has_alpha=false" >> "$GITHUB_OUTPUT"
                     echo "No alpha1 tags found yet."
                   fi
+              env:
+                  CAMUNDA_VERSION: ${{ steps.version.outputs.camunda_version }}
+                  IMAGES: ${{ steps.scan.outputs.images }}
+                  DOCKERHUB_USER: ${{ steps.secrets.outputs.DOCKERHUB_USER }}
+                  DOCKERHUB_PASSWORD: ${{ steps.secrets.outputs.DOCKERHUB_PASSWORD }}
 
             - name: Create GitHub Issue
               if: steps.check.outputs.has_alpha == 'true' && github.event_name != 'pull_request'
@@ -152,12 +157,13 @@ jobs:
                   The following images have `alpha1` published on Docker Hub while the repo still uses `SNAPSHOT`:
 
                   ```
-                  ${{ steps.check.outputs.available_images }}
+                  __AVAILABLE_IMAGES__
                   ```
 
                   Please update the SNAPSHOT references in the repository.
                   ISSUE_EOF
                   )
+                  BODY="${BODY/__AVAILABLE_IMAGES__/$AVAILABLE_IMAGES}"
 
                   # Check if an open issue already exists to avoid duplicates
                   existing=$(gh issue list --label "automated issue" --state open --search "Alpha1 tags available" --json number --jq '.[0].number' || true)
@@ -171,14 +177,15 @@ jobs:
                   fi
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  AVAILABLE_IMAGES: ${{ steps.check.outputs.available_images }}
 
             - name: Determine Slack channel
               id: slack-channel
               run: |
-                  if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-                    echo "channel=${{ env.SLACK_CHANNEL_ID_PR }}" >> "$GITHUB_OUTPUT"
+                  if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+                    echo "channel=${SLACK_CHANNEL_ID_PR}" >> "$GITHUB_OUTPUT"
                   else
-                    echo "channel=${{ env.SLACK_CHANNEL_ID }}" >> "$GITHUB_OUTPUT"
+                    echo "channel=${SLACK_CHANNEL_ID}" >> "$GITHUB_OUTPUT"
                   fi
 
             - name: Post alpha availability to Slack
