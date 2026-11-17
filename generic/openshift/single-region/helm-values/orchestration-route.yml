@@ -1,4 +1,12 @@
 ---
+global:
+    tls:
+        caBundle:
+            secret:
+                # CA of the service-serving certificate, see `procedure/create-service-ca-secret.sh`
+                existingSecret: camunda-platform-service-ca
+                existingSecretKey: ca.crt
+
 orchestration:
 
     service:

@@ -47,6 +47,9 @@ PRERELEASE_WARNING
 _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
 
+# The orchestration overlay mounts this Secret (`global.tls.caBundle`); it must exist before Helm.
+"$(dirname "${BASH_SOURCE[0]}")/create-service-ca-secret.sh"
+
 assert_no_duplicate_extra_configuration generated-values.yml
 
 helm upgrade --install \

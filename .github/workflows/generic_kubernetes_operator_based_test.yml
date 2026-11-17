@@ -24,6 +24,7 @@ on:
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-openvpn-connect/**
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
@@ -279,7 +280,6 @@ jobs:
 
 
             # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
-            # Reason for skipping pipefail in the next step
             - name: Dump relevant Terraform outputs for cluster module
               if: always() && matrix.distro.type != 'openshift'
               working-directory: ${{ env.TF_MODULES_DIRECTORY }}aws/kubernetes/eks-single-region/terraform/cluster/
@@ -288,6 +288,7 @@ jobs:
                   set -euo pipefail
 
                   source ${{ github.workspace }}/.github/scripts/gha-functions.sh
+                  set +e
 
                   export_new_env_vars_to_file \
                       ${{ github.workspace }}/aws/kubernetes/eks-single-region/procedure/export-helm-values.sh
@@ -548,6 +549,8 @@ jobs:
                           export CAMUNDA_PLATFORM_ROUTER_TLS_SECRET="camunda-platform-router-tls"
                           echo "CAMUNDA_PLATFORM_ROUTER_TLS_SECRET=$CAMUNDA_PLATFORM_ROUTER_TLS_SECRET" | tee -a "$GITHUB_ENV"
                           ./../../openshift/single-region/procedure/copy-router-tls-secret.sh
+
+                          ./../../openshift/single-region/procedure/create-service-ca-secret.sh
                       else
                           # EKS and other Kubernetes clusters use camunda.ie
                           BASE_DOMAIN="camunda.ie"
@@ -795,6 +798,18 @@ jobs:
                   vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
                   vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
                   vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
+
+            # Keycloak 26.8.2 (CVE-2026-19688) accepts Admin REST API tokens only with the
+            # `kc-admin-api` scope, which the Identity client lacks, so Management Identity
+            # stops with HTTP 401 (camunda/camunda#69230). The script waits for Identity to
+            # create its client, grants the scope and restarts Identity; it is a no-op on a
+            # Keycloak without the check and fails open (the health wait is the hard gate).
+            # It runs before the domain-only issuer wait: Identity creates the realm before
+            # it fails, so the issuer answers while Identity is still down.
+            - name: 🔑 Grant the Keycloak Admin API scope to Management Identity
+              timeout-minutes: 12
+              working-directory: ./generic/kubernetes/operator-based/
+              run: ./keycloak/keycloak-grant-identity-admin-api.sh
 
             # In domain + OIDC mode the Camunda app pods fetch the OIDC discovery
             # document from the public Keycloak issuer at startup, which only

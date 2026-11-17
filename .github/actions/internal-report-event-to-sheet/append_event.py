@@ -43,7 +43,7 @@ def _load_service_account(raw: str) -> dict:
 # makes Sheets treat column A as a real, natively-parseable date-time: it sorts,
 # filters and date-maths correctly, and a bare number can never be a formula so
 # it stays injection-safe even under RAW (see the append call below).
-_SHEETS_EPOCH = datetime.datetime(1899, 12, 30, tzinfo=datetime.timezone.utc)
+_SHEETS_EPOCH = datetime.datetime(1899, 12, 30, tzinfo=datetime.UTC)
 
 
 def _sheets_serial(dt: datetime.datetime) -> float:
@@ -52,7 +52,7 @@ def _sheets_serial(dt: datetime.datetime) -> float:
 
 
 def _build_row() -> list:
-    now = _sheets_serial(datetime.datetime.now(datetime.timezone.utc))
+    now = _sheets_serial(datetime.datetime.now(datetime.UTC))
     # Order MUST match bootstrap_sheet.HEADERS.
     return [
         now,

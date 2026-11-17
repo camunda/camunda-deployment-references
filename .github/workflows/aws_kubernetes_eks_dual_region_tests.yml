@@ -404,9 +404,11 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  export AWS_ACCESS_KEY_ES=$(yq eval '.["s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  AWS_ACCESS_KEY_ES=$(yq eval '.["s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  export AWS_ACCESS_KEY_ES
                   echo "::add-mask::$AWS_ACCESS_KEY_ES"
-                  export AWS_SECRET_ACCESS_KEY_ES=$(yq eval '.["s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  AWS_SECRET_ACCESS_KEY_ES=$(yq eval '.["s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  export AWS_SECRET_ACCESS_KEY_ES
                   echo "::add-mask::$AWS_SECRET_ACCESS_KEY_ES"
 
                   bash ./aws/kubernetes/eks-dual-region/procedure/create_elasticsearch_secrets.sh

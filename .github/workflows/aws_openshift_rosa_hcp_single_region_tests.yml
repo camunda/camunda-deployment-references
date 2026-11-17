@@ -15,6 +15,7 @@ on:
             - .tool-versions
             - generic/kubernetes/single-region/**
             - generic/openshift/single-region/**
+            - generic/kubernetes/operator-based/keycloak/**
             - aws/openshift/rosa-hcp-single-region/**
             - '!aws/openshift/rosa-hcp-single-region/terraform/*/test/golden/**'
             - .github/actions/aws-openshift-rosa-hcp-single-region-create/**
@@ -23,6 +24,7 @@ on:
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-openvpn-connect/**
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
             - .github/actions/internal-tests-matrix/**
@@ -419,10 +421,9 @@ jobs:
 
             - name: 🛡️ Connect to VPN
               if: ${{ matrix.distro.private_vpc == true }}
-              uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
+              uses: ./.github/actions/internal-openvpn-connect
               with:
-                  config_file: ${{ github.workspace }}/.vpn/client.ovpn
-                  echo_config: 'false'
+                  config-file: ${{ github.workspace }}/.vpn/client.ovpn
 
             - name: 🔐 Retrieve kubeconfig from outputs
               uses: ./.github/actions/internal-generic-decrypt-import
@@ -518,6 +519,7 @@ jobs:
                     # it so the rendered Route gets the cert inlined.
                     export CAMUNDA_PLATFORM_ROUTER_TLS_SECRET="camunda-platform-router-tls"
                     ./generic/openshift/single-region/procedure/copy-router-tls-secret.sh
+                    ./generic/openshift/single-region/procedure/create-service-ca-secret.sh
                     yq -i ".orchestration.ingress.grpc.tls.secretName = \"$CAMUNDA_PLATFORM_ROUTER_TLS_SECRET\"" \
                         generic/openshift/single-region/helm-values/orchestration-route.yml
 
@@ -692,6 +694,19 @@ jobs:
                   fi
 
                   ./generic/openshift/single-region/procedure/install-chart.sh
+
+            # Keycloak 26.8.2 (CVE-2026-19688) rejects Admin API tokens without the
+            # kc-admin-api scope, so Management Identity stops with HTTP 401
+            # (camunda/camunda#69230). Runs before the issuer wait and the DNS-refresh
+            # restart: Identity must be able to start before either waits on it.
+            # The script is fail-open; the health wait below is the hard gate.
+            - name: 🔑 Grant the Keycloak Admin API to the Identity client (keycloak-operator mode)
+              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
+              timeout-minutes: 15
+              run: |
+                  set -euo pipefail
+
+                  ./generic/kubernetes/operator-based/keycloak/keycloak-grant-identity-admin-api.sh
 
             - name: 🔍 Check for Helm deprecation warnings
               uses: ./.github/actions/internal-helm-deprecation-check

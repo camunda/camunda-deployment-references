@@ -142,6 +142,13 @@ repos:
             files: ^aws/(kubernetes/eks-multi-region-rdbms|containers/ecs-dual-region-fargate)/(procedure|test)/
             pass_filenames: false
 
+          - id: ci-feedback-loop-go-test
+            name: ci-feedback-loop skill Go tests
+            entry: go -C .github/skills/ci-feedback-loop test -count=1 ./...
+            language: system
+            always_run: true
+            pass_filenames: false
+
           - id: destroy-resources-selftest
             name: Destroy-resources classifier self-test
             # yamllint disable-line rule:line-length

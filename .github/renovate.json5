@@ -28,6 +28,14 @@
       matchPackageNames: ['camunda/keycloak'],
       groupName: 'camunda keycloak operator and image',
     },
+    {
+      // ACM 5 targets OpenShift 5; the reference architectures stay on OpenShift 4
+      // (see the 4.x cap in the ROSA test matrices), so ACM stays on release-2.x.
+      // ACM 5.0 on OCP 4.22 breaks the dual-region Submariner setup (#4063).
+      // Lift together with the OpenShift cap: camunda/camunda-deployment-references#4096.
+      matchDatasources: ['custom.openshift-acm'],
+      allowedVersions: '<3',
+    },
   ],
   customManagers: [
     {

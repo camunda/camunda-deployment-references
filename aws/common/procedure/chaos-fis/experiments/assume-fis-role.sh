@@ -54,9 +54,12 @@ if ! CREDS=$(aws sts assume-role \
 fi
 
 # Export credentials
-export AWS_ACCESS_KEY_ID=$(echo "${CREDS}" | jq -r '.Credentials.AccessKeyId')
-export AWS_SECRET_ACCESS_KEY=$(echo "${CREDS}" | jq -r '.Credentials.SecretAccessKey')
-export AWS_SESSION_TOKEN=$(echo "${CREDS}" | jq -r '.Credentials.SessionToken')
+AWS_ACCESS_KEY_ID=$(echo "${CREDS}" | jq -r '.Credentials.AccessKeyId')
+export AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY=$(echo "${CREDS}" | jq -r '.Credentials.SecretAccessKey')
+export AWS_SECRET_ACCESS_KEY
+AWS_SESSION_TOKEN=$(echo "${CREDS}" | jq -r '.Credentials.SessionToken')
+export AWS_SESSION_TOKEN
 
 # Verify. The status matters: this file is sourced, so it runs without set -e,
 # and a discarded failure here would announce success while leaving the caller

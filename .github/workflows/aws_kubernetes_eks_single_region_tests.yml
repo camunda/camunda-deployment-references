@@ -23,6 +23,7 @@ on:
             - .github/actions/aws-capacity-slot/**
             - .github/actions/aws-configure-cli/**
             - .github/actions/internal-apply-skip-label/**
+            - .github/actions/internal-openvpn-connect/**
             - .github/actions/aws-generic-terraform-cleanup/**
             - .github/actions/internal-generic-encrypt-export/**
             - .github/actions/internal-generic-decrypt-import/**
@@ -41,6 +42,7 @@ on:
             - .github/actions/kubernetes-ingress-cleanup/**
             - .github/actions/kubernetes-keycloak-operator/**
             - .github/actions/kubernetes-keycloak-operator-cleanup/**
+            - generic/kubernetes/operator-based/keycloak/**
             - .github/actions/internal-camunda-chart-tests/**
             - .github/actions/internal-sanitize-tags/**
             - .github/actions/kubernetes-cnpg-cluster/**
@@ -289,7 +291,6 @@ jobs:
                   encryption_key: ${{ steps.secrets.outputs.CI_ENCRYPTION_KEY }}
 
             # We are exporting everything for irsa and non-irsa, worst case it's empty and not used
-            # Reason for skipping pipefail in the next step
             - name: Dump relevant Terraform outputs for cluster module
               if: always()
               working-directory: ${{ env.TF_MODULES_PATH }}/aws/kubernetes/${{ matrix.scenario.name }}/terraform/cluster/
@@ -510,10 +511,9 @@ jobs:
 
             - name: 🛡️ Connect to VPN
               if: ${{ matrix.scenario.private_vpc == true }}
-              uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
+              uses: ./.github/actions/internal-openvpn-connect
               with:
-                  config_file: ${{ github.workspace }}/.vpn/client.ovpn
-                  echo_config: 'false'
+                  config-file: ${{ github.workspace }}/.vpn/client.ovpn
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -965,6 +965,23 @@ jobs:
                   vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
                   vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
                   vault-jwt-audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
+
+            # Keycloak >= 26.8.2 (CVE-2026-19688) rejects Admin API tokens without the
+            # kc-admin-api scope, so Management Identity stops with HTTP 401 until its
+            # client gets it (camunda/camunda#69230). Runs before the issuer wait and the
+            # DNS-refresh restart, so the Identity restart issued here is superseded by,
+            # and awaited in, that step in domain mode instead of racing it.
+            - name: 🔑 Grant the Keycloak Admin API scope to Management Identity
+              if: ${{ matrix.scenario.auth_provider == 'keycloak-operator' }}
+              # The script is fail-open on its own 600s budget; this only stops
+              # a wedged step from running unbounded.
+              timeout-minutes: 15
+              env:
+                  # Pinned: the oidc scenario exports a Cognito IDENTITY_CLIENT_ID to the job env.
+                  IDENTITY_CLIENT_ID: camunda-identity
+              run: |
+                  set -euo pipefail
+                  ./generic/kubernetes/operator-based/keycloak/keycloak-grant-identity-admin-api.sh
 
             - name: ⏳ Wait for the OIDC issuer to be reachable
               if: matrix.declination.name == 'domain'

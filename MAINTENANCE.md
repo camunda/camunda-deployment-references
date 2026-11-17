@@ -81,7 +81,7 @@ Submit each change through a pull request. A maintainer merges the pull requests
 
    * Set `.camunda-version` to the released minor, for example `8.10`.
    * Set `.target-branch` to `stable/8.x` on the stable branch only.
-   * Change marked action branch defaults and lint push filters to `stable/8.x` on the cut branch.
+   * Change marked action branch defaults and lint push filters to `stable/8.x` on the cut branch. This includes the `push` filter of `.github/workflows/lint.yml`, which has no `release-duty` marker because camunda/infraex-terraform writes that file only on `main`.
    * Keep `c8-sm-checks` references on `main`. Do not add a cut-switch marker to that default.
 
 4. **Maintain `RELEASE-NOTES.md` on both branches**
@@ -156,20 +156,19 @@ Submit each change through a pull request. A maintainer merges the pull requests
 
 8. **Remove dev-only workflows and chart source builds from the cut branch**
 
-   On `stable/8.x`, remove the five `gh-pages` publishers and the alpha availability watcher.
+   On `stable/8.x`, remove the four `gh-pages` publishers and the alpha availability watcher.
    Find all dev-only workflow markers with `git grep -l 'TODO: \[release-duty\] delete this workflow' -- .github/workflows`.
    Remove any additional workflow whose marker requires deletion at the cut.
 
    ```sh
    git rm .github/workflows/internal_openshift_artifact_rosa_versions.yml \
-          .github/workflows/internal_openshift_artifact_acm_versions.yml \
           .github/workflows/internal_aws_artifact_aurora_versions.yml \
           .github/workflows/internal_aws_artifact_opensearch_versions.yml \
           .github/workflows/internal_bitnami_artifact_image_versions.yml \
           .github/workflows/internal_global_alpha_availability_check.yml
    ```
 
-   The five publishers write version artifacts to this repository's single `gh-pages` branch.
+   The four publishers write version artifacts to this repository's single `gh-pages` branch.
    The shared Renovate preset reads one URL per artifact for every repository and branch.
    A later publication replaces the shared artifact. Keep `main` as the only producer.
 

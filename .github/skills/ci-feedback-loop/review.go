@@ -333,7 +333,7 @@ func reviewPRsCmd() *cobra.Command {
 	}
 }
 
-func reviewPauseCmd() *cobra.Command {
+func reviewPauseCmd() *cobra.Command { //nolint:gocognit // no test covers this command, so a split cannot be proven safe
 	return &cobra.Command{
 		Use:   "pause [pr-number|pr-url ...]",
 		Short: "Add skip_all, strip any ` [ready]` tag, cancel in-progress runs",
@@ -557,7 +557,7 @@ func notGreen(checks []checkEntry) []checkEntry {
 	return bad
 }
 
-func reviewReadyCmd() *cobra.Command {
+func reviewReadyCmd() *cobra.Command { //nolint:gocognit // no test covers this command, so a split cannot be proven safe
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "ready [pr-number|pr-url ...]",

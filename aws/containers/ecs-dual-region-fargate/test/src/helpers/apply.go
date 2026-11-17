@@ -6,6 +6,7 @@
 package helpers
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,7 +32,7 @@ func RunTag() string {
 	if id := os.Getenv("TEST_RUN_ID"); len(id) >= 6 {
 		return id[len(id)-6:]
 	}
-	return strings.ToLower(random.UniqueId())
+	return strings.ToLower(random.UniqueID())
 }
 
 // BackendKeyPrefix is the S3 key prefix of a test's states.
@@ -154,7 +155,7 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 	}
 	destroyOnCleanup(t, "vpc", vpcOpts)
 	t.Logf("Applying vpc/ state at %s", paths.VPC)
-	terraform.InitAndApply(t, vpcOpts)
+	terraform.InitAndApplyContext(t, context.Background(), vpcOpts)
 
 	infraOpts = &terraform.Options{
 		TerraformDir:       paths.Infra,
@@ -166,7 +167,7 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 	}
 	destroyOnCleanup(t, "infra", infraOpts)
 	t.Logf("Applying infra/ state at %s", paths.Infra)
-	terraform.InitAndApply(t, infraOpts)
+	terraform.InitAndApplyContext(t, context.Background(), infraOpts)
 
 	appOpts = &terraform.Options{
 		TerraformDir:       paths.App,
@@ -178,7 +179,7 @@ func ApplyAllThreeStates(t *testing.T, paths StatePaths, opts ApplyOptions) (vpc
 	}
 	destroyOnCleanup(t, "app", appOpts)
 	t.Logf("Applying app/ state at %s", paths.App)
-	terraform.InitAndApply(t, appOpts)
+	terraform.InitAndApplyContext(t, context.Background(), appOpts)
 
 	return vpcOpts, infraOpts, appOpts
 }
@@ -190,7 +191,7 @@ func destroyOnCleanup(t *testing.T, name string, opts *terraform.Options) {
 
 	t.Cleanup(func() {
 		t.Logf("Destroying %s state at %s", name, opts.TerraformDir)
-		if _, err := terraform.DestroyE(t, opts); err != nil {
+		if _, err := terraform.DestroyContextE(t, context.Background(), opts); err != nil {
 			t.Errorf("destroy of %s failed: %v — manual cleanup may be required", name, err)
 		}
 	})

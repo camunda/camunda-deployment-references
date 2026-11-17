@@ -112,7 +112,7 @@ func (c *Config) setServiceURLs() {
 
 		// Internal service URLs (via port-forward or in-cluster)
 		rel := c.ReleaseName
-		c.OrchestrationURL = envOr("TEST_ORCHESTRATION_URL", fmt.Sprintf("http://localhost:9600"))
+		c.OrchestrationURL = envOr("TEST_ORCHESTRATION_URL", "http://localhost:9600")
 		c.ConnectorsURL = envOr("TEST_CONNECTORS_URL", fmt.Sprintf("http://%s-connectors:8080", rel))
 		c.IdentityURL = envOr("TEST_IDENTITY_URL", fmt.Sprintf("http://%s-identity:8080", rel))
 		c.OptimizeURL = envOr("TEST_OPTIMIZE_URL", fmt.Sprintf("http://%s-optimize:8083", rel))
