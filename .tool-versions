@@ -24,7 +24,7 @@ delta 0.18.2
 # renovate: datasource=github-tags depName=eksctl-io/eksctl
 eksctl 0.231.0
 
-golang 1.27.3
+golang 1.27.4
 
 # renovate: datasource=github-tags depName=fullstorydev/grpcurl
 grpcurl 1.9.4
@@ -60,4 +60,4 @@ terraform-docs 0.24.0
 
 tflint 0.64.0
 
-yq 4.54.1
+yq 4.54.3
