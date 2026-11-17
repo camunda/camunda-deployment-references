@@ -7,7 +7,6 @@
 ################################################################################
 
 module "eks_cluster_region_0" {
-  # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/eks-cluster"
 
   count = var.active_region_count > 0 ? 1 : 0
@@ -26,7 +25,6 @@ module "eks_cluster_region_0" {
 }
 
 module "eks_cluster_region_1" {
-  # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/eks-cluster"
 
   count = var.active_region_count > 1 ? 1 : 0
@@ -50,7 +48,6 @@ module "eks_cluster_region_1" {
 }
 
 module "eks_cluster_region_2" {
-  # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/eks-cluster"
 
   count = var.active_region_count > 2 ? 1 : 0
@@ -73,7 +70,6 @@ module "eks_cluster_region_2" {
 }
 
 module "eks_cluster_region_3" {
-  # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/eks-cluster"
 
   count = var.active_region_count > 3 ? 1 : 0

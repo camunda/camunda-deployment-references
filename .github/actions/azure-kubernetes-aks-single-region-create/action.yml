@@ -91,6 +91,7 @@ runs:
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
+          # no caller of this action runs on pull_request_target or workflow_run
           run: |  # zizmor: ignore[github-env]
               set -euo pipefail
               export TFSTATE_BUCKET="${INPUTS_S3_BACKEND_BUCKET}"

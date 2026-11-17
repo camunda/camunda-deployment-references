@@ -18,6 +18,7 @@ runs:
         - name: Extract workflow file name
           id: extract_workflow_name
           shell: bash
+          # no caller of this action runs on pull_request_target or workflow_run
           run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
@@ -29,6 +30,7 @@ runs:
         - name: Check if label exists
           id: check_label
           shell: bash
+          # no caller of this action runs on pull_request_target or workflow_run
           run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 

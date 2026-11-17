@@ -168,7 +168,6 @@ locals {
 ################################################################################
 
 module "database_region_0" {
-  # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/aurora-global-member"
 
   count = local.database_member_enabled[0] ? 1 : 0
@@ -205,7 +204,6 @@ resource "time_sleep" "wait_for_database_writer" {
 }
 
 module "database_secondary" {
-  # tflint-ignore: terraform_module_pinned_source
   source = "../../../../modules/aurora-global-member"
 
   for_each = {

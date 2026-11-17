@@ -73,12 +73,12 @@ warm_distro_cache() {
 
     # Create the netrc only after the cache dir is ready, so we never leave credentials behind on an
     # early return.
-    local netrc_opt="" netrc_file=""
+    local netrc_opt=() netrc_file=""
     if [[ -n "${CAMUNDA_DISTRO_USER}" && -n "${CAMUNDA_DISTRO_PASSWORD}" ]]; then
         netrc_file=$(mktemp)
         chmod 600 "${netrc_file}"
         printf 'machine artifacts.camunda.com login %s password %s\n' "${CAMUNDA_DISTRO_USER}" "${CAMUNDA_DISTRO_PASSWORD}" > "${netrc_file}"
-        netrc_opt="--netrc-file ${netrc_file}"
+        netrc_opt=(--netrc-file "${netrc_file}")
     fi
 
     # --- Camunda distribution ---
@@ -88,8 +88,7 @@ warm_distro_cache() {
         local camunda_url=""
         if [[ "${camunda_version}" =~ SNAPSHOT ]]; then
             local snap=""
-            # shellcheck disable=SC2086
-            snap=$(curl -sfL ${netrc_opt} "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${camunda_version}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | grep "<value>" | sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//' || true)
+            snap=$(curl -sfL "${netrc_opt[@]}" "https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${camunda_version}/maven-metadata.xml" | grep -A 1 "<extension>tar.gz</extension>" | grep "<value>" | sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//' || true)
             if [[ -n "${snap}" ]]; then
                 camunda_url="https://artifacts.camunda.com/artifactory/zeebe/io/camunda/camunda-zeebe/${camunda_version}/camunda-zeebe-${snap}.tar.gz"
             else
@@ -100,8 +99,7 @@ warm_distro_cache() {
         fi
         if [[ -n "${camunda_url}" ]]; then
             echo "[INFO] Caching Camunda distribution ${camunda_version} once for all nodes..."
-            # shellcheck disable=SC2086
-            if ! curl -fL ${netrc_opt} "${camunda_url}" -o "${tarball}"; then
+            if ! curl -fL "${netrc_opt[@]}" "${camunda_url}" -o "${tarball}"; then
                 echo "[WARN] Failed to cache Camunda distribution; nodes will download it individually."
                 rm -f "${tarball}"
             fi
@@ -116,8 +114,7 @@ warm_distro_cache() {
         local jar_url=""
         if [[ "${connectors_version}" =~ SNAPSHOT ]]; then
             local snap=""
-            # shellcheck disable=SC2086
-            snap=$(curl -sfL ${netrc_opt} "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${connectors_version}/maven-metadata.xml" | grep -A 1 "<extension>pom</extension>" | grep "<value>" | sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//' || true)
+            snap=$(curl -sfL "${netrc_opt[@]}" "https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${connectors_version}/maven-metadata.xml" | grep -A 1 "<extension>pom</extension>" | grep "<value>" | sed -e 's/<[^>]*>//g' -e 's/^[ \t]*//' || true)
             if [[ -n "${snap}" ]]; then
                 jar_url="https://artifacts.camunda.com/artifactory/connectors-snapshots/io/camunda/connector/connector-runtime-bundle/${connectors_version}/connector-runtime-bundle-${snap}-with-dependencies.jar"
             else
@@ -128,8 +125,7 @@ warm_distro_cache() {
         fi
         if [[ -n "${jar_url}" ]]; then
             echo "[INFO] Caching connectors bundle ${connectors_version} once for all nodes..."
-            # shellcheck disable=SC2086
-            if ! curl -fL ${netrc_opt} "${jar_url}" -o "${jar}"; then
+            if ! curl -fL "${netrc_opt[@]}" "${jar_url}" -o "${jar}"; then
                 echo "[WARN] Failed to cache connectors bundle; nodes will download it individually."
                 rm -f "${jar}"
             fi

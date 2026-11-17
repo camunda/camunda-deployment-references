@@ -167,7 +167,7 @@ cleanup_vpc_dependencies() {
     --output text --region "$region" 2>/dev/null)
   if [[ -n "$vpce_ids" && "$vpce_ids" != "None" ]]; then
     echo "  Deleting VPC Endpoints: $vpce_ids"
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2086 # word splitting is intended: one argument for each endpoint ID
     aws ec2 delete-vpc-endpoints --vpc-endpoint-ids $vpce_ids --region "$region" || true
   fi
 
@@ -381,7 +381,6 @@ extract_s3_bucket_names() {
 # Bypass the provider HTTP logger's Scanner limit. Drain one bounded page at a
 # time, then list from the beginning again: deleting versions invalidates the
 # need for continuation markers and keeps each delete request below 1000 items.
-# shellcheck disable=SC2329,SC2317
 remediate_s3_versions() {
   local group_id="$1" module_name="$2" output="$3"
   local buckets bucket region page payload result iteration

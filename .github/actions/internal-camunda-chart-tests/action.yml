@@ -177,6 +177,7 @@ runs:
               CAMUNDA_RELEASE_NAME: ${{ inputs.test-release-name }}
               INPUTS_KEYCLOAK_SERVICE_NAME: ${{ inputs.keycloak-service-name }}
               INPUTS_ELASTICSEARCH_SERVICE_NAME: ${{ inputs.elasticsearch-service-name }}
+          # no caller of this action runs on pull_request_target or workflow_run
           run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 

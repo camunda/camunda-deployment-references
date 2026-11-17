@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2155
 # The file is meant to be SOURCED, so it ends with `return`; when it is executed
 # directly `return` fails and `exit` takes over. shellcheck only sees the first
 # branch and reports the second as unreachable.
@@ -152,9 +151,9 @@ _multiregion_count() { echo "$#"; }
 # Word splitting is intentional here: the region lists are space-separated.
 # shellcheck disable=SC2086
 _aws_region_count="$(_multiregion_count $AWS_REGIONS)"
-# shellcheck disable=SC2086
+# shellcheck disable=SC2086 # word splitting is intended: the function counts the list entries
 _context_count="$(_multiregion_count $CLUSTER_CONTEXTS)"
-# shellcheck disable=SC2086
+# shellcheck disable=SC2086 # word splitting is intended: the function counts the list entries
 _submariner_id_count="$(_multiregion_count $SUBMARINER_CLUSTER_IDS)"
 
 if [ "$_aws_region_count" -lt "$CAMUNDA_ACTIVE_REGIONS" ] ||
@@ -171,7 +170,7 @@ fi
 
 # The zone replica layout is the one place an asymmetric topology can go wrong
 # silently, so it is validated rather than trusted.
-# shellcheck disable=SC2086
+# shellcheck disable=SC2086 # word splitting is intended: the function counts the list entries
 _zone_replica_count="$(_multiregion_count $CAMUNDA_ZONE_REPLICAS)"
 
 if [ "$_zone_replica_count" -ne "$CAMUNDA_REGION_SLOTS" ]; then

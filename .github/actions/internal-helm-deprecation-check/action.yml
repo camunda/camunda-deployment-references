@@ -212,6 +212,7 @@ runs:
               GH_ARCH: ${{ steps.gh-cli.outputs.arch }}
               INSTALL_DIR: ${{ steps.gh-cli.outputs.install-dir }}
               BIN_DIR: ${{ steps.gh-cli.outputs.bin-dir }}
+          # no caller of this action runs on pull_request_target or workflow_run
           run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
@@ -245,6 +246,7 @@ runs:
               INPUTS_NAMESPACE: ${{ inputs.namespace }}
               INPUTS_KUBE_CONTEXT: ${{ inputs.kube-context }}
               INPUTS_EXCLUDE_PATTERNS: ${{ inputs.exclude-patterns }}
+          # no caller of this action runs on pull_request_target or workflow_run
           run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 

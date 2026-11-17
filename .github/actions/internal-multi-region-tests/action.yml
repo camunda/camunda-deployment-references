@@ -105,6 +105,7 @@ runs:
     steps:
         - name: Set working directory
           shell: bash
+          # no caller of this action runs on pull_request_target or workflow_run
           run: echo "TEST_DIR=${TEST_DIR:-./aws/kubernetes/eks-dual-region/test}" >> "$GITHUB_ENV"  # zizmor: ignore[github-env]
 
         # Explicitly set up Go for caching of packages

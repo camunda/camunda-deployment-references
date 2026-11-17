@@ -140,6 +140,7 @@ runs:
         - name: Set AWS Region and associated AZs
           id: construct_azs
           shell: bash
+          # no caller of this action runs on pull_request_target or workflow_run
           run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 
@@ -170,6 +171,7 @@ runs:
         - name: Set Terraform variables
           id: set-terraform-variables
           shell: bash
+          # no caller of this action runs on pull_request_target or workflow_run
           run: |  # zizmor: ignore[github-env]
               set -euo pipefail
 

@@ -289,7 +289,7 @@ FAKE
     # shellcheck disable=SC2030
     export FAKE_CALLS="$eip_bin/calls"
     : >"$FAKE_CALLS"
-    # shellcheck disable=SC2030,SC2031
+    # shellcheck disable=SC2030,SC2031 # each case owns its subshell and its own fakes on PATH
     PATH="$eip_bin:$PATH"
     CLEANUP_REGIONS="eu-west-2 eu-west-3"
 

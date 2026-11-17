@@ -72,7 +72,7 @@ envsubst '${CAMUNDA_BASIC_AUTH_USER} ${CAMUNDA_BASIC_AUTH_PASSWORD}' \
     < "${SCRIPT_DIR}/camunda-environment.tmp" > "${SCRIPT_DIR}/camunda-environment.tmp.out" \
     && mv "${SCRIPT_DIR}/camunda-environment.tmp.out" "${SCRIPT_DIR}/camunda-environment.tmp"
 
-# shellcheck disable=SC2016
+# shellcheck disable=SC2016 # envsubst needs literal variable names
 envsubst '${CAMUNDA_BASIC_AUTH_USER} ${CAMUNDA_BASIC_AUTH_PASSWORD}' \
     < "${SCRIPT_DIR}/connectors-environment.tmp" > "${SCRIPT_DIR}/connectors-environment.tmp.out" \
     && mv "${SCRIPT_DIR}/connectors-environment.tmp.out" "${SCRIPT_DIR}/connectors-environment.tmp"
