@@ -64,7 +64,7 @@ jobs:
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@08f6922ee1aeb45b5270ff62ce582fa7d85428a1 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@3e556b42c8771fe1afb91361ae44e81367a37f5e # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -144,7 +144,7 @@ jobs:
                   persist-credentials: false
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
 
             - id: matrix
               # The dispatch input reaches the script through the environment, not through
@@ -241,7 +241,7 @@ jobs:
             # Inlining also drops the `pip install pre-commit` the action performs, which
             # installed the latest release over the version pinned in .tool-versions.
             - name: Install asdf tools
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
 
             - name: Cache pre-commit hook environments
               uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -260,7 +260,7 @@ jobs:
             # BASH_ENV able to intercept it.
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@08f6922ee1aeb45b5270ff62ce582fa7d85428a1 # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@3e556b42c8771fe1afb91361ae44e81367a37f5e # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -276,7 +276,7 @@ jobs:
                   vault-url: ${{ secrets.VAULT_ADDR }}
 
             - name: Create the schedule PR
-              uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+              uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8
               with:
                   token: ${{ steps.generate-github-token.outputs.token }}
                   branch: ${{ steps.branch-update.outputs.current_branch }}
@@ -315,7 +315,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}

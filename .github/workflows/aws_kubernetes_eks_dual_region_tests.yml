@@ -117,7 +117,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -154,7 +154,7 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
 
             - name: Import Secrets
               id: secrets
@@ -278,7 +278,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@08f6922ee1aeb45b5270ff62ce582fa7d85428a1 # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@3e556b42c8771fe1afb91361ae44e81367a37f5e # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -327,7 +327,7 @@ jobs:
                   } >> "$GITHUB_ENV"
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
 
             - name: Import Secrets
               id: secrets
@@ -595,7 +595,7 @@ jobs:
 
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -735,7 +735,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}
