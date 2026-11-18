@@ -208,7 +208,9 @@ runs:
               release-name: ${{ inputs.release-name }}
               namespace: ${{ inputs.cluster-0-namespace }}
               kube-context: ${{ inputs.cluster-0-name }}
-              exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
+              exclude-patterns: |
+                  Helm CLI v3
+                  ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-jwt-path: ${{ inputs.vault-jwt-path }}
@@ -223,7 +225,9 @@ runs:
               release-name: ${{ inputs.release-name }}
               namespace: ${{ inputs.cluster-1-namespace }}
               kube-context: ${{ inputs.cluster-1-name }}
-              exclude-patterns: ${{ inputs.exclude-deprecation-patterns }}
+              exclude-patterns: |
+                  Helm CLI v3
+                  ${{ inputs.exclude-deprecation-patterns }}
               check-unknown-keys: ${{ inputs.check-unknown-keys }}
               vault-addr: ${{ inputs.vault-addr }}
               vault-jwt-path: ${{ inputs.vault-jwt-path }}
