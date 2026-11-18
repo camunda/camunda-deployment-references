@@ -51,6 +51,7 @@ OPERATOR_JAVA_OPTS="$(kubectl get deployment/keycloak-operator -n "$CAMUNDA_NAME
 if [[ " $OPERATOR_JAVA_OPTS " != *" $OPERATOR_JAVA_FLAG "* ]]; then
   kubectl set env deployment/keycloak-operator -n "$CAMUNDA_NAMESPACE" \
     "JDK_JAVA_OPTIONS=${OPERATOR_JAVA_OPTS:+$OPERATOR_JAVA_OPTS }${OPERATOR_JAVA_FLAG}"
+  kubectl rollout status deployment/keycloak-operator -n "$CAMUNDA_NAMESPACE" --timeout=300s
 fi
 
 # Wait for operator to be ready
