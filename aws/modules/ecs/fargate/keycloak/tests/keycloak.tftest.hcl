@@ -90,3 +90,26 @@ run "extra_task_role_attachments_count_matches_var" {
     error_message = "extra_task_role_attachments should produce one IAM attachment per ARN"
   }
 }
+
+run "java_flag_added_when_no_java_opts_set" {
+  command = plan
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.keycloak.container_definitions, "-XX:-UseBASE64Intrinsics")
+    error_message = "The Base64 intrinsic mitigation flag must be set by default"
+  }
+}
+
+run "java_flag_appended_to_caller_java_opts" {
+  command = plan
+  variables {
+    environment_variables = [{ name = "JAVA_OPTS_APPEND", value = "-Xlog:gc" }]
+  }
+  assert {
+    condition     = strcontains(aws_ecs_task_definition.keycloak.container_definitions, "-Xlog:gc -XX:-UseBASE64Intrinsics")
+    error_message = "Caller JAVA_OPTS_APPEND must be preserved with the mitigation flag appended"
+  }
+  assert {
+    condition     = length(regexall("JAVA_OPTS_APPEND", aws_ecs_task_definition.keycloak.container_definitions)) == 1
+    error_message = "JAVA_OPTS_APPEND must be declared exactly once"
+  }
+}
