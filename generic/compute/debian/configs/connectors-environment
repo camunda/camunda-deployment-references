@@ -1,3 +1,6 @@
+# Interim mitigation for the OpenJDK Base64 intrinsic flaw; remove once the JDK is patched.
+JAVA_OPTS="-XX:-UseBASE64Intrinsics"
+
 # Change default port to not clash with the orchestration cluster
 SERVER_PORT=9090
 LOGGING_LEVEL_IO_CAMUNDA_CONNECTOR=ERROR
