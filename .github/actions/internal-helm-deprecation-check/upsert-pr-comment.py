@@ -91,6 +91,10 @@ def gh_api(
             f"GitHub API {method} {path} failed ({exc.code}): "
             f"{payload.decode('utf-8', errors='replace')}"
         ) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(
+            f"GitHub API {method} {path} unreachable: {exc.reason}"
+        ) from exc
 
 
 def find_existing_comment(repo: str, pr_number: int) -> dict | None:
