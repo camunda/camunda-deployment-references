@@ -52,8 +52,8 @@ runs:
                 exit 0
               fi
 
-              out_dir="${RUNNER_TEMP}/encrypted-artifact-$(uuidgen)"
-              mkdir -p "$out_dir"
+              # mktemp, not uuidgen: self-hosted runners do not ship uuidgen.
+              out_dir="$(mktemp -d "${RUNNER_TEMP}/encrypted-artifact-XXXXXX")"
               out_file="${out_dir}/artifact.tar.gz.enc"
               tar -czf - "${files[@]}" \
                 | openssl enc -aes-256-cbc -salt -pbkdf2 -pass env:INPUTS_ENCRYPTION_KEY -out "$out_file"
