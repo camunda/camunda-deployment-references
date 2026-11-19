@@ -73,7 +73,9 @@ jobs:
               working-directory: aws/common/procedure/s3-bucket
               run: |
                   set -euo pipefail
-                  export BUCKET_NAME="camunda-s3-tf-docs-$(date +%s)-$(cat /proc/sys/kernel/random/uuid | head -c 8)"
+                  # Preserve export's original behavior of masking substitution failures.
+                  BUCKET_NAME="camunda-s3-tf-docs-$(date +%s)-$(cat /proc/sys/kernel/random/uuid | head -c 8)" || true
+                  export BUCKET_NAME
                   echo "BUCKET_NAME=$BUCKET_NAME" | tee -a "$GITHUB_ENV"
 
                   sed -i "s/^export S3_TF_BUCKET_NAME=\".*\"/export S3_TF_BUCKET_NAME=\"$BUCKET_NAME\"/" ./s3-bucket-creation.sh
