@@ -1,6 +1,8 @@
 #!/bin/bash
 
-export AZURE_SUBSCRIPTION_ID=$(az account show --query "id" -o tsv)
+# Preserve export's masked substitution status when errexit is enabled.
+AZURE_SUBSCRIPTION_ID=$(az account show --query "id" -o tsv) || true
+export AZURE_SUBSCRIPTION_ID
 
 cat <<EOF > terraform.tfvars
 subscription_id     = "$AZURE_SUBSCRIPTION_ID"

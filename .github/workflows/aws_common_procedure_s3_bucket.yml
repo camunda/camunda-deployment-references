@@ -58,7 +58,7 @@ jobs:
             - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
@@ -73,7 +73,9 @@ jobs:
               working-directory: aws/common/procedure/s3-bucket
               run: |
                   set -euo pipefail
-                  export BUCKET_NAME="camunda-s3-tf-docs-$(date +%s)-$(uuidgen | head -c 8)"
+                  # Preserve export's original behavior of masking substitution failures.
+                  BUCKET_NAME="camunda-s3-tf-docs-$(date +%s)-$(uuidgen | head -c 8)" || true
+                  export BUCKET_NAME
                   echo "BUCKET_NAME=$BUCKET_NAME" | tee -a "$GITHUB_ENV"
 
                   sed -i "s/^export S3_TF_BUCKET_NAME=\".*\"/export S3_TF_BUCKET_NAME=\"$BUCKET_NAME\"/" ./s3-bucket-creation.sh
@@ -181,7 +183,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}
