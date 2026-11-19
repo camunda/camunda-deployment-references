@@ -3,7 +3,7 @@
 # by the "Apply CI ECK overlay" step in the migration workflow.
 #
 # These settings optimise for Kind clusters running on a single CI runner
-# (16 vCPU, ~50 GB RAM) where source (Bitnami) and target (ECK) ES share
+# (16 to 32 vCPU) where source (Bitnami) and target (ECK) ES share
 # the same nodes.  DO NOT use in production.
 metadata:
     name: ${ECK_CLUSTER_NAME}

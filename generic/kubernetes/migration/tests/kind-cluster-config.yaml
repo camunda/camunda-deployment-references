@@ -4,7 +4,7 @@
 # with an extra worker node — migration requires more capacity (Bitnami source
 # deployment + operator-based target deployment running side-by-side).
 #
-# Target runner: aws-core-16-longrunning (16 vCPU, ~50 GB RAM)
+# Target runners: aws-core-32-longrunning (heavy scenario), aws-core-16-default (light scenario)
 
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
