@@ -73,6 +73,7 @@ for ip in "${IPS[@]}"; do
 done
 
 ips_list=${ips_list%,}
+# shellcheck disable=SC2034 # read by the sourced camunda-configure.sh
 total_ip_count=${#IPS[@]}
 
 # Optionally pre-download the artifacts once for all nodes (no-op unless the cache helper above is

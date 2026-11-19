@@ -10,6 +10,7 @@ transfer_file() {
   local file_name="$3"
 
 # We cannot directly transfer file to the desition due to ownership issues
+  # shellcheck disable=SC2154 # ip is set by the loop of the sourcing script
   sftp -J "${ADMIN_USERNAME}@${BASTION_IP}" "${ADMIN_USERNAME}@${ip}" <<EOF
 put "${source}"
 bye
