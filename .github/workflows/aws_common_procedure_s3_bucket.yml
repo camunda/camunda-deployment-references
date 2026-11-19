@@ -41,6 +41,7 @@ jobs:
         name: Verify S3 related doc scripts
         runs-on: ubuntu-latest
         needs: triage
+        if: needs.triage.outputs.should_skip == 'false'
 
         steps:
             - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
