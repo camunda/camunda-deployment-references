@@ -16,7 +16,8 @@ name: Internal - Global - Pull Request Labeler
 # `.github/labeler.yml` -- so that trigger could never fire. Removed rather than
 # repaired: `pull_request_target` already covers every pull request.
 on:
-    pull_request_target:
+    # no checkout; actions/labeler reads the diff through the API
+    pull_request_target: # zizmor: ignore[dangerous-triggers]
     schedule:
         - cron: 0 1 * * 1
 
@@ -34,7 +35,7 @@ jobs:
             - name: Notify in Slack in case of failure
               id: slack-notification
               if: failure()
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}

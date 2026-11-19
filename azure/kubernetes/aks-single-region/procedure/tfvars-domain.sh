@@ -1,11 +1,14 @@
 #!/bin/bash
 
-export AZURE_SUBSCRIPTION_ID=$(az account show --query "id" -o tsv)
+# Preserve export's masked substitution status when errexit is enabled.
+AZURE_SUBSCRIPTION_ID=$(az account show --query "id" -o tsv) || true
+export AZURE_SUBSCRIPTION_ID
 
-export AZURE_DNS_ZONE_ID=$(az network dns zone show \
+AZURE_DNS_ZONE_ID=$(az network dns zone show \
   --name "$TLD" \
   --resource-group "$AZURE_DNS_RESOURCE_GROUP" \
-  --query "id" -o tsv)
+  --query "id" -o tsv) || true
+export AZURE_DNS_ZONE_ID
 
 cat <<EOF > terraform.tfvars
 subscription_id     = "$AZURE_SUBSCRIPTION_ID"
