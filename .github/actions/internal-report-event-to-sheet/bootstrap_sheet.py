@@ -66,7 +66,7 @@ EVENTS_COL_COUNT = len(HEADERS)
 
 # Google Sheets date-time epoch (serial 0 == 1899-12-30), used to migrate any
 # legacy text timestamps in column A to real, natively-parseable date serials.
-_SHEETS_EPOCH = datetime.datetime(1899, 12, 30, tzinfo=datetime.timezone.utc)
+_SHEETS_EPOCH = datetime.datetime(1899, 12, 30, tzinfo=datetime.UTC)
 
 
 def _to_serial(value):
@@ -86,7 +86,7 @@ def _to_serial(value):
     for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d %H:%M:%S"):
         try:
             dt = datetime.datetime.strptime(text, fmt).replace(
-                tzinfo=datetime.timezone.utc
+                tzinfo=datetime.UTC
             )
         except ValueError:
             continue

@@ -1,11 +1,16 @@
 #!/bin/bash
 
-export AURORA_ENDPOINT="$(terraform output -raw postgres_endpoint)"
+# Preserve export's masked substitution status when errexit is enabled.
+AURORA_ENDPOINT="$(terraform output -raw postgres_endpoint)" || true
+export AURORA_ENDPOINT
 export AURORA_PORT=5432
 
 # PostgreSQL Credentials
-export AURORA_USERNAME="$(terraform output -raw aurora_master_username)"
-export AURORA_PASSWORD="$(terraform output -raw aurora_master_password)"
+AURORA_USERNAME="$(terraform output -raw aurora_master_username)" || true
+export AURORA_USERNAME
+AURORA_PASSWORD="$(terraform output -raw aurora_master_password)" || true
+export AURORA_PASSWORD
 
 # PostgreSQL Major Version (e.g. 17)
-export POSTGRES_MAJOR_VERSION="$(terraform output -raw postgres_major_version)"
+POSTGRES_MAJOR_VERSION="$(terraform output -raw postgres_major_version)" || true
+export POSTGRES_MAJOR_VERSION

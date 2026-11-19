@@ -2,11 +2,13 @@
 
 export AZURE_TF_KEY="camunda-terraform/terraform.tfstate"
 
-export ARM_ACCESS_KEY=$(az storage account keys list \
+# Preserve export's masked substitution status when errexit is enabled.
+ARM_ACCESS_KEY=$(az storage account keys list \
   --resource-group "$RESOURCE_GROUP_NAME" \
   --account-name "$AZURE_STORAGE_ACCOUNT_NAME" \
   --query '[0].value' \
-  --output tsv)
+  --output tsv) || true
+export ARM_ACCESS_KEY
 
 echo "Storing Terraform state in https://$AZURE_STORAGE_ACCOUNT_NAME.blob.core.windows.net/$AZURE_STORAGE_CONTAINER_NAME/$AZURE_TF_KEY"
 
