@@ -328,7 +328,7 @@ func (suite *CustomEKSOpenSearchTestSuite) TestCustomEKSAndOpenSearch() {
 	if err != nil && !errors.IsNotFound(err) {
 		suite.Require().NoError(err)
 	}
-	_, err = kubeClient.CoreV1().ConfigMaps(openSearchNamespace).Create(context.Background(), configMapScript, metav1.CreateOptions{})
+	_, _ = kubeClient.CoreV1().ConfigMaps(openSearchNamespace).Create(context.Background(), configMapScript, metav1.CreateOptions{})
 	k8s.WaitUntilConfigMapAvailable(suite.T(), openSearchKubectlOptions, configMapScript.Name, 6, 10*time.Second)
 
 	// cleanup existing jobs
