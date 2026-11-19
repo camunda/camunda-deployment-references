@@ -11,12 +11,12 @@ import (
 
 	"multiregiontests/internal/helpers"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	eks_types "github.com/aws/aws-sdk-go-v2/service/eks/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/gruntwork-io/terratest/modules/terraform"
@@ -249,7 +249,7 @@ func generateAndApplyCoreDNSManifest(t *testing.T, targetCluster helpers.Cluster
 	fileContent := string(content)
 
 	// Replace the placeholder with the accumulated replacement string
-	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", dnsEntries, -1)
+	modifiedContent := strings.ReplaceAll(fileContent, "PLACEHOLDER", dnsEntries)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)

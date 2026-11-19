@@ -177,7 +177,7 @@ func (suite *UpgradeEKSTestSuite) TestUpgradeEKS() {
 
 	// Now we verify that the service will successfully boot and start serving requests
 	service := k8s.GetService(suite.T(), kubeCtlOptions, "whoami-service")
-	portForwardProc1 := k8s.NewTunnel(kubeCtlOptions, k8s.ResourceTypeService, service.ObjectMeta.Name, 0, 80)
+	portForwardProc1 := k8s.NewTunnel(kubeCtlOptions, k8s.ResourceTypeService, service.Name, 0, 80)
 	defer portForwardProc1.Close()
 	portForwardProc1.ForwardPort(suite.T())
 
@@ -251,7 +251,7 @@ func (suite *UpgradeEKSTestSuite) TestUpgradeEKS() {
 
 	// Forward port again
 	service = k8s.GetService(suite.T(), kubeCtlOptions, "whoami-service")
-	portForwardProc2 := k8s.NewTunnel(kubeCtlOptions, k8s.ResourceTypeService, service.ObjectMeta.Name, 0, 80)
+	portForwardProc2 := k8s.NewTunnel(kubeCtlOptions, k8s.ResourceTypeService, service.Name, 0, 80)
 	defer portForwardProc2.Close()
 	portForwardProc2.ForwardPort(suite.T())
 
