@@ -376,7 +376,7 @@ func extractZip(zipPath, dest string) error {
 	return nil
 }
 
-func logsCmd() *cobra.Command {
+func logsCmd() *cobra.Command { //nolint:gocognit // no test covers this command, so a split cannot be proven safe
 	var (
 		filter   string
 		tailN    int

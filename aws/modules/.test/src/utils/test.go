@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -26,7 +27,7 @@ func DeferCleanup(t *testing.T, bucketRegion string, terraformOptions *terraform
 	}
 
 	destroyTerraform := func() {
-		terraform.Destroy(t, terraformOptions)
+		terraform.DestroyContext(t, context.Background(), terraformOptions)
 		deleteObjectsFromS3()
 	}
 
