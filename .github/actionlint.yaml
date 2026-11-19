@@ -5,3 +5,4 @@ self-hosted-runner:
         - aws-core-8-default
         - aws-core-16-default
         - aws-core-16-longrunning
+        - aws-core-32-longrunning

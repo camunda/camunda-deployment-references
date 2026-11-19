@@ -27,7 +27,8 @@ env:
 jobs:
     run:
         name: ${{ matrix.distro.name }} - ${{ matrix.scenario.name }}
-        runs-on: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && 'aws-core-16-longrunning' ||
+        # shortcut: interim, switch to aws-core-*-longrunning-big-ssd once camunda/team-infrastructure#1084 ships
+        runs-on: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && 'aws-core-32-longrunning' ||
             'aws-core-16-default' }}
         timeout-minutes: ${{ (matrix.distro.benchmark_scenario || github.event.inputs.benchmark_scenario || 'light') == 'heavy' && 150 || 60 }}
         strategy:
