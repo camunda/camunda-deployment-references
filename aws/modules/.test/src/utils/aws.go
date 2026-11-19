@@ -76,9 +76,21 @@ func UpgradeEKS(ctx context.Context, client *eks.Client, clusterName, version st
 		Version: &version,
 	}
 
-	output, err := client.UpdateClusterVersion(ctx, input)
-	if err != nil {
-		return err
+	// EKS rejects a version update while another update (add-on, node group, config) runs: wait and retry.
+	var output *eks.UpdateClusterVersionOutput
+	var err error
+	deadline := time.Now().Add(30 * time.Minute)
+	for {
+		output, err = client.UpdateClusterVersion(ctx, input)
+		var inUse *types.ResourceInUseException
+		if err == nil {
+			break
+		}
+		if !errors.As(err, &inUse) || time.Now().After(deadline) {
+			return err
+		}
+		fmt.Printf("Another update is in progress on %s, retrying in 30s: %v\n", clusterName, err)
+		time.Sleep(30 * time.Second)
 	}
 
 	fmt.Printf("Update initiated, update ID: %s\n", *output.Update.Id)
