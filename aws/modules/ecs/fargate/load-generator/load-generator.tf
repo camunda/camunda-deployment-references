@@ -57,7 +57,7 @@ locals {
 
       # JAVA_TOOL_OPTIONS, not JDK_JAVA_OPTIONS: the image sets the latter to
       # -XX:MaxRAMPercentage=75.0, and overriding it drops the heap to 25%.
-      { name = "JAVA_TOOL_OPTIONS", value = "-XX:+HeapDumpOnOutOfMemoryError" },
+      { name = "JAVA_TOOL_OPTIONS", value = "-XX:+HeapDumpOnOutOfMemoryError -XX:-UseBASE64Intrinsics" },
       { name = "LOGGING_LEVEL_ROOT", value = var.log_level },
     ],
     local.auth_environment,

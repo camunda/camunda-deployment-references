@@ -1,3 +1,15 @@
+locals {
+  # Interim mitigation for the OpenJDK Base64 intrinsic flaw; remove once the JDK is patched.
+  # A caller-supplied JAVA_OPTS_APPEND is kept and the flag is appended to it.
+  java_environment_variables = concat(
+    [for e in var.environment_variables : e if e.name != "JAVA_OPTS_APPEND"],
+    [{
+      name  = "JAVA_OPTS_APPEND"
+      value = join(" ", concat([for e in var.environment_variables : e.value if e.name == "JAVA_OPTS_APPEND"], ["-XX:-UseBASE64Intrinsics"]))
+    }],
+  )
+}
+
 resource "aws_ecs_task_definition" "keycloak" {
   family                   = "${var.prefix}-keycloak"
   execution_role_arn       = var.ecs_task_execution_role_arn
@@ -20,7 +32,7 @@ resource "aws_ecs_task_definition" "keycloak" {
     log_group_name           = var.log_group_name
     has_secrets              = length(var.secrets) > 0
     secrets_json             = jsonencode(var.secrets)
-    env_vars_json            = jsonencode(var.environment_variables)
+    env_vars_json            = jsonencode(local.java_environment_variables)
     realm_import             = var.enable_realm_import
   })
 

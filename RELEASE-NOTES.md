@@ -4,6 +4,10 @@
 
 Changes will appear here during the development cycle.
 
+### All reference architectures
+
+- The Java workloads now start with `-XX:-UseBASE64Intrinsics`, an interim mitigation for CVE-2026-114938 until patched JDKs ship. The flag is added after the options you already set, so it does not replace them. It applies to the EC2 orchestration cluster and Connectors, ECK Elasticsearch, the Keycloak server, the Keycloak Operator, and the ECS Fargate Java tasks. Existing deployments get the flag on the next redeploy or restart ([#4116](https://github.com/camunda/camunda-deployment-references/pull/4116)).
+
 ### AWS ECS Fargate and AWS EKS
 
 - ECS and EKS `aurora_settled_global()` waits until a global cluster member reports `IsWriter` before the failover reads the topology. Before, it could read a topology with no writer right after a global cluster membership change. Tune it with `AURORA_WRITER_TRIES` (default 12) and `AURORA_WRITER_POLL_SECONDS` (default 15) ([#3971](https://github.com/camunda/camunda-deployment-references/pull/3971)).
