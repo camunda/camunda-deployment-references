@@ -44,7 +44,14 @@ case "$svc $op" in
     [[ -z "${FAKE_LIST_FAIL:-}" ]] || { echo AccessDenied >&2; exit 1; }
     cat "$FAKE_S3"/*.key 2>/dev/null | jq -R -s --arg p "$prefix" 'split("\n") | map(select(. != "" and startswith($p)))' ||
         echo '[]' ;;
-"service-quotas get-service-quota") echo "$FAKE_QUOTA" ;;
+"service-quotas get-service-quota")
+    echo . >>"$FAKE_S3/quota-calls"
+    if [[ -s "$FAKE_S3/quota-fails" ]] && n=$(<"$FAKE_S3/quota-fails") && ((n > 0)); then
+        echo $((n - 1)) >"$FAKE_S3/quota-fails"
+        echo "An error occurred (408)" >&2
+        exit 1
+    fi
+    echo "$FAKE_QUOTA" ;;
 *) echo "$FAKE_USAGE" ;;
 esac
 EOF
@@ -115,6 +122,20 @@ _expect "a holder without a recorded window keeps 90 minutes" \
 POOL=w OWNER=run-w SLOT_KEY='' "$here/slot.sh" release >/dev/null 2>&1
 _expect "a new slot records its window" \
     "$(rm -f "$FAKE_S3"/ci-locks_old_slot-0*; PROVISION_MINUTES=30 POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=1' run; jq .provision_minutes "$FAKE_S3"/ci-locks_w_slot-0)" $'acquired\n30'
+
+rm -f "$FAKE_S3"/ci-locks_w_slot-0*
+echo 2 >"$FAKE_S3/quota-fails"
+_expect "a transient lookup error is retried" \
+    "$(LOOKUP_BACKOFF=0 POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=1' run)" acquired
+calls() { wc -l <"$FAKE_S3/quota-calls" | tr -d ' '; }
+rm -f "$FAKE_S3"/ci-locks_w_slot-0* "$FAKE_S3/quota-calls"
+echo 9 >"$FAKE_S3/quota-fails"
+_expect "a persistent lookup error still fails the run" \
+    "$(LOOKUP_ATTEMPTS=3 LOOKUP_BACKOFF=0 POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=1' run)" refused
+_expect "a persistent lookup error stops at LOOKUP_ATTEMPTS" "$(calls)" 3
+rm -f "$FAKE_S3/quota-fails" "$FAKE_S3/quota-calls"
+_expect "a non-numeric lookup result fails without a retry" \
+    "$(FAKE_QUOTA=abc LOOKUP_BACKOFF=0 POOL=w OWNER=run-w REGIONS=us-east-1 NEEDS=$'vpcs=1' run; calls)" $'refused\n1'
 
 echo "${failures} failure(s)"
 [[ "$failures" -eq 0 ]]
