@@ -302,7 +302,8 @@ func (suite *CustomEKSRDSTestSuite) TestCustomEKSAndRDS() {
 	if err != nil && !errors.IsNotFound(err) {
 		suite.Require().NoError(err)
 	}
-	_, _ = kubeClient.CoreV1().ConfigMaps(auroraNamespace).Create(context.Background(), configMapPostgres, metav1.CreateOptions{})
+	_, err = kubeClient.CoreV1().ConfigMaps(auroraNamespace).Create(context.Background(), configMapPostgres, metav1.CreateOptions{})
+	suite.Require().NoError(err)
 	k8s.WaitUntilConfigMapAvailable(suite.T(), pgKubeCtlOptions, configMapPostgres.Name, 6, 10*time.Second)
 
 	// create the secret for aurora pg password
@@ -319,7 +320,8 @@ func (suite *CustomEKSRDSTestSuite) TestCustomEKSAndRDS() {
 	if err != nil && !errors.IsNotFound(err) {
 		suite.Require().NoError(err)
 	}
-	_, _ = kubeClient.CoreV1().Secrets(auroraNamespace).Create(context.Background(), secretPostgres, metav1.CreateOptions{})
+	_, err = kubeClient.CoreV1().Secrets(auroraNamespace).Create(context.Background(), secretPostgres, metav1.CreateOptions{})
+	suite.Require().NoError(err)
 	k8s.WaitUntilSecretAvailable(suite.T(), pgKubeCtlOptions, secretPostgres.Name, 6, 10*time.Second)
 
 	// cleanup existing jobs
