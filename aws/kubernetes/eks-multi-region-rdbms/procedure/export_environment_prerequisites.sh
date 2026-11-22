@@ -104,7 +104,7 @@ export CAMUNDA_ZONE_REPLICAS
 #
 # TODO: [release-duty] use the published 8.11 chart (16.x) when available.
 # renovate-helm-main: digest tracked against camunda-platform-helm main
-export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-4e72ccf4ef8fec000704d342110149a701594087}"
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-462477b3691f652b1ef31eefb4316bc4cf14a09f}"
 
 # TODO: [release-duty] drop the source build and switch HELM_CHART_REF to
 # https://helm.camunda.io when the published 8.11 chart (16.x) is available.
