@@ -24,7 +24,7 @@ module "eks_cluster" {
 ## Modules
 
 | Name | Source | Version |
-|------|--------|---------|
+| ---- | ------ | ------- |
 | <a name="module_cert_manager_role"></a> [cert\_manager\_role](#module\_cert\_manager\_role) | terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts | 6.2.3 |
 | <a name="module_ebs_cs_role"></a> [ebs\_cs\_role](#module\_ebs\_cs\_role) | terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts | 6.2.3 |
 | <a name="module_eks"></a> [eks](#module\_eks) | terraform-aws-modules/eks/aws | 21.3.2 |
@@ -33,7 +33,7 @@ module "eks_cluster" {
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [aws_iam_policy.cert_manager_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.ebs_sc_access](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.ebs_sc_access_2](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
@@ -51,7 +51,7 @@ module "eks_cluster" {
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_access_entries"></a> [access\_entries](#input\_access\_entries) | Map of access entries to add to the cluster. | `any` | `{}` | no |
 | <a name="input_authentication_mode"></a> [authentication\_mode](#input\_authentication\_mode) | The authentication mode for the cluster. | `string` | `"API"` | no |
 | <a name="input_availability_zones"></a> [availability\_zones](#input\_availability\_zones) | A list of availability zone names in the region. By default, this is set to `null` and is not used; instead, `availability_zones_count` manages the number of availability zones. This value should not be updated directly. To make changes, please create a new resource. | `list(string)` | `null` | no |
@@ -60,7 +60,7 @@ module "eks_cluster" {
 | <a name="input_cluster_service_ipv4_cidr"></a> [cluster\_service\_ipv4\_cidr](#input\_cluster\_service\_ipv4\_cidr) | The CIDR block to assign Kubernetes service IP addresses from. Between /24 and /12. | `string` | `"10.190.0.0/16"` | no |
 | <a name="input_cluster_tags"></a> [cluster\_tags](#input\_cluster\_tags) | A map of additional tags to add to the cluster | `map(string)` | `{}` | no |
 | <a name="input_enable_cluster_creator_admin_permissions"></a> [enable\_cluster\_creator\_admin\_permissions](#input\_enable\_cluster\_creator\_admin\_permissions) | Indicates whether or not to add the cluster creator (the identity used by Terraform) as an administrator via access entry. | `bool` | `true` | no |
-| <a name="input_expose_public_elb"></a> [expose\_public\_elb](#input\_expose\_public\_elb) | If true, expose ELB resources on the public network. By default, takes the value of !var.private\_vpc, but can be explicitly set to enable private VPC while still exposing services publicly. | `bool` | `null` | no |
+| <a name="input_expose_public_elb"></a> [expose\_public\_elb](#input\_expose\_public\_elb) | If true, tag the public subnets with kubernetes.io/role/elb so that internet-facing load balancers prefer them. By default, takes the value of !var.private\_vpc. This tag does not prevent internet-facing load balancers: use the aws-load-balancer-internal Service annotation to keep a load balancer private. | `bool` | `null` | no |
 | <a name="input_kms_key_tags"></a> [kms\_key\_tags](#input\_kms\_key\_tags) | The tags to associate with the KMS key. | `map(string)` | `{}` | no |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes version to be used by EKS | `string` | `"1.34"` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name being used for relevant resources - including EKS cluster name | `string` | n/a | yes |
@@ -72,13 +72,13 @@ module "eks_cluster" {
 | <a name="input_np_labels"></a> [np\_labels](#input\_np\_labels) | A map of labels to add to the default pool nodes | `map(string)` | `{}` | no |
 | <a name="input_np_max_node_count"></a> [np\_max\_node\_count](#input\_np\_max\_node\_count) | Maximum number of nodes for the default node pool | `number` | `10` | no |
 | <a name="input_np_min_node_count"></a> [np\_min\_node\_count](#input\_np\_min\_node\_count) | Minimum number of nodes for the default node pool | `number` | `1` | no |
-| <a name="input_private_vpc"></a> [private\_vpc](#input\_private\_vpc) | If true, create only private subnets without public subnets or NAT gateways. | `bool` | `false` | no |
+| <a name="input_private_vpc"></a> [private\_vpc](#input\_private\_vpc) | If true, disable the public Kubernetes API endpoint and do not tag the public subnets for load balancers. Public subnets and NAT gateways are still created for outbound traffic, so this does not make Service load balancers internal: annotate the Service with service.beta.kubernetes.io/aws-load-balancer-internal=true for that. | `bool` | `false` | no |
 | <a name="input_region"></a> [region](#input\_region) | The region where the cluster and relevant resources should be deployed in | `string` | n/a | yes |
 | <a name="input_single_nat_gateway"></a> [single\_nat\_gateway](#input\_single\_nat\_gateway) | If set to true, a single NAT Gateway will be created for the VPC. If set to false, a NAT Gateway will be created for each subnet and requiring an IP per subnet. | `bool` | `false` | no |
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_access_entries"></a> [access\_entries](#output\_access\_entries) | Map of access entries created and their attributes |
 | <a name="output_aws_caller_identity_account_id"></a> [aws\_caller\_identity\_account\_id](#output\_aws\_caller\_identity\_account\_id) | Account ID of the current AWS account |
 | <a name="output_cert_manager_arn"></a> [cert\_manager\_arn](#output\_cert\_manager\_arn) | Amazon Resource Name of the cert-manager IAM role used for IAM Roles to Service Accounts mappings |
