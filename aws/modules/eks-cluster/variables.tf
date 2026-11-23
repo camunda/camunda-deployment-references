@@ -113,13 +113,13 @@ variable "availability_zones" {
 }
 
 variable "private_vpc" {
-  description = "If true, create only private subnets without public subnets or NAT gateways."
+  description = "If true, disable the public Kubernetes API endpoint and do not tag the public subnets for load balancers. Public subnets and NAT gateways are still created for outbound traffic, so this does not make Service load balancers internal: annotate the Service with service.beta.kubernetes.io/aws-load-balancer-internal=true for that."
   type        = bool
   default     = false
 }
 
 variable "expose_public_elb" {
-  description = "If true, expose ELB resources on the public network. By default, takes the value of !var.private_vpc, but can be explicitly set to enable private VPC while still exposing services publicly."
+  description = "If true, tag the public subnets with kubernetes.io/role/elb so that internet-facing load balancers prefer them. By default, takes the value of !var.private_vpc. This tag does not prevent internet-facing load balancers: use the aws-load-balancer-internal Service annotation to keep a load balancer private."
   type        = bool
   default     = null
 }
