@@ -160,6 +160,10 @@ runs:
                       [[ -n "$lb_host" ]] && break
                       sleep 5
                   done
+                  if [[ -z "$lb_host" ]]; then
+                      echo "❌ ERROR: ${map_lb_service} has no load balancer hostname after 300s." >&2
+                      exit 1
+                  fi
                   lb_scheme=$(aws elbv2 describe-load-balancers --region "${INPUTS_AWS_REGION}" \
                       --query "LoadBalancers[?DNSName=='${lb_host}'].Scheme" --output text)
                   if [[ "$lb_scheme" != "internal" ]]; then
