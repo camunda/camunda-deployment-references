@@ -103,7 +103,7 @@ jobs:
                   persist-credentials: false
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ab4b2b3604eea14f2b41b77bbc9a66bbf2e51df4 # 3.0.13
 
             - name: Import Secrets
               id: secrets
@@ -206,7 +206,7 @@ jobs:
         permissions:
             contents: read
             id-token: write # required for Vault JWT login
-        uses: camunda/infraex-common-config/.github/workflows/commit-patch-global.yml@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
+        uses: camunda/infraex-common-config/.github/workflows/commit-patch-global.yml@ab4b2b3604eea14f2b41b77bbc9a66bbf2e51df4 # 3.0.13
         with:
             # Literals, deliberately, and not read from `regenerate`'s outputs: that job runs
             # branch code, which can write to $GITHUB_ENV and so influence anything it

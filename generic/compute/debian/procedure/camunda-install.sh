@@ -13,7 +13,7 @@ OPENJDK_VERSION=${OPENJDK_VERSION:-"21"}
 # renovate: datasource=github-releases depName=camunda/camunda versioning=regex:^8\.10(\.(?<patch>\d+))?$
 CAMUNDA_VERSION=${CAMUNDA_VERSION:-"8.10.10"}
 # renovate: datasource=github-releases depName=camunda/connectors versioning=regex:^8\.10(\.(?<patch>\d+))?$
-CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.10.6"}
+CAMUNDA_CONNECTORS_VERSION=${CAMUNDA_CONNECTORS_VERSION:-"8.10.8"}
 
 MNT_DIR=${MNT_DIR:-"/opt/camunda"}
 USERNAME=${USERNAME:-"camunda"}

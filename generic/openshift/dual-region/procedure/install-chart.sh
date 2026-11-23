@@ -57,7 +57,7 @@ _repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 # below is a commit on that branch, bumped by Renovate as main moves.
 # TODO: [release-duty] use the published 8.11 chart (16.x) when available.
 # renovate-helm-main: digest tracked against camunda-platform-helm main
-export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-462477b3691f652b1ef31eefb4316bc4cf14a09f}"
+export CAMUNDA_HELM_CHART_GIT_REF="${CAMUNDA_HELM_CHART_GIT_REF:-ba73670536d764f35a009ad45d2d3ec145ccc9ef}"
 LOCAL_CHART="$("$_repo_root/generic/kubernetes/single-region/procedure/build-camunda-chart.sh")"
 
 # Resolve the broker image of the chart being installed so the cross-region
