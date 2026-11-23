@@ -333,8 +333,6 @@ jobs:
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
                 exclude:
-                    # ingress-nginx is archived upstream and affected by CVE-2026-123007 (HTTP/2 RCE), and this
-                    # cluster is not in a private VPC, so skip the EKS domain setup that installs it behind a public NLB.
                     - distro:
                           type: eks
                       declination:
