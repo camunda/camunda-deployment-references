@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# Private cluster (private_vpc = true): the public subnets still exist, so the load balancer is
+# internet-facing by default. To keep it reachable only from the VPC (and its VPN), add:
+#   --set-string 'envoy.service.annotations.service\.beta\.kubernetes\.io/aws-load-balancer-internal=true' \
+
 helm upgrade --install \
   contour contour \
   --repo https://projectcontour.github.io/helm-charts/ \
