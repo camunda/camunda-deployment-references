@@ -711,6 +711,7 @@ jobs:
               timeout-minutes: 15
               uses: ./.github/actions/aws-kubernetes-ingress-setup
               with:
+                  internal-lb: ${{ matrix.scenario.private_vpc }}
                   cluster-name: ${{ matrix.distro.clusterName }}
                   scenario-short-name: ${{ matrix.scenario.shortName }}
                   aws-region: ${{ env.AWS_REGION }}
