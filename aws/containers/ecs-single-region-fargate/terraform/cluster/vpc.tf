@@ -33,7 +33,7 @@ check "elastic_ip_quota_check" {
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "v6.7.3"
+  version = "v6.7.4"
 
   name = local.name
   cidr = local.vpc_cidr

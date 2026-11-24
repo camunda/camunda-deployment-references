@@ -59,6 +59,7 @@ Error: ListObjectVersions: bufio.Scanner: token too long')" ""
     trap 'rm -rf "$test_dir"' EXIT
     printf '0\n' > "$test_dir/page"
     mode=success
+    # shellcheck disable=SC2329 # fake that the function under test calls
     aws() {
       local operation="$2" request count
       shift 2
@@ -247,6 +248,7 @@ p/main/tfstate-rosa-dr-abc-x-0-oOo-rosa-dr-abc-x-1/clusters.tfstate'
     # shellcheck disable=SC2030
     ORDERED_MODULES=(app/terraform infra/terraform vpc/terraform fixture/terraform)
     # A greenfield group: every declared module but the BYO-VPC fixture.
+    # shellcheck disable=SC2329 # fake that the function under test calls
     module_state_exists() { [[ "$2" != fixture/terraform ]]; }
 
     early=$(nuke_vpcs_in_cleanup_regions g infra/terraform "$(mktemp -d)" 2>&1)

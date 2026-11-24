@@ -84,7 +84,7 @@ env:
     CAMUNDA_RELEASE_NAME: camunda
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^15(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 15.4.2
+    CAMUNDA_HELM_CHART_VERSION: 15.4.3
 
 jobs:
     triage:
@@ -114,7 +114,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -151,7 +151,7 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
 
             - name: Import Secrets
               id: secrets
@@ -324,7 +324,7 @@ jobs:
                   } >> "$GITHUB_ENV"
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
 
             - name: Import Secrets
               id: secrets
@@ -401,9 +401,12 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  export AWS_ACCESS_KEY_ES=$(yq eval '.["s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  # Preserve export's original behavior of masking substitution failures.
+                  AWS_ACCESS_KEY_ES=$(yq eval '.["s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml") || true
+                  export AWS_ACCESS_KEY_ES
                   echo "::add-mask::$AWS_ACCESS_KEY_ES"
-                  export AWS_SECRET_ACCESS_KEY_ES=$(yq eval '.["s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  AWS_SECRET_ACCESS_KEY_ES=$(yq eval '.["s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml") || true
+                  export AWS_SECRET_ACCESS_KEY_ES
                   echo "::add-mask::$AWS_SECRET_ACCESS_KEY_ES"
 
                   bash ./aws/kubernetes/eks-dual-region/procedure/create_elasticsearch_secrets.sh
@@ -590,7 +593,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -730,7 +733,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}
