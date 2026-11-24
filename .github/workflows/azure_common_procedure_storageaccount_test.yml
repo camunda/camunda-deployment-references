@@ -44,6 +44,7 @@ jobs:
     test-storage-account-creation:
         name: Test Storage Account Creation
         needs: triage
+        if: needs.triage.outputs.should_skip == 'false'
         runs-on: ubuntu-latest
         permissions:
             contents: read
