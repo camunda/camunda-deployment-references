@@ -20,6 +20,7 @@ Changes will appear here during the development cycle.
 ### CI
 
 - The capacity slot retries a failed AWS quota or usage lookup up to 4 times with a linear backoff before it fails the run. Before, one transient AWS error, such as HTTP 408, failed the run. Tune it with `LOOKUP_ATTEMPTS` (default 4) and `LOOKUP_BACKOFF` (default 5 seconds) ([#4123](https://github.com/camunda/camunda-deployment-references/pull/4123)).
+- The operator-based `tests/check-keycloak-h2c.sh` waits up to 600 seconds for the Keycloak pods to be ready before it opens the port-forward, and retries the HTTP/1.1 check for up to 60 attempts. Before, it waited only for the Keycloak custom resource, which can stay `Ready` while its pod restarts after a node loss, and the probe failed. The CI step timeout is now 20 minutes ([#4189](https://github.com/camunda/camunda-deployment-references/pull/4189)).
 
 ### AWS EKS, AWS ROSA HCP and Azure AKS
 
