@@ -343,6 +343,10 @@
       "newDigest": "sha256:0b9674a5739a624608ba0d39c4e0a367da17f4fb344b8a2764be869b644b044c"
     },
     {
+      "version": "14.25.0-debian-12-r6",
+      "newDigest": "sha256:253f9de8cf41c463449a24f4b5dfb33ebf9ef8be7abd1683ec35f973fe18dba7"
+    },
+    {
       "version": "15.15.0-debian-12-r0",
       "newDigest": "sha256:fc2e864ca5117330c010054894e62ab8855bb425d8139c9ab969975cf726dfa0"
     },
@@ -679,6 +683,14 @@
       "newDigest": "sha256:ca03cdec1de0ea8c4b7bbe77d6f02269982658f8324051e01e8887310f6f89c4"
     },
     {
+      "version": "15.20.0-debian-12-r6",
+      "newDigest": "sha256:5fa29eb64d03cdc041b0cfe87b0ecc22b4dee47d211c926050d727d48b555755"
+    },
+    {
+      "version": "15.20.0-debian-12-r7",
+      "newDigest": "sha256:8aed2dea5a7aaf846b887748b4f938c0c172cf6887babfcd42f22265b6eef08a"
+    },
+    {
       "version": "16.11.0-debian-12-r0",
       "newDigest": "sha256:760d6a0a2a490cae41b6fd1b74c8cb3207bbffc5ea7e6725f92a75542a44a1b6"
     },
@@ -1001,6 +1013,10 @@
     {
       "version": "16.16.0-debian-12-r5",
       "newDigest": "sha256:ce46152ed644a26b1b9e0f5a61797e153ba51a4c4b4382080043f907ab039c25"
+    },
+    {
+      "version": "16.16.0-debian-12-r6",
+      "newDigest": "sha256:16be82121f1b72016ae87c5a8d0adcda4273c03cb1cf976f232ddf2b6e714ab0"
     },
     {
       "version": "17.6.0-debian-12-r28",
@@ -1347,6 +1363,14 @@
       "newDigest": "sha256:2313cd7bbe1e80af61c1e284f8cc454e2dd54d519342a3d3f92746869cd7be93"
     },
     {
+      "version": "17.12.0-debian-12-r6",
+      "newDigest": "sha256:f5d551a31b19f7a33751e116aa8e58687fe8416f4b9654d08a03e67779ef6cf5"
+    },
+    {
+      "version": "17.12.0-debian-12-r7",
+      "newDigest": "sha256:44e01bc7c5064aac32863f63a90bcb67cb62c451302a0122c5426ba4138602f2"
+    },
+    {
       "version": "18.0.0-debian-12-r16",
       "newDigest": "sha256:1c4144964df608d7ef3d9101ccaf92f762a4e704415944b94cae0215d8a2b698"
     },
@@ -1665,6 +1689,10 @@
     {
       "version": "18.7.0-debian-12-r5",
       "newDigest": "sha256:d5999e270d543d5bf58665d7e68314ed0ae9bc9ed760ab37bac097d156137548"
+    },
+    {
+      "version": "18.7.0-debian-12-r6",
+      "newDigest": "sha256:2ee3d59871a172cbbd2633dfb7468a504f993739849afb2189dbd225f15e268a"
     }
   ]
 }
