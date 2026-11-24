@@ -68,7 +68,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ecfc5f760287533aa47f5a79b9d6e36508c76cc2 # 3.0.8
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ab4b2b3604eea14f2b41b77bbc9a66bbf2e51df4 # 3.0.13
 
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli

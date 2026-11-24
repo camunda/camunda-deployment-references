@@ -21,6 +21,11 @@ Changes will appear here during the development cycle.
 
 - Added `keycloak-grant-identity-admin-api.sh` to the operator-based Keycloak, run after the Camunda Helm install by the Kind deploy procedures and the AKS, EKS, ROSA and operator-based test workflows. It assigns the `kc-admin-api` client scope to Identity's `camunda-identity` client. Keycloak 26.8.2 requires it on the Admin REST API (CVE-2026-19688), and without it Management Identity stops at startup with HTTP 401 ([camunda/camunda#69230](https://github.com/camunda/camunda/issues/69230)).
 
+### CI
+
+- The capacity slot retries a failed AWS quota or usage lookup up to 4 times with a linear backoff before it fails the run. Before, one transient AWS error, such as HTTP 408, failed the run. Tune it with `LOOKUP_ATTEMPTS` (default 4) and `LOOKUP_BACKOFF` (default 5 seconds) ([#4123](https://github.com/camunda/camunda-deployment-references/pull/4123)).
+- The operator-based `tests/check-keycloak-h2c.sh` waits up to 600 seconds for the Keycloak pods to be ready before it opens the port-forward, and retries the HTTP/1.1 check for up to 60 attempts. Before, it waited only for the Keycloak custom resource, which can stay `Ready` while its pod restarts after a node loss, and the probe failed. The CI step timeout is now 20 minutes ([#4189](https://github.com/camunda/camunda-deployment-references/pull/4189)).
+
 ### AWS EKS, AWS ROSA HCP and Azure AKS
 
 - The procedure scripts that read Terraform outputs or the cloud CLI assign each variable before they export it: `export-helm-values.sh`, `vars-create-db.sh`, `vars-create-os.sh`, `gather-cluster-login-id.sh`, `tfvars-domain.sh`, `tfvars-no-domain.sh` and `storage-account-tf-init.sh`. A shell with `set -e` now stops when such a command fails. Before, `export` hid the failure and the variable stayed empty ([#4050](https://github.com/camunda/camunda-deployment-references/pull/4050)).
