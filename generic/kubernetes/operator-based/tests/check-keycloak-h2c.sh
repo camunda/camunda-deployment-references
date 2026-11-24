@@ -34,6 +34,9 @@ fi
 # so this is a short defensive re-check rather than a long provisioning wait.
 echo "Waiting for Keycloak to be Ready..."
 kubectl wait --for=condition=Ready --timeout=120s keycloak --all -n "$CAMUNDA_NAMESPACE"
+# The CR can stay Ready while its pod restarts (for example after a node loss in CI), so
+# also wait for the Keycloak pods themselves before opening the port-forward.
+kubectl wait --for=condition=Ready --timeout=600s pod -l app=keycloak,app.kubernetes.io/managed-by=keycloak-operator -n "$CAMUNDA_NAMESPACE"
 
 # Derive the Keycloak service HTTP port from the Service object rather than hard-coding it
 # (the no-domain CR leaves httpPort unset, so Keycloak serves on its default 8080). Prefer
@@ -56,7 +59,7 @@ url="http://localhost:${LOCAL_PORT}${PROBE_PATH}"
 
 # Wait until the tunnel accepts plain HTTP/1.1 traffic before probing h2c.
 ready=false
-for _ in $(seq 1 30); do
+for _ in $(seq 1 60); do
     if ! kill -0 "$pf_pid" 2>/dev/null; then
         echo "❌ kubectl port-forward exited early (service missing, or local port ${LOCAL_PORT} already in use); aborting probe."
         exit 1
