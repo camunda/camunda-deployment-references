@@ -25,6 +25,13 @@ inputs:
         description: Reference architecture name (eks-single-region, eks-single-region-irsa)
         required: false
         default: eks-single-region
+    internal-lb:
+        description: |
+            Create the ingress controller load balancer as an internal NLB (reachable only from the VPC and its VPN).
+            Set it when the cluster runs in a private VPC: the public subnets still exist for the NAT gateway,
+            so without it the in-tree cloud provider creates an internet-facing NLB.
+        required: false
+        default: 'false'
     use-wildcard-cert:
         description: |
             Use wildcard certificate from Vault instead of ACME/Let's Encrypt.
@@ -114,8 +121,14 @@ runs:
                   exit 1
               fi
 
+              extra_args=()
+              if [[ "${INPUTS_INTERNAL_LB}" == "true" ]]; then
+                  # The in-tree cloud provider fixes the NLB scheme at Service creation, so set it on install.
+                  extra_args+=(--set-string 'envoy.service.annotations.service\.beta\.kubernetes\.io/aws-load-balancer-internal=true')
+              fi
+
               echo "Installing Project Contour via $install_script ..."
-              "$install_script"
+              "$install_script" "${extra_args[@]}"
 
               # Tag the ingress controller load balancer for the AWS MAP program.
               # The NLB is provisioned by the in-tree AWS cloud provider from the Service
@@ -137,6 +150,28 @@ runs:
               echo "Tagging ${map_lb_service} (${map_lb_namespace}) load balancer with map-migrated for AWS MAP ..."
               kubectl annotate service "$map_lb_service" --namespace "$map_lb_namespace" --overwrite \
                   'service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags=map-migrated=migARUADZHVWZ'
+
+              if [[ "${INPUTS_INTERNAL_LB}" == "true" ]]; then
+                  echo "Checking that the ${map_lb_service} load balancer is internal ..."
+                  lb_host=""
+                  for _ in $(seq 1 60); do
+                      lb_host=$(kubectl get service "$map_lb_service" --namespace "$map_lb_namespace" \
+                          -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+                      [[ -n "$lb_host" ]] && break
+                      sleep 5
+                  done
+                  if [[ -z "$lb_host" ]]; then
+                      echo "❌ ERROR: ${map_lb_service} has no load balancer hostname after 300s." >&2
+                      exit 1
+                  fi
+                  lb_scheme=$(aws elbv2 describe-load-balancers --region "${INPUTS_AWS_REGION}" \
+                      --query "LoadBalancers[?DNSName=='${lb_host}'].Scheme" --output text)
+                  if [[ "$lb_scheme" != "internal" ]]; then
+                      echo "❌ ERROR: load balancer '${lb_host}' has scheme '${lb_scheme}', expected 'internal'." >&2
+                      exit 1
+                  fi
+                  echo "✅ Load balancer ${lb_host} is internal"
+              fi
 
               # Install external-dns
               echo "Installing external-dns..."
@@ -180,6 +215,7 @@ runs:
               INPUTS_MAIL: ${{ inputs.mail }}
               INPUTS_TLD: ${{ inputs.tld }}
               INPUTS_REF_ARCH: ${{ inputs.ref-arch }}
+              INPUTS_INTERNAL_LB: ${{ inputs.internal-lb }}
               INPUTS_USE_WILDCARD_CERT: ${{ inputs.use-wildcard-cert }}
 
         - name: 🔐 Setup wildcard TLS certificate from Vault
