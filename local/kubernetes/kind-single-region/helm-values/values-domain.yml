@@ -46,6 +46,10 @@ global:
             secretName: camunda-platform
 
 connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     resources:
         requests:
@@ -62,6 +66,10 @@ connectors:
                     existingSecretKey: identity-connectors-client-token
 
 identity:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /managementidentity
     fullURL: https://camunda.example.com/managementidentity
@@ -91,6 +99,10 @@ identity:
             existingSecretKey: identity-first-user-password
 
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /optimize
     resources:
@@ -103,6 +115,10 @@ optimize:
 
 # Reduce Zeebe resources for local development
 orchestration:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     contextPath: /
     clusterSize: '1'
     partitionCount: '1'
@@ -149,6 +165,10 @@ console:
 webModeler:
     contextPath: /modeler
     restapi:
+        # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+        env:
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         resources:
             requests:
                 cpu: 100m

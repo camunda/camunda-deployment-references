@@ -19,6 +19,10 @@ global:
             enabled: true
 
 identity:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /managementidentity
     fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
@@ -44,6 +48,10 @@ identity:
             existingSecretKey: password
 
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     # OpenSearch prevents migration
     migration:
@@ -77,6 +85,8 @@ webModeler:
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         mail:
             secret:
                 existingSecret: webmodeler-secret
@@ -84,6 +94,10 @@ webModeler:
             fromAddress: changeme@example.com   # change this required value
 
 orchestration:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     data:
         secondaryStorage:
             type: opensearch
@@ -105,3 +119,9 @@ webModelerPostgresql:
 
 elasticsearch:
     enabled: false
+
+connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
