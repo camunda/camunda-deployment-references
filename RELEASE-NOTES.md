@@ -6,7 +6,7 @@ Changes since the 8.9 branch point (`206cf69c`), through `a824f23b`, plus the fi
 
 ### All reference architectures
 
-- The Java workloads now start with `-XX:-UseBASE64Intrinsics`, an interim mitigation for CVE-2026-114938 until patched JDKs ship. The flag is added after the options you already set, so it does not replace them. It applies to the EC2 orchestration cluster and Connectors, ECK Elasticsearch, the Keycloak server, the Keycloak Operator, and the ECS Fargate Java tasks. Existing deployments get the flag on the next redeploy or restart ([#4116](https://github.com/camunda/camunda-deployment-references/pull/4116)).
+- The Java workloads now start with `-XX:-UseBASE64Intrinsics`, an interim mitigation for CVE-2026-114938 until patched JDKs ship. The flag is added after the options you already set, so it does not replace them. It applies to the EC2 orchestration cluster and Connectors, ECK Elasticsearch, the Keycloak server, the Keycloak Operator, the ECS Fargate Java tasks, and the Camunda Helm components (orchestration cluster, Connectors, Optimize, Identity and Hub REST API) of the Kubernetes and OpenShift reference architectures. The Helm values set `JDK_JAVA_OPTIONS` in the `env` list of each component, so the `JAVA_TOOL_OPTIONS` values that the chart builds from `javaOpts` stay unchanged. Existing deployments get the flag on the next redeploy or restart ([#4116](https://github.com/camunda/camunda-deployment-references/pull/4116)).
 
 ### AWS ECS Fargate
 

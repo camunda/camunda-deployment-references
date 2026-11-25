@@ -26,6 +26,10 @@ global:
 # Out of scope for this reference. The Orchestration Cluster ships its own Admin
 # component, which is what the procedures and tests use.
 identity:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: false
 
 camundaHub:
@@ -34,12 +38,20 @@ camundaHub:
 # Optimize requires Elasticsearch or OpenSearch and cannot run on RDBMS
 # secondary storage.
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: false
 
 # Connectors run in every region. They are idempotency-sensitive: an outbound
 # connector may be executed once per region if a job is retried across a region
 # boundary. Design your connector calls to be idempotent.
 connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
 
 orchestration:
@@ -247,6 +259,8 @@ orchestration:
           value: GZIP
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
 
     # A Zeebe broker resolves its initialContactPoints only once at startup; if
     # a cross-region "*.svc.clusterset.local" name is not yet published by

@@ -55,8 +55,14 @@ identity:
           value: software.amazon.jdbc.Driver
         - name: SPRING_DATASOURCE_USERNAME
           value: ${DB_IDENTITY_USERNAME}
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
 
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     serviceAccount:
         name: ${CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME}
@@ -79,6 +85,10 @@ optimize:
                 port: 443
 
 orchestration:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     serviceAccount:
         name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -118,6 +128,8 @@ camundaHub:
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         mail:
             secret:
                 existingSecret: webmodeler-secret
@@ -131,3 +143,9 @@ camundaHub:
                     modeler:
                       mail:
                         from-address: changeme@example.com   # change this required value
+
+connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
