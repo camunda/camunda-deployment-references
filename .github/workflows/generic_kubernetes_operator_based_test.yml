@@ -252,11 +252,10 @@ jobs:
                   ref-arch: eks-single-region
                   deploy-aurora: 'false'      # Disabled - using CloudNativePG operator instead
                   deploy-opensearch: 'false'  # Disabled - using ECK operator instead
-                  # Cost-efficient SPOT capacity for tests, with diversified same-size
-                  # instance types to improve availability (see issue #109). Spot
-                  # interruptions are tolerated via job re-runs.
-                  np-capacity-type: SPOT
-                  np-instance-types: m6i.xlarge,m6a.xlarge,m5.xlarge,m5a.xlarge,m5d.xlarge
+                  # TODO(#4210): temporary, revert to SPOT by 2026-12-25.
+                  # ON_DEMAND (the reference cluster.tf default): SPOT reclaims drained nodes
+                  # mid-test and stranded the AZ-pinned EBS volumes of PostgreSQL and
+                  # Elasticsearch (volume node affinity conflict); re-runs did not recover.
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
