@@ -36,16 +36,7 @@ export_new_env_vars() {
 
   comm -13 /tmp/env_before /tmp/env_after > /tmp/env_diff
 
-  while IFS= read -r line; do
-    var_name="${line%%=*}"
-    var_value="${line#*=}"
-
-    if [[ -n "$var_value" && ( "$var_name" == *SECRET* || "$var_name" == *PASSWORD* ) ]]; then
-      echo "::add-mask::$var_value"
-    fi
-
-    echo "$line" >> "$GITHUB_ENV"
-  done < /tmp/env_diff
+  export_file_to_github_env /tmp/env_diff
 }
 
 export_new_env_vars_to_file() {
@@ -74,12 +65,18 @@ export_new_env_vars_to_file() {
   done < /tmp/env_diff
 }
 
+# Names that hold a secret. shortcut: name match only, so a *_TOKEN or *_KEY
+# variable is not masked; add the pattern here when such a variable appears.
+is_sensitive_name() {
+  [[ "$1" == *SECRET* || "$1" == *PASSWORD* ]]
+}
+
 # ------------------------------------------------------------------------------
 # Function: export_file_to_github_env
 #
 # Description:
 #   Reads a file containing KEY=VALUE pairs and exports them to GITHUB_ENV.
-#   Automatically masks sensitive values (containing SECRET or PASSWORD in the name)
+#   Masks non-empty sensitive values (see is_sensitive_name)
 #   to prevent them from appearing in logs.
 #
 # Parameters:
@@ -101,8 +98,7 @@ export_file_to_github_env() {
     var_name="${line%%=*}"
     var_value="${line#*=}"
 
-    # Mask sensitive values (secrets and passwords)
-    if [[ "$var_name" == *SECRET* ]] || [[ "$var_name" == *PASSWORD* ]]; then
+    if [[ -n "$var_value" ]] && is_sensitive_name "$var_name"; then
       echo "::add-mask::$var_value"
     fi
 
