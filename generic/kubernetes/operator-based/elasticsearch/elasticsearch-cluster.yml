@@ -40,6 +40,10 @@ spec:
                               value: 'false'
                             - name: READINESS_PROBE_TIMEOUT
                               value: '300'
+                            # Interim OpenJDK Base64 mitigation, remove once the JDK
+                            # is patched. No -Xms/-Xmx: default heap sizing is kept.
+                            - name: ES_JAVA_OPTS
+                              value: '-XX:-UseBASE64Intrinsics'
                         resources:
                             requests:
                                 cpu: 1

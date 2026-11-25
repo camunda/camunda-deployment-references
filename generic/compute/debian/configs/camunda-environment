@@ -5,7 +5,7 @@ CAMUNDA_DATA_SECONDARYSTORAGE_TYPE="opensearch"
 ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_CLASSNAME="io.camunda.exporter.CamundaExporter"
 ZEEBE_BROKER_EXPORTERS_CAMUNDAEXPORTER_ARGS_CREATESCHEMA="true"
 
-JAVA_TOOL_OPTIONS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/opt/camunda/camunda/logs -XX:ErrorFile=/opt/camunda/camunda/logs/zeebe_error%p.log -XX:+ExitOnOutOfMemoryError"
+JAVA_TOOL_OPTIONS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/opt/camunda/camunda/logs -XX:ErrorFile=/opt/camunda/camunda/logs/zeebe_error%p.log -XX:+ExitOnOutOfMemoryError -XX:-UseBASE64Intrinsics"
 
 # Zeebe
 CAMUNDA_CLUSTER_PARTITIONCOUNT=3
