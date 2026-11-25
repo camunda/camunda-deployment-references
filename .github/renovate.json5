@@ -36,13 +36,6 @@
       matchDatasources: ['custom.openshift-acm'],
       allowedVersions: '<3',
     },
-    {
-      description: 'ACM 2.x installs Submariner 0.24, and subctl 0.25 cannot export services to it (#4007). Lift together with the ACM cap: camunda/camunda-deployment-references#4096.',
-      matchDatasources: ['github-releases'],
-      matchPackageNames: ['submariner-io/subctl'],
-      matchFileNames: ['generic/openshift/dual-region/procedure/submariner/install-subctl.sh'],
-      allowedVersions: '<0.25',
-    },
   ],
   customManagers: [
     {
