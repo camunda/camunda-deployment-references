@@ -248,11 +248,10 @@ jobs:
                   ref-arch: eks-single-region
                   deploy-aurora: 'false'      # Disabled - using CloudNativePG operator instead
                   deploy-opensearch: 'false'  # Disabled - using ECK operator instead
-                  # Cost-efficient SPOT capacity for tests, with diversified same-size
-                  # instance types to improve availability (see issue #109). Spot
-                  # interruptions are tolerated via job re-runs.
-                  np-capacity-type: SPOT
-                  np-instance-types: m6i.xlarge,m6a.xlarge,m5.xlarge,m5a.xlarge,m5d.xlarge
+                  # TODO(#4210): temporary, revert to SPOT by 2026-12-25.
+                  # ON_DEMAND (the reference cluster.tf default): SPOT reclaims drained nodes
+                  # mid-test and stranded the AZ-pinned EBS volumes of PostgreSQL and
+                  # Elasticsearch (volume node affinity conflict); re-runs did not recover.
                   tags: >
                       {
                         "ci-run-id": "${{ github.run_id }}",
@@ -327,7 +326,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@1a10a8e84ce7e9cbbfed6f1c482f5bff65748238 # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@6b2e3ba713c0402dd8c866ef34713ba7c6c2794e # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -370,7 +369,7 @@ jobs:
               uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
 
             - name: Install CLI tools from OpenShift Mirror
-              uses: redhat-actions/openshift-tools-installer@1f130822bb0930e0ee02a119adcc3271a22b1499 # v3
+              uses: redhat-actions/openshift-tools-installer@bf1d8fd8fa963cff1d33688473e51f948748991e # v3
               if: matrix.distro.type == 'openshift'
               with:
                   oc: ${{ matrix.distro.version }}
@@ -743,7 +742,7 @@ jobs:
             # upstream, so it never exercises the h2c path).
             - name: 🧪 Keycloak H2C regression probe
               if: matrix.declination.name == 'no-domain'
-              timeout-minutes: 8
+              timeout-minutes: 20  # CR 120s + pod 600s + reachability up to 420s + probe
               working-directory: ./generic/kubernetes/operator-based/
               run: ./tests/check-keycloak-h2c.sh
 
