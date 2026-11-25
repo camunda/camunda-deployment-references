@@ -14,6 +14,7 @@ Install and configure ingress-nginx, external-dns, and cert-manager for AWS EKS 
 | `mail` | <p>Email address for Let's Encrypt certificates</p> | `false` | `admin@camunda.ie` |
 | `tld` | <p>Top-level domain for the cluster</p> | `false` | `camunda.ie` |
 | `ref-arch` | <p>Reference architecture name (eks-single-region, eks-single-region-irsa)</p> | `false` | `eks-single-region` |
+| `internal-lb` | <p>Create the ingress controller load balancer as an internal NLB (reachable only from the VPC and its VPN). Set it when the cluster runs in a private VPC: the public subnets still exist for the NAT gateway, so without it the in-tree cloud provider creates an internet-facing NLB.</p> | `false` | `false` |
 | `use-wildcard-cert` | <p>Use wildcard certificate from Vault instead of ACME/Let's Encrypt. When true, ACME issuer is not installed and wildcard certificate is created from Vault.</p> | `false` | `false` |
 | `wildcard-cert-namespace` | <p>Namespace where the wildcard TLS certificate will be created (when use-wildcard-cert is true)</p> | `false` | `camunda` |
 | `wildcard-cert-secret-name` | <p>Name of the wildcard TLS secret to create (when use-wildcard-cert is true)</p> | `false` | `camunda-tls` |
@@ -66,6 +67,14 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: eks-single-region
+
+    internal-lb:
+    # Create the ingress controller load balancer as an internal NLB (reachable only from the VPC and its VPN).
+    # Set it when the cluster runs in a private VPC: the public subnets still exist for the NAT gateway,
+    # so without it the in-tree cloud provider creates an internet-facing NLB.
+    #
+    # Required: false
+    # Default: false
 
     use-wildcard-cert:
     # Use wildcard certificate from Vault instead of ACME/Let's Encrypt.
