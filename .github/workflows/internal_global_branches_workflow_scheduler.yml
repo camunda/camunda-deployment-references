@@ -64,7 +64,7 @@ jobs:
 
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@6af323f698652b2de4014d796cdf1819b6a17c3d # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@314ba213caf10f94b88422e634a785d8e41bd16a # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -115,7 +115,7 @@ jobs:
                   persist-credentials: false
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
 
             - id: matrix
               # The dispatch input reaches the script through the environment, not through
@@ -209,7 +209,7 @@ jobs:
             # Inlining also drops the `pip install pre-commit` the action performs, which
             # installed the latest release over the version pinned in .tool-versions.
             - name: Install asdf tools
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
 
             - name: Cache pre-commit hook environments
               uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -228,7 +228,7 @@ jobs:
             # BASH_ENV able to intercept it.
             - name: Generate token for GitHub
               id: generate-github-token
-              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@6af323f698652b2de4014d796cdf1819b6a17c3d # main
+              uses: camunda/infra-global-github-actions/generate-github-app-token-from-vault-secrets@314ba213caf10f94b88422e634a785d8e41bd16a # main
               with:
                   github-app-id-vault-key: GITHUB_APP_ID
                   github-app-id-vault-path: secret/data/products/infrastructure-experience/ci/common
@@ -276,14 +276,19 @@ jobs:
             - define-matrix
             - schedule-workflows
             - close-scheduled-prs
+        permissions:
+            issues: read # the Slack action looks up silence issues
+            contents: read
+            id-token: write # required for Vault JWT login
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
-                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}
+                  vault_jwt_role: ${{ secrets.VAULT_JWT_ROLE }}
+                  vault_jwt_audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
                   slack_channel_id: ${{ github.event_name == 'schedule' && 'C076N4G1162' || 'C07E4FF6YMB' }}
-                  slack_mention_people: ${{ github.event_name == 'schedule' && '@infraex-medic' || '' }}
+                  slack_mention_people: ${{ github.event_name == 'schedule' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ github.event_name == 'schedule' && 'false' || 'true' }}

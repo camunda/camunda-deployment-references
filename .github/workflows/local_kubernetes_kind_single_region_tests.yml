@@ -15,7 +15,6 @@ on:
             - .github/actions/internal-apply-skip-label/**
             - .github/actions/internal-tests-matrix/**
             - .github/actions/internal-camunda-chart-tests/**
-            - .github/actions/observe-build-status/**
             - .tool-versions
             - local/kubernetes/kind-single-region/**
     workflow_dispatch:
@@ -62,7 +61,7 @@ jobs:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -92,14 +91,18 @@ jobs:
             CAMUNDA_NAMESPACE: camunda
             CAMUNDA_RELEASE_NAME: camunda
             TEST_CLUSTER_TYPE: kubernetes
+        permissions:
+            contents: read
+            id-token: write
         steps:
-            - uses: camunda/infra-global-github-actions/start-build-monitor@6af323f698652b2de4014d796cdf1819b6a17c3d # main
+            - uses: camunda/infra-global-github-actions/start-build-monitor@ead99f6c9c536f5c47e443929d47e8fcfdb05a81 # start-build-monitor-1.0.1
+              continue-on-error: true
 
             - name: Checkout repository
               uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
 
             - name: Import Secrets
               id: secrets
@@ -430,16 +433,13 @@ jobs:
                   echo "Cleaning up Kind cluster: ${{ env.CLUSTER_NAME }}"
                   kind delete cluster --name "${{ env.CLUSTER_NAME }}" || true
 
-            - name: Observe build status
+            - name: Submit build status
               if: always()
               continue-on-error: true
-              uses: ./.github/actions/observe-build-status
+              uses: camunda/infra-global-github-actions/submit-build-status@25d228468383a1d73dfe3a261a6d0c6b0296fa45 # submit-build-status-1.3.4
               with:
-                  job_name: ${{ github.job }}/${{ matrix.scenario.name }}-${{ matrix.declination.name }}
+                  job_name_override: ${{ github.job }}/${{ matrix.scenario.name }}-${{ matrix.declination.name }}
                   build_status: ${{ job.status }}
-                  secret_vault_address: ${{ secrets.VAULT_ADDR }}
-                  secret_vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
-                  secret_vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
 
     report-success:
         name: Report success
@@ -466,14 +466,19 @@ jobs:
         needs:
             - triage
             - report-success
+        permissions:
+            issues: read # the Slack action looks up silence issues
+            contents: read
+            id-token: write # required for Vault JWT login
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
-                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+                  vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}
+                  vault_jwt_role: ${{ secrets.VAULT_JWT_ROLE }}
+                  vault_jwt_audience: ${{ secrets.VAULT_JWT_AUDIENCE }}
                   slack_channel_id: ${{ env.IS_SCHEDULE == 'true' && 'C076N4G1162' || 'C07E4FF6YMB' }}
-                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '@infraex-medic' || '' }}
+                  slack_mention_people: ${{ env.IS_SCHEDULE == 'true' && '<!subteam^S0CBB7Y72SV>' || '' }}
                   disable_silence_check: ${{ env.IS_SCHEDULE == 'true' && 'false' || 'true' }}

@@ -1,0 +1,22 @@
+---
+name: Internal - Global - PR Copilot review
+
+on:
+    # no checkout in this file; it calls the pinned shared review workflow
+    pull_request_target: # zizmor: ignore[dangerous-triggers]
+        types: [opened, ready_for_review, labeled]
+
+permissions: {}
+
+jobs:
+    copilot-review:
+        permissions:
+            issues: read
+            pull-requests: write
+            id-token: write # required for Vault JWT login
+        uses: camunda/infraex-common-config/.github/workflows/copilot-review-global.yml@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
+        secrets:
+            VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+            VAULT_JWT_PATH: ${{ secrets.VAULT_JWT_PATH }}
+            VAULT_JWT_ROLE: ${{ secrets.VAULT_JWT_ROLE }}
+            VAULT_JWT_AUDIENCE: ${{ secrets.VAULT_JWT_AUDIENCE }}

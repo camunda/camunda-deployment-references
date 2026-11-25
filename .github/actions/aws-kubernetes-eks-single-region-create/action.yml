@@ -107,7 +107,7 @@ runs:
               fetch-depth: 0
 
         - name: Install asdf tools with cache for the project
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
 
         - name: Set Terraform variables
           id: set-terraform-variables
@@ -443,10 +443,9 @@ runs:
 
         - name: Connect to VPN
           if: inputs.vpn-enabled == 'true'
-          uses: kota65535/github-openvpn-connect-action@cd2ed8a90cc7b060dc4e001143e811b5f7ea0af5 # v3.1.0
+          uses: ./.github/actions/internal-openvpn-connect
           with:
-              config_file: ${{ steps.vpn.outputs.vpn_client_config_file }}
-              echo_config: 'false'
+              config-file: ${{ steps.vpn.outputs.vpn_client_config_file }}
 
         - name: Login and generate kubeconfig
           if: inputs.login == 'true'

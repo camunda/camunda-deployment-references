@@ -8,6 +8,15 @@ terraform {
   }
 
   required_version = ">= 1.3.0" # Adjust Terraform version as needed
+
+  # A destroy takes its providers from the state, with no constraint.
+  # rhcs 1.7.11 was published without the provider binary.
+  required_providers {
+    rhcs = {
+      source  = "terraform-redhat/rhcs"
+      version = "!= 1.7.11"
+    }
+  }
 }
 
 

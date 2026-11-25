@@ -44,3 +44,4 @@ rules:
             # API, and the trigger is required: a `pull_request` run from a fork gets
             # a read-only token, so fork pull requests would stop being labelled.
             - internal_global_pr_labeler.yml
+            - internal_global_pr_copilot_review.yml

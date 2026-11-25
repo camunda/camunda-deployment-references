@@ -32,6 +32,9 @@ check_service() {
         echo "[FAIL][res=$response] Service on url $url is not available after $retries retries."
         if [[ "$url" =~ "health" ]]; then
             curl -s "$url"
+            echo
+            echo "[INFO] Last lines of the camunda.service journal:"
+            sudo journalctl -u camunda.service --no-pager -n 400 || true
         fi
         SCRIPT_STATUS_OUTPUT=1
     fi

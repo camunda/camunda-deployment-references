@@ -5,6 +5,11 @@ description: |
     This GitHub Action automates the deletion of generic terraform resources using a shell script.
 
 inputs:
+    encryption-key:
+        description: Key used to encrypt the uploaded artifact (CI_ENCRYPTION_KEY). Without it the artifact is not uploaded.
+        required: false
+        default: ''
+
     tf-bucket:
         description: Bucket containing the resources
         required: true
@@ -44,7 +49,7 @@ inputs:
         description: Version of the OpenShift to install
         required: true
         # renovate: datasource=custom.rosa-camunda depName=red-hat-openshift versioning=semver
-        default: 4.19.44
+        default: 4.19.55
 
     delete-ghost-rosa-clusters:
         description: Specify whether to delete ghost rosa clusters (true or false)
@@ -85,7 +90,7 @@ runs:
     steps:
 
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@07d834a5174bbe971e1c0ab961a8605d389953a8 # 2.3.7
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
 
         - name: Install Cloud Nuke for retry
           shell: bash
@@ -244,8 +249,9 @@ runs:
 
         - name: Upload cleanup logs
           if: always()
-          uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+          uses: ./.github/actions/internal-encrypted-upload-artifact
           with:
               name: logs-${{ github.action }}-${{ github.job }}-${{ inputs.target }}-${{ steps.key-prefix-slug.outputs.PREFIX_SLUG }}
               path: ./logs/
               retention-days: 7
+              encryption-key: ${{ inputs.encryption-key }}

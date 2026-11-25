@@ -9,6 +9,7 @@ This GitHub Action automates the deletion of generic terraform resources using a
 
 | name | description | required | default |
 | --- | --- | --- | --- |
+| `encryption-key` | <p>Key used to encrypt the uploaded artifact (CI<em>ENCRYPTION</em>KEY). Without it the artifact is not uploaded.</p> | `false` | `""` |
 | `tf-bucket` | <p>Bucket containing the resources</p> | `true` | `""` |
 | `tf-bucket-region` | <p>Region of the bucket containing the resources states, if not set, will fallback on AWS_REGION</p> | `false` | `""` |
 | `tf-bucket-key-prefix` | <p>Key prefix of the bucket containing the resources states. It must contain a / at the end e.g 'my-prefix/'.</p> | `false` | `""` |
@@ -18,7 +19,7 @@ This GitHub Action automates the deletion of generic terraform resources using a
 | `modules-order` | <p>Destruction order of modules, e.g. "vpn,cluster" or "cluster,vpn"</p> | `true` | `""` |
 | `openshift` | <p>Whether to install OpenShift tooling (ROSA CLI + oc)</p> | `false` | `false` |
 | `rosa-cli-version` | <p>Version of the ROSA CLI to use</p> | `false` | `latest` |
-| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.19.44` |
+| `openshift-version` | <p>Version of the OpenShift to install</p> | `true` | `4.19.55` |
 | `delete-ghost-rosa-clusters` | <p>Specify whether to delete ghost rosa clusters (true or false)</p> | `false` | `false` |
 | `destroy-pass-timeout-minutes` | <p>Wall-clock budget for the first destroy pass — the one that tears the whole reference architecture down, so it has to fit a full teardown. A healthy single ROSA HCP cluster measured 55min (11 for the vpn module, 40 for the cluster), and a daily sweep may carry several groups, hence the headroom.</p> | `false` | `85` |
 | `retry-destroy-pass-timeout-minutes` | <p>Wall-clock budget for the cloud-nuke retry pass. Smaller than the first on purpose: it only runs when the first pass failed, and cloud-nuke removes the VPC blockers up front, so the destroy behind it is a sweep rather than a full teardown.</p> <p>Keep both budgets plus room for the ghost pass and the log upload under the caller's step-level <code>timeout-minutes</code> — the defaults sum to 115 under the daily cleanups' 125. Nothing enforces it, and a step the runner kills takes the log upload down with it, which is how the 2026-08-29 EC2 and ECS cleanups ended with no artifact and no verdict. A caller on a shorter leash has to lower both, or it gets no protection.</p> | `false` | `30` |
@@ -40,6 +41,12 @@ This action is a `composite` action.
 ```yaml
 - uses: camunda/camunda-deployment-references/.github/actions/aws-generic-terraform-cleanup@main
   with:
+    encryption-key:
+    # Key used to encrypt the uploaded artifact (CI_ENCRYPTION_KEY). Without it the artifact is not uploaded.
+    #
+    # Required: false
+    # Default: ""
+
     tf-bucket:
     # Bucket containing the resources
     #
@@ -98,7 +105,7 @@ This action is a `composite` action.
     # Version of the OpenShift to install
     #
     # Required: true
-    # Default: 4.19.44
+    # Default: 4.19.55
 
     delete-ghost-rosa-clusters:
     # Specify whether to delete ghost rosa clusters (true or false)

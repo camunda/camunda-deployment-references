@@ -1,0 +1,291 @@
+#!/usr/bin/env bash
+# Counting semaphore on S3 conditional writes, gated on free AWS quota.
+#
+#   slot.sh acquire   -> waits for free quota and a free slot, prints slot-key=<key>
+#   slot.sh release   -> deletes SLOT_KEY if this run still owns it
+#
+# A slot is the object ci-locks/<POOL>/slot-<i>. It is created with
+# If-None-Match: *, so only one writer wins. Its body holds the owner, the time
+# it was taken and a lease expiry. A run that died without releasing loses the
+# slot once the lease expires, and the next run takes it over with If-Match on
+# the old ETag. No daily reset is needed.
+#
+# The quota check runs after the slot is taken. Every holder writes its slot
+# before it reads the others, so of two runs admitted together at least the
+# later one sees the earlier one, and reserves its demand on top of the current
+# usage.
+set -euo pipefail
+
+# One lock bucket for every suite, whatever bucket holds its Terraform state:
+# reservations are only visible to runs that scan the same bucket.
+BUCKET=${BUCKET:-tests-ra-aws-rosa-hcp-tf-state-eu-central-1}
+BUCKET_REGION=${BUCKET_REGION:-eu-central-1}
+: "${POOL:?}" "${OWNER:?}"
+prefix="ci-locks/${POOL}"
+scratch=$(mktemp -d)
+slot_key=''
+published=0
+
+# A slot taken but never published (a lookup failed after the claim) would stay
+# busy until its lease expires, since the release step gets no key. Give it
+# back, keep the original exit status.
+on_exit() {
+    local status=$?
+    if ((status != 0)) && [[ -n "$slot_key" ]] && ((published == 0)); then
+        (SLOT_KEY=$slot_key release) || echo "::warning::Could not give ${slot_key} back." >&2
+    fi
+    rm -rf "$scratch"
+    exit "$status"
+}
+trap on_exit EXIT
+
+s3() { aws s3api "$@" --region "$BUCKET_REGION" --bucket "$BUCKET" --no-cli-pager; }
+
+# Fails on any error other than a lost precondition, so a credentials or bucket
+# problem stops the run instead of looking like a busy pool until the timeout.
+conditional() {
+    if "$@" >/dev/null 2>"$scratch/err"; then return 0; fi
+    grep -qE 'PreconditionFailed|ConditionalRequestConflict' "$scratch/err" && return 1
+    cat "$scratch/err" >&2
+    exit 1
+}
+
+# Reads a slot into $scratch/current and its ETag into $etag. Returns 1 when the
+# slot does not exist (a concurrent release); any other error stops the run.
+read_slot() {
+    if etag=$(s3 get-object --key "$1" "$scratch/current" --query ETag --output text 2>"$scratch/err"); then
+        return 0
+    fi
+    grep -qE 'NoSuchKey|Not Found|404' "$scratch/err" && return 1
+    cat "$scratch/err" >&2
+    exit 1
+}
+
+# Prints the integer output of an AWS lookup, or stops the run. A failed
+# lookup must never read as zero usage, nor as a full quota.
+number() {
+    local out
+    out=$("$@") || {
+        echo "::error::Lookup failed: $*" >&2
+        exit 1
+    }
+    out=${out%.*}
+    [[ "$out" =~ ^[0-9]+$ ]] || {
+        echo "::error::Not a number from: $* -> ${out}" >&2
+        exit 1
+    }
+    echo "$out"
+}
+
+# Usage of one quota in one region. Resources still deleting count, as AWS
+# counts them against the quota too. JSON output, because with text output the
+# CLI applies --query to each response page and prints one count per page.
+usage() {
+    local region=$2
+    case "$1" in
+    rds-clusters) aws rds describe-db-clusters --region "$region" --query 'length(DBClusters)' --output json ;;
+    rds-instances) aws rds describe-db-instances --region "$region" --query 'length(DBInstances)' --output json ;;
+    db-subnet-groups) aws rds describe-db-subnet-groups --region "$region" --query 'length(DBSubnetGroups)' --output json ;;
+    vpcs) aws ec2 describe-vpcs --region "$region" --query 'length(Vpcs)' --output json ;;
+    elastic-ips) aws ec2 describe-addresses --region "$region" --query 'length(Addresses)' --output json ;;
+    transit-gateways) aws ec2 describe-transit-gateways --region "$region" \
+        --filters Name=state,Values=pending,available,modifying,deleting \
+        --query 'length(TransitGateways)' --output json ;;
+    albs) aws elbv2 describe-load-balancers --region "$region" \
+        --query "length(LoadBalancers[?Type=='application'])" --output json ;;
+    nlbs) aws elbv2 describe-load-balancers --region "$region" \
+        --query "length(LoadBalancers[?Type=='network'])" --output json ;;
+    eks-clusters) aws eks list-clusters --region "$region" --query 'length(clusters)' --output json ;;
+    opensearch-domains) aws opensearch list-domain-names --region "$region" \
+        --query 'length(DomainNames)' --output json ;;
+    esac
+}
+
+# Service code and quota code of each resource usage() knows.
+quota_code() {
+    case "$1" in
+    rds-clusters) echo "rds L-952B80B8" ;;
+    rds-instances) echo "rds L-7B6409FD" ;;
+    db-subnet-groups) echo "rds L-48C6BF61" ;;
+    vpcs) echo "vpc L-F678F1CE" ;;
+    elastic-ips) echo "ec2 L-0263D0A3" ;;
+    transit-gateways) echo "ec2 L-A2478D36" ;;
+    albs) echo "elasticloadbalancing L-53DA6B97" ;;
+    nlbs) echo "elasticloadbalancing L-69A177A2" ;;
+    eks-clusters) echo "eks L-1194D53C" ;;
+    opensearch-domains) echo "es L-076D529E" ;;
+    *) return 1 ;;
+    esac
+}
+
+# NEEDS is one `<resource>=<count>` per line: what one run creates in each region.
+# Unknown resources fail at once, so a typo does not silently skip the check.
+for need in ${NEEDS:-}; do
+    quota_code "${need%%=*}" >/dev/null || {
+        echo "::error::Unknown resource '${need%%=*}' in needs." >&2
+        exit 2
+    }
+done
+
+# True when every region has room for this run's needs on top of the current
+# usage and of what other runs admitted within PROVISION_MINUTES reserved.
+room() {
+    local region need resource count used quota code reserved ok=0
+    for region in ${REGIONS:-}; do
+        for need in ${NEEDS:-}; do
+            resource=${need%%=*}
+            count=${need#*=}
+            code=$(quota_code "$resource")
+            used=$(number usage "$resource" "$region") || exit 1
+            quota=$(number aws service-quotas get-service-quota --region "$region" \
+                --service-code "${code% *}" --quota-code "${code#* }" \
+                --query 'Quota.Value' --output text) || exit 1
+            reserved=$(jq -s --arg r "$region" --arg k "$resource" \
+                '[.[] | select(.regions | index($r)) | .needs[$k] // 0] | add // 0' "$scratch/pending")
+            if ((used + reserved + count + MARGIN > quota)); then
+                echo "${region} ${resource}: ${used}/${quota} used, ${reserved} reserved, this run needs ${count} (+${MARGIN} margin)"
+                ok=1
+            fi
+        done
+    done
+    return "$ok"
+}
+
+# Prints the keys under prefix $1. A failed listing stops the run: inside a
+# `for` word list it would read as "no keys" and skip the reservations.
+list_keys() {
+    local out
+    out=$(s3 list-objects-v2 --prefix "$1" --query 'Contents[].Key' --output json 2>"$scratch/err") || {
+        cat "$scratch/err" >&2
+        echo "::error::Could not list s3://${BUCKET}/$1" >&2
+        exit 1
+    }
+    jq -r '.[]? // empty' <<<"$out"
+}
+
+# Writes to $scratch/pending the slots of every pool (every suite) still within
+# their own provisioning window: their resources may not exist yet, so usage
+# does not show them. Each slot carries the regions, needs and window of its
+# run, so branches with different defaults judge each other by the holder's
+# window. A slot without one (written by an older version) keeps 90 minutes.
+# shortcut: a fixed provisioning window; a resource created after it (a late
+# load balancer) counts only through real usage. Reserve again before that
+# step if a quota error ever shows up there.
+pending_slots() {
+    local key keys now
+    now=$(date +%s)
+    : >"$scratch/pending"
+    keys=$(list_keys "ci-locks/") || exit 1
+    for key in $keys; do
+        [[ "$key" == "$slot_key" ]] && continue
+        read_slot "$key" || continue
+        jq -c --argjson now "$now" \
+            'select(.expires > $now and (.acquired // 0) > $now - (.provision_minutes // 90) * 60)
+             | {regions: (.regions // []), needs: (.needs // {})}' "$scratch/current" >>"$scratch/pending"
+    done
+}
+
+try_slot() {
+    local key="$prefix/slot-$1" now
+    now=$(date +%s)
+    jq -nc --arg owner "$OWNER" --argjson acquired "$now" --argjson expires $((now + LEASE_MINUTES * 60)) \
+        --argjson window "$PROVISION_MINUTES" --arg regions "${REGIONS:-}" --arg needs "${NEEDS:-}" \
+        '{owner: $owner, acquired: $acquired, expires: $expires, provision_minutes: $window,
+          regions: ($regions | split(" ") | map(select(. != ""))),
+          needs: ($needs | split("\n") | map(gsub("\\s"; "") | select(test("=")) | split("=") | {(.[0]): (.[1] | tonumber)}) | add // {})}' \
+        >"$scratch/body"
+
+    slot_key=$key
+    if conditional s3 put-object --key "$key" --body "$scratch/body" --if-none-match '*'; then
+        return 0
+    fi
+
+    # Taken. Reclaim it if the lease expired or this run already holds it (step retry).
+    read_slot "$key" || return 1
+    if [[ "$(jq -r .owner "$scratch/current")" != "$OWNER" ]] &&
+        (($(jq -r .expires "$scratch/current") > now)); then
+        return 1
+    fi
+    conditional s3 put-object --key "$key" --body "$scratch/body" --if-match "$etag"
+}
+
+acquire() {
+    local deadline i owned
+    deadline=$(($(date +%s) + WAIT_MINUTES * 60))
+    while :; do
+        # A retried step must renew the slot it holds, not claim a second one.
+        owned=''
+        for ((i = 0; i < SLOTS; i++)); do
+            if read_slot "$prefix/slot-$i" && [[ "$(jq -r .owner "$scratch/current")" == "$OWNER" ]]; then
+                owned=$i
+                break
+            fi
+        done
+        slot_key=''
+        for i in $owned $(seq 0 $((SLOTS - 1))); do
+            try_slot "$i" && break
+            slot_key=''
+        done
+        if [[ -z "$slot_key" ]]; then
+            echo "All ${SLOTS} slots of ${POOL} are busy:"
+            for ((i = 0; i < SLOTS; i++)); do
+                read_slot "$prefix/slot-$i" && echo "  slot-$i: $(jq -c . "$scratch/current")"
+            done
+        else
+            pending_slots
+            if room; then
+                echo "Acquired ${slot_key} for ${OWNER}"
+                echo "slot-key=${slot_key}" >>"${GITHUB_OUTPUT:-/dev/null}"
+                published=1
+                return 0
+            fi
+            echo "Not enough quota, giving ${slot_key} back."
+            SLOT_KEY=$slot_key release
+            slot_key=''
+        fi
+        if (($(date +%s) >= deadline)); then
+            echo "::error::No capacity in pool ${POOL} after ${WAIT_MINUTES} minutes."
+            return 1
+        fi
+        # Jitter, so runs that gave their slot back do not retry in lockstep.
+        sleep $((${POLL_SECONDS:-60} + RANDOM % ${POLL_SECONDS:-60}))
+    done
+}
+
+release() {
+    local key keys
+    # A cleanup job other than the acquiring one has no slot-key output: find
+    # the slot by owner, over every key of the pool whatever its size.
+    if [[ -z "${SLOT_KEY:-}" ]]; then
+        keys=$(list_keys "$prefix/") || exit 1
+        for key in $keys; do
+            if read_slot "$key" && [[ "$(jq -r .owner "$scratch/current")" == "$OWNER" ]]; then
+                SLOT_KEY=$key
+                break
+            fi
+        done
+    fi
+    [[ -n "${SLOT_KEY:-}" ]] || {
+        echo "No slot to release."
+        return 0
+    }
+    read_slot "$SLOT_KEY" || {
+        echo "${SLOT_KEY} is already gone."
+        return 0
+    }
+    if [[ "$(jq -r .owner "$scratch/current")" != "$OWNER" ]]; then
+        echo "::warning::${SLOT_KEY} now belongs to $(jq -r .owner "$scratch/current"), leaving it."
+        return 0
+    fi
+    conditional s3 delete-object --key "$SLOT_KEY" --if-match "$etag" ||
+        echo "::warning::${SLOT_KEY} changed while releasing, leaving it."
+    echo "Released ${SLOT_KEY}"
+}
+
+case "${1:-}" in
+acquire | release) "$1" ;;
+*)
+    echo "usage: $0 acquire|release" >&2
+    exit 2
+    ;;
+esac
