@@ -113,7 +113,7 @@ variable "postgres_version" {
   description = "PostgreSQL version"
   type        = string
   # AKS Flexible Server only supports the major version, so we pin to major only.
-  # renovate: datasource=endoflife-date depName=postgresql versioning=loose extractVersion=^(?<version>\d+)
+  # renovate: datasource=custom.azure-postgresql-flexible-server depName=postgresql versioning=loose
   default = "18"
 }
 

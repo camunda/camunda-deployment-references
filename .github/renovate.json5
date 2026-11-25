@@ -73,6 +73,16 @@
       depNameTemplate: 'https://github.com/camunda/camunda-platform-helm',
     },
   ],
+  customDatasources: {
+    'azure-postgresql-flexible-server': {
+      description: 'PostgreSQL major versions that Azure Database for PostgreSQL Flexible Server offers, from its Microsoft Learn page, which answers `Accept: text/plain` with Markdown. Only the headings without a suffix count: the azurerm provider rejects the `(preview)` ones (#4159), and `(Extended Support)` ones are older.',
+      defaultRegistryUrlTemplate: 'https://learn.microsoft.com/en-us/azure/postgresql/configure-maintain/concepts-supported-versions',
+      format: 'plain',
+      transformTemplates: [
+        '{"releases": [releases[$match(version, /^## PostgreSQL version \\d+$/)].{"version": $substringAfter(version, "## PostgreSQL version ")}]}',
+      ],
+    },
+  },
   baseBranchPatterns: [
     'main',
     // TODO: [release-duty] remove branches whose maintenance period has ended and add the new stable branch
