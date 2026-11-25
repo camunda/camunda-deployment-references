@@ -75,7 +75,7 @@ runs:
               # constant and a quote or a backslash in the path cannot rewrite it.
               diff_comment_ids=$(gh pr view "${PR_NUMBER}" --json comments \
                   | jq -r --arg marker "## Module ${INPUTS_MODULE_DIR} - Terraform Golden Plan Diff" \
-                      '.comments[] | select(.body | contains($marker)) | .url | sub(".*#issuecomment-"; "")')
+                      '.comments[] | select(.body | startswith($marker)) | .url | sub(".*#issuecomment-"; "")')
 
               has_diff=false
               if [[ "${delta_exit_code:-}" != "0" ]]; then
@@ -85,7 +85,7 @@ runs:
               keep_first=$has_diff
               for comment_id in $diff_comment_ids; do
                   if [[ "$keep_first" == "true" ]]; then
-                      echo "Keeping diff comment #$comment_id for the update."
+                      echo "Keeping diff comment #$comment_id"
                       keep_first=false
                       continue
                   fi
