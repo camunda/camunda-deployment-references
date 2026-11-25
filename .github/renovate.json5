@@ -36,6 +36,25 @@
       matchDatasources: ['custom.openshift-acm'],
       allowedVersions: '<3',
     },
+    {
+      description: 'ACM 2.x installs Submariner 0.24, and subctl 0.25 cannot export services to it (#4007). Lift together with the ACM cap: camunda/camunda-deployment-references#4096.',
+      matchDatasources: ['github-releases'],
+      matchPackageNames: ['submariner-io/subctl'],
+      matchFileNames: ['generic/openshift/dual-region/procedure/submariner/install-subctl.sh'],
+      allowedVersions: '<0.25',
+    },
+    {
+      description: 'The azurerm provider accepts Azure PostgreSQL Flexible Server versions up to 18 (#4159).',
+      matchDatasources: ['endoflife-date'],
+      matchPackageNames: ['postgresql'],
+      allowedVersions: '<19',
+    },
+    {
+      description: 'The ROSA test matrices run OpenShift 4 only (#4062). Lift with camunda/smx#188.',
+      matchDatasources: ['custom.rosa-camunda'],
+      matchPackageNames: ['red-hat-openshift'],
+      allowedVersions: '<5',
+    },
   ],
   customManagers: [
     {
