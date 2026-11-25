@@ -252,6 +252,7 @@ jobs:
                   ref-arch: eks-single-region
                   deploy-aurora: 'false'      # Disabled - using CloudNativePG operator instead
                   deploy-opensearch: 'false'  # Disabled - using ECK operator instead
+                  # TODO(#4210): temporary, revert to SPOT by 2026-12-25.
                   # ON_DEMAND (the reference cluster.tf default): SPOT reclaims drained nodes
                   # mid-test and stranded the AZ-pinned EBS volumes of PostgreSQL and
                   # Elasticsearch (volume node affinity conflict); re-runs did not recover.
