@@ -62,6 +62,8 @@ identityKeycloak:
         # This is required to ensure proper issuer of JWT tokens
         - name: KC_HOSTNAME
           value: ${CAMUNDA_RELEASE_NAME}-keycloak
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
 
     # match the internal keycloak port to the external port for JWT Tokens issuer
     ports:
@@ -71,6 +73,10 @@ identityKeycloak:
             http: 8080
 
 identity:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /managementidentity
     fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
@@ -96,6 +102,10 @@ identity:
             existingSecretPasswordKey: password
 
 connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     # Configure OIDC for connectors
     security:
         authentication:
@@ -105,9 +115,17 @@ connectors:
                     existingSecretKey: identity-connectors-client-token
 
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
 
 orchestration:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     # Configure OIDC for orchestration
     security:
         authentication:
@@ -126,6 +144,10 @@ webModeler:
     enabled: false # by default, webModeler is not enabled
 
     restapi:
+        # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+        env:
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         externalDatabase:
             enabled: true
             url: jdbc:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?sslmode=require
@@ -147,4 +169,8 @@ console:
     enabled: false # by default, console is not enabled
 
 elasticsearch:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    extraEnvVars:
+        - name: ES_JAVA_OPTS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true

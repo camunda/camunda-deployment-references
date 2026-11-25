@@ -30,6 +30,11 @@ spec:
         # Trust X-Forwarded-* headers from proxy
         - name: hostname-strict-https
           value: 'true'
+    env:
+        # Interim OpenJDK Base64 mitigation, remove once the JDK is patched.
+        # kc.sh appends JAVA_OPTS_APPEND to its default options.
+        - name: JAVA_OPTS_APPEND
+          value: -XX:-UseBASE64Intrinsics
     ingress:
         # Ingress disabled - using separate Ingress object with path /auth and className nginx
         enabled: false

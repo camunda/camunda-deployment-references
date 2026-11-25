@@ -75,6 +75,8 @@ identityKeycloak:
         # This is required to ensure proper issuer of JWT tokens
         - name: KC_HOSTNAME
           value: ${CAMUNDA_RELEASE_NAME}-keycloak
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
 
     # match the internal keycloak port to the external port for JWT Tokens issuer
     ports:
@@ -121,8 +123,14 @@ identity:
           value: software.amazon.jdbc.Driver
         - name: SPRING_DATASOURCE_USERNAME
           value: ${DB_IDENTITY_USERNAME}
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
 
 connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     # Configure OIDC for connectors
     security:
         authentication:
@@ -132,6 +140,10 @@ connectors:
                     existingSecretKey: identity-connectors-client-token
 
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     serviceAccount:
         name: ${CAMUNDA_OPTIMIZE_SERVICE_ACCOUNT_NAME}
@@ -143,6 +155,10 @@ optimize:
         enabled: false
 
 orchestration:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     serviceAccount:
         name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
         annotations:
@@ -183,6 +199,8 @@ webModeler:
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         mail:
             secret:
                 existingSecret: identity-secret-for-components # reference the smtp password

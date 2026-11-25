@@ -75,6 +75,8 @@ identityKeycloak:
           value: wrapperPlugins=iam&ssl=true&sslmode=require
         - name: KEYCLOAK_JDBC_DRIVER
           value: aws-wrapper:postgresql
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
 
     auth:
         existingSecret: identity-secret-for-components
@@ -115,8 +117,14 @@ identity:
           value: software.amazon.jdbc.Driver
         - name: SPRING_DATASOURCE_USERNAME
           value: ${DB_IDENTITY_USERNAME}
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
 
 connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     contextPath: /connectors
 
     # Configure OIDC for connectors
@@ -127,6 +135,10 @@ connectors:
                     existingSecret: identity-secret-for-components
                     existingSecretKey: identity-connectors-client-token
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /optimize
 
@@ -140,6 +152,10 @@ optimize:
         enabled: false
 
 orchestration:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     contextPath: /
     serviceAccount:
         name: ${CAMUNDA_ZEEBE_SERVICE_ACCOUNT_NAME}
@@ -194,6 +210,8 @@ webModeler:
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         mail:
             secret:
                 existingSecret: identity-secret-for-components # reference the smtp password
