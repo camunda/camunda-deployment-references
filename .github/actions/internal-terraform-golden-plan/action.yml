@@ -73,33 +73,27 @@ runs:
 
               # The module directory is passed to jq as data, so the program stays a
               # constant and a quote or a backslash in the path cannot rewrite it.
-              diff_comment_url=$(gh pr view "${PR_NUMBER}" --json comments \
+              diff_comment_ids=$(gh pr view "${PR_NUMBER}" --json comments \
                   | jq -r --arg marker "## Module ${INPUTS_MODULE_DIR} - Terraform Golden Plan Diff" \
-                      '.comments[] | select(.body | contains($marker)) | .url')
+                      '.comments[] | select(.body | contains($marker)) | .url | sub(".*#issuecomment-"; "")')
 
-              has_diff_comment=false
               has_diff=false
-
-              if [[ -n "$diff_comment_url" ]]; then
-                  has_diff_comment=true
-              fi
-
               if [[ "${delta_exit_code:-}" != "0" ]]; then
                   has_diff=true
               fi
 
-              if [[ "$has_diff_comment" == "true" && "$has_diff" == "false" ]]; then
-                  comment_id=$(echo "$diff_comment_url" | sed 's/.*#issuecomment-\([^ ]*\)/\1/')
-                  echo "Deleting diff comment $diff_comment_url (#$comment_id)"
+              keep_first=$has_diff
+              for comment_id in $diff_comment_ids; do
+                  if [[ "$keep_first" == "true" ]]; then
+                      echo "Keeping diff comment #$comment_id for the update."
+                      keep_first=false
+                      continue
+                  fi
+                  echo "Deleting diff comment #$comment_id"
                   gh api --method DELETE -H "Accept: application/vnd.github+json" "/repos/${GITHUB_REPOSITORY}/issues/comments/$comment_id"
-                  echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
-              elif [[ "$has_diff" == "true" ]]; then
-                  echo "Diff exists, keeping or updating the comment."
-                  echo "update_or_create_diff_comment=true" | tee -a "$GITHUB_ENV"
-              else
-                  echo "No diff and no existing comment, nothing to do."
-                  echo "update_or_create_diff_comment=false" | tee -a "$GITHUB_ENV"
-              fi
+              done
+
+              echo "update_or_create_diff_comment=$has_diff" | tee -a "$GITHUB_ENV"
           env:
               INPUTS_MODULE_DIR: ${{ inputs.module-dir }}
               PR_NUMBER: ${{ github.event.pull_request.number }}
