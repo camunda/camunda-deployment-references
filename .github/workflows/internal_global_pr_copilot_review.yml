@@ -14,7 +14,7 @@ jobs:
             issues: read
             pull-requests: write
             id-token: write # required for Vault JWT login
-        uses: camunda/infraex-common-config/.github/workflows/copilot-review-global.yml@2b2c09a333c85303fce42b7a8f1e33388fba19cc # 3.0.11
+        uses: camunda/infraex-common-config/.github/workflows/copilot-review-global.yml@9274797143ce22b38978f8afe0f23ed50230b1e6 # 3.0.15
         secrets:
             VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
             VAULT_JWT_PATH: ${{ secrets.VAULT_JWT_PATH }}
