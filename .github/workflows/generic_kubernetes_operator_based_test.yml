@@ -349,6 +349,11 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
+                exclude:
+                    - distro:
+                          type: eks
+                      declination:
+                          name: domain
         concurrency:
             # instead of running sequentially in a matrix, we use concurrency to run the different scenarios
             # in parallel but the declinations sequentially

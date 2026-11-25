@@ -12,4 +12,5 @@ helm upgrade --install \
   --set 'controller.service.annotations.service\.beta\.kubernetes\.io\/aws-load-balancer-cross-zone-load-balancing-enabled=true' \
   --set 'controller.service.annotations.service\.beta\.kubernetes\.io\/aws-load-balancer-type=nlb' \
   --namespace ingress-nginx \
-  --create-namespace
+  --create-namespace \
+  "$@"

@@ -7,7 +7,7 @@ matrix:
     scenario:
         - name: eks-single-region
           # ! Unlike ROSA, 'private_vpc' is defined in 'scenario' and not in 'distro'.
-          private_vpc: false
+          private_vpc: true
 
         - name: eks-single-region-irsa
           private_vpc: true
