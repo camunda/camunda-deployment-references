@@ -764,7 +764,7 @@ jobs:
             # upstream, so it never exercises the h2c path).
             - name: 🧪 Keycloak H2C regression probe
               if: matrix.declination.name == 'no-domain'
-              timeout-minutes: 8
+              timeout-minutes: 20  # CR 120s + pod 600s + reachability up to 420s + probe
               working-directory: ./generic/kubernetes/operator-based/
               run: ./tests/check-keycloak-h2c.sh
 
