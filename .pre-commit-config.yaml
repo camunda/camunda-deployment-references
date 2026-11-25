@@ -106,6 +106,13 @@ repos:
             files: ^\.github/actions/aws-capacity-slot/slot(-selftest)?\.sh$
             pass_filenames: false
 
+          - id: gha-functions-selftest
+            name: GitHub Actions shell functions self-test
+            entry: bash .github/scripts/gha-functions-selftest.sh
+            language: system
+            files: ^\.github/scripts/gha-functions(-selftest)?\.sh$
+            pass_filenames: false
+
           - id: ghost-rosa-cleanup-selftest
             name: Ghost ROSA cleanup script self-test
             # yamllint disable-line rule:line-length
