@@ -2132,6 +2132,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -2172,6 +2173,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -2212,6 +2214,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -2252,6 +2255,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -2805,6 +2809,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 1,
               "sensitive_values": {
+                "network_firewall_association": [],
                 "tags": {},
                 "tags_all": {}
               },
