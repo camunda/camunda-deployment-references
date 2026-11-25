@@ -62,7 +62,7 @@ identityKeycloak:
         # This is required to ensure proper issuer of JWT tokens
         - name: KC_HOSTNAME
           value: ${CAMUNDA_RELEASE_NAME}-keycloak
-        - name: JAVA_OPTS_APPEND
+        - name: JDK_JAVA_OPTIONS
           value: -XX:-UseBASE64Intrinsics
 
     # match the internal keycloak port to the external port for JWT Tokens issuer

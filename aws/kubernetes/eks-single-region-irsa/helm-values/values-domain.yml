@@ -75,7 +75,7 @@ identityKeycloak:
           value: wrapperPlugins=iam&ssl=true&sslmode=require
         - name: KEYCLOAK_JDBC_DRIVER
           value: aws-wrapper:postgresql
-        - name: JAVA_OPTS_APPEND
+        - name: JDK_JAVA_OPTIONS
           value: -XX:-UseBASE64Intrinsics
 
     auth:

@@ -127,7 +127,7 @@ identityKeycloak:
           value: camunda-keycloak
         - name: KC_HOSTNAME_PORT
           value: '18080'
-        - name: JAVA_OPTS_APPEND
+        - name: JDK_JAVA_OPTIONS
           value: -XX:-UseBASE64Intrinsics
     # Internal port 18080, exposed externally via port-forward on 18080 (camunda-keycloak:18080 via /etc/hosts)
     ports:

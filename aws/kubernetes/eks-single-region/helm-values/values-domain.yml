@@ -59,7 +59,7 @@ global:
 identityKeycloak:
     # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
     extraEnvVars:
-        - name: JAVA_OPTS_APPEND
+        - name: JDK_JAVA_OPTIONS
           value: -XX:-UseBASE64Intrinsics
     enabled: true
     postgresql:
