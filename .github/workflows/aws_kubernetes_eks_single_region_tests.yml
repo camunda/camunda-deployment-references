@@ -334,6 +334,9 @@ jobs:
                 distro: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).distro }}
                 scenario: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).scenario }}
                 declination: ${{ fromJson(needs.clusters-info.outputs.platform-matrix).declination }}
+                exclude:
+                    - declination:
+                          name: domain
         env:
             # https://github.com/camunda/camunda-platform-helm/blob/test/integration/scenarios/chart-full-setup/Taskfile.yaml#L12C15-L12C32
             TEST_CLUSTER_TYPE: kubernetes
