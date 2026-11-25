@@ -80,7 +80,7 @@ env:
     CAMUNDA_RELEASE_NAME: camunda
 
     # renovate: datasource=helm depName=camunda-platform versioning=regex:^14(\.(?<minor>\d+))?(\.(?<patch>\d+))?$ registryUrl=https://helm.camunda.io
-    CAMUNDA_HELM_CHART_VERSION: 14.12.1
+    CAMUNDA_HELM_CHART_VERSION: 14.12.3
 
 jobs:
     triage:
@@ -110,7 +110,7 @@ jobs:
                   fetch-depth: 0
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
 
             - name: Define tests matrix
               uses: ./.github/actions/internal-tests-matrix
@@ -147,7 +147,7 @@ jobs:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
 
             - name: Import Secrets
               id: secrets
@@ -271,7 +271,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@8be41360dabd3f6955420d8e5d7f230c3f6c27f7 # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@7f353c8e17da9d6fc62627e291c2c2635e741d0c # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -320,7 +320,7 @@ jobs:
                   } >> "$GITHUB_ENV"
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
 
             - name: Import Secrets
               id: secrets
@@ -397,9 +397,12 @@ jobs:
               run: |
                   set -euo pipefail
 
-                  export AWS_ACCESS_KEY_ES=$(yq eval '.["s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  # Preserve export's original behavior of masking substitution failures.
+                  AWS_ACCESS_KEY_ES=$(yq eval '.["s3-aws-access-key"]' "${{ runner.temp }}/sensitive.yaml") || true
+                  export AWS_ACCESS_KEY_ES
                   echo "::add-mask::$AWS_ACCESS_KEY_ES"
-                  export AWS_SECRET_ACCESS_KEY_ES=$(yq eval '.["s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml")
+                  AWS_SECRET_ACCESS_KEY_ES=$(yq eval '.["s3-aws-secret-access-key"]' "${{ runner.temp }}/sensitive.yaml") || true
+                  export AWS_SECRET_ACCESS_KEY_ES
                   echo "::add-mask::$AWS_SECRET_ACCESS_KEY_ES"
 
                   bash ./aws/kubernetes/eks-dual-region/procedure/create_elasticsearch_secrets.sh
@@ -592,7 +595,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common CI_ENCRYPTION_KEY;
             ############# Tool Installation ##############
             - name: Install asdf tools with cache
-              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
             - name: Configure AWS CLI
               uses: ./.github/actions/aws-configure-cli
               with:
@@ -732,7 +735,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@7c8262dcc14dcaf3f96d59e65e51efdd3787584f # 3.0.1
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_jwt_path: ${{ secrets.VAULT_JWT_PATH }}

@@ -76,9 +76,26 @@ func UpgradeEKS(ctx context.Context, client *eks.Client, clusterName, version st
 		Version: &version,
 	}
 
-	output, err := client.UpdateClusterVersion(ctx, input)
-	if err != nil {
-		return err
+	// EKS rejects a version update while another update (add-on, node group, config) runs: wait and retry.
+	var output *eks.UpdateClusterVersionOutput
+	var err error
+	retryCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	defer cancel()
+	for {
+		output, err = client.UpdateClusterVersion(retryCtx, input)
+		var inUse *types.ResourceInUseException
+		if err == nil {
+			break
+		}
+		if !errors.As(err, &inUse) {
+			return err
+		}
+		fmt.Printf("Another update is in progress on %s, retrying in 30s: %v\n", clusterName, err)
+		select {
+		case <-retryCtx.Done():
+			return err
+		case <-time.After(30 * time.Second):
+		}
 	}
 
 	fmt.Printf("Update initiated, update ID: %s\n", *output.Update.Id)
@@ -106,7 +123,7 @@ func CreateS3BucketIfNotExists(sess aws.Config, s3Bucket string, description str
 		return nil
 	} else {
 		var responseError *awshttp.ResponseError
-		if errors.As(err, &responseError) && responseError.ResponseError.HTTPStatusCode() == http.StatusNotFound {
+		if errors.As(err, &responseError) && responseError.HTTPStatusCode() == http.StatusNotFound {
 			fmt.Printf("Bucket %s does not exist\n", s3Bucket)
 		} else {
 			return fmt.Errorf("failed to check if bucket exists: %v", err)

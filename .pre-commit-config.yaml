@@ -3,7 +3,7 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
     - repo: https://github.com/camunda/infraex-common-config
-      rev: 3.0.1 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
+      rev: 3.0.12 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
       hooks:
           - id: update-action-readmes-docker
           - id: action-pin-spacing
@@ -112,6 +112,13 @@ repos:
             entry: bash .github/actions/aws-capacity-slot/slot-selftest.sh
             language: system
             files: ^\.github/actions/aws-capacity-slot/slot(-selftest)?\.sh$
+            pass_filenames: false
+
+          - id: gha-functions-selftest
+            name: GitHub Actions shell functions self-test
+            entry: bash .github/scripts/gha-functions-selftest.sh
+            language: system
+            files: ^\.github/scripts/gha-functions(-selftest)?\.sh$
             pass_filenames: false
 
           - id: ghost-rosa-cleanup-selftest

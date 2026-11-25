@@ -566,7 +566,7 @@ func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName strin
 	esPassword := getElasticsearchPassword(t, &cluster.KubectlNamespace)
 
 	// Delete any pre-existing snapshot with the same name to avoid snapshot_name_already_in_use_exception
-	k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "DELETE", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s", backupName))
+	_, _ = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "DELETE", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s", backupName))
 
 	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", ElasticsearchPodName, "--", "curl", "-u", fmt.Sprintf("elastic:%s", esPassword), "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", backupPayload)
 	if err != nil {
@@ -686,9 +686,9 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	fileContent := string(content)
 
 	// Replace the placeholders with the replacement strings
-	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", initialContact, -1)
-	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.camunda-primary.svc.cluster.local:9200", ElasticsearchServiceName), elastic0, -1)
-	modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://%s.camunda-secondary.svc.cluster.local:9200", ElasticsearchServiceName), elastic1, -1)
+	modifiedContent := strings.ReplaceAll(fileContent, "PLACEHOLDER", initialContact)
+	modifiedContent = strings.ReplaceAll(modifiedContent, fmt.Sprintf("http://%s.camunda-primary.svc.cluster.local:9200", ElasticsearchServiceName), elastic0)
+	modifiedContent = strings.ReplaceAll(modifiedContent, fmt.Sprintf("http://%s.camunda-secondary.svc.cluster.local:9200", ElasticsearchServiceName), elastic1)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
@@ -750,10 +750,10 @@ func writeDebugValues(t *testing.T, valuesFiles []string, setValues, setStringVa
 	var combined strings.Builder
 
 	for _, f := range valuesFiles {
-		combined.WriteString(fmt.Sprintf("# --- Source: %s ---\n", f))
+		fmt.Fprintf(&combined, "# --- Source: %s ---\n", f)
 		content, err := os.ReadFile(f)
 		if err != nil {
-			combined.WriteString(fmt.Sprintf("# Error reading file: %v\n", err))
+			fmt.Fprintf(&combined, "# Error reading file: %v\n", err)
 		} else {
 			combined.Write(content)
 			combined.WriteString("\n")
@@ -763,14 +763,14 @@ func writeDebugValues(t *testing.T, valuesFiles []string, setValues, setStringVa
 	if len(setValues) > 0 {
 		combined.WriteString("# --- Helm --set values ---\n")
 		for k, v := range setValues {
-			combined.WriteString(fmt.Sprintf("# %s=%s\n", k, v))
+			fmt.Fprintf(&combined, "# %s=%s\n", k, v)
 		}
 	}
 
 	if len(setStringValues) > 0 {
 		combined.WriteString("# --- Helm --set-string values ---\n")
 		for k, v := range setStringValues {
-			combined.WriteString(fmt.Sprintf("# %s=%s\n", k, v))
+			fmt.Fprintf(&combined, "# %s=%s\n", k, v)
 		}
 	}
 
