@@ -57,6 +57,10 @@ global:
                 redirectUrl: https://${DOMAIN_NAME}/console
 
 identityKeycloak:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    extraEnvVars:
+        - name: JAVA_OPTS_APPEND
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     postgresql:
         enabled: false
@@ -73,6 +77,10 @@ identityKeycloak:
         passwordSecretKey: identity-admin-client-token
 
 identity:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /managementidentity
 
@@ -99,6 +107,10 @@ identity:
             existingSecretPasswordKey: password
 
 connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
 
     contextPath: /connectors
 
@@ -111,6 +123,10 @@ connectors:
                     existingSecretKey: identity-connectors-client-token
 
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /optimize
 
@@ -119,6 +135,10 @@ optimize:
         enabled: false
 
 orchestration:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     contextPath: /
 
     # Configure OIDC for orchestration
@@ -164,6 +184,8 @@ webModeler:
         env:
             - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
               value: software.amazon.jdbc.Driver
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         mail:
             secret:
                 existingSecret: identity-secret-for-components # reference the smtp password

@@ -46,6 +46,10 @@ global:
                 redirectUrl: https://${DOMAIN_NAME}/console
 
 identityKeycloak:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    extraEnvVars:
+        - name: JAVA_OPTS_APPEND
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     postgresql:
         enabled: false
@@ -64,6 +68,10 @@ identityKeycloak:
 
 
 identity:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /managementidentity
     fullURL: https://${DOMAIN_NAME}/managementidentity
@@ -89,6 +97,10 @@ identity:
             existingSecretPasswordKey: password
 
 connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     contextPath: /connectors
 
     # Configure OIDC for connectors
@@ -104,6 +116,10 @@ webModeler:
     contextPath: /modeler
 
     restapi:
+        # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+        env:
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         externalDatabase:
             enabled: true
             url: jdbc:postgresql://${DB_HOST}:5432/${DB_WEBMODELER_NAME}?sslmode=require
@@ -123,10 +139,18 @@ webModelerPostgresql:
     enabled: false
 
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /optimize
 
 orchestration:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     contextPath: /
 
     # Configure OIDC for orchestration
@@ -158,4 +182,8 @@ console:
     contextPath: /console
 
 elasticsearch:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    extraEnvVars:
+        - name: ES_JAVA_OPTS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true

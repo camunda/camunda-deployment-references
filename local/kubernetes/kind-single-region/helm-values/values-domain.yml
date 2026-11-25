@@ -59,6 +59,10 @@ global:
         enabled: true
 
 connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     inbound:
         mode: disabled
@@ -78,6 +82,10 @@ connectors:
 
 # Configure ElasticSearch for local development
 elasticsearch:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    extraEnvVars:
+        - name: ES_JAVA_OPTS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     master:
         replicaCount: 1
@@ -94,6 +102,10 @@ elasticsearch:
                 memory: 3Gi
 
 identity:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /managementidentity
     fullURL: https://camunda.example.com/managementidentity
@@ -123,6 +135,10 @@ identity:
             existingSecretKey: identity-firstuser-password
 
 identityKeycloak:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    extraEnvVars:
+        - name: JAVA_OPTS_APPEND
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     resources:
         requests:
@@ -133,6 +149,10 @@ identityKeycloak:
             memory: 1Gi
 
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /optimize
     # Elasticsearch migration is not needed when using bundled ES
@@ -148,6 +168,10 @@ optimize:
 
 # Reduce Zeebe resources for local development
 orchestration:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     contextPath: /
     clusterSize: '1'
     partitionCount: '1'
@@ -196,6 +220,10 @@ webModeler:
     enabled: true
     contextPath: /modeler
     restapi:
+        # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+        env:
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         mail:
             fromAddress: noreply@camunda.local
         resources:

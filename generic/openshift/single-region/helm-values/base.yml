@@ -28,6 +28,10 @@ global:
                     existingSecretKey: identity-console-client-token
 
 orchestration:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     contextPath: /
 
     # Configure OIDC for orchestration
@@ -45,9 +49,17 @@ orchestration:
                         - admin
 
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
 
 connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
 
     # Configure OIDC for connectors
@@ -62,6 +74,10 @@ console:
     enabled: false # by default, console is not enabled
 
 identity:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     firstUser:
         enabled: true
@@ -74,6 +90,10 @@ identity:
             existingSecretKey: identity-first-user-password
 
 identityKeycloak:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    extraEnvVars:
+        - name: JAVA_OPTS_APPEND
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     postgresql:
         enabled: true # use the embbeded database
@@ -91,6 +111,10 @@ webModeler:
     enabled: false # by default, webModeler is not enabled
 
     restapi:
+        # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+        env:
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         mail:
             secret:
                 existingSecret: identity-secret-for-components # reference the smtp password
@@ -106,3 +130,9 @@ webModelerPostgresql:
         secretKeys:
             adminPasswordKey: identity-webmodeler-pg-admin-password
             userPasswordKey: identity-webmodeler-pg-user-password
+
+elasticsearch:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    extraEnvVars:
+        - name: ES_JAVA_OPTS
+          value: -XX:-UseBASE64Intrinsics
