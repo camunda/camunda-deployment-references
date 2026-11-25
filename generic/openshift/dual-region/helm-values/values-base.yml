@@ -39,6 +39,10 @@ global:
             adaptSecurityContext: force # enforce compatibility with SCCs
 
 connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
 
 orchestration:
@@ -116,6 +120,8 @@ orchestration:
           value: GZIP
         - name: CAMUNDA_CLUSTER_NETWORK_ADVERTISEDHOST
           value: ${DOLLAR}(K8S_NAME).$ZEEBE_SERVICE_NAME
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     # TEMPORARY WORKAROUND — remove once the upstream Camunda fix is released.
     # A Zeebe broker resolves its initialContactPoints only once at startup; if a
     # cross-region "*.svc.clusterset.local" name is not yet published by Submariner
@@ -188,8 +194,16 @@ orchestration:
             memory: 5Gi
 
 identity:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: false
 
 
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: false

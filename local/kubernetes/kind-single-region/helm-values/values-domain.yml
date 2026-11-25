@@ -49,6 +49,10 @@ global:
             secretName: camunda-platform
 
 connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     resources:
         requests:
@@ -65,6 +69,10 @@ connectors:
                     existingSecretKey: identity-connectors-client-token
 
 identity:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /managementidentity
     fullURL: https://camunda.example.com/managementidentity
@@ -94,6 +102,10 @@ identity:
             existingSecretKey: identity-first-user-password
 
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /optimize
     resources:
@@ -113,6 +125,8 @@ orchestration:
           value: '1'
         - name: CAMUNDA_CLUSTER_REPLICATIONFACTOR
           value: '1'
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     pvcSize: 10Gi
     resources:
         requests:
@@ -154,6 +168,10 @@ camundaHub:
         tag: SNAPSHOT
 
     restapi:
+        # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+        env:
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         # The Pusher secret and app key must come from an existing secret.
         # Without this, the chart auto-generates a new random Pusher secret on
         # every `helm upgrade`, breaking WebSocket auth.
