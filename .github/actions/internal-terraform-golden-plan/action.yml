@@ -82,13 +82,7 @@ runs:
                   has_diff=true
               fi
 
-              keep_first=$has_diff
               for comment_id in $diff_comment_ids; do
-                  if [[ "$keep_first" == "true" ]]; then
-                      echo "Keeping diff comment #$comment_id"
-                      keep_first=false
-                      continue
-                  fi
                   echo "Deleting diff comment #$comment_id"
                   gh api --method DELETE -H "Accept: application/vnd.github+json" "/repos/${GITHUB_REPOSITORY}/issues/comments/$comment_id"
               done
@@ -111,6 +105,7 @@ runs:
           uses: int128/comment-action@f48c228ccb7b328203774301f738243579d65e9c # v1
           with:
               update-if-exists: replace
+              update-if-exists-key: ${{ github.workflow }}/${{ github.job }}/${{ inputs.module-dir }}
               post: |
                   ## Module ${{ inputs.module-dir }} - Terraform Golden Plan Diff
                   ${{ steps.diff.outputs.comment-body || 'No diff' }}
