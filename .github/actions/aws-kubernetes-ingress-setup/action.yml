@@ -145,8 +145,15 @@ runs:
                       echo "❌ ERROR: ingress-nginx-controller has no load balancer hostname after 300s." >&2
                       exit 1
                   fi
-                  lb_scheme=$(aws elbv2 describe-load-balancers --region "${INPUTS_AWS_REGION}" \
-                      --query "LoadBalancers[?DNSName=='${lb_host}'].Scheme" --output text)
+                  # Retry while the NLB is not yet visible to the ELBv2 API (eventual consistency, throttling).
+                  # A visible NLB with the wrong scheme fails at once: no retry fixes a scheme.
+                  lb_scheme=""
+                  for _ in $(seq 1 12); do
+                      lb_scheme=$(aws elbv2 describe-load-balancers --region "${INPUTS_AWS_REGION}" \
+                          --query "LoadBalancers[?DNSName=='${lb_host}'].Scheme" --output text) || lb_scheme=""
+                      [[ -n "$lb_scheme" && "$lb_scheme" != "None" ]] && break
+                      sleep 10
+                  done
                   if [[ "$lb_scheme" != "internal" ]]; then
                       echo "❌ ERROR: load balancer '${lb_host}' has scheme '${lb_scheme}', expected 'internal'." >&2
                       exit 1
