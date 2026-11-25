@@ -8,6 +8,11 @@ provider "aws" {
   default_tags {
     tags = var.default_tags
   }
+
+  # cloud-nuke adds this tag to fresh resources and breaks the idempotency check
+  ignore_tags {
+    keys = ["cloud-nuke-first-seen"]
+  }
 }
 
 #### Variables
