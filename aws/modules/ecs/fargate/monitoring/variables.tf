@@ -124,7 +124,7 @@ variable "image" {
   description = "The container image to use for Prometheus"
   type        = string
   # renovate: datasource=docker depName=prom/prometheus
-  default = "prom/prometheus:v3.15.1"
+  default = "prom/prometheus:v3.16.0"
 }
 
 variable "prometheus_port" {
@@ -168,7 +168,7 @@ variable "discovery_image" {
   description = "The container image used by the Cloud Map discovery sidecar. It only needs the AWS CLI."
   type        = string
   # renovate: datasource=docker depName=amazon/aws-cli
-  default = "amazon/aws-cli:2.39.3"
+  default = "amazon/aws-cli:2.42.3"
 }
 
 variable "discovery_namespace_suffix" {
