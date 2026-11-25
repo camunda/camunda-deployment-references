@@ -332,7 +332,7 @@ jobs:
         outputs:
             config: ${{ steps.read-workflow.outputs.result }}
         steps:
-            - uses: camunda/infra-global-github-actions/matrix-outputs-read@1a10a8e84ce7e9cbbfed6f1c482f5bff65748238 # main
+            - uses: camunda/infra-global-github-actions/matrix-outputs-read@6b2e3ba713c0402dd8c866ef34713ba7c6c2794e # main
               id: read-workflow
               with:
                   matrix-step-name: prepare-clusters
@@ -376,7 +376,7 @@ jobs:
               uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@d1967bd5edabe99334bbfd594e7552c99813f11b # 3.0.12
 
             - name: Install CLI tools from OpenShift Mirror
-              uses: redhat-actions/openshift-tools-installer@1f130822bb0930e0ee02a119adcc3271a22b1499 # v3
+              uses: redhat-actions/openshift-tools-installer@bf1d8fd8fa963cff1d33688473e51f948748991e # v3
               with:
                   oc: ${{ matrix.distro.version }}
 

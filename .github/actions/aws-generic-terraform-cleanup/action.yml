@@ -158,7 +158,7 @@ runs:
 
         - name: Install CLI tools from OpenShift Mirror
           if: ${{ inputs.openshift == 'true' }}
-          uses: redhat-actions/openshift-tools-installer@1f130822bb0930e0ee02a119adcc3271a22b1499 # v3
+          uses: redhat-actions/openshift-tools-installer@bf1d8fd8fa963cff1d33688473e51f948748991e # v3
           with:
               oc: ${{ inputs.openshift-version }}
 
