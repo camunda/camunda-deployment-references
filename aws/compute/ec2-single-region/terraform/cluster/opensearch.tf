@@ -25,7 +25,7 @@ module "opensearch_domain" {
 
   domain_name = local.opensearch_domain_name
   # renovate: datasource=custom.opensearch-camunda depName=opensearch versioning=loose
-  engine_version = "3.7"
+  engine_version = "3.9"
   subnet_ids     = module.vpc.private_subnets
   vpc_id         = module.vpc.vpc_id
   cidr_blocks    = module.vpc.private_subnets_cidr_blocks
