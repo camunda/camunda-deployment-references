@@ -4124,6 +4124,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -4164,6 +4165,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -4204,6 +4206,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -4244,6 +4247,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -4797,6 +4801,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 1,
               "sensitive_values": {
+                "network_firewall_association": [],
                 "tags": {},
                 "tags_all": {}
               },
@@ -7151,6 +7156,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -7191,6 +7197,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -7231,6 +7238,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -7271,6 +7279,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -7824,6 +7833,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 1,
               "sensitive_values": {
+                "network_firewall_association": [],
                 "tags": {},
                 "tags_all": {}
               },
@@ -10178,6 +10188,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -10218,6 +10229,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -10258,6 +10270,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -10298,6 +10311,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
               "sensitive_values": {
+                "igw_firewall": [],
                 "timeouts": {}
               },
               "type": "aws_route",
@@ -10851,6 +10865,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 1,
               "sensitive_values": {
+                "network_firewall_association": [],
                 "tags": {},
                 "tags_all": {}
               },
@@ -11131,7 +11146,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11165,7 +11182,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11199,7 +11218,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11233,7 +11254,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11267,7 +11290,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11301,7 +11326,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11335,7 +11362,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11369,7 +11398,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11403,7 +11434,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11437,7 +11470,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11471,7 +11506,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11505,7 +11542,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11539,7 +11578,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11573,7 +11614,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11607,7 +11650,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11641,7 +11686,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11736,7 +11783,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11770,7 +11819,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11804,7 +11855,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11838,7 +11891,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11872,7 +11927,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11906,7 +11963,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11940,7 +11999,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -11974,7 +12035,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12008,7 +12071,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12042,7 +12107,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12076,7 +12143,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12110,7 +12179,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12144,7 +12215,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12178,7 +12251,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12212,7 +12287,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12246,7 +12323,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12341,7 +12420,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12375,7 +12456,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12409,7 +12492,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12443,7 +12528,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12477,7 +12564,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12511,7 +12600,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12545,7 +12636,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12579,7 +12672,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12613,7 +12708,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12647,7 +12744,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12681,7 +12780,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12715,7 +12816,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12749,7 +12852,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12783,7 +12888,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12817,7 +12924,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
@@ -12851,7 +12960,9 @@
           "name": "remote",
           "provider_name": "registry.terraform.io/hashicorp/aws",
           "schema_version": 0,
-          "sensitive_values": {},
+          "sensitive_values": {
+            "igw_firewall": []
+          },
           "type": "aws_route",
           "values": {
             "carrier_gateway_id": null,
