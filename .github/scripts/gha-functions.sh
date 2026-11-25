@@ -37,6 +37,13 @@ export_new_env_vars() {
   comm -13 /tmp/env_before /tmp/env_after > /tmp/env_diff
 
   while IFS= read -r line; do
+    var_name="${line%%=*}"
+    var_value="${line#*=}"
+
+    if [[ -n "$var_value" && ( "$var_name" == *SECRET* || "$var_name" == *PASSWORD* ) ]]; then
+      echo "::add-mask::$var_value"
+    fi
+
     echo "$line" >> "$GITHUB_ENV"
   done < /tmp/env_diff
 }
