@@ -1954,7 +1954,9 @@
               "name": "ipv4_egress_route",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
-              "sensitive_values": {},
+              "sensitive_values": {
+                "igw_firewall": []
+              },
               "type": "aws_route",
               "values": {
                 "carrier_gateway_id": null,
@@ -1987,7 +1989,9 @@
               "name": "ipv6_egress_route",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
-              "sensitive_values": {},
+              "sensitive_values": {
+                "igw_firewall": []
+              },
               "type": "aws_route",
               "values": {
                 "carrier_gateway_id": null,
@@ -2021,7 +2025,9 @@
               "name": "private_nat",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
-              "sensitive_values": {},
+              "sensitive_values": {
+                "igw_firewall": []
+              },
               "type": "aws_route",
               "values": {
                 "carrier_gateway_id": null,
@@ -2055,7 +2061,9 @@
               "name": "private_nat",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
-              "sensitive_values": {},
+              "sensitive_values": {
+                "igw_firewall": []
+              },
               "type": "aws_route",
               "values": {
                 "carrier_gateway_id": null,
@@ -2089,7 +2097,9 @@
               "name": "private_nat",
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 0,
-              "sensitive_values": {},
+              "sensitive_values": {
+                "igw_firewall": []
+              },
               "type": "aws_route",
               "values": {
                 "carrier_gateway_id": null,
@@ -2611,6 +2621,7 @@
               "provider_name": "registry.terraform.io/hashicorp/aws",
               "schema_version": 1,
               "sensitive_values": {
+                "network_firewall_association": [],
                 "tags": {},
                 "tags_all": {}
               },
