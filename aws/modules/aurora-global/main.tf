@@ -26,6 +26,8 @@ resource "aws_rds_global_cluster" "this" {
   # plan entirely, so callers that never set it are unaffected. Test
   # environments set it true.
   force_destroy = var.force_destroy
+
+  tags = var.tags
 }
 
 ################################
