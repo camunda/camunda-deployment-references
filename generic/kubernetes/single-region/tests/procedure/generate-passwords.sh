@@ -3,8 +3,6 @@
 # Preserve export's masked substitution status when errexit is enabled.
 CONNECTORS_SECRET="$(openssl rand -hex 16)" || true
 export CONNECTORS_SECRET
-CONSOLE_SECRET="$(openssl rand -hex 16)" || true
-export CONSOLE_SECRET
 WEB_MODELER_SECRET="$(openssl rand -hex 16)" || true
 export WEB_MODELER_SECRET
 ORCHESTRATION_SECRET="$(openssl rand -hex 16)" || true
