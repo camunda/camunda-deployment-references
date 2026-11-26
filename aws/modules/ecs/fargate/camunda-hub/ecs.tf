@@ -1,4 +1,14 @@
 locals {
+  # Interim mitigation for the OpenJDK Base64 intrinsic flaw; remove once the JDK is patched.
+  # A caller-supplied JDK_JAVA_OPTIONS is kept and the flag is appended to it.
+  java_environment_variables = concat(
+    [for e in var.environment_variables : e if e.name != "JDK_JAVA_OPTIONS"],
+    [{
+      name  = "JDK_JAVA_OPTIONS"
+      value = join(" ", concat([for e in var.environment_variables : e.value if e.name == "JDK_JAVA_OPTIONS"], ["-XX:-UseBASE64Intrinsics"]))
+    }],
+  )
+
   # CPU/memory split across the two containers (must sum to <= task_cpu/task_memory).
   # restapi is the heavy Java app; websockets is a tiny relay: it gets a small
   # fixed reservation and restapi takes the remainder.
@@ -27,7 +37,7 @@ locals {
       { name = "CAMUNDA_MODELER_PUSHER_PORT", value = "8060" },
       { name = "RESTAPI_PUSHER_APP_ID", value = var.pusher_app_id },
     ],
-    var.environment_variables,
+    local.java_environment_variables,
   )
 
   # Base secrets injected by the module into the restapi container.

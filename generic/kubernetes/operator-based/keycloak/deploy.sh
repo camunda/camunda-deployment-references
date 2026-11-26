@@ -42,6 +42,17 @@ kubectl apply --server-side -f \
 kubectl apply -n "$CAMUNDA_NAMESPACE" --server-side -f \
   "https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${KEYCLOAK_VERSION}/kubernetes/kubernetes.yml"
 
+# Interim mitigation for the OpenJDK Base64 intrinsic flaw; remove once the JDK is patched.
+# The operator image starts java directly, so JDK_JAVA_OPTIONS (not JAVA_OPTS_APPEND) is the knob.
+# Existing JDK_JAVA_OPTIONS content is preserved.
+OPERATOR_JAVA_FLAG="-XX:-UseBASE64Intrinsics"
+OPERATOR_JAVA_OPTS="$(kubectl get deployment/keycloak-operator -n "$CAMUNDA_NAMESPACE" \
+  -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="JDK_JAVA_OPTIONS")].value}')"
+if [[ " $OPERATOR_JAVA_OPTS " != *" $OPERATOR_JAVA_FLAG "* ]]; then
+  kubectl set env deployment/keycloak-operator -n "$CAMUNDA_NAMESPACE" \
+    "JDK_JAVA_OPTIONS=${OPERATOR_JAVA_OPTS:+$OPERATOR_JAVA_OPTS }${OPERATOR_JAVA_FLAG}"
+  kubectl rollout status deployment/keycloak-operator -n "$CAMUNDA_NAMESPACE" --timeout=300s
+fi
 
 # Wait for operator to be ready
 kubectl wait --for=condition=available --timeout=300s deployment/keycloak-operator -n "$CAMUNDA_NAMESPACE"
