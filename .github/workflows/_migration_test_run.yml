@@ -317,8 +317,6 @@ jobs:
                   exclude-patterns: |
                       Bitnami-based subcharts are deprecated
                       Helm CLI v3
-                  # Source values intentionally configure Bitnami subcharts, whose keys are not fully represented in the parent schema.
-                  check-unknown-keys: 'false'
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
                   vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
