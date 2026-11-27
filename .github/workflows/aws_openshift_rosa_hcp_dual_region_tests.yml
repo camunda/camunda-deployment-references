@@ -34,6 +34,7 @@ on:
             - .github/actions/internal-camunda-ci-credentials/**
             - .github/actions/internal-sanitize-tags/**
             - generic/kubernetes/operator-based/elasticsearch/**
+            - aws/kubernetes/eks-dual-region/test/**
 
     workflow_dispatch:
         inputs:
