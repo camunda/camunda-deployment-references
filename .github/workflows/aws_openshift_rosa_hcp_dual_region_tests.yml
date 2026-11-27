@@ -33,6 +33,7 @@ on:
             - .github/actions/internal-multi-region-tests/**
             - .github/actions/kubernetes-eck-operator/**
             - generic/kubernetes/operator-based/elasticsearch/**
+            - aws/kubernetes/eks-dual-region/test/**
 
     workflow_dispatch:
         inputs:
