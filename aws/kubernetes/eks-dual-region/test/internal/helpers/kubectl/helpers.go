@@ -1613,6 +1613,12 @@ func SelfHealStuckBrokers(t *testing.T, kubectlOptions *k8s.KubectlOptions, stat
 			*restarts++
 			deleted = 1
 			delete(notReadySince, kubectlOptions.Namespace+"/"+stuckPod)
+			// Give the replacement and every other tracked pod a full stuckTimeout
+			// before the next delete; otherwise brokers that became eligible together
+			// are all deleted one poll interval apart, which is the storm avoided above.
+			for key := range notReadySince {
+				notReadySince[key] = now
+			}
 		}
 	}
 
