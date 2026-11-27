@@ -767,7 +767,6 @@ jobs:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_0 }}
                   kube-context: ${{ env.CLUSTER_0 }}
-                  exclude-patterns: Helm CLI v3
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
                   vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
@@ -779,7 +778,6 @@ jobs:
                   release-name: ${{ env.CAMUNDA_RELEASE_NAME }}
                   namespace: ${{ env.CAMUNDA_NAMESPACE_1 }}
                   kube-context: ${{ env.CLUSTER_1 }}
-                  exclude-patterns: Helm CLI v3
                   vault-addr: ${{ secrets.VAULT_ADDR }}
                   vault-jwt-path: ${{ secrets.VAULT_JWT_PATH }}
                   vault-jwt-role: ${{ secrets.VAULT_JWT_ROLE }}
