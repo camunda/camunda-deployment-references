@@ -24,6 +24,10 @@ global:
             enabled: true
 
 identity:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: true
     contextPath: /managementidentity
     fullURL: http://localhost:8080/managementidentity # replace this with a port of your choice when you will do port forwarding
@@ -50,10 +54,18 @@ identity:
 
 # Optimize requires Elasticsearch and is not available in RDBMS mode
 optimize:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     enabled: false
 
 # RDBMS secondary storage configuration
 orchestration:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics
     exporters:
         camunda:
             enabled: false
@@ -81,6 +93,10 @@ webModeler:
     enabled: false # by default, webModeler is not enabled
 
     restapi:
+        # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+        env:
+            - name: JDK_JAVA_OPTIONS
+              value: -XX:-UseBASE64Intrinsics
         externalDatabase:
             url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_WEBMODELER_NAME}?sslmode=require
             user: ${DB_WEBMODELER_USERNAME}
@@ -103,3 +119,9 @@ elasticsearch:
 
 console:
     enabled: false # by default, console is not enabled
+
+connectors:
+    # Interim OpenJDK Base64 mitigation (CVE-2026-114938), remove once the JDK is patched.
+    env:
+        - name: JDK_JAVA_OPTIONS
+          value: -XX:-UseBASE64Intrinsics

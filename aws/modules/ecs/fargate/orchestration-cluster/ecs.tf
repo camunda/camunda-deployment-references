@@ -1,5 +1,15 @@
 
 locals {
+  # Interim mitigation for the OpenJDK Base64 intrinsic flaw; remove once the JDK is patched.
+  # A caller-supplied JDK_JAVA_OPTIONS is kept and the flag is appended to it.
+  java_environment_variables = concat(
+    [for e in var.environment_variables : e if e.name != "JDK_JAVA_OPTIONS"],
+    [{
+      name  = "JDK_JAVA_OPTIONS"
+      value = join(" ", concat([for e in var.environment_variables : e.value if e.name == "JDK_JAVA_OPTIONS"], ["-XX:-UseBASE64Intrinsics"]))
+    }],
+  )
+
   # Base environment variables shared between main container and restore init container
   base_environment_variables = [
     # Graceful shutdown
@@ -153,13 +163,13 @@ resource "aws_ecs_task_definition" "orchestration_cluster" {
             { name = "RESTORE_ARGS", value = var.restore_backup_id != "" ? "--backupId=${var.restore_backup_id}" : "" }
           ],
           local.base_environment_variables,
-          var.environment_variables
+          local.java_environment_variables
         )
       },
       length(concat(var.secrets, var.restore_container_secrets)) > 0 ? { secrets = concat(var.secrets, var.restore_container_secrets) } : {}
     ))
 
-    env_vars_json = jsonencode(concat(local.base_environment_variables, var.environment_variables))
+    env_vars_json = jsonencode(concat(local.base_environment_variables, local.java_environment_variables))
   })
 
   task_role_arn = aws_iam_role.ecs_task_role.arn

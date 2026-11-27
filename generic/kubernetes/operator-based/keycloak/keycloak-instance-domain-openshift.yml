@@ -28,6 +28,11 @@ spec:
         # Enable proxy mode for proper HTTPS redirect handling behind OpenShift router
         - name: proxy-headers
           value: xforwarded
+    env:
+        # Interim OpenJDK Base64 mitigation, remove once the JDK is patched.
+        # kc.sh appends JAVA_OPTS_APPEND to its default options.
+        - name: JAVA_OPTS_APPEND
+          value: -XX:-UseBASE64Intrinsics
     ingress:
         # Ingress disabled - using separate Ingress object with path /auth and className openshift-default
         enabled: false
