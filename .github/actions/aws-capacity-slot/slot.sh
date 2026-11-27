@@ -64,11 +64,16 @@ read_slot() {
 # Prints the integer output of an AWS lookup, or stops the run. A failed
 # lookup must never read as zero usage, nor as a full quota.
 number() {
-    local out
-    out=$("$@") || {
-        echo "::error::Lookup failed: $*" >&2
-        exit 1
-    }
+    local out try=1
+    # Transient AWS errors (e.g. HTTP 408) get a few retries before failing.
+    until out=$("$@"); do
+        ((try < ${LOOKUP_ATTEMPTS:-4})) || {
+            echo "::error::Lookup failed: $*" >&2
+            exit 1
+        }
+        sleep $((try * ${LOOKUP_BACKOFF:-5}))
+        try=$((try + 1))
+    done
     out=${out%.*}
     [[ "$out" =~ ^[0-9]+$ ]] || {
         echo "::error::Not a number from: $* -> ${out}" >&2
