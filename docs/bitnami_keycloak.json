@@ -225,6 +225,10 @@
     {
       "version": "26.8.2-debian-12-r2",
       "newDigest": "sha256:225dfc688074f89e995d73b7b4f03fac864c5aabd46acb24f3ebec2b027d8b48"
+    },
+    {
+      "version": "26.8.2-debian-12-r3",
+      "newDigest": "sha256:aced6fc2230ae2c4f92b770ef0f88839650a8717f1d9bb829b77983add057276"
     }
   ]
 }
